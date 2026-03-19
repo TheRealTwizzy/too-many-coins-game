@@ -3,13 +3,40 @@
  * Too Many Coins - API Router
  * All game API endpoints
  */
+
+// Security headers
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Session-Token');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    exit;
+}
+
+// Rate limiting (simple file-based, per-IP)
+$rateLimitDir = sys_get_temp_dir() . '/tmc_ratelimit';
+if (!is_dir($rateLimitDir)) @mkdir($rateLimitDir, 0755, true);
+$clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+$rateLimitFile = $rateLimitDir . '/' . md5($clientIp) . '.json';
+$rateLimit = 120; // requests per minute
+$rateWindow = 60;
+$now = time();
+$rateData = file_exists($rateLimitFile) ? json_decode(file_get_contents($rateLimitFile), true) : null;
+if (!$rateData || ($now - $rateData['window_start']) >= $rateWindow) {
+    $rateData = ['window_start' => $now, 'count' => 0];
+}
+$rateData['count']++;
+file_put_contents($rateLimitFile, json_encode($rateData));
+if ($rateData['count'] > $rateLimit) {
+    http_response_code(429);
+    echo json_encode(['error' => 'Rate limit exceeded. Please slow down.']);
     exit;
 }
 

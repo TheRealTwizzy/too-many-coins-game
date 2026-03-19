@@ -35,6 +35,18 @@ class Auth {
     public static function register($handle, $email, $password) {
         $db = Database::getInstance();
         
+        // Sanitize inputs
+        $handle = trim($handle);
+        $email = trim(strtolower($email));
+        
+        // Validate password length
+        if (strlen($password) < 6) {
+            return ['error' => 'Password must be at least 6 characters'];
+        }
+        if (strlen($password) > 128) {
+            return ['error' => 'Password is too long'];
+        }
+        
         // Validate handle
         $error = self::validateHandle($handle);
         if ($error) return ['error' => $error];
@@ -42,6 +54,9 @@ class Auth {
         // Validate email
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return ['error' => 'Invalid email address'];
+        }
+        if (strlen($email) > 255) {
+            return ['error' => 'Email is too long'];
         }
         
         // Check email uniqueness

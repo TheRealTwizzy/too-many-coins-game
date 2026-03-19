@@ -155,10 +155,18 @@ const TMC = {
         // Hide all screens
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
-        // Update nav
+        // Update desktop nav
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
         const navBtn = document.querySelector(`.nav-btn[data-screen="${screen}"]`);
         if (navBtn) navBtn.classList.add('active');
+
+        // Update mobile bottom nav
+        document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+        const bottomBtn = document.querySelector(`.bottom-nav-btn[data-screen="${screen}"]`);
+        if (bottomBtn) bottomBtn.classList.add('active');
+
+        // Scroll to top on screen change
+        window.scrollTo(0, 0);
 
         // Show target screen
         const el = document.getElementById('screen-' + screen);
