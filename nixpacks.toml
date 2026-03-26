@@ -1,8 +1,11 @@
 [phases.setup]
-nixPkgs = ["...", "php83Extensions.mysqli", "php83Extensions.pdo_mysql"]
+nixPkgs = ["php", "phpExtensions.pdo", "phpExtensions.pdo_mysql", "phpExtensions.mysqli"]
 
 [phases.build]
-cmds = ["mkdir -p /app/public", "mkdir -p /app/api", "mkdir -p /app/includes"]
+cmds = [
+ "mkdir -p public",
+ "mkdir -p public/api"
+]
 
 [start]
-cmd = "php-fpm & nginx -c /app/nginx.conf"
+cmd = "php -S 0.0.0.0:${PORT:-8080} -t public public/index.php"
