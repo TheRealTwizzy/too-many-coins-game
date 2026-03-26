@@ -1,11 +1,5 @@
 [phases.setup]
-nixPkgs = ["php", "phpExtensions.pdo", "phpExtensions.pdo_mysql", "phpExtensions.mysqli"]
-
-[phases.build]
-cmds = [
- "mkdir -p public",
- "mkdir -p public/api"
-]
+nixPkgs = ["php", "phpExtensions.pdo", "phpExtensions.pdo_mysql"]
 
 [start]
-cmd = "php -S 0.0.0.0:${PORT:-8080} -t public public/index.php"
+cmd = "php -S 0.0.0.0:${PORT:-8080} -t public router.php"
