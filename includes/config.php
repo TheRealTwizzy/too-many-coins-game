@@ -9,7 +9,7 @@ define('DB_HOST', getenv('MYSQLHOST') ?: (getenv('MYSQL_HOST') ?: 'localhost'));
 define('DB_PORT', getenv('MYSQLPORT') ?: (getenv('MYSQL_PORT') ?: '3306'));
 define('DB_NAME', getenv('MYSQLDATABASE') ?: (getenv('MYSQL_DATABASE') ?: 'too_many_coins'));
 define('DB_USER', getenv('MYSQLUSER') ?: (getenv('MYSQL_USER') ?: 'tmc_user'));
-define('DB_PASS', getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: 'tmc_pass_2024'));
+define('DB_PASS', getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: 'J0urn3322!@#$%'));
 
 // Season timing constants
 define('SEASON_ANCHOR', 345600);        // 1970-01-05T00:00:00Z in seconds
