@@ -1,15 +1,25 @@
 <?php
 /**
  * Too Many Coins - Configuration
- * Reads from environment variables (Railway) with fallback to local defaults
+ * Reads from environment variables with fallback to local defaults
  */
 
-// Database - Railway provides MYSQL_* env vars automatically
-define('DB_HOST', getenv('MYSQLHOST') ?: (getenv('MYSQL_HOST') ?: 'localhost'));
-define('DB_PORT', getenv('MYSQLPORT') ?: (getenv('MYSQL_PORT') ?: '3306'));
-define('DB_NAME', getenv('MYSQLDATABASE') ?: (getenv('MYSQL_DATABASE') ?: 'too_many_coins'));
-define('DB_USER', getenv('MYSQLUSER') ?: (getenv('MYSQL_USER') ?: 'tmc_user'));
-define('DB_PASS', getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: 'J0urn3322!@#$%'));
+function env_first(array $keys, $default = null) {
+    foreach ($keys as $key) {
+        $value = getenv($key);
+        if ($value !== false && $value !== '') {
+            return $value;
+        }
+    }
+    return $default;
+}
+
+// Database variables (prefer DB_*; support common platform aliases)
+define('DB_HOST', env_first(['DB_HOST', 'MYSQLHOST', 'MYSQL_HOST', 'HOSTINGER_DB_HOST'], 'localhost'));
+define('DB_PORT', env_first(['DB_PORT', 'MYSQLPORT', 'MYSQL_PORT', 'HOSTINGER_DB_PORT'], '3306'));
+define('DB_NAME', env_first(['DB_NAME', 'MYSQLDATABASE', 'MYSQL_DATABASE', 'HOSTINGER_DB_NAME'], 'too_many_coins'));
+define('DB_USER', env_first(['DB_USER', 'MYSQLUSER', 'MYSQL_USER', 'HOSTINGER_DB_USER'], 'tmc_user'));
+define('DB_PASS', env_first(['DB_PASS', 'MYSQLPASSWORD', 'MYSQL_PASSWORD', 'HOSTINGER_DB_PASSWORD'], ''));
 
 // Season timing constants
 define('SEASON_ANCHOR', 345600);        // 1970-01-05T00:00:00Z in seconds

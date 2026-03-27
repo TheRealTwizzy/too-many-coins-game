@@ -1,5 +1,0 @@
-[phases.setup]
-nixPkgs = ["php", "phpExtensions.pdo", "phpExtensions.pdo_mysql"]
-
-[start]
-cmd = "php -S 0.0.0.0:${PORT:-8080} -t public router.php"
