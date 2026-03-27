@@ -562,15 +562,10 @@ const TMC = {
                         <p class="panel-info">Current price: <strong>${this.formatNumber(detail.current_star_price)} coins</strong> per star</p>
                         <p class="panel-info">Your coins: <strong>${this.formatNumber(part.coins)}</strong></p>
                         <div class="action-row">
-                            <input type="number" id="purchase-coins" min="1" placeholder="Coins to spend" class="input-field">
-                            <button class="btn btn-primary" onclick="TMC.purchaseStars()" ${isBlackout ? 'disabled' : ''}>Buy Stars</button>
+                            <input type="number" id="purchase-stars" min="1" placeholder="Star quantity" class="input-field" oninput="TMC.updatePurchaseEstimate()">
+                            <button id="purchase-stars-btn" class="btn btn-primary" onclick="TMC.purchaseStars()" ${isBlackout ? 'disabled' : ''}>Buy Stars</button>
                         </div>
-                        <div class="quick-buy-row">
-                            <button class="btn btn-sm btn-outline" onclick="TMC.quickBuyStars(0.25)">25%</button>
-                            <button class="btn btn-sm btn-outline" onclick="TMC.quickBuyStars(0.5)">50%</button>
-                            <button class="btn btn-sm btn-outline" onclick="TMC.quickBuyStars(0.75)">75%</button>
-                            <button class="btn btn-sm btn-outline" onclick="TMC.quickBuyStars(1)">All</button>
-                        </div>
+                        <p id="purchase-estimate" class="panel-info">Enter a star quantity to see estimated coin cost.</p>
                     </div>
 
                     <!-- Sigils Panel -->
@@ -682,6 +677,7 @@ const TMC = {
         // Load trades if participating
         if (isParticipating) this.loadMyTrades();
 
+        this.updatePurchaseEstimate();
         this.renderActiveBoosts();
         this.renderBoostCatalogToggle();
         if (this._boostCatalog) this.renderBoostCatalog();
@@ -744,26 +740,65 @@ const TMC = {
     },
 
     async purchaseStars() {
-        const input = document.getElementById('purchase-coins');
-        const coins = parseInt(input.value);
-        if (!coins || coins <= 0) {
-            this.toast('Enter a valid amount of coins.', 'error');
+        const input = document.getElementById('purchase-stars');
+        const starsRequested = parseInt(input.value);
+        if (!starsRequested || starsRequested <= 0) {
+            this.toast('Enter a valid star quantity.', 'error');
             return;
         }
-        const result = await this.api('purchase_stars', { coins_to_spend: coins });
+        const result = await this.api('purchase_stars', { stars_requested: starsRequested });
         if (result.error) {
             this.toast(result.error, 'error');
             return;
         }
         this.toast(`Purchased ${this.formatNumber(result.stars_purchased)} stars for ${this.formatNumber(result.coins_spent)} coins!`, 'success');
         input.value = '';
+        this.updatePurchaseEstimate();
         await this.refreshGameState();
     },
 
-    quickBuyStars(fraction) {
-        if (!this.state.player || !this.state.player.participation) return;
-        const coins = Math.floor(this.state.player.participation.coins * fraction);
-        document.getElementById('purchase-coins').value = coins;
+    updatePurchaseEstimate() {
+        const input = document.getElementById('purchase-stars');
+        const estimateEl = document.getElementById('purchase-estimate');
+        const buyButton = document.getElementById('purchase-stars-btn');
+        if (!input || !estimateEl) return;
+
+        const starsRequested = parseInt(input.value, 10);
+        const season = this.state.seasons.find(s => s.season_id == this.state.currentSeason);
+        const status = season && season.computed_status ? season.computed_status : (season ? season.status : null);
+        const isBlackout = status === 'Blackout';
+
+        if (buyButton) {
+            buyButton.disabled = isBlackout;
+        }
+
+        if (!starsRequested || starsRequested <= 0) {
+            estimateEl.classList.remove('panel-warning');
+            estimateEl.textContent = 'Enter a star quantity to see estimated coin cost.';
+            return;
+        }
+
+        const starPrice = season ? parseInt(season.current_star_price, 10) : 0;
+        if (!starPrice || starPrice <= 0) {
+            if (buyButton && !isBlackout) buyButton.disabled = true;
+            estimateEl.classList.remove('panel-warning');
+            estimateEl.textContent = 'Coin cost estimate unavailable right now.';
+            return;
+        }
+
+        const coinsNeeded = starsRequested * starPrice;
+        const coinsOwned = this.state.player && this.state.player.participation ? this.state.player.participation.coins : null;
+
+        if (coinsOwned !== null && coinsNeeded > coinsOwned) {
+            if (buyButton && !isBlackout) buyButton.disabled = true;
+            estimateEl.classList.add('panel-warning');
+            estimateEl.textContent = `Estimated cost: ${this.formatNumber(coinsNeeded)} coins (${this.formatNumber(starPrice)} each). You need ${this.formatNumber(coinsNeeded - coinsOwned)} more coins.`;
+            return;
+        }
+
+        if (buyButton && !isBlackout) buyButton.disabled = false;
+        estimateEl.classList.remove('panel-warning');
+        estimateEl.textContent = `Estimated cost: ${this.formatNumber(coinsNeeded)} coins (${this.formatNumber(starPrice)} each).`;
     },
 
     async purchaseVault(tier) {

@@ -175,8 +175,8 @@ try {
             
         case 'purchase_stars':
             $player = Auth::requireAuth();
-            $coins = (int)($input['coins_to_spend'] ?? 0);
-            echo json_encode(Actions::purchaseStars($player['player_id'], $coins));
+            $starsRequested = (int)($input['stars_requested'] ?? 0);
+            echo json_encode(Actions::purchaseStars($player['player_id'], $starsRequested));
             break;
             
         case 'purchase_vault':

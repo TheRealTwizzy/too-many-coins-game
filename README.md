@@ -271,7 +271,7 @@ curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 |--------|-------------|
 | `season_join` | Join a season (season_id) |
 | `idle_ack` | Acknowledge idle status |
-| `purchase_stars` | Buy stars with coins (coins_to_spend) |
+| `purchase_stars` | Buy stars by quantity (stars_requested) |
 | `purchase_vault` | Buy sigil from vault (tier) |
 | `purchase_boost` | Activate a boost (boost_id) |
 | `lock_in` | Lock-in and exit season |

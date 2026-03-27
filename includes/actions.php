@@ -94,9 +94,9 @@ class Actions {
     }
     
     /**
-     * Purchase Seasonal Stars with Coins
+     * Purchase Seasonal Stars by quantity
      */
-    public static function purchaseStars($playerId, $coinsToSpend) {
+    public static function purchaseStars($playerId, $starsRequested) {
         $db = Database::getInstance();
         $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
         
@@ -109,25 +109,27 @@ class Actions {
         
         $seasonId = $player['joined_season_id'];
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+        $status = GameTime::getSeasonStatus($season);
+        if ($status === 'Blackout') {
+            return ['error' => 'Star purchases are not available during blackout', 'reason_code' => 'blackout_disallows_action'];
+        }
+
         $participation = $db->fetch(
             "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
         
-        if ($coinsToSpend <= 0) return ['error' => 'Must spend positive coins'];
+        $starsRequested = (int)$starsRequested;
+        if ($starsRequested <= 0) return ['error' => 'Must request a positive star quantity'];
         
         // Get locked star price
         $starPrice = (int)$season['current_star_price'];
         if ($starPrice <= 0) return ['error' => 'Invalid star price'];
         
-        // Calculate stars out
-        $starsOut = intdiv($coinsToSpend, $starPrice);
-        if ($starsOut < 1) return ['error' => 'Not enough coins for even 1 star at current price'];
-        
-        $coinsSpent = $starsOut * $starPrice;
+        $coinsNeeded = $starsRequested * $starPrice;
         
         // Affordability check
-        if ($participation['coins'] < $coinsSpent) {
+        if ($participation['coins'] < $coinsNeeded) {
             return ['error' => 'Insufficient coins'];
         }
         
@@ -139,13 +141,13 @@ class Actions {
                  coins = coins - ?, seasonal_stars = seasonal_stars + ?,
                  spend_window_total = spend_window_total + ?
                  WHERE player_id = ? AND season_id = ?",
-                [$coinsSpent, $starsOut, $coinsSpent, $playerId, $seasonId]
+                [$coinsNeeded, $starsRequested, $coinsNeeded, $playerId, $seasonId]
             );
             
             // Update season supply
             $db->query(
                 "UPDATE seasons SET total_coins_supply = total_coins_supply - ? WHERE season_id = ?",
-                [$coinsSpent, $seasonId]
+                [$coinsNeeded, $seasonId]
             );
             
             // Update activity
@@ -157,8 +159,8 @@ class Actions {
             $db->commit();
             return [
                 'success' => true,
-                'stars_purchased' => $starsOut,
-                'coins_spent' => $coinsSpent,
+                'stars_purchased' => $starsRequested,
+                'coins_spent' => $coinsNeeded,
                 'star_price' => $starPrice
             ];
         } catch (Exception $e) {
