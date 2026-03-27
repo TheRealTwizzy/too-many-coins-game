@@ -104,7 +104,6 @@ Current wiki routes:
 - `/wiki/competition/`
 - `/wiki/social/`
 - `/wiki/strategy/`
-- `/wiki/deployment/`
 - `/wiki/search/`
 
 Migration tracking document:

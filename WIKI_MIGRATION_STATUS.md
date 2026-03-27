@@ -15,7 +15,6 @@ Imported source package:
 - `/wiki/competition/` (full chapters 7-9)
 - `/wiki/social/` (full chapters 10-11)
 - `/wiki/strategy/` (full chapters 12-13)
-- `/wiki/deployment/` (routing/deployment notes)
 - `/wiki/search/` (client-side full text search)
 
 Data/render architecture for full parity:
