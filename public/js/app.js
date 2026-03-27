@@ -911,11 +911,12 @@ const TMC = {
             const scopeClass = b.scope === 'GLOBAL' ? 'scope-global' : 'scope-self';
             const description = this.getBoostDescription(b);
             const displayName = this.getBoostDisplayName(b.name);
+            const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
 
             return `
                 <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
                     <div class="boost-card-header">
-                        <span class="boost-icon">${b.icon || tierIcons[tier]}</span>
+                        <span class="boost-icon">${displayIcon}</span>
                         <span class="boost-name">${this.escapeHtml(displayName)}</span>
                     </div>
                     ${description ? `<p class="boost-desc">${this.escapeHtml(description)}</p>` : ''}
@@ -941,9 +942,27 @@ const TMC = {
     getBoostDisplayName(name) {
         const raw = String(name || '').trim();
         if (!raw) return '';
-        const parts = raw.split(/\s+/);
-        if (parts.length <= 1) return raw;
+        const withoutLowercaseWords = raw
+            .split(/\s+/)
+            .filter(part => !/^[a-z][a-z0-9_\-]*$/.test(part));
+
+        const normalized = withoutLowercaseWords.length > 0
+            ? withoutLowercaseWords.join(' ')
+            : raw;
+
+        const parts = normalized.split(/\s+/);
+        if (parts.length <= 1) return normalized;
         return parts.slice(1).join(' ');
+    },
+
+    getBoostDisplayIcon(icon, fallbackIcon) {
+        const raw = String(icon || '').trim();
+        if (!raw) return fallbackIcon || '';
+
+        // Hide plain lowercase icon labels so titles don't show duplicated words like "trickle Trickle".
+        if (/^[a-z][a-z0-9_\-]*$/.test(raw)) return fallbackIcon || '';
+
+        return raw;
     },
 
     formatBoostDuration(durationTicks, style = 'short') {
@@ -1000,8 +1019,9 @@ const TMC = {
             const remaining = Math.max(0, parseInt(b.expires_tick) - gameTime);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const timeLeft = this.formatBoostDuration(remaining, 'short');
+            const displayName = this.getBoostDisplayName(b.name);
             return `<div class="active-boost-item ${type}">
-                <span class="ab-name">${this.escapeHtml(b.name)}</span>
+                <span class="ab-name">${this.escapeHtml(displayName)}</span>
                 <span class="ab-mod">+${modPercent}%</span>
                 <span class="ab-time">${timeLeft} left</span>
                 ${type === 'global' ? `<span class="ab-by">by ${this.escapeHtml(b.activator_handle || '')}</span>` : ''}
@@ -1020,7 +1040,7 @@ const TMC = {
 
     async activateBoost(boostId) {
         const boost = this._boostCatalog ? this._boostCatalog.find(b => b.boost_id == boostId) : null;
-        const name = boost ? boost.name : `Boost #${boostId}`;
+        const name = boost ? this.getBoostDisplayName(boost.name) : `Boost #${boostId}`;
         if (!confirm(`Activate ${name}?\n\nThis will consume ${boost ? boost.sigil_cost : 1} Tier ${boost ? boost.tier_required : '?'} Sigil(s).`)) {
             return;
         }
