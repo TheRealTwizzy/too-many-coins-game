@@ -182,7 +182,7 @@
 
         var subtitleEl = document.getElementById("category-subtitle");
         if (subtitleEl) {
-            subtitleEl.textContent = "Full source migration from imported wiki ZIP.";
+            subtitleEl.textContent = "Player guide content synced to current repository game logic.";
         }
 
         var contentEl = document.getElementById("category-content");
