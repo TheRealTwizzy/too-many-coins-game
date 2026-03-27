@@ -88,8 +88,3 @@ INSERT INTO boost_catalog (name, description, tier_required, sigil_cost, scope, 
 ('Rising Tide', 'A rising tide lifts all boats. Increases UBI by 15% for ALL season participants for 1 hour.', 4, 1, 'GLOBAL', 3600, 4, 150000, 1, 'tide'),
 -- Tier V: Powerful global UBI boost
 ('Golden Age', 'An era of unprecedented prosperity dawns. Increases UBI by 30% for ALL season participants for 2 hours.', 5, 1, 'GLOBAL', 7200, 5, 300000, 1, 'age');
-
--- Add columns to season_participation for drop tracking integration
-ALTER TABLE season_participation 
-    ADD COLUMN eligible_ticks_since_last_drop BIGINT NOT NULL DEFAULT 0,
-    ADD COLUMN sigil_drops_total INT NOT NULL DEFAULT 0;
