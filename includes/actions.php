@@ -757,6 +757,11 @@ class Actions {
         $sigilCost = (int)$boost['sigil_cost'];
         $scope = $boost['scope'];
         $durationTicks = (int)$boost['duration_ticks'];
+        // Backward compatibility: legacy self boosts were seeded as 60/120/180 ticks.
+        // Canonical minute-based self boosts use 1/2/3 ticks.
+        if ($scope === 'SELF' && $durationTicks >= 60 && $durationTicks <= 180 && $durationTicks % 60 === 0) {
+            $durationTicks = intdiv($durationTicks, 60);
+        }
         $modifierFp = (int)$boost['modifier_fp'];
         $maxStack = (int)$boost['max_stack'];
         

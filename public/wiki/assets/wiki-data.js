@@ -245,9 +245,9 @@ Global and self boosts stack additively in fixed-point logic and are capped by a
 
 | Boost | Tier | Scope | Duration | Modifier |
 |---|---|---|---|---|
-| Coin Trickle | I | SELF | 60 ticks | +10% |
-| Coin Surge | II | SELF | 120 ticks | +25% |
-| Golden Flow | III | SELF | 180 ticks | +50% |
+| Coin Trickle | I | SELF | 1 tick (1 minute) | +10% |
+| Coin Surge | II | SELF | 2 ticks (2 minutes) | +25% |
+| Golden Flow | III | SELF | 3 ticks (3 minutes) | +50% |
 | Rising Tide | IV | GLOBAL | 60 ticks | +15% |
 | Golden Age | V | GLOBAL | 120 ticks | +30% |`
           }

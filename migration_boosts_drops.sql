@@ -77,11 +77,11 @@ CREATE TABLE IF NOT EXISTS sigil_drop_log (
 
 INSERT INTO boost_catalog (name, description, tier_required, sigil_cost, scope, duration_ticks, modifier_id, modifier_fp, max_stack, icon) VALUES
 -- Tier I: Minor self UBI boost
-('Coin Trickle', 'A gentle stream of extra coins flows your way. Increases your UBI by 10% for 1 hour.', 1, 1, 'SELF', 60, 1, 100000, 3, 'trickle'),
+('Coin Trickle', 'A gentle stream of extra coins flows your way. Increases your UBI by 10% for 1 minute.', 1, 1, 'SELF', 1, 1, 100000, 3, 'trickle'),
 -- Tier II: Moderate self UBI boost
-('Coin Surge', 'A powerful surge of economic energy. Increases your UBI by 25% for 2 hours.', 2, 1, 'SELF', 120, 2, 250000, 2, 'surge'),
+('Coin Surge', 'A powerful surge of economic energy. Increases your UBI by 25% for 2 minutes.', 2, 1, 'SELF', 2, 2, 250000, 2, 'surge'),
 -- Tier III: Strong self UBI boost
-('Golden Flow', 'Liquid gold courses through your economy. Increases your UBI by 50% for 3 hours.', 3, 1, 'SELF', 180, 3, 500000, 1, 'golden'),
+('Golden Flow', 'Liquid gold courses through your economy. Increases your UBI by 50% for 3 minutes.', 3, 1, 'SELF', 3, 3, 500000, 1, 'golden'),
 -- Tier IV: Global UBI boost (affects all participants)
 ('Rising Tide', 'A rising tide lifts all boats. Increases UBI by 15% for ALL season participants for 1 hour.', 4, 1, 'GLOBAL', 60, 4, 150000, 1, 'tide'),
 -- Tier V: Powerful global UBI boost

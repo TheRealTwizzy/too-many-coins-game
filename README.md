@@ -26,9 +26,9 @@ Too Many Coins is a season-based multiplayer economic strategy game. Players joi
 
 | Boost | Tier | Effect | Duration | Scope |
 |-------|------|--------|----------|-------|
-| Coin Trickle | I | +10% UBI | 1 hour | Self |
-| Coin Surge | II | +25% UBI | 2 hours | Self |
-| Golden Flow | III | +50% UBI | 3 hours | Self |
+| Coin Trickle | I | +10% UBI | 1 minute | Self |
+| Coin Surge | II | +25% UBI | 2 minutes | Self |
+| Golden Flow | III | +50% UBI | 3 minutes | Self |
 | Rising Tide | IV | +15% UBI | 1 hour | All Players |
 | Golden Age | V | +30% UBI | 2 hours | All Players |
 
@@ -76,11 +76,20 @@ too-many-coins/
 ├── schema.sql                  # Database schema
 ├── seed_data.sql               # Initial data (cosmetics)
 ├── migration_boosts_drops.sql  # Boost and drop tables
+├── migration_boost_duration_hotfix.sql # One-time live DB boost duration/description fixes
 ├── router.php                  # PHP dev server router
 ├── setup.sh                    # Production deployment script
 ├── tools/import-wiki-zip.ps1   # Import external wiki ZIP into local reference workspace
 └── README.md                   # This file
 ```
+
+## One-Time Live DB Hotfix
+
+If your database was initialized before the boost duration adjustment, apply:
+
+- `migration_boost_duration_hotfix.sql`
+
+This permanently normalizes legacy self-boost durations/descriptions to minute-scale values while preserving hour-scale seasonal global boosts.
 
 ## Wiki (In-Repo, Same Domain)
 

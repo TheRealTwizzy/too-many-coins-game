@@ -613,7 +613,6 @@ const TMC = {
                         <div id="active-boosts-display"></div>
                         <div class="boost-catalog-actions">
                             <button id="boost-catalog-toggle" class="btn btn-outline btn-sm" onclick="TMC.toggleBoostCatalog()">Show Boost Catalog</button>
-                            <button class="btn btn-outline btn-sm" onclick="TMC.loadBoostCatalog()" ${isBlackout ? 'disabled' : ''}>Load Boost Catalog</button>
                         </div>
                         <div id="boost-catalog-grid" class="boost-catalog-grid boost-catalog-collapsed"></div>
                     </div>
@@ -836,21 +835,23 @@ const TMC = {
             const tier = parseInt(b.tier_required);
             const hasSigil = part && part.sigils[tier - 1] >= parseInt(b.sigil_cost);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
-            const durationMin = Math.round(parseInt(b.duration_ticks) / 60);
+            const durationTicks = parseInt(b.duration_ticks);
+            const durationLabel = this.formatBoostDuration(durationTicks, 'short');
             const scopeLabel = b.scope === 'GLOBAL' ? 'All Players' : 'Self Only';
             const scopeClass = b.scope === 'GLOBAL' ? 'scope-global' : 'scope-self';
             const description = this.getBoostDescription(b);
+            const displayName = this.getBoostDisplayName(b.name);
 
             return `
                 <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
                     <div class="boost-card-header">
                         <span class="boost-icon">${b.icon || tierIcons[tier]}</span>
-                        <span class="boost-name">${this.escapeHtml(b.name)}</span>
+                        <span class="boost-name">${this.escapeHtml(displayName)}</span>
                     </div>
                     ${description ? `<p class="boost-desc">${this.escapeHtml(description)}</p>` : ''}
                     <div class="boost-stats">
                         <span class="boost-modifier">+${modPercent}% UBI</span>
-                        <span class="boost-duration">${durationMin} min</span>
+                        <span class="boost-duration">${durationLabel}</span>
                         <span class="boost-scope ${scopeClass}">${scopeLabel}</span>
                     </div>
                     <div class="boost-cost">
@@ -867,6 +868,28 @@ const TMC = {
         }).join('');
     },
 
+    getBoostDisplayName(name) {
+        const raw = String(name || '').trim();
+        if (!raw) return '';
+        const parts = raw.split(/\s+/);
+        if (parts.length <= 1) return raw;
+        return parts.slice(1).join(' ');
+    },
+
+    formatBoostDuration(durationTicks, style = 'short') {
+        const ticks = Math.max(0, parseInt(durationTicks, 10) || 0);
+        const minutes = ticks;
+
+        if (minutes >= 60 && minutes % 60 === 0) {
+            const hours = minutes / 60;
+            if (style === 'long') return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+            return `${hours} ${hours === 1 ? 'hr' : 'hrs'}`;
+        }
+
+        if (style === 'long') return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+        return `${minutes} min`;
+    },
+
     getBoostDescription(boost) {
         if (!boost) return '';
         const name = String(boost.name || '').trim();
@@ -878,7 +901,10 @@ const TMC = {
 
         const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const prefixed = new RegExp(`^${escapedName}\\s*[:\\-]\\s*`, 'i');
-        const cleaned = raw.replace(prefixed, '').trim();
+        let cleaned = raw.replace(prefixed, '').trim();
+
+        const durationLabel = this.formatBoostDuration(boost.duration_ticks, 'long');
+        cleaned = cleaned.replace(/for\s+\d+\s+(?:hour|hours|minute|minutes)(?=\.|,|$)/i, `for ${durationLabel}`);
 
         if (!cleaned || cleaned.toLowerCase() === normalizedName) return '';
         return cleaned;
@@ -902,12 +928,12 @@ const TMC = {
 
         const renderBoost = (b, type) => {
             const remaining = Math.max(0, parseInt(b.expires_tick) - gameTime);
-            const remainingMin = Math.round(remaining / 60);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
+            const timeLeft = this.formatBoostDuration(remaining, 'short');
             return `<div class="active-boost-item ${type}">
                 <span class="ab-name">${this.escapeHtml(b.name)}</span>
                 <span class="ab-mod">+${modPercent}%</span>
-                <span class="ab-time">${remainingMin}m left</span>
+                <span class="ab-time">${timeLeft} left</span>
                 ${type === 'global' ? `<span class="ab-by">by ${this.escapeHtml(b.activator_handle || '')}</span>` : ''}
             </div>`;
         };

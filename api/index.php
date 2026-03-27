@@ -716,7 +716,17 @@ function getSeasonHistory($player) {
 
 function getBoostCatalog() {
     $db = Database::getInstance();
-    return $db->fetchAll("SELECT * FROM boost_catalog ORDER BY tier_required ASC, boost_id ASC");
+    $catalog = $db->fetchAll("SELECT * FROM boost_catalog ORDER BY tier_required ASC, boost_id ASC");
+    foreach ($catalog as &$boost) {
+        $durationTicks = (int)$boost['duration_ticks'];
+        // Backward compatibility: legacy self boosts were seeded at 60/120/180 ticks.
+        // Canonical minute-based self boosts use 1/2/3 ticks.
+        if ($boost['scope'] === 'SELF' && $durationTicks >= 60 && $durationTicks <= 180 && $durationTicks % 60 === 0) {
+            $boost['duration_ticks'] = intdiv($durationTicks, 60);
+        }
+    }
+    unset($boost);
+    return $catalog;
 }
 
 function getActiveBoosts($player) {
