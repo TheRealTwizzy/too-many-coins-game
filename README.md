@@ -56,7 +56,13 @@ too-many-coins/
 ├── public/                      # Web-accessible files
 │   ├── index.html              # Main HTML page (SPA)
 │   ├── css/style.css           # Complete stylesheet (dark theme, gold accents)
-│   └── js/app.js               # Game client JavaScript
+│   ├── js/app.js               # Game client JavaScript
+│   └── wiki/                   # Wiki pages (served at /wiki)
+│       ├── index.html
+│       ├── getting-started/
+│       ├── game-systems/
+│       ├── deployment/
+│       └── assets/wiki.css
 ├── api/
 │   └── index.php               # API router (all endpoints)
 ├── includes/
@@ -72,8 +78,69 @@ too-many-coins/
 ├── migration_boosts_drops.sql  # Boost and drop tables
 ├── router.php                  # PHP dev server router
 ├── setup.sh                    # Production deployment script
+├── tools/import-wiki-zip.ps1   # Import external wiki ZIP into local reference workspace
 └── README.md                   # This file
 ```
+
+## Wiki (In-Repo, Same Domain)
+
+The project now includes an isolated wiki surface served under:
+
+- `/wiki/`
+
+Routing behavior is configured so `/wiki/*` does not fall into the SPA fallback:
+
+- Dev server: `router.php`
+- Nginx container: `docker/nginx.conf`
+- Apache container: `docker/apache-vhost.conf`
+
+This keeps game navigation and API routes unchanged while allowing static wiki deep links.
+
+Current wiki routes:
+
+- `/wiki/`
+- `/wiki/getting-started/`
+- `/wiki/game-systems/`
+- `/wiki/competition/`
+- `/wiki/social/`
+- `/wiki/strategy/`
+- `/wiki/deployment/`
+- `/wiki/search/`
+
+Migration tracking document:
+
+- `WIKI_MIGRATION_STATUS.md`
+
+Implementation notes:
+
+- Full chapter/section content is rendered from `public/wiki/assets/wiki-data.js`.
+- The shared renderer `public/wiki/assets/wiki-render.js` handles category page rendering and client-side search.
+
+## External ZIP Migration Workflow
+
+1. Place your external wiki ZIP anywhere accessible on your machine.
+2. Run the import script from the repo root in PowerShell:
+
+```powershell
+.\tools\import-wiki-zip.ps1 -ZipPath "C:\path\to\your-existing-wiki.zip"
+```
+
+3. The ZIP is extracted into `wiki_source/imported/<timestamp>/` (git-ignored).
+4. Use extracted pages/assets as reference source, then copy curated content into `public/wiki/`.
+5. Validate routes:
+
+```bash
+curl -I http://localhost:8080/wiki/
+curl -I http://localhost:8080/wiki/getting-started/
+curl -I http://localhost:8080/api/index.php?action=game_state
+```
+
+Recommended migration order:
+
+1. Port information architecture (page list and URL structure)
+2. Port layout blocks and assets
+3. Align styles to current site visual language
+4. Validate mobile and desktop behavior
 
 ## Quick Start (Development)
 
