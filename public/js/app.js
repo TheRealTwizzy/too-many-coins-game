@@ -564,6 +564,7 @@ const TMC = {
                         <div class="action-row">
                             <input type="number" id="purchase-stars" min="1" placeholder="Star quantity" class="input-field" oninput="TMC.updatePurchaseEstimate()">
                             <button id="purchase-stars-btn" class="btn btn-primary" onclick="TMC.purchaseStars()" ${isBlackout ? 'disabled' : ''}>Buy Stars</button>
+                            <button id="purchase-max-btn" class="btn btn-outline" onclick="TMC.buyMaxStars()" ${isBlackout ? 'disabled' : ''}>Buy Max</button>
                         </div>
                         <p id="purchase-estimate" class="panel-info">Enter a star quantity to see estimated coin cost.</p>
                     </div>
@@ -757,10 +758,35 @@ const TMC = {
         await this.refreshGameState();
     },
 
+    async buyMaxStars() {
+        const input = document.getElementById('purchase-stars');
+        if (!input) return;
+
+        const season = this.state.seasons.find(s => s.season_id == this.state.currentSeason);
+        const starPrice = season ? parseInt(season.current_star_price, 10) : 0;
+        const coinsOwned = this.state.player && this.state.player.participation ? this.state.player.participation.coins : 0;
+
+        if (!starPrice || starPrice <= 0) {
+            this.toast('Cannot calculate max stars right now.', 'error');
+            return;
+        }
+
+        const maxStars = Math.floor(coinsOwned / starPrice);
+        if (maxStars < 1) {
+            this.toast('Not enough coins to buy 1 star at current price.', 'error');
+            return;
+        }
+
+        input.value = maxStars;
+        this.updatePurchaseEstimate();
+        await this.purchaseStars();
+    },
+
     updatePurchaseEstimate() {
         const input = document.getElementById('purchase-stars');
         const estimateEl = document.getElementById('purchase-estimate');
         const buyButton = document.getElementById('purchase-stars-btn');
+        const buyMaxButton = document.getElementById('purchase-max-btn');
         if (!input || !estimateEl) return;
 
         const starsRequested = parseInt(input.value, 10);
@@ -770,6 +796,9 @@ const TMC = {
 
         if (buyButton) {
             buyButton.disabled = isBlackout;
+        }
+        if (buyMaxButton) {
+            buyMaxButton.disabled = isBlackout;
         }
 
         if (!starsRequested || starsRequested <= 0) {
@@ -781,6 +810,7 @@ const TMC = {
         const starPrice = season ? parseInt(season.current_star_price, 10) : 0;
         if (!starPrice || starPrice <= 0) {
             if (buyButton && !isBlackout) buyButton.disabled = true;
+            if (buyMaxButton && !isBlackout) buyMaxButton.disabled = true;
             estimateEl.classList.remove('panel-warning');
             estimateEl.textContent = 'Coin cost estimate unavailable right now.';
             return;
@@ -788,6 +818,11 @@ const TMC = {
 
         const coinsNeeded = starsRequested * starPrice;
         const coinsOwned = this.state.player && this.state.player.participation ? this.state.player.participation.coins : null;
+        const maxStars = coinsOwned !== null ? Math.floor(coinsOwned / starPrice) : 0;
+
+        if (buyMaxButton && !isBlackout) {
+            buyMaxButton.disabled = maxStars < 1;
+        }
 
         if (coinsOwned !== null && coinsNeeded > coinsOwned) {
             if (buyButton && !isBlackout) buyButton.disabled = true;
