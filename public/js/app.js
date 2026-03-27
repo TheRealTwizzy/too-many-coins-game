@@ -751,14 +751,14 @@ const TMC = {
             const rank = entry.final_rank || (i + 1);
             const isLockedIn = entry.lock_in_effect_tick !== null;
             const isMe = this.state.player && entry.player_id == this.state.player.player_id;
-            let statusBadge = '';
+            let statusBadge = this.renderPlayerStatusBadge(entry);
             if (entry.badge_awarded) {
                 const badgeEmoji = { first: '&#129351;', second: '&#129352;', third: '&#129353;' };
-                statusBadge = `<span class="badge badge-${entry.badge_awarded}">${badgeEmoji[entry.badge_awarded] || ''}</span>`;
+                statusBadge += ` <span class="badge badge-${entry.badge_awarded}">${badgeEmoji[entry.badge_awarded] || ''}</span>`;
             } else if (isLockedIn) {
-                statusBadge = '<span class="badge badge-lockin">Locked In</span>';
+                statusBadge += ' <span class="badge badge-lockin">Locked In</span>';
             } else if (entry.end_membership) {
-                statusBadge = '<span class="badge badge-ended">End-Finisher</span>';
+                statusBadge += ' <span class="badge badge-ended">End-Finisher</span>';
             }
 
             return `
@@ -1136,6 +1136,16 @@ const TMC = {
         return null;
     },
 
+    getPlayerStatus(entry) {
+        if (!entry.online_current) return 'Offline';
+        return entry.activity_state || 'Offline';
+    },
+
+    renderPlayerStatusBadge(entry) {
+        const status = this.getPlayerStatus(entry);
+        return `<span class="badge badge-${status.toLowerCase()}">${status}</span>`;
+    },
+
     setLeaderboardMeta(title, subtitle) {
         const titleEl = document.getElementById('global-lb-title');
         const subtitleEl = document.getElementById('global-lb-subtitle');
@@ -1154,14 +1164,14 @@ const TMC = {
             const rank = entry.final_rank || (i + 1);
             const isLockedIn = entry.lock_in_effect_tick !== null;
             const isMe = this.state.player && entry.player_id == this.state.player.player_id;
-            let statusBadge = '';
+            let statusBadge = this.renderPlayerStatusBadge(entry);
             if (entry.badge_awarded) {
                 const badgeEmoji = { first: '&#129351;', second: '&#129352;', third: '&#129353;' };
-                statusBadge = `<span class="badge badge-${entry.badge_awarded}">${badgeEmoji[entry.badge_awarded] || ''}</span>`;
+                statusBadge += ` <span class="badge badge-${entry.badge_awarded}">${badgeEmoji[entry.badge_awarded] || ''}</span>`;
             } else if (isLockedIn) {
-                statusBadge = '<span class="badge badge-lockin">Locked In</span>';
+                statusBadge += ' <span class="badge badge-lockin">Locked In</span>';
             } else if (entry.end_membership) {
-                statusBadge = '<span class="badge badge-ended">End-Finisher</span>';
+                statusBadge += ' <span class="badge badge-ended">End-Finisher</span>';
             }
 
             return `
@@ -1206,7 +1216,7 @@ const TMC = {
             'Global Leaderboard',
             'Ranked by Global Stars earned this yearly cycle.'
         );
-        this.setLeaderboardHeader(['Rank', 'Player', 'Global Stars']);
+        this.setLeaderboardHeader(['Rank', 'Player', 'Global Stars', 'Status']);
         const lb = await this.api('global_leaderboard');
 
         if (!lb || lb.length === 0 || lb.error) {
@@ -1227,6 +1237,7 @@ const TMC = {
                         <span class="player-link" onclick="TMC.navigate('profile', ${entry.player_id})">${this.escapeHtml(entry.handle)}</span>
                     </td>
                     <td class="stars-cell">${this.formatNumber(entry.global_stars)}</td>
+                    <td class="status-cell">${this.renderPlayerStatusBadge(entry)}</td>
                 </tr>
             `;
         }).join('');

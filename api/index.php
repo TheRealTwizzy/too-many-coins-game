@@ -544,7 +544,8 @@ function getLeaderboard($seasonId) {
                     sp.badge_awarded,
                     COALESCE(sp.global_stars_earned, 0) AS global_stars_earned,
                     COALESCE(sp.participation_bonus, 0) AS participation_bonus,
-                    COALESCE(sp.placement_bonus, 0) AS placement_bonus
+                    COALESCE(sp.placement_bonus, 0) AS placement_bonus,
+                    p.activity_state, p.online_current
              FROM players p
              LEFT JOIN season_participation sp ON sp.player_id = p.player_id AND sp.season_id = ?
              WHERE p.joined_season_id = ? AND p.participation_enabled = 1
@@ -556,7 +557,8 @@ function getLeaderboard($seasonId) {
     return $db->fetchAll(
         "SELECT sp.player_id, p.handle, sp.seasonal_stars, sp.final_rank,
                 sp.lock_in_effect_tick, sp.end_membership, sp.badge_awarded,
-                sp.global_stars_earned, sp.participation_bonus, sp.placement_bonus
+                sp.global_stars_earned, sp.participation_bonus, sp.placement_bonus,
+                p.activity_state, p.online_current
          FROM season_participation sp
          JOIN players p ON p.player_id = sp.player_id
          WHERE sp.season_id = ?
@@ -570,7 +572,7 @@ function getLeaderboard($seasonId) {
 function getGlobalLeaderboard() {
     $db = Database::getInstance();
     return $db->fetchAll(
-        "SELECT player_id, handle, global_stars 
+        "SELECT player_id, handle, global_stars, activity_state, online_current
          FROM players 
          WHERE global_stars > 0 AND profile_deleted_at IS NULL
          ORDER BY global_stars DESC, player_id ASC
