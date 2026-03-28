@@ -1462,13 +1462,21 @@ a:hover { text-decoration: underline; }
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    flex-wrap: nowrap;
 }
 
 .boost-title {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    min-width: 0;
+    white-space: nowrap;
+}
+
+.boost-inline-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
 }
 
 .boost-icon {

@@ -1068,14 +1068,14 @@ const TMC = {
                             <span class="boost-icon">${displayIcon}</span>
                             <span class="boost-name">${this.escapeHtml(displayName)}</span>
                         </div>
-                        ${description ? `<span class="boost-desc boost-desc-inline">${this.escapeHtml(description)}</span>` : ''}
-                    </div>
-                    <div class="boost-stats">
-                        <span class="boost-modifier">+${modPercent}% UBI</span>
-                        <span class="boost-duration">${durationLabel}</span>
-                        <span class="boost-cost-inline">Cost: ${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
+                        <div class="boost-inline-meta">
+                            <span class="boost-modifier">+${modPercent}% UBI</span>
+                            <span class="boost-duration">${durationLabel}</span>
+                            <span class="boost-cost-inline">Cost: ${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
+                        </div>
                         <span class="boost-have boost-have-inline">(You have: ${part ? part.sigils[tier-1] : 0})</span>
                     </div>
+                    ${description ? `<p class="boost-desc">${this.escapeHtml(description)}</p>` : ''}
                     <button class="btn btn-sm ${hasSigil ? 'btn-primary' : 'btn-outline'}" 
                         onclick="TMC.activateBoost(${b.boost_id})" 
                         ${!hasSigil ? 'disabled title="Not enough Sigils"' : ''}>
