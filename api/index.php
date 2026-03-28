@@ -48,6 +48,7 @@ require_once __DIR__ . '/../includes/economy.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/actions.php';
 require_once __DIR__ . '/../includes/tick_engine.php';
+require_once __DIR__ . '/../includes/notifications.php';
 
 // Database initialization endpoint (must be before server_state check)
 $earlyAction = $_GET['action'] ?? '';
@@ -216,6 +217,39 @@ try {
             $player = Auth::requireAuth();
             echo json_encode(getRecentSigilDrops($player));
             break;
+
+        // ==================== NOTIFICATIONS ====================
+        case 'notifications_list':
+            $player = Auth::requireAuth();
+            $limit = (int)($input['limit'] ?? 50);
+            echo json_encode([
+                'success' => true,
+                'notifications' => Notifications::listForPlayer($player['player_id'], $limit),
+                'unread_count' => Notifications::unreadCount($player['player_id'])
+            ]);
+            break;
+
+        case 'notifications_mark_read':
+            $player = Auth::requireAuth();
+            $ids = getNotificationIdsFromInput($input);
+            $updated = Notifications::markRead($player['player_id'], $ids);
+            echo json_encode([
+                'success' => true,
+                'updated' => $updated,
+                'unread_count' => Notifications::unreadCount($player['player_id'])
+            ]);
+            break;
+
+        case 'notifications_remove':
+            $player = Auth::requireAuth();
+            $ids = getNotificationIdsFromInput($input);
+            $removed = Notifications::remove($player['player_id'], $ids);
+            echo json_encode([
+                'success' => true,
+                'removed' => $removed,
+                'unread_count' => Notifications::unreadCount($player['player_id'])
+            ]);
+            break;
             
         // ==================== TRADING ====================
         case 'trade_initiate':
@@ -329,7 +363,8 @@ try {
                 'sigil_drops', 'trade_initiate', 'trade_accept', 'trade_decline',
                 'trade_cancel', 'my_trades', 'season_players', 'cosmetic_catalog',
                 'purchase_cosmetic', 'equip_cosmetic', 'my_cosmetics', 'chat_send',
-                'chat_messages', 'profile', 'my_badges', 'season_history', 'tick'
+                'chat_messages', 'notifications_list', 'notifications_mark_read',
+                'notifications_remove', 'profile', 'my_badges', 'season_history', 'tick'
             ]]);
     }
 } catch (Exception $e) {
@@ -456,6 +491,8 @@ function getGameState($player) {
             ] : null,
             'active_boosts' => $activeBoosts,
             'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player) : [],
+            'notifications' => Notifications::listForPlayer($player['player_id'], 50),
+            'notifications_unread_count' => Notifications::unreadCount($player['player_id']),
             'can_lock_in' => canLockIn($player, $participation),
             'can_purchase_stars' => canPurchaseStars($player),
             'can_trade' => canTrade($player),
@@ -904,4 +941,14 @@ function getRecentSigilDrops($player) {
          ORDER BY drop_tick DESC LIMIT 20",
         [$player['player_id'], $seasonId]
     );
+}
+
+function getNotificationIdsFromInput($input) {
+    if (isset($input['notification_ids']) && is_array($input['notification_ids'])) {
+        return $input['notification_ids'];
+    }
+    if (isset($input['notification_id'])) {
+        return [$input['notification_id']];
+    }
+    return [];
 }

@@ -21,6 +21,9 @@ const TMC = {
         boostCountdowns: {},
         leaderboardTab: 'global',
         pendingTradeTargetId: null,
+        notifications: [],
+        notificationsUnread: 0,
+        notificationsOpen: false,
     },
 
     API_BASE: '/api/index.php',
@@ -72,6 +75,7 @@ const TMC = {
         // Start polling
         this.startPolling();
         this.startRealtimeClock();
+        this.setupNotificationCenter();
     },
 
     startPolling() {
@@ -91,6 +95,7 @@ const TMC = {
         this.state.seasons = gs.seasons || [];
         this.syncSeasonCountdowns(this.state.seasons);
         this.state.player = gs.player || null;
+        this.syncNotificationsFromPlayer(this.state.player);
         this.syncBoostCountdowns();
         this.renderUserArea();
 
@@ -107,6 +112,7 @@ const TMC = {
             this.updateSeasonDetailLive();
         }
         if (this.state.currentScreen === 'global-lb') this.loadGlobalLeaderboard();
+        this.updateNotificationUI();
     },
 
     // ==================== AUTH ====================
@@ -176,7 +182,11 @@ const TMC = {
         document.cookie = 'tmc_session=; path=/; max-age=0';
         this.state.player = null;
         this.state.gameState = null;
+        this.state.notifications = [];
+        this.state.notificationsUnread = 0;
+        this.state.notificationsOpen = false;
         this.renderUserArea();
+        this.updateNotificationUI();
         this.navigate('home');
         this.toast('Logged out.', 'info');
     },
@@ -185,7 +195,11 @@ const TMC = {
         localStorage.removeItem('tmc_token');
         localStorage.removeItem('tmc_route');
         this.state.player = null;
+        this.state.notifications = [];
+        this.state.notificationsUnread = 0;
+        this.state.notificationsOpen = false;
         this.renderUserArea();
+        this.updateNotificationUI();
     },
 
     showAuthTab(tab) {
@@ -496,17 +510,11 @@ const TMC = {
 
     // Track last known drop count to detect new drops
     _lastDropCount: 0,
+    _notificationOutsideHandler: null,
     checkSigilDropNotifications(p) {
         const drops = p.recent_drops || [];
         const currentCount = drops.length;
-        if (this._lastDropCount > 0 && currentCount > this._lastDropCount) {
-            // New drop(s) detected
-            const newDrops = drops.slice(0, currentCount - this._lastDropCount);
-            newDrops.forEach(d => {
-                const tierNames = ['', 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
-                this.toast(`Sigil Drop! Tier ${d.tier} (${tierNames[d.tier]}) ${d.source === 'pity' ? '(Pity)' : ''}`, 'success');
-            });
-        }
+        // Gameplay notifications are persisted in the notification center.
         this._lastDropCount = currentCount;
     },
 
@@ -523,7 +531,6 @@ const TMC = {
         const result = await this.api('idle_ack');
         if (result.success) {
             document.getElementById('idle-modal').style.display = 'none';
-            this.toast('Welcome back! You are now Active.', 'success');
             await this.refreshGameState();
         }
     },
@@ -1795,6 +1802,271 @@ const TMC = {
         }
         this.state.pendingTradeTargetId = targetPlayerId;
         this.navigate('trade', { seasonId, targetPlayerId });
+    },
+
+    // ==================== NOTIFICATIONS ====================
+    setupNotificationCenter() {
+        if (this._notificationOutsideHandler) return;
+        this._notificationOutsideHandler = (event) => {
+            const center = document.getElementById('notification-center');
+            if (!center) return;
+            if (!center.contains(event.target)) {
+                this.closeNotifications();
+            }
+        };
+        document.addEventListener('click', this._notificationOutsideHandler);
+        this.updateNotificationUI();
+    },
+
+    syncNotificationsFromPlayer(player) {
+        if (!player) {
+            this.state.notifications = [];
+            this.state.notificationsUnread = 0;
+            return;
+        }
+
+        const incoming = Array.isArray(player.notifications) ? player.notifications : [];
+        this.state.notifications = incoming.map((n) => ({
+            notification_id: Number(n.notification_id),
+            category: n.category || 'system',
+            title: n.title || 'Notification',
+            body: n.body || '',
+            payload: n.payload || null,
+            is_read: !!n.is_read,
+            created_at: n.created_at,
+            read_at: n.read_at || null
+        }));
+
+        const fallbackUnread = this.state.notifications.filter((n) => !n.is_read).length;
+        this.state.notificationsUnread = Number(player.notifications_unread_count ?? fallbackUnread) || 0;
+    },
+
+    updateNotificationUI() {
+        this.renderNotificationList();
+        this.updateNotificationIndicator();
+
+        const panel = document.getElementById('notification-panel');
+        const toggle = document.getElementById('notification-toggle');
+        if (panel) panel.style.display = this.state.notificationsOpen ? 'flex' : 'none';
+        if (toggle) toggle.setAttribute('aria-expanded', this.state.notificationsOpen ? 'true' : 'false');
+    },
+
+    updateNotificationIndicator() {
+        const dot = document.getElementById('notification-dot');
+        const toggle = document.getElementById('notification-toggle');
+        const hasUnread = (Number(this.state.notificationsUnread) || 0) > 0;
+        if (dot) dot.style.display = hasUnread ? 'block' : 'none';
+        if (toggle) toggle.classList.toggle('has-unread', hasUnread);
+    },
+
+    async toggleNotifications() {
+        this.state.notificationsOpen = !this.state.notificationsOpen;
+        this.updateNotificationUI();
+        if (this.state.notificationsOpen) {
+            await this.loadNotifications();
+        }
+    },
+
+    closeNotifications() {
+        if (!this.state.notificationsOpen) return;
+        this.state.notificationsOpen = false;
+        this.updateNotificationUI();
+    },
+
+    async loadNotifications() {
+        if (!this.state.player) {
+            this.state.notifications = [];
+            this.state.notificationsUnread = 0;
+            this.updateNotificationUI();
+            return;
+        }
+
+        const result = await this.api('notifications_list', { limit: 50 });
+        if (result.error) return;
+
+        this.state.notifications = Array.isArray(result.notifications) ? result.notifications.map((n) => ({
+            ...n,
+            notification_id: Number(n.notification_id),
+            is_read: !!n.is_read
+        })) : [];
+        const fallbackUnread = this.state.notifications.filter((n) => !n.is_read).length;
+        this.state.notificationsUnread = Number(result.unread_count ?? fallbackUnread) || 0;
+        this.updateNotificationUI();
+    },
+
+    renderNotificationList() {
+        const list = document.getElementById('notification-list');
+        if (!list) return;
+
+        if (!this.state.player) {
+            list.innerHTML = '<div class="notification-empty">Login to view notifications.</div>';
+            return;
+        }
+
+        if (!this.state.notifications.length) {
+            list.innerHTML = '<div class="notification-empty">No notifications yet.</div>';
+            return;
+        }
+
+        list.innerHTML = this.state.notifications.map((n) => {
+            const itemClass = n.is_read ? 'notification-item' : 'notification-item unread';
+            const body = n.body ? `<p>${this.escapeHtml(n.body)}</p>` : '';
+            return `
+                <div class="${itemClass}" data-notification-id="${n.notification_id}" onclick="TMC.handleNotificationClick(event, ${n.notification_id})">
+                    <div class="notification-item-head">
+                        <span class="notification-category">${this.escapeHtml((n.category || 'system').replace(/_/g, ' '))}</span>
+                        <span class="notification-time">${this.formatNotificationTime(n.created_at)}</span>
+                    </div>
+                    <h4>${this.escapeHtml(n.title || 'Notification')}</h4>
+                    ${body}
+                </div>
+            `;
+        }).join('');
+
+        this.bindNotificationSwipeHandlers();
+    },
+
+    bindNotificationSwipeHandlers() {
+        const items = document.querySelectorAll('.notification-item');
+        items.forEach((item) => {
+            if (item.dataset.swipeBound === '1') return;
+            item.dataset.swipeBound = '1';
+
+            let startX = 0;
+            let currentX = 0;
+            let dragging = false;
+            let pointerId = null;
+
+            const resetVisual = () => {
+                item.style.transform = '';
+                item.classList.remove('swipe-left', 'swipe-right', 'is-dragging');
+                item.dataset.suppressClick = '0';
+            };
+
+            const begin = (x) => {
+                startX = x;
+                currentX = 0;
+                dragging = true;
+                item.classList.add('is-dragging');
+                item.dataset.suppressClick = '0';
+            };
+
+            const move = (x) => {
+                if (!dragging) return;
+                currentX = x - startX;
+                if (Math.abs(currentX) > 8) item.dataset.suppressClick = '1';
+                item.style.transform = `translateX(${currentX}px)`;
+                item.classList.toggle('swipe-left', currentX < -20);
+                item.classList.toggle('swipe-right', currentX > 20);
+            };
+
+            const finish = () => {
+                if (!dragging) return;
+                dragging = false;
+                item.classList.remove('is-dragging');
+
+                const threshold = Math.max(80, item.offsetWidth * 0.24);
+                const id = Number(item.dataset.notificationId || 0);
+                if (Math.abs(currentX) >= threshold && id > 0) {
+                    const direction = currentX < 0 ? -1 : 1;
+                    item.style.transform = `translateX(${direction * (item.offsetWidth + 24)}px)`;
+                    item.classList.add('dismissed');
+                    item.dataset.suppressClick = '1';
+                    setTimeout(() => this.removeNotificationById(id), 120);
+                    return;
+                }
+
+                resetVisual();
+            };
+
+            item.addEventListener('pointerdown', (event) => {
+                if (event.pointerType === 'mouse' && event.button !== 0) return;
+                pointerId = event.pointerId;
+                if (item.setPointerCapture) item.setPointerCapture(pointerId);
+                begin(event.clientX);
+            });
+
+            item.addEventListener('pointermove', (event) => {
+                if (pointerId !== null && event.pointerId !== pointerId) return;
+                move(event.clientX);
+            });
+
+            item.addEventListener('pointerup', (event) => {
+                if (pointerId !== null && event.pointerId !== pointerId) return;
+                pointerId = null;
+                finish();
+            });
+
+            item.addEventListener('pointercancel', () => {
+                pointerId = null;
+                dragging = false;
+                resetVisual();
+            });
+        });
+    },
+
+    async handleNotificationClick(event, notificationId) {
+        event.stopPropagation();
+        const item = event.currentTarget;
+        if (item && item.dataset.suppressClick === '1') return;
+
+        const id = Number(notificationId);
+        if (!id) return;
+
+        const found = this.state.notifications.find((n) => Number(n.notification_id) === id);
+        if (!found || found.is_read) return;
+
+        found.is_read = true;
+        this.state.notificationsUnread = Math.max(0, (Number(this.state.notificationsUnread) || 0) - 1);
+        this.updateNotificationUI();
+
+        const result = await this.api('notifications_mark_read', { notification_id: id });
+        if (result.error) {
+            await this.loadNotifications();
+            this.toast(result.error, 'error');
+            return;
+        }
+
+        if (typeof result.unread_count !== 'undefined') {
+            this.state.notificationsUnread = Number(result.unread_count) || 0;
+            this.updateNotificationIndicator();
+        }
+    },
+
+    async removeNotificationById(notificationId) {
+        const id = Number(notificationId);
+        if (!id) return;
+
+        const before = this.state.notifications.find((n) => Number(n.notification_id) === id);
+        const removedUnread = before && !before.is_read;
+        this.state.notifications = this.state.notifications.filter((n) => Number(n.notification_id) !== id);
+        if (removedUnread) {
+            this.state.notificationsUnread = Math.max(0, (Number(this.state.notificationsUnread) || 0) - 1);
+        }
+        this.updateNotificationUI();
+
+        const result = await this.api('notifications_remove', { notification_id: id });
+        if (result.error) {
+            await this.loadNotifications();
+            this.toast(result.error, 'error');
+            return;
+        }
+
+        if (typeof result.unread_count !== 'undefined') {
+            this.state.notificationsUnread = Number(result.unread_count) || 0;
+            this.updateNotificationIndicator();
+        }
+    },
+
+    formatNotificationTime(dateStr) {
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return '';
+        const now = new Date();
+        const sameDay = d.toDateString() === now.toDateString();
+        if (sameDay) {
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     },
 
     // ==================== UTILITIES ====================

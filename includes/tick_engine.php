@@ -18,6 +18,7 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/game_time.php';
 require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/boost_catalog.php';
+require_once __DIR__ . '/notifications.php';
 
 class TickEngine {
     
@@ -171,6 +172,17 @@ class TickEngine {
                              WHERE player_id = ?",
                             [$gameTime, $playerId]
                         );
+                        Notifications::create(
+                            $playerId,
+                            'idle',
+                            'You are now idle',
+                            'Participation is paused until you acknowledge the idle prompt.',
+                            [
+                                'is_read' => true,
+                                'event_key' => 'idle:' . $gameTime,
+                                'payload' => ['at_tick' => (int)$gameTime]
+                            ]
+                        );
                     }
                 }
             }
@@ -302,6 +314,37 @@ class TickEngine {
         $db->query(
             "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source) VALUES (?, ?, ?, ?, ?)",
             [$playerId, $seasonId, $dropTick, $tier, $source]
+        );
+
+        $tierNames = [
+            1 => 'Common',
+            2 => 'Uncommon',
+            3 => 'Rare',
+            4 => 'Epic',
+            5 => 'Legendary'
+        ];
+        $sourceNormalized = strtoupper((string)$source) === 'PITY' ? 'pity' : 'rng';
+        $tierName = $tierNames[(int)$tier] ?? ('Tier ' . (int)$tier);
+        Notifications::create(
+            $playerId,
+            'sigil_drop',
+            'Sigil Drop: Tier ' . (int)$tier,
+            sprintf('You found a %s sigil (%s).', $tierName, strtoupper($sourceNormalized)),
+            [
+                'event_key' => sprintf(
+                    'sigil_drop:%d:%d:%d:%s',
+                    (int)$seasonId,
+                    (int)$dropTick,
+                    (int)$tier,
+                    $sourceNormalized
+                ),
+                'payload' => [
+                    'season_id' => (int)$seasonId,
+                    'drop_tick' => (int)$dropTick,
+                    'tier' => (int)$tier,
+                    'source' => $sourceNormalized
+                ]
+            ]
         );
         
         // Update tracking

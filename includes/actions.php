@@ -9,6 +9,7 @@ require_once __DIR__ . '/game_time.php';
 require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/boost_catalog.php';
+require_once __DIR__ . '/notifications.php';
 
 class Actions {
     
@@ -645,6 +646,18 @@ class Actions {
              idle_since_tick = NULL, last_activity_tick = ?
              WHERE player_id = ?",
             [$gameTime, $playerId]
+        );
+
+        Notifications::create(
+            $playerId,
+            'active',
+            'You are active again',
+            'Welcome back. Your participation is active.',
+            [
+                'is_read' => true,
+                'event_key' => 'active:' . $gameTime,
+                'payload' => ['at_tick' => (int)$gameTime]
+            ]
         );
         
         return ['success' => true, 'message' => 'Welcome back! You are now Active.'];

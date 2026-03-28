@@ -250,6 +250,21 @@
 
         <!-- TOAST NOTIFICATIONS -->
         <div id="toast-container"></div>
+
+        <!-- NOTIFICATION CENTER -->
+        <div id="notification-center" class="notification-center" onclick="event.stopPropagation()">
+            <button id="notification-toggle" class="notification-toggle" type="button" onclick="event.stopPropagation(); TMC.toggleNotifications()" aria-label="Open notifications" aria-expanded="false">
+                <span class="notification-icon">&#128276;</span>
+                <span id="notification-dot" class="notification-dot"></span>
+            </button>
+            <div id="notification-panel" class="notification-panel" onclick="event.stopPropagation()">
+                <div class="notification-panel-header">
+                    <h3>Notifications</h3>
+                    <button class="notification-close" type="button" onclick="TMC.closeNotifications()">Close</button>
+                </div>
+                <div id="notification-list" class="notification-list"></div>
+            </div>
+        </div>
     </div>
 
     <script src="js/app.js"></script>
