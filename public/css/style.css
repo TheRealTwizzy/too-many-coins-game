@@ -1482,8 +1482,9 @@ a:hover { text-decoration: underline; }
 
 .boost-stats {
     display: flex;
+    align-items: center;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     font-size: 0.78rem;
 }
 
@@ -1498,6 +1499,12 @@ a:hover { text-decoration: underline; }
 .boost-duration {
     color: var(--accent-blue-light);
     font-weight: 600;
+    white-space: nowrap;
+}
+
+.boost-cost-inline {
+    color: var(--text-muted);
+    white-space: nowrap;
 }
 
 .boost-scope {
@@ -1530,6 +1537,12 @@ a:hover { text-decoration: underline; }
 .boost-have {
     font-size: 0.72rem;
     color: var(--text-muted);
+}
+
+.boost-have-inline {
+    margin-left: auto;
+    text-align: right;
+    white-space: nowrap;
 }
 
 /* Active Boosts Display */

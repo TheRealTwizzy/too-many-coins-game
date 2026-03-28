@@ -1071,10 +1071,8 @@ const TMC = {
                     <div class="boost-stats">
                         <span class="boost-modifier">+${modPercent}% UBI</span>
                         <span class="boost-duration">${durationLabel}</span>
-                    </div>
-                    <div class="boost-cost">
-                        <span>Cost: ${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
-                        <span class="boost-have">(You have: ${part ? part.sigils[tier-1] : 0})</span>
+                        <span class="boost-cost-inline">Cost: ${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
+                        <span class="boost-have boost-have-inline">(You have: ${part ? part.sigils[tier-1] : 0})</span>
                     </div>
                     <button class="btn btn-sm ${hasSigil ? 'btn-primary' : 'btn-outline'}" 
                         onclick="TMC.activateBoost(${b.boost_id})" 
