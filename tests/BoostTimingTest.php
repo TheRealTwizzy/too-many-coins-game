@@ -16,8 +16,12 @@
  * Follow-up fixes also addressed:
  * - Boost state persists across page refresh / disconnect / idle because the
  *   server stores expires_tick in the database and rehydrates on every request.
- * - Each boost now carries an absolute wall-clock expiry (expires_at_real) so
- *   the client can render an accurate real-time countdown without drifting.
+ * - expires_at_real is now computed as GameTime::tickStartRealUnix(expires_tick + 1),
+ *   an absolute wall-clock timestamp that is STABLE across API calls.  Previously
+ *   it was computed as serverNowUnix + (expires_tick − gameTime) × TICK_REAL_SECONDS,
+ *   which could produce a value ≤ serverNowUnix if the game tick advanced between the
+ *   purchase request and the subsequent active_boosts query, causing the client to
+ *   display "Expiring…" immediately after activation (the reported bug).
  * - Page routing is restored from localStorage on reload so players stay on
  *   the same screen.
  */
@@ -130,35 +134,42 @@ class BoostPersistenceLogic
     }
 
     /**
-     * Compute the wall-clock remaining seconds for a boost.
-     * Mirrors: getActiveBoosts() in api/index.php.
-     *   $ticksRemaining = max(0, expires_tick - gameTime)
-     *   $remaining_real_seconds = gameTicksToRealSeconds($ticksRemaining)
-     *
-     * @param int $expiresTick   The boost's expires_tick.
-     * @param int $gameTime      Current game tick.
-     * @param int $tickRealSecs  Real seconds per game tick (default 60).
-     * @return int Remaining real seconds (non-negative).
-     */
-    public static function remainingRealSeconds(int $expiresTick, int $gameTime, int $tickRealSecs = 60): int
-    {
-        $ticksRemaining = max(0, $expiresTick - $gameTime);
-        return $ticksRemaining * $tickRealSecs;
-    }
-
-    /**
      * Compute the absolute wall-clock Unix timestamp when a boost expires.
-     * Mirrors: $b['expires_at_real'] = $serverNowUnix + $remaining_real_seconds
+     * Mirrors: GameTime::tickStartRealUnix(expires_tick + 1) in api/index.php.
+     *
+     * The boost is active as long as gameTime <= expires_tick.  The first real
+     * moment it is no longer active is the start of tick (expires_tick + 1):
+     *   serverEpoch + (expires_tick + 1) * tickRealSecs
+     *
+     * This value is STABLE: it does not change across API calls, so the client
+     * countdown is resilient to the game tick advancing between the purchase
+     * request and the subsequent active_boosts query.
      *
      * @param int $expiresTick   The boost's expires_tick.
-     * @param int $gameTime      Current game tick.
-     * @param int $serverNowUnix Server's current Unix timestamp.
+     * @param int $serverEpoch   Server's Unix epoch (start of tick 0).
      * @param int $tickRealSecs  Real seconds per game tick (default 60).
      * @return int Unix timestamp of expiry.
      */
-    public static function expiresAtReal(int $expiresTick, int $gameTime, int $serverNowUnix, int $tickRealSecs = 60): int
+    public static function expiresAtReal(int $expiresTick, int $serverEpoch, int $tickRealSecs = 60): int
     {
-        return $serverNowUnix + self::remainingRealSeconds($expiresTick, $gameTime, $tickRealSecs);
+        return $serverEpoch + ($expiresTick + 1) * $tickRealSecs;
+    }
+
+    /**
+     * Compute the wall-clock remaining seconds for a boost.
+     * Mirrors: getActiveBoosts() in api/index.php.
+     *   $expiresAtReal = GameTime::tickStartRealUnix(expires_tick + 1)
+     *   $remaining_real_seconds = max(0, $expiresAtReal - $serverNowUnix)
+     *
+     * @param int $expiresTick   The boost's expires_tick.
+     * @param int $serverEpoch   Server's Unix epoch (start of tick 0).
+     * @param int $serverNowUnix Server's current Unix timestamp.
+     * @param int $tickRealSecs  Real seconds per game tick (default 60).
+     * @return int Remaining real seconds (non-negative).
+     */
+    public static function remainingRealSeconds(int $expiresTick, int $serverEpoch, int $serverNowUnix, int $tickRealSecs = 60): int
+    {
+        return max(0, self::expiresAtReal($expiresTick, $serverEpoch, $tickRealSecs) - $serverNowUnix);
     }
 }
 
@@ -507,14 +518,22 @@ class BoostTimingTest extends TestCase
     // -----------------------------------------------------------------------
 
     /**
-     * Verify that remaining_real_seconds is computed correctly from the tick gap.
+     * Verify that remaining_real_seconds is computed correctly using the
+     * absolute tick-boundary formula.
      * 1 tick = 60 real seconds in production.
+     *
+     * expires_tick = 110, serverEpoch = 0, serverNow = 6000 (= start of tick 100).
+     * expires_at_real = serverEpoch + (110 + 1) × 60 = 6660
+     * remaining      = 6660 - 6000 = 660 seconds
      */
     public function testRemainingRealSecondsCalculation(): void
     {
-        // 10 ticks remaining × 60 s/tick = 600 seconds
-        $remaining = BoostPersistenceLogic::remainingRealSeconds(110, 100);
-        $this->assertSame(600, $remaining, 'remaining_real_seconds must equal ticksRemaining × TICK_REAL_SECONDS.');
+        $serverEpoch = 0;
+        $serverNow   = 6000; // = serverEpoch + 100 × 60 (exact tick-100 boundary)
+        $remaining = BoostPersistenceLogic::remainingRealSeconds(110, $serverEpoch, $serverNow);
+        $this->assertSame(660, $remaining,
+            'remaining_real_seconds must equal (expires_tick + 1 - tick 100) × TICK_REAL_SECONDS ' .
+            'when queried at the tick-100 boundary (serverEpoch=0, tick=100, expires_tick=110 → 660 s).');
     }
 
     /**
@@ -522,24 +541,40 @@ class BoostTimingTest extends TestCase
      */
     public function testRemainingRealSecondsIsNonNegativeWhenExpired(): void
     {
-        $remaining = BoostPersistenceLogic::remainingRealSeconds(99, 100);
-        $this->assertSame(0, $remaining, 'remaining_real_seconds must be 0 for an already-expired boost, never negative.');
+        // expires_tick = 99, query at tick 100 start (serverNow = 6000, serverEpoch = 0)
+        // expires_at_real = 0 + (99+1)*60 = 6000; remaining = max(0, 6000 - 6000) = 0
+        $serverEpoch = 0;
+        $serverNow   = 6000;
+        $remaining = BoostPersistenceLogic::remainingRealSeconds(99, $serverEpoch, $serverNow);
+        $this->assertSame(0, $remaining,
+            'remaining_real_seconds must be 0 for an already-expired boost, never negative.');
     }
 
     /**
-     * Verify that expires_at_real is an absolute Unix timestamp equal to
-     * serverNowUnix + remaining_real_seconds.
+     * Verify that expires_at_real is a stable absolute Unix timestamp derived
+     * from the tick epoch, independent of when the API response is generated.
+     *
+     * Formula: serverEpoch + (expires_tick + 1) × TICK_REAL_SECONDS
+     *
+     * With serverEpoch = 1_699_994_000 (= serverNow - 100×60):
+     *   expires_at_real = 1_699_994_000 + 111×60 = 1_700_000_660
      */
     public function testExpiresAtRealIsAbsoluteTimestamp(): void
     {
-        $serverNow  = 1_700_000_000; // arbitrary Unix timestamp
-        $gameTime   = 100;
-        $expiresTick = 110; // 10 ticks away → 600 real seconds
+        $tickRealSecs = 60;
+        $gameTime     = 100;
+        // serverEpoch is the real Unix time at tick 0.
+        // If the server is now at tick 100 and serverNow = 1_700_000_000,
+        // then serverEpoch ≈ 1_700_000_000 − 100×60 = 1_699_994_000.
+        $serverEpoch  = 1_699_994_000;
+        $expiresTick  = 110;
 
-        $expiresAt = BoostPersistenceLogic::expiresAtReal($expiresTick, $gameTime, $serverNow);
+        $expiresAt = BoostPersistenceLogic::expiresAtReal($expiresTick, $serverEpoch, $tickRealSecs);
 
-        $this->assertSame($serverNow + 600, $expiresAt,
-            'expires_at_real must be serverNowUnix + remaining_real_seconds.');
+        // expected = serverEpoch + (110 + 1) × 60 = 1_699_994_000 + 6_660 = 1_700_000_660
+        $this->assertSame(1_700_000_660, $expiresAt,
+            'expires_at_real must equal serverEpoch + (expires_tick + 1) × TICK_REAL_SECONDS ' .
+            'and be independent of serverNowUnix.');
     }
 
     // -----------------------------------------------------------------------

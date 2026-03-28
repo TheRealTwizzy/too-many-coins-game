@@ -48,6 +48,23 @@ class GameTime {
     public static function globalTick() {
         return self::now();
     }
+
+    /**
+     * Get the real Unix timestamp for the start of a given game tick.
+     * This is the inverse of now(): the wall-clock moment at which gameTime
+     * first equals $tick.
+     *
+     * Used to compute a stable, absolute expires_at_real for active boosts so
+     * that the client countdown reflects the true expiry moment regardless of
+     * when the API response is generated within a tick.
+     *
+     * Tick values in normal gameplay are in the thousands-to-millions range,
+     * so the product $tick * TICK_REAL_SECONDS stays well within PHP's 64-bit
+     * integer range before the division by TIME_SCALE is applied.
+     */
+    public static function tickStartRealUnix(int $tick): int {
+        return (int)(self::getServerEpoch() + intdiv($tick * TICK_REAL_SECONDS, TIME_SCALE));
+    }
     
     /**
      * Calculate season start time from season sequence number.
