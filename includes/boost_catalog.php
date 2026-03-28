@@ -17,7 +17,6 @@ class BoostCatalog
     private const DEFINITIONS = [
         1 => [
             'name' => 'Trickle',
-            'description' => 'Increases your UBI by 10% for 12 hours.',
             'scope' => 'SELF',
             'duration_seconds' => 12 * 60 * 60,
             'modifier_fp' => 100000,
@@ -27,7 +26,6 @@ class BoostCatalog
         ],
         2 => [
             'name' => 'Surge',
-            'description' => 'Increases your UBI by 15% for 36 hours.',
             'scope' => 'SELF',
             'duration_seconds' => 36 * 60 * 60,
             'modifier_fp' => 150000,
@@ -37,7 +35,6 @@ class BoostCatalog
         ],
         3 => [
             'name' => 'Flow',
-            'description' => 'Increases your UBI by 25% for 72 hours.',
             'scope' => 'SELF',
             'duration_seconds' => 72 * 60 * 60,
             'modifier_fp' => 250000,
@@ -47,7 +44,6 @@ class BoostCatalog
         ],
         4 => [
             'name' => 'Tide',
-            'description' => 'Increases your UBI by 50% for 144 hours.',
             'scope' => 'SELF',
             'duration_seconds' => 144 * 60 * 60,
             'modifier_fp' => 500000,
@@ -57,7 +53,6 @@ class BoostCatalog
         ],
         5 => [
             'name' => 'Age',
-            'description' => 'Increases your UBI by 100% for 288 hours.',
             'scope' => 'SELF',
             'duration_seconds' => 288 * 60 * 60,
             'modifier_fp' => 1000000,
@@ -76,7 +71,7 @@ class BoostCatalog
 
         $canonical = self::DEFINITIONS[$tier];
         $boost['name'] = $canonical['name'];
-        $boost['description'] = $canonical['description'];
+        $boost['description'] = '';
         $boost['scope'] = $canonical['scope'];
         $boost['duration_ticks'] = ticks_from_real_seconds($canonical['duration_seconds']);
         $boost['modifier_fp'] = $canonical['modifier_fp'];
