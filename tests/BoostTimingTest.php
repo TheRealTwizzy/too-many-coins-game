@@ -202,21 +202,21 @@ class BoostCountdownLogic
  *
  *  Tier | Name    | Scope  | duration_ticks | modifier_fp | max_stack
  *  -----+---------+--------+----------------+-------------+----------
- *    1  | Trickle | SELF   |            720 |     100,000 |         5
- *    2  | Surge   | SELF   |           2160 |     150,000 |         5
- *    3  | Flow    | SELF   |           4320 |     250,000 |         2
- *    4  | Tide    | SELF   |           8640 |     500,000 |         1
- *    5  | Age     | SELF   |          17280 |   1,000,000 |         1
+ *    1  | Trickle | SELF   |             60 |     100,000 |         5
+ *    2  | Surge   | SELF   |            180 |     150,000 |         5
+ *    3  | Flow    | SELF   |            360 |     250,000 |         2
+ *    4  | Tide    | SELF   |            720 |     500,000 |         1
+ *    5  | Age     | SELF   |           1440 |   1,000,000 |         1
  */
 class BoostCatalogLogic
 {
     /** Canonical duration_ticks keyed by tier_required. */
     public const DURATION_BY_TIER = [
-        1 => 720,    // Trickle – 720 ticks (12 hours at 60 s/tick)
-        2 => 2160,   // Surge   – 2160 ticks (36 hours)
-        3 => 4320,   // Flow    – 4320 ticks (72 hours)
-        4 => 8640,   // Tide    – 8640 ticks (144 hours)
-        5 => 17280,  // Age     – 17280 ticks (288 hours)
+        1 => 60,     // Trickle – 60 ticks (1 hour at 60 s/tick)
+        2 => 180,    // Surge   – 180 ticks (3 hours)
+        3 => 360,    // Flow    – 360 ticks (6 hours)
+        4 => 720,    // Tide    – 720 ticks (12 hours)
+        5 => 1440,   // Age     – 1440 ticks (24 hours)
     ];
 
     /** Scope keyed by tier_required. */
@@ -683,11 +683,11 @@ class BoostTimingTest extends TestCase
     public function testBoostCatalogTierDurations(): void
     {
         $expected = [
-            1 => 720,
-            2 => 2160,
-            3 => 4320,
-            4 => 8640,
-            5 => 17280,
+            1 => 60,
+            2 => 180,
+            3 => 360,
+            4 => 720,
+            5 => 1440,
         ];
 
         foreach ($expected as $tier => $expectedDuration) {
@@ -747,126 +747,126 @@ class BoostTimingTest extends TestCase
     // -----------------------------------------------------------------------
 
     /**
-     * Tier III self boost (Flow) – 4320 ticks.
-     * Canonical duration from boost_catalog: duration_ticks = 4320.
+     * Tier III self boost (Flow) – 360 ticks.
+     * Canonical duration from boost_catalog: duration_ticks = 360.
      * Verifies the boundary: applies at expires_tick, not at expires_tick + 1.
      */
     public function testTierThreeSelfBoostBoundary(): void
     {
         $purchaseTick  = 200;
-        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[3]; // 4320
+        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[3]; // 360
         $expiresTick   = BoostTimingLogic::computeExpiresTick($purchaseTick, $durationTicks);
-        // expiresTick = 4520
+        // expiresTick = 560
 
-        $result = BoostTimingLogic::processTick($expiresTick, true, 4520);
+        $result = BoostTimingLogic::processTick($expiresTick, true, 560);
         $this->assertTrue($result['applied'],
-            'Tier 3 boost must still apply at expires_tick (tick 4520).');
+            'Tier 3 boost must still apply at expires_tick (tick 560).');
         $this->assertTrue($result['isActiveAfter'],
             'Tier 3 boost must remain active-flagged at expires_tick.');
 
-        $result = BoostTimingLogic::processTick($expiresTick, $result['isActiveAfter'], 4521);
+        $result = BoostTimingLogic::processTick($expiresTick, $result['isActiveAfter'], 561);
         $this->assertFalse($result['applied'],
-            'Tier 3 boost must NOT apply at expires_tick + 1 (tick 4521).');
+            'Tier 3 boost must NOT apply at expires_tick + 1 (tick 561).');
     }
 
     /**
-     * Tier IV self boost (Tide) – 8640 ticks.
-     * Canonical duration from boost_catalog: duration_ticks = 8640 (144 hours).
-     * Spot-checks: T+1 (first), T+4320 (mid), T+8640 (last = expires_tick), T+8641 (expired).
+     * Tier IV self boost (Tide) – 720 ticks.
+     * Canonical duration from boost_catalog: duration_ticks = 720 (12 hours).
+     * Spot-checks: T+1 (first), T+360 (mid), T+720 (last = expires_tick), T+721 (expired).
      */
     public function testTierFourSelfBoostBoundary(): void
     {
         $purchaseTick  = 500;
-        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[4]; // 8640
+        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[4]; // 720
         $expiresTick   = BoostTimingLogic::computeExpiresTick($purchaseTick, $durationTicks);
-        // expiresTick = 9140
+        // expiresTick = 1220
 
         // T+1 – first tick
         $result = BoostTimingLogic::processTick($expiresTick, true, 501);
         $this->assertTrue($result['applied'],
             'Tier 4 boost must apply at T+1 (tick 501).');
 
-        // T+4320 – mid-duration spot-check
-        $result = BoostTimingLogic::processTick($expiresTick, true, 4820);
+        // T+360 – mid-duration spot-check
+        $result = BoostTimingLogic::processTick($expiresTick, true, 860);
         $this->assertTrue($result['applied'],
-            'Tier 4 boost must apply at the mid-duration tick T+4320 (tick 4820).');
+            'Tier 4 boost must apply at the mid-duration tick T+360 (tick 860).');
 
-        // T+8640 – last tick (= expires_tick)
-        $result = BoostTimingLogic::processTick($expiresTick, true, 9140);
+        // T+720 – last tick (= expires_tick)
+        $result = BoostTimingLogic::processTick($expiresTick, true, 1220);
         $this->assertTrue($result['applied'],
-            'Tier 4 boost must apply at expires_tick T+8640 (tick 9140).');
+            'Tier 4 boost must apply at expires_tick T+720 (tick 1220).');
         $this->assertTrue($result['isActiveAfter'],
             'Tier 4 boost must remain active-flagged at expires_tick.');
 
-        // T+8641 – expired
-        $result = BoostTimingLogic::processTick($expiresTick, $result['isActiveAfter'], 9141);
+        // T+721 – expired
+        $result = BoostTimingLogic::processTick($expiresTick, $result['isActiveAfter'], 1221);
         $this->assertFalse($result['applied'],
-            'Tier 4 boost must NOT apply at T+8641 (tick 9141).');
+            'Tier 4 boost must NOT apply at T+721 (tick 1221).');
     }
 
     /**
-     * Tier V self boost (Age) – 17280 ticks.
-     * Canonical duration from boost_catalog: duration_ticks = 17280 (288 hours).
-     * Spot-checks: T+1 (first), T+8640 (midpoint), T+17280 (last = expires_tick), T+17281 (expired).
+     * Tier V self boost (Age) – 1440 ticks.
+     * Canonical duration from boost_catalog: duration_ticks = 1440 (24 hours).
+     * Spot-checks: T+1 (first), T+720 (midpoint), T+1440 (last = expires_tick), T+1441 (expired).
      */
     public function testTierFiveSelfBoostBoundary(): void
     {
         $purchaseTick  = 1000;
-        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[5]; // 17280
+        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[5]; // 1440
         $expiresTick   = BoostTimingLogic::computeExpiresTick($purchaseTick, $durationTicks);
-        // expiresTick = 18280
+        // expiresTick = 2440
 
         // T+1 – first tick
         $result = BoostTimingLogic::processTick($expiresTick, true, 1001);
         $this->assertTrue($result['applied'],
             'Tier 5 boost must apply at T+1 (tick 1001).');
 
-        // T+8640 – midpoint
-        $result = BoostTimingLogic::processTick($expiresTick, true, 9640);
+        // T+720 – midpoint
+        $result = BoostTimingLogic::processTick($expiresTick, true, 1720);
         $this->assertTrue($result['applied'],
-            'Tier 5 boost must apply at the midpoint tick T+8640 (tick 9640).');
+            'Tier 5 boost must apply at the midpoint tick T+720 (tick 1720).');
 
-        // T+17280 – last tick (= expires_tick)
-        $result = BoostTimingLogic::processTick($expiresTick, true, 18280);
+        // T+1440 – last tick (= expires_tick)
+        $result = BoostTimingLogic::processTick($expiresTick, true, 2440);
         $this->assertTrue($result['applied'],
-            'Tier 5 boost must apply at expires_tick T+17280 (tick 18280).');
+            'Tier 5 boost must apply at expires_tick T+1440 (tick 2440).');
         $this->assertTrue($result['isActiveAfter'],
             'Tier 5 boost must remain active-flagged at expires_tick.');
 
-        // T+17281 – expired
-        $result = BoostTimingLogic::processTick($expiresTick, $result['isActiveAfter'], 18281);
+        // T+1441 – expired
+        $result = BoostTimingLogic::processTick($expiresTick, $result['isActiveAfter'], 2441);
         $this->assertFalse($result['applied'],
-            'Tier 5 boost must NOT apply at T+17281 (tick 18281).');
+            'Tier 5 boost must NOT apply at T+1441 (tick 2441).');
         $this->assertFalse($result['isActiveAfter'],
-            'Tier 5 boost must be expired at T+17281.');
+            'Tier 5 boost must be expired at T+1441.');
     }
 
     /**
-     * Exhaustive check: tier V (Age) boost applies for all 17280 ticks
+     * Exhaustive check: tier V (Age) boost applies for all 1440 ticks
      * in its window without any premature expiration.
      */
     public function testTierFiveSelfBoostRemainsActiveForAll1440Ticks(): void
     {
         $purchaseTick  = 2000;
-        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[5]; // 17280
+        $durationTicks = BoostCatalogLogic::DURATION_BY_TIER[5]; // 1440
         $expiresTick   = BoostTimingLogic::computeExpiresTick($purchaseTick, $durationTicks);
-        // expiresTick = 19280
+        // expiresTick = 3440
 
         $isActive = true;
 
-        for ($tick = 2001; $tick <= 19280; $tick++) {
+        for ($tick = 2001; $tick <= 3440; $tick++) {
             $result = BoostTimingLogic::processTick($expiresTick, $isActive, $tick);
             $this->assertTrue(
                 $result['applied'],
-                "Tier 5 17280-tick boost must apply at tick {$tick} (T+" . ($tick - $purchaseTick) . ').'
+                "Tier 5 1440-tick boost must apply at tick {$tick} (T+" . ($tick - $purchaseTick) . ').'
             );
             $isActive = $result['isActiveAfter'];
         }
 
-        // Tick T+17281: must be expired
-        $result = BoostTimingLogic::processTick($expiresTick, $isActive, 19281);
+        // Tick T+1441: must be expired
+        $result = BoostTimingLogic::processTick($expiresTick, $isActive, 3441);
         $this->assertFalse($result['applied'],
-            'Tier 5 17280-tick boost must NOT apply at T+17281.');
+            'Tier 5 1440-tick boost must NOT apply at T+1441.');
     }
 
     // -----------------------------------------------------------------------

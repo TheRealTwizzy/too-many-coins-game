@@ -18,7 +18,7 @@ class BoostCatalog
         1 => [
             'name' => 'Trickle',
             'scope' => 'SELF',
-            'duration_seconds' => 12 * 60 * 60,
+            'duration_seconds' => 1 * 60 * 60,
             'modifier_fp' => 100000,
             'max_stack' => 5,
             'icon' => 'trickle',
@@ -27,7 +27,7 @@ class BoostCatalog
         2 => [
             'name' => 'Surge',
             'scope' => 'SELF',
-            'duration_seconds' => 36 * 60 * 60,
+            'duration_seconds' => 3 * 60 * 60,
             'modifier_fp' => 150000,
             'max_stack' => 5,
             'icon' => 'surge',
@@ -36,7 +36,7 @@ class BoostCatalog
         3 => [
             'name' => 'Flow',
             'scope' => 'SELF',
-            'duration_seconds' => 72 * 60 * 60,
+            'duration_seconds' => 6 * 60 * 60,
             'modifier_fp' => 250000,
             'max_stack' => 2,
             'icon' => 'flow',
@@ -45,7 +45,7 @@ class BoostCatalog
         4 => [
             'name' => 'Tide',
             'scope' => 'SELF',
-            'duration_seconds' => 144 * 60 * 60,
+            'duration_seconds' => 12 * 60 * 60,
             'modifier_fp' => 500000,
             'max_stack' => 1,
             'icon' => 'tide',
@@ -54,7 +54,7 @@ class BoostCatalog
         5 => [
             'name' => 'Age',
             'scope' => 'SELF',
-            'duration_seconds' => 288 * 60 * 60,
+            'duration_seconds' => 24 * 60 * 60,
             'modifier_fp' => 1000000,
             'max_stack' => 1,
             'icon' => 'age',
@@ -82,4 +82,3 @@ class BoostCatalog
         return $boost;
     }
 }
-
