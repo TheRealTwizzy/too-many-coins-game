@@ -1,6 +1,6 @@
 -- One-time hotfix: align boost catalog durations and vault prices with canonical values.
 -- Safe to run multiple times (idempotent updates).
--- Context: 1 tick = 1 minute.
+-- Context: 1 tick = 60 seconds.
 
 START TRANSACTION;
 

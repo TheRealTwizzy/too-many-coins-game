@@ -1,5 +1,5 @@
 -- Migration: Update boost catalog to canonical durations and clear descriptions.
--- Canonical durations: 1h, 3h, 6h, 12h, 24h (1 tick = 1 minute).
+-- Canonical durations: 1h, 3h, 6h, 12h, 24h (1 tick = 60 seconds).
 -- Safe to run multiple times (idempotent updates).
 
 START TRANSACTION;
