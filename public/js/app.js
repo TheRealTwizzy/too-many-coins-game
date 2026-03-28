@@ -1064,10 +1064,12 @@ const TMC = {
             return `
                 <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
                     <div class="boost-card-header">
-                        <span class="boost-icon">${displayIcon}</span>
-                        <span class="boost-name">${this.escapeHtml(displayName)}</span>
+                        <div class="boost-title">
+                            <span class="boost-icon">${displayIcon}</span>
+                            <span class="boost-name">${this.escapeHtml(displayName)}</span>
+                        </div>
+                        ${description ? `<span class="boost-desc boost-desc-inline">${this.escapeHtml(description)}</span>` : ''}
                     </div>
-                    ${description ? `<p class="boost-desc">${this.escapeHtml(description)}</p>` : ''}
                     <div class="boost-stats">
                         <span class="boost-modifier">+${modPercent}% UBI</span>
                         <span class="boost-duration">${durationLabel}</span>
