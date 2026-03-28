@@ -781,19 +781,22 @@ function getActiveBoosts($player) {
     );
     
     // Annotate each boost with wall-clock expiry data for client-side real-time countdown.
-    // expires_at_real is an absolute Unix timestamp: the moment the boost expires in real time.
-    // remaining_real_seconds is the number of real seconds left at the time this response is built.
-    // Using absolute timestamps makes the countdown resilient to page refresh, disconnect, and idle.
+    // expires_at_real is computed as the absolute real Unix timestamp of the start of
+    // tick (expires_tick + 1) – the first moment at which gameTime exceeds expires_tick
+    // and the boost is no longer active.  Using the tick-boundary formula makes this
+    // value stable: it does not change between API calls, even if the game tick advances
+    // between the purchase request and the subsequent active_boosts query.
+    // remaining_real_seconds is derived from the same stable timestamp so it matches.
     foreach ($selfBoosts as &$b) {
-        $ticksRemaining = max(0, (int)$b['expires_tick'] - $gameTime);
-        $b['remaining_real_seconds'] = gameTicksToRealSeconds($ticksRemaining);
-        $b['expires_at_real'] = $serverNowUnix + $b['remaining_real_seconds'];
+        $expiresAtReal = GameTime::tickStartRealUnix((int)$b['expires_tick'] + 1);
+        $b['expires_at_real'] = $expiresAtReal;
+        $b['remaining_real_seconds'] = max(0, $expiresAtReal - $serverNowUnix);
     }
     unset($b);
     foreach ($globalBoosts as &$b) {
-        $ticksRemaining = max(0, (int)$b['expires_tick'] - $gameTime);
-        $b['remaining_real_seconds'] = gameTicksToRealSeconds($ticksRemaining);
-        $b['expires_at_real'] = $serverNowUnix + $b['remaining_real_seconds'];
+        $expiresAtReal = GameTime::tickStartRealUnix((int)$b['expires_tick'] + 1);
+        $b['expires_at_real'] = $expiresAtReal;
+        $b['remaining_real_seconds'] = max(0, $expiresAtReal - $serverNowUnix);
     }
     unset($b);
     
