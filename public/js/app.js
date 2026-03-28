@@ -19,6 +19,8 @@ const TMC = {
         cosmetics: [],
         myCosmetics: [],
         boostCountdowns: {},
+        leaderboardTab: 'global',
+        pendingTradeTargetId: null,
     },
 
     API_BASE: '/api/index.php',
@@ -386,6 +388,9 @@ const TMC = {
         document.getElementById('hud-seasonal-stars').textContent = this.formatNumber(p.participation.seasonal_stars);
         const totalSigils = p.participation.sigils.reduce((a, b) => a + b, 0);
         document.getElementById('hud-sigils').textContent = totalSigils;
+        const ratePerTick = Number(p.participation.rate_per_tick || 0);
+        const rateEl = document.getElementById('hud-rate');
+        if (rateEl) rateEl.textContent = `${this.formatNumber(ratePerTick)}/tick`;
         document.getElementById('hud-global-stars').textContent = this.formatNumber(p.global_stars);
 
         // Boosts count and modifier
@@ -661,6 +666,13 @@ const TMC = {
         const isBlackout = status === 'Blackout';
         const isExpired = status === 'Expired';
         const timerLabel = this.getSeasonDetailTimerLabel(detail);
+        const sigilRates = Array.isArray(detail?.sigil_drop_rates?.tiers) ? detail.sigil_drop_rates.tiers : [];
+        const sigilRateByTier = {};
+        sigilRates.forEach((rateRow) => {
+            if (rateRow && rateRow.tier) {
+                sigilRateByTier[rateRow.tier] = Number(rateRow.chance_percent || 0);
+            }
+        });
 
         let html = `
             <div class="season-header">
@@ -713,34 +725,33 @@ const TMC = {
 
                     <!-- Sigils Panel -->
                     <div class="action-panel">
-                        <h3>Your Sigils</h3>
+                        <h3>Sigils</h3>
                         <div class="sigil-display">
                             ${part.sigils.map((count, i) => `
                                 <div class="sigil-item tier-${i+1}">
                                     <span class="sigil-tier">T${i+1}</span>
                                     <span class="sigil-count">${count}</span>
+                                    <span class="sigil-rate">Drop: ${(sigilRateByTier[i + 1] || 0).toFixed(2)}%</span>
                                 </div>
                             `).join('')}
                         </div>
-                    </div>
-
-                    <!-- Vault Panel -->
-                    <div class="action-panel">
-                        <h3>Sigil Vault</h3>
-                        <p class="panel-info">Purchase Sigils with Seasonal Stars</p>
-                        <div class="vault-grid">
-                            ${(detail.vault || []).map(v => `
-                                <div class="vault-item tier-${v.tier}">
-                                    <span class="vault-tier">Tier ${v.tier}</span>
-                                    <span class="vault-remaining">${v.remaining_supply}/${v.initial_supply} left</span>
-                                    <span class="vault-cost">${v.current_cost_stars} stars</span>
-                                    <button class="btn btn-sm btn-primary" 
-                                        onclick="TMC.purchaseVault(${v.tier})"
-                                        ${v.remaining_supply <= 0 || isBlackout ? 'disabled' : ''}>
-                                        ${v.remaining_supply <= 0 ? 'Sold Out' : 'Buy'}
-                                    </button>
-                                </div>
-                            `).join('')}
+                        <div class="sigil-vault-section">
+                            <h4>Sigil Vault</h4>
+                            <p class="panel-info">Purchase Sigils with Seasonal Stars</p>
+                            <div class="vault-grid">
+                                ${(detail.vault || []).map(v => `
+                                    <div class="vault-item tier-${v.tier}">
+                                        <span class="vault-tier">Tier ${v.tier}</span>
+                                        <span class="vault-remaining">${v.remaining_supply}/${v.initial_supply} left</span>
+                                        <span class="vault-cost">${v.current_cost_stars} stars</span>
+                                        <button class="btn btn-sm btn-primary" 
+                                            onclick="TMC.purchaseVault(${v.tier})"
+                                            ${v.remaining_supply <= 0 || isBlackout ? 'disabled' : ''}>
+                                            ${v.remaining_supply <= 0 ? 'Sold Out' : 'Buy'}
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     </div>
 
@@ -1229,8 +1240,27 @@ const TMC = {
         if (!season) return null;
 
         const status = season.computed_status || season.status;
-        if (status === 'Active' || status === 'Blackout') return season;
+        if (status === 'Active') return season;
         return null;
+    },
+
+    switchLeaderboardTab(tab) {
+        this.state.leaderboardTab = tab === 'seasonal' ? 'seasonal' : 'global';
+        this.loadGlobalLeaderboard();
+    },
+
+    updateLeaderboardTabUI(showSeasonal) {
+        const globalTab = document.getElementById('leaderboard-tab-global');
+        const seasonalTab = document.getElementById('leaderboard-tab-seasonal');
+        if (!globalTab || !seasonalTab) return;
+
+        seasonalTab.style.display = showSeasonal ? '' : 'none';
+        if (!showSeasonal && this.state.leaderboardTab === 'seasonal') {
+            this.state.leaderboardTab = 'global';
+        }
+
+        globalTab.classList.toggle('active', this.state.leaderboardTab !== 'seasonal');
+        seasonalTab.classList.toggle('active', this.state.leaderboardTab === 'seasonal');
     },
 
     getPlayerStatus(entry) {
@@ -1278,6 +1308,7 @@ const TMC = {
                         <span class="player-link" onclick="TMC.navigate('profile', ${entry.player_id})">${this.escapeHtml(entry.handle)}</span>
                     </td>
                     <td class="stars-cell">${this.formatNumber(entry.seasonal_stars)}</td>
+                    <td class="stars-cell">${this.formatNumber(entry.coins || 0)}</td>
                     <td class="status-cell">${statusBadge}</td>
                 </tr>
             `;
@@ -1288,13 +1319,15 @@ const TMC = {
         const activeSeason = this.getActiveJoinedSeason();
         const body = document.getElementById('global-lb-body');
         const empty = document.getElementById('global-lb-empty');
+        const showSeasonalTab = !!activeSeason;
+        this.updateLeaderboardTabUI(showSeasonalTab);
 
-        if (activeSeason) {
+        if (this.state.leaderboardTab === 'seasonal' && activeSeason) {
             this.setLeaderboardMeta(
                 `Season #${activeSeason.season_id} Leaderboard`,
                 'Ranked by Seasonal Stars in your active season.'
             );
-            this.setLeaderboardHeader(['Rank', 'Player', 'Seasonal Stars', 'Status']);
+            this.setLeaderboardHeader(['Rank', 'Player', 'Seasonal Stars', 'Coins', 'Status']);
 
             const lb = await this.api('leaderboard', { season_id: activeSeason.season_id });
             if (!lb || lb.length === 0 || lb.error) {
@@ -1412,12 +1445,19 @@ const TMC = {
     },
 
     // ==================== TRADE ====================
-    async renderTradeScreen(seasonId) {
+    async renderTradeScreen(seasonContext) {
         const content = document.getElementById('trade-content');
         if (!this.state.player || !this.state.player.joined_season_id) {
             content.innerHTML = '<div class="error-state"><p>You must be in a season to trade.</p></div>';
             return;
         }
+
+        const seasonId = typeof seasonContext === 'object' && seasonContext !== null
+            ? (seasonContext.seasonId || this.state.player.joined_season_id)
+            : (seasonContext || this.state.player.joined_season_id);
+        const prefillTargetId = typeof seasonContext === 'object' && seasonContext !== null
+            ? (seasonContext.targetPlayerId || null)
+            : (this.state.pendingTradeTargetId || null);
 
         // Get players in season
         const players = await this.api('season_players', { season_id: seasonId });
@@ -1475,6 +1515,15 @@ const TMC = {
                 <div id="trade-list"></div>
             </div>
         `;
+
+        const targetSelect = document.getElementById('trade-target');
+        if (targetSelect && prefillTargetId) {
+            const targetOption = Array.from(targetSelect.options).find((opt) => String(opt.value) === String(prefillTargetId));
+            if (targetOption) {
+                targetSelect.value = String(prefillTargetId);
+            }
+        }
+        this.state.pendingTradeTargetId = null;
 
         this.loadMyTrades();
     },
@@ -1699,6 +1748,50 @@ const TMC = {
             </tr>
         `).join('');
 
+        const activeParticipation = profile.active_participation;
+        const activeSigils = Array.isArray(activeParticipation?.sigils) ? activeParticipation.sigils : [];
+        const season = activeParticipation?.season_id
+            ? this.state.seasons.find((s) => s.season_id == activeParticipation.season_id)
+            : null;
+        const seasonStatus = season ? (season.computed_status || season.status) : null;
+        const canOpenTrade = !!(
+            this.state.player &&
+            this.state.player.player_id != profile.player_id &&
+            this.state.player.joined_season_id &&
+            activeParticipation &&
+            this.state.player.joined_season_id == activeParticipation.season_id &&
+            seasonStatus === 'Active'
+        );
+
+        const inventoryHtml = activeParticipation ? `
+            <div class="profile-inventory">
+                <h3>Current Season Inventory</h3>
+                <div class="profile-stats profile-stats-season">
+                    <div class="profile-stat">
+                        <span class="stat-label">Coins</span>
+                        <span class="stat-value">${this.formatNumber(activeParticipation.coins)}</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Season</span>
+                        <span class="stat-value">#${activeParticipation.season_id}</span>
+                    </div>
+                </div>
+                <div class="sigil-display profile-sigil-display">
+                    ${activeSigils.map((count, i) => `
+                        <div class="sigil-item tier-${i+1}">
+                            <span class="sigil-tier">T${i+1}</span>
+                            <span class="sigil-count">${count}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : `
+            <div class="profile-inventory">
+                <h3>Current Season Inventory</h3>
+                <p class="panel-info">This player is not currently in an active season.</p>
+            </div>
+        `;
+
         content.innerHTML = `
             <div class="profile-card">
                 <div class="profile-header">
@@ -1715,6 +1808,8 @@ const TMC = {
                         <span class="stat-value">${new Date(profile.created_at).toLocaleDateString()}</span>
                     </div>
                 </div>
+                ${inventoryHtml}
+                ${canOpenTrade ? `<div class="profile-actions"><button class="btn btn-primary" onclick="TMC.openTradeRequest(${profile.player_id}, ${activeParticipation.season_id})">Open Trade Request</button></div>` : ''}
                 ${badges ? `<div class="profile-badges"><h3>Badges</h3><div class="badges-row">${badges}</div></div>` : ''}
                 ${history ? `
                     <div class="profile-history">
@@ -1727,6 +1822,15 @@ const TMC = {
                 ` : ''}
             </div>
         `;
+    },
+
+    openTradeRequest(targetPlayerId, seasonId) {
+        if (!this.state.player || !this.state.player.joined_season_id) {
+            this.toast('You must be in an active season to trade.', 'error');
+            return;
+        }
+        this.state.pendingTradeTargetId = targetPlayerId;
+        this.navigate('trade', { seasonId, targetPlayerId });
     },
 
     // ==================== UTILITIES ====================

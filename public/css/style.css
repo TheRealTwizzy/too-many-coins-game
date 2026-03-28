@@ -296,6 +296,7 @@ a:hover { text-decoration: underline; }
 .hud-coins .hud-value { color: var(--accent-gold); }
 .hud-stars .hud-value { color: var(--accent-blue-light); }
 .hud-sigils .hud-value { color: var(--accent-purple); }
+.hud-rate .hud-value { color: var(--accent-cyan); }
 .hud-global .hud-value { color: var(--accent-gold-light); }
 .activity-active { color: var(--accent-green) !important; }
 .activity-idle { color: var(--accent-orange) !important; }
@@ -800,6 +801,25 @@ a:hover { text-decoration: underline; }
     font-weight: 700;
 }
 
+.sigil-rate {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    letter-spacing: 0.03em;
+}
+
+.sigil-vault-section {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(42,53,80,0.8);
+}
+
+.sigil-vault-section h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-gold-light);
+    margin-bottom: 0.25rem;
+}
+
 .tier-1 .sigil-tier, .tier-1 .sigil-count { color: #a8a8a8; }
 .tier-2 .sigil-tier, .tier-2 .sigil-count { color: #4ade80; }
 .tier-3 .sigil-tier, .tier-3 .sigil-count { color: #60a5fa; }
@@ -846,6 +866,37 @@ a:hover { text-decoration: underline; }
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--accent-blue-light);
+}
+
+.leaderboard-tabs {
+    display: inline-flex;
+    gap: 0.45rem;
+    margin-bottom: 0.9rem;
+}
+
+.leaderboard-tab {
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.leaderboard-tab:hover {
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+.leaderboard-tab.active {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold-light);
+    box-shadow: 0 0 0 1px rgba(240, 180, 41, 0.25) inset;
 }
 
 /* ==================== LEADERBOARD ==================== */
@@ -1247,6 +1298,27 @@ a:hover { text-decoration: underline; }
 .profile-stat {
     display: flex;
     flex-direction: column;
+}
+
+.profile-stats-season {
+    margin-bottom: 0.6rem;
+}
+
+.profile-inventory {
+    margin-bottom: 1rem;
+}
+
+.profile-inventory h3 {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
+
+.profile-sigil-display {
+    margin-top: 0.4rem;
+}
+
+.profile-actions {
+    margin-bottom: 1rem;
 }
 
 .profile-badges {

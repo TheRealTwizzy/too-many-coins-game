@@ -340,6 +340,38 @@ try {
 
 // ==================== HELPER FUNCTIONS ====================
 
+function getSigilDropRateMetadata() {
+    $tiers = [];
+    foreach (SIGIL_TIER_ODDS as $tier => $oddsFp) {
+        $tiers[] = [
+            'tier' => (int)$tier,
+            'odds_fp' => (int)$oddsFp,
+            'chance_percent' => round(((int)$oddsFp / 1000000) * 100, 2)
+        ];
+    }
+
+    return [
+        'base_one_in' => (int)SIGIL_DROP_RATE,
+        'base_percent' => round(100 / max(1, (int)SIGIL_DROP_RATE), 3),
+        'tiers' => $tiers
+    ];
+}
+
+function calculatePlayerRatePerTick($season, $player, $participation, $activeBoosts) {
+    if (!$season || !$participation) return 0;
+
+    $baseUbi = Economy::calculateUBI($season, $player, $participation);
+    $ratePerTick = max(0, (int)$baseUbi);
+    $totalModFp = (int)($activeBoosts['total_modifier_fp'] ?? 0);
+
+    if ($totalModFp > 0) {
+        $boostedUbi = Economy::fpMultiply($baseUbi, FP_SCALE + $totalModFp);
+        $ratePerTick = max($ratePerTick, $boostedUbi);
+    }
+
+    return (int)$ratePerTick;
+}
+
 function getGameState($player) {
     $db = Database::getInstance();
     $gameTime = GameTime::now();
@@ -368,6 +400,7 @@ function getGameState($player) {
             "SELECT * FROM season_vault WHERE season_id = ? ORDER BY tier",
             [$s['season_id']]
         );
+        $s['sigil_drop_rates'] = getSigilDropRateMetadata();
         
         // Remove binary seed from response
         unset($s['season_seed']);
@@ -376,12 +409,20 @@ function getGameState($player) {
     
     if ($player) {
         $participation = null;
+        $joinedSeason = null;
         if ($player['joined_season_id']) {
+            $joinedSeason = $db->fetch(
+                "SELECT * FROM seasons WHERE season_id = ?",
+                [$player['joined_season_id']]
+            );
             $participation = $db->fetch(
                 "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
                 [$player['player_id'], $player['joined_season_id']]
             );
         }
+
+        $activeBoosts = getActiveBoosts($player);
+        $ratePerTick = calculatePlayerRatePerTick($joinedSeason, $player, $participation, $activeBoosts);
         
         $state['player'] = [
             'player_id' => $player['player_id'],
@@ -408,8 +449,9 @@ function getGameState($player) {
                 'lock_in_stars' => $participation['lock_in_snapshot_seasonal_stars'],
                 'sigil_drops_total' => (int)($participation['sigil_drops_total'] ?? 0),
                 'eligible_ticks_since_last_drop' => (int)($participation['eligible_ticks_since_last_drop'] ?? 0),
+                'rate_per_tick' => $ratePerTick,
             ] : null,
-            'active_boosts' => getActiveBoosts($player),
+            'active_boosts' => $activeBoosts,
             'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player) : [],
             'can_lock_in' => canLockIn($player, $participation),
             'can_purchase_stars' => canPurchaseStars($player),
@@ -494,6 +536,7 @@ function getSeasonDetail($player, $seasonId) {
         "SELECT * FROM season_vault WHERE season_id = ? ORDER BY tier",
         [$seasonId]
     );
+    $season['sigil_drop_rates'] = getSigilDropRateMetadata();
     
     // Top players
     if ($season['computed_status'] === 'Active' || $season['computed_status'] === 'Blackout') {
@@ -539,6 +582,7 @@ function getLeaderboard($seasonId) {
         return $db->fetchAll(
             "SELECT p.player_id, p.handle,
                     COALESCE(sp.seasonal_stars, 0) AS seasonal_stars,
+                    COALESCE(sp.coins, 0) AS coins,
                     sp.final_rank,
                     sp.lock_in_effect_tick,
                     COALESCE(sp.end_membership, 0) AS end_membership,
@@ -556,7 +600,7 @@ function getLeaderboard($seasonId) {
     }
 
     return $db->fetchAll(
-        "SELECT sp.player_id, p.handle, sp.seasonal_stars, sp.final_rank,
+        "SELECT sp.player_id, p.handle, sp.seasonal_stars, COALESCE(sp.coins, 0) AS coins, sp.final_rank,
                 sp.lock_in_effect_tick, sp.end_membership, sp.badge_awarded,
                 sp.global_stars_earned, sp.participation_bonus, sp.placement_bonus,
                 p.activity_state, p.online_current
@@ -683,7 +727,8 @@ function getChatMessages($player, $input) {
 function getProfile($viewer, $targetId) {
     $db = Database::getInstance();
     $target = $db->fetch(
-        "SELECT player_id, handle, role, global_stars, profile_visibility, created_at, profile_deleted_at
+        "SELECT player_id, handle, role, global_stars, profile_visibility, created_at, profile_deleted_at,
+                joined_season_id, participation_enabled
          FROM players WHERE player_id = ?",
         [$targetId]
     );
@@ -711,6 +756,35 @@ function getProfile($viewer, $targetId) {
     
     $target['badges'] = $badges;
     $target['season_history'] = $history;
+    $target['active_participation'] = null;
+
+    if (!empty($target['joined_season_id']) && (int)$target['participation_enabled'] === 1) {
+        $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$target['joined_season_id']]);
+        if ($season) {
+            $status = GameTime::getSeasonStatus($season);
+            if ($status === 'Active') {
+                $participation = $db->fetch(
+                    "SELECT coins, sigils_t1, sigils_t2, sigils_t3, sigils_t4, sigils_t5
+                     FROM season_participation
+                     WHERE player_id = ? AND season_id = ?",
+                    [$targetId, $target['joined_season_id']]
+                );
+                if ($participation) {
+                    $target['active_participation'] = [
+                        'season_id' => (int)$target['joined_season_id'],
+                        'coins' => (int)$participation['coins'],
+                        'sigils' => [
+                            (int)$participation['sigils_t1'],
+                            (int)$participation['sigils_t2'],
+                            (int)$participation['sigils_t3'],
+                            (int)$participation['sigils_t4'],
+                            (int)$participation['sigils_t5']
+                        ]
+                    ];
+                }
+            }
+        }
+    }
     
     return $target;
 }

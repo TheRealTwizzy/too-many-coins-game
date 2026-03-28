@@ -56,7 +56,7 @@ define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hou
 define('MIN_PARTICIPATION_TICKS', 1);
 
 // Sigil drops
-define('SIGIL_DROP_RATE', max(1, (int)round(50000 / 60)));  // 1 in 833 (1 tick/min default)
+define('SIGIL_DROP_RATE', max(1, (int)round(45000 / 60)));  // 1 in 750 (small frequency bump)
 define('SIGIL_PITY_TICKS', ticks_from_real_seconds(120000));
 define('SIGIL_MAX_DROPS_WINDOW', 3);
 define('SIGIL_DROP_WINDOW_TICKS', ticks_from_real_seconds(86400));

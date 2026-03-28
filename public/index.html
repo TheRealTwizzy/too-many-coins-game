@@ -72,6 +72,10 @@
                     <span class="hud-label">Sigils</span>
                     <span class="hud-value" id="hud-sigils">0</span>
                 </div>
+                <div class="hud-item hud-rate">
+                    <span class="hud-label">Rate</span>
+                    <span class="hud-value" id="hud-rate">0/tick</span>
+                </div>
                 <div class="hud-item hud-global">
                     <span class="hud-label">Global</span>
                     <span class="hud-value" id="hud-global-stars">0</span>
@@ -154,12 +158,16 @@
 
             <!-- GLOBAL LEADERBOARD -->
             <section id="screen-global-lb" class="screen">
-                <h2 id="global-lb-title" class="screen-title">Global Leaderboard</h2>
+                <h2 id="global-lb-title" class="screen-title">Leaderboards</h2>
                 <p id="global-lb-subtitle" class="screen-subtitle">Ranked by Global Stars earned this yearly cycle.</p>
+                <div id="leaderboard-tabs" class="leaderboard-tabs">
+                    <button id="leaderboard-tab-global" class="leaderboard-tab active" onclick="TMC.switchLeaderboardTab('global')">Global</button>
+                    <button id="leaderboard-tab-seasonal" class="leaderboard-tab" onclick="TMC.switchLeaderboardTab('seasonal')" style="display:none;">Seasonal</button>
+                </div>
                 <div id="global-lb-content">
                     <table class="leaderboard-table">
                         <thead>
-                            <tr><th>Rank</th><th>Player</th><th>Global Stars</th></tr>
+                            <tr><th>Rank</th><th>Player</th><th>Global Stars</th><th>Status</th></tr>
                         </thead>
                         <tbody id="global-lb-body">
                         </tbody>
@@ -241,10 +249,6 @@
             <button class="bottom-nav-btn" data-screen="shop" onclick="TMC.navigate('shop')">
                 <span class="bottom-nav-icon">&#128142;</span>
                 <span class="bottom-nav-label">Shop</span>
-            </button>
-            <button class="bottom-nav-btn" onclick="window.location.href='/wiki/'">
-                <span class="bottom-nav-icon">&#128218;</span>
-                <span class="bottom-nav-label">Wiki</span>
             </button>
         </nav>
 
