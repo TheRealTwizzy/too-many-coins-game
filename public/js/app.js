@@ -836,7 +836,8 @@ const TMC = {
                         <tr>
                             <th>Rank</th>
                             <th>Player</th>
-                            <th>Seasonal Stars</th>
+                            <th>Stars</th>
+                            <th>Boost</th>
                             <th>Coins</th>
                             <th>Status</th>
                             ${isParticipating && part && part.can_freeze ? '<th>Action</th>' : ''}
@@ -1461,6 +1462,7 @@ const TMC = {
                         <span class="player-link" onclick="TMC.navigate('profile', ${entry.player_id})">${this.escapeHtml(entry.handle)}</span>
                     </td>
                     <td class="stars-cell">${this.formatNumber(entry.seasonal_stars)}</td>
+                    <td class="boost-cell">${entry.boost_pct != null ? entry.boost_pct + '%' : '0%'}</td>
                     <td class="stars-cell">${this.formatNumber(entry.coins || 0)}</td>
                     <td class="status-cell">${statusBadge}</td>
                     ${canFreeze ? `<td class="status-cell">${(!isMe && entry.activity_state === 'Active') ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); TMC.freezeByPlayerId(${entry.player_id})">Freeze</button>` : ''}</td>` : ''}
@@ -1481,7 +1483,7 @@ const TMC = {
                 `Season #${activeSeason.season_id} Leaderboard`,
                 'Ranked by Seasonal Stars in your active season.'
             );
-            this.setLeaderboardHeader(['Rank', 'Player', 'Seasonal Stars', 'Coins', 'Status']);
+            this.setLeaderboardHeader(['Rank', 'Player', 'Stars', 'Boost', 'Coins', 'Status']);
 
             const lb = await this.api('leaderboard', { season_id: activeSeason.season_id });
             if (!lb || lb.length === 0 || lb.error) {

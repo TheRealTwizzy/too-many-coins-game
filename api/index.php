@@ -698,6 +698,7 @@ function getLeaderboard($seasonId) {
 
     $status = GameTime::getSeasonStatus($season);
     if ($status === 'Active' || $status === 'Blackout') {
+        $gameTime = GameTime::now();
         return $db->fetchAll(
             "SELECT p.player_id, p.handle,
                     COALESCE(sp.seasonal_stars, 0) AS seasonal_stars,
@@ -709,12 +710,29 @@ function getLeaderboard($seasonId) {
                     COALESCE(sp.global_stars_earned, 0) AS global_stars_earned,
                     COALESCE(sp.participation_bonus, 0) AS participation_bonus,
                     COALESCE(sp.placement_bonus, 0) AS placement_bonus,
-                    p.activity_state, p.online_current
+                    p.activity_state, p.online_current,
+                    ROUND(
+                        LEAST(
+                            COALESCE(self_b.self_fp, 0) + glob_b.global_fp,
+                            4000000
+                        ) / 10000, 1
+                    ) AS boost_pct
              FROM players p
              LEFT JOIN season_participation sp ON sp.player_id = p.player_id AND sp.season_id = ?
+             LEFT JOIN (
+                 SELECT player_id, SUM(modifier_fp) AS self_fp
+                 FROM active_boosts
+                 WHERE season_id = ? AND is_active = 1 AND scope = 'SELF' AND expires_tick >= ?
+                 GROUP BY player_id
+             ) self_b ON self_b.player_id = p.player_id
+             CROSS JOIN (
+                 SELECT COALESCE(SUM(modifier_fp), 0) AS global_fp
+                 FROM active_boosts
+                 WHERE season_id = ? AND is_active = 1 AND scope = 'GLOBAL' AND expires_tick >= ?
+             ) glob_b
              WHERE p.joined_season_id = ? AND p.participation_enabled = 1
              ORDER BY COALESCE(sp.seasonal_stars, 0) DESC, p.player_id ASC",
-            [$seasonId, $seasonId]
+            [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
         );
     }
 
@@ -722,7 +740,8 @@ function getLeaderboard($seasonId) {
         "SELECT sp.player_id, p.handle, sp.seasonal_stars, COALESCE(sp.coins, 0) AS coins, sp.final_rank,
                 sp.lock_in_effect_tick, sp.end_membership, sp.badge_awarded,
                 sp.global_stars_earned, sp.participation_bonus, sp.placement_bonus,
-                p.activity_state, p.online_current
+                p.activity_state, p.online_current,
+                0.0 AS boost_pct
          FROM season_participation sp
          JOIN players p ON p.player_id = sp.player_id
          WHERE sp.season_id = ?
