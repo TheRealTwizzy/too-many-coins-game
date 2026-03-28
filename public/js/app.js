@@ -664,6 +664,7 @@ const TMC = {
 
         const p = this.state.player;
         const isParticipating = p && p.joined_season_id == seasonId;
+        const part = (isParticipating && p) ? (p.participation || null) : null;
         const status = detail.computed_status || detail.status;
         const isBlackout = status === 'Blackout';
         const isExpired = status === 'Expired';
@@ -712,8 +713,7 @@ const TMC = {
         `;
 
         // Action panel (if participating)
-        if (isParticipating && !isExpired) {
-            const part = p.participation;
+        if (isParticipating && !isExpired && part) {
             html += `
                 <div class="action-panels">
                     <!-- Purchase Stars Panel -->
@@ -853,7 +853,7 @@ const TMC = {
         this.loadSeasonLeaderboard(seasonId);
 
         // Load trades if participating
-        if (isParticipating) this.loadMyTrades();
+        if (isParticipating && part) this.loadMyTrades();
 
         this.updatePurchaseEstimate();
         this.renderActiveBoosts();
