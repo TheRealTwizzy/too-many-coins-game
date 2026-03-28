@@ -255,6 +255,9 @@ a:hover { text-decoration: underline; }
     background: linear-gradient(180deg, var(--bg-tertiary), var(--bg-secondary));
     border-bottom: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 52px;
+    z-index: 90;
 }
 
 .hud-inner {
@@ -1534,21 +1537,22 @@ a:hover { text-decoration: underline; }
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .boost-title {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .boost-inline-meta {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    white-space: nowrap;
+    white-space: normal;
+    flex-wrap: wrap;
 }
 
 .boost-icon {

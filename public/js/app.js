@@ -390,19 +390,18 @@ const TMC = {
         document.getElementById('hud-sigils').textContent = totalSigils;
         const ratePerTick = Number(p.participation.rate_per_tick || 0);
         const rateEl = document.getElementById('hud-rate');
-        if (rateEl) rateEl.textContent = `${this.formatNumber(ratePerTick)}/tick`;
+        if (rateEl) rateEl.textContent = this.formatNumber(ratePerTick);
         document.getElementById('hud-global-stars').textContent = this.formatNumber(p.global_stars);
 
-        // Boosts count and modifier
+        // Boost total modifier only
         const boosts = p.active_boosts || { self: [], global: [], total_modifier_percent: 0 };
-        const boostCount = (boosts.self || []).length + (boosts.global || []).length;
+        const totalBoostPercent = Number(boosts.total_modifier_percent || 0);
         const boostEl = document.getElementById('hud-boosts');
         if (boostEl) {
-            if (boostCount > 0) {
-                boostEl.textContent = `${boostCount} (+${boosts.total_modifier_percent}%)`;
+            boostEl.textContent = `${totalBoostPercent}%`;
+            if (totalBoostPercent > 0) {
                 boostEl.className = 'hud-value boost-active';
             } else {
-                boostEl.textContent = '0';
                 boostEl.className = 'hud-value';
             }
         }
@@ -801,6 +800,7 @@ const TMC = {
                             <th>Rank</th>
                             <th>Player</th>
                             <th>Seasonal Stars</th>
+                            <th>Coins</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -840,31 +840,7 @@ const TMC = {
         }
         if (empty) empty.style.display = 'none';
 
-        body.innerHTML = lb.map((entry, i) => {
-            const rank = entry.final_rank || (i + 1);
-            const isLockedIn = entry.lock_in_effect_tick !== null;
-            const isMe = this.state.player && entry.player_id == this.state.player.player_id;
-            let statusBadge = this.renderPlayerStatusBadge(entry);
-            if (entry.badge_awarded) {
-                const badgeEmoji = { first: '&#129351;', second: '&#129352;', third: '&#129353;' };
-                statusBadge += ` <span class="badge badge-${entry.badge_awarded}">${badgeEmoji[entry.badge_awarded] || ''}</span>`;
-            } else if (isLockedIn) {
-                statusBadge += ' <span class="badge badge-lockin">Locked In</span>';
-            } else if (entry.end_membership) {
-                statusBadge += ' <span class="badge badge-ended">End-Finisher</span>';
-            }
-
-            return `
-                <tr class="${isMe ? 'my-row' : ''} ${rank <= 3 ? 'top-three' : ''}">
-                    <td class="rank-cell">${rank <= 3 ? ['&#129351;', '&#129352;', '&#129353;'][rank-1] : rank}</td>
-                    <td class="player-cell">
-                        <span class="player-link" onclick="TMC.navigate('profile', ${entry.player_id})">${this.escapeHtml(entry.handle)}</span>
-                    </td>
-                    <td class="stars-cell">${this.formatNumber(entry.seasonal_stars)}</td>
-                    <td class="status-cell">${statusBadge}</td>
-                </tr>
-            `;
-        }).join('');
+        body.innerHTML = this.renderSeasonLeaderboardRows(lb);
     },
 
     // ==================== ACTIONS ====================
@@ -1072,7 +1048,7 @@ const TMC = {
                         <div class="boost-inline-meta">
                             <span class="boost-modifier">+${modPercent}% UBI</span>
                             <span class="boost-duration">${durationLabel}</span>
-                            <span class="boost-cost-inline">Cost: ${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
+                            <span class="boost-cost-inline">${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
                         </div>
                         <span class="boost-have boost-have-inline">(You have: ${part ? part.sigils[tier-1] : 0})</span>
                     </div>

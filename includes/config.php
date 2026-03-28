@@ -56,7 +56,7 @@ define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hou
 define('MIN_PARTICIPATION_TICKS', 1);
 
 // Sigil drops
-define('SIGIL_DROP_RATE', max(1, (int)round(45000 / 60)));  // 1 in 750 (small frequency bump)
+define('SIGIL_DROP_RATE', max(1, (int)round(7260 / 60)));  // 1 in 121 (~0.826% base)
 define('SIGIL_PITY_TICKS', ticks_from_real_seconds(120000));
 define('SIGIL_MAX_DROPS_WINDOW', 8);
 define('SIGIL_DROP_WINDOW_TICKS', ticks_from_real_seconds(86400));
@@ -69,11 +69,11 @@ define('BOOST_GUARANTEED_FLOOR_CAP_COINS', 0);
 
 // Sigil tier odds (fixed-point, sum = 1,000,000)
 define('SIGIL_TIER_ODDS', [
-    1 => 700000,  // 70% Tier I
-    2 => 200000,  // 20% Tier II
-    3 => 80000,   // 8% Tier III
-    4 => 15000,   // 1.5% Tier IV
-    5 => 5000     // 0.5% Tier V
+    1 => 609757,  // ~0.5039% effective Tier I
+    2 => 243902,  // ~0.2016% effective Tier II
+    3 => 97561,   // ~0.0806% effective Tier III
+    4 => 36585,   // ~0.0302% effective Tier IV
+    5 => 12195    // ~0.0101% effective Tier V
 ]);
 
 // Participation bonus
