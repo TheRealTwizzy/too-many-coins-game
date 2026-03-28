@@ -1048,12 +1048,18 @@ const TMC = {
             const hasSigil = part && part.sigils[tier - 1] >= parseInt(b.sigil_cost);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const durationTicks = parseInt(b.duration_ticks);
-            const durationLabel = this.formatBoostDuration(durationTicks, 'short');
-            const scopeLabel = b.scope === 'GLOBAL' ? 'All Players' : 'Self Only';
-            const scopeClass = b.scope === 'GLOBAL' ? 'scope-global' : 'scope-self';
             const description = this.getBoostDescription(b);
             const displayName = this.getBoostDisplayName(b.name);
             const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
+            const boostKey = String(displayName || b.name || '').trim().toLowerCase();
+            const durationDisplayByBoost = {
+                trickle: '1hr',
+                surge: '3hrs',
+                flow: '6hrs',
+                tide: '12hrs',
+                age: '24hrs',
+            };
+            const durationLabel = durationDisplayByBoost[boostKey] || this.formatBoostDuration(durationTicks, 'short');
 
             return `
                 <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
@@ -1065,7 +1071,6 @@ const TMC = {
                     <div class="boost-stats">
                         <span class="boost-modifier">+${modPercent}% UBI</span>
                         <span class="boost-duration">${durationLabel}</span>
-                        <span class="boost-scope ${scopeClass}">${scopeLabel}</span>
                     </div>
                     <div class="boost-cost">
                         <span>Cost: ${b.sigil_cost} Tier ${tier} Sigil${parseInt(b.sigil_cost) > 1 ? 's' : ''}</span>
