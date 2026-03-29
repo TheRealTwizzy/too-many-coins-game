@@ -624,23 +624,24 @@ class EconomyPrecisionTest extends TestCase
     }
 
     /**
-     * Integration: at 500% boost (max) gross_rate_fp must exceed 500% boost piecewise bonus
-     * in fp units (i.e., the bonus is present and additive on top of UBI).
+     * Integration: at max clamped boost (400%) gross_rate_fp must exceed the 400% boost
+     * piecewise bonus in fp units (i.e., the bonus is present and additive on top of UBI).
+     * Uses 4,000,000 fp = 400% to match the tick engine's 5x UBI multiplier cap.
      */
-    public function testPiecewiseBonusAt500PctIsAddedToGrossRate(): void
+    public function testPiecewiseBonusAtMaxBoostIsAddedToGrossRate(): void
     {
         $season = $this->makeSeasonFixture(['base_ubi_active_per_tick' => 30]);
         $player = $this->makePlayerFixture();
 
-        // 500% boost = 5,000,000 fp
-        $rates = Economy::calculateRateBreakdown($season, $player, $player, 5000000, false);
+        // 400% boost (max clamped by tick engine) = 4,000,000 fp
+        $rates = Economy::calculateRateBreakdown($season, $player, $player, 4000000, false);
 
-        // The piecewise bonus alone at 500% is 85 coins = 85,000,000 fp.
-        $expectedPiecewiseFp = Economy::grossRateBonusFpFromBoostPct(500.0);
+        // The piecewise bonus alone at 400% is given by grossRateBonusFpFromBoostPct(400.0).
+        $expectedPiecewiseFp = Economy::grossRateBonusFpFromBoostPct(400.0);
         $this->assertGreaterThan(
             $expectedPiecewiseFp,
             (int)$rates['gross_rate_fp'],
-            'gross_rate_fp at 500% boost must exceed the piecewise bonus alone (UBI is additive).'
+            'gross_rate_fp at max boost must exceed the piecewise bonus alone (UBI is additive).'
         );
     }
 }

@@ -128,14 +128,16 @@ class Economy {
     /**
      * Piecewise linear interpolation of gross-rate bonus (coins/tick) from effective boost %.
      *
-     * Tiers (500% hard cap, matching the maximum achievable boost envelope):
+     * Tiers (boostPct hard-clamped to [0, 500] for future-proofing; the tick engine
+     * currently caps boostModFp at 4,000,000 fp = 400%, so the 450–500% tier is
+     * unreachable under the default engine clamp):
      *   0–25%    → +0 to +0    (flat, no bonus below 25%)
      *   25–75%   → +0 to +4
      *   75–150%  → +4 to +10
      *   150–250% → +10 to +22
      *   250–350% → +22 to +40
-     *   350–450% → +40 to +65
-     *   450–500% → +65 to +85  (hard cap tier)
+     *   350–450% → +40 to +65  (effective max at 400% engine cap: ~+52.5)
+     *   450–500% → +65 to +85  (reachable only if engine cap is raised above 400%)
      *
      * Each value shown is the bonus at the upper bound of the range.
      *
@@ -179,10 +181,11 @@ class Economy {
     /**
      * Fixed-point wrapper: converts effective boost % to a gross-rate bonus in fp units.
      * Uses FP_SCALE (1,000,000) consistent with the rest of the economy pipeline.
+     * Floor is applied after scaling, matching the "floor-after-each-step" convention.
      */
     public static function grossRateBonusFpFromBoostPct(float $boostPct): int
     {
-        return (int)round(self::grossRateBonusFromBoostPct($boostPct) * FP_SCALE);
+        return (int)floor(self::grossRateBonusFromBoostPct($boostPct) * FP_SCALE);
     }
 
     /**
