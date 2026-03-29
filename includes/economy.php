@@ -126,6 +126,66 @@ class Economy {
     }
 
     /**
+     * Piecewise linear interpolation of gross-rate bonus (coins/tick) from effective boost %.
+     *
+     * Tiers (500% hard cap, matching the maximum achievable boost envelope):
+     *   0–25%    → +0 to +0    (flat, no bonus below 25%)
+     *   25–75%   → +0 to +4
+     *   75–150%  → +4 to +10
+     *   150–250% → +10 to +22
+     *   250–350% → +22 to +40
+     *   350–450% → +40 to +65
+     *   450–500% → +65 to +85  (hard cap tier)
+     *
+     * Each value shown is the bonus at the upper bound of the range.
+     *
+     * Interpolation rule (continuous within each interval):
+     *   bonus = startBonus + (endBonus - startBonus) * progress
+     *   progress = (boostPct - tierMin) / (tierMax - tierMin)
+     *
+     * boostPct is hard-clamped to [0, 500] before lookup.
+     */
+    public static function grossRateBonusFromBoostPct(float $boostPct): float
+    {
+        // Hard clamp to design envelope [0, 500]
+        $x = max(0.0, min(500.0, $boostPct));
+
+        // [tierMin, tierMax, startBonus, endBonus]
+        $segments = [
+            [  0.0,  25.0,  0.0,  0.0],
+            [ 25.0,  75.0,  0.0,  4.0],
+            [ 75.0, 150.0,  4.0, 10.0],
+            [150.0, 250.0, 10.0, 22.0],
+            [250.0, 350.0, 22.0, 40.0],
+            [350.0, 450.0, 40.0, 65.0],
+            [450.0, 500.0, 65.0, 85.0],
+        ];
+
+        foreach ($segments as [$minPct, $maxPct, $startBonus, $endBonus]) {
+            if ($x > $maxPct) {
+                continue;
+            }
+            $width = $maxPct - $minPct;
+            if ($width <= 0.0) {
+                return (float)$endBonus;
+            }
+            $progress = ($x - $minPct) / $width;
+            return $startBonus + ($endBonus - $startBonus) * $progress;
+        }
+
+        return 85.0; // x == 500, already clamped above
+    }
+
+    /**
+     * Fixed-point wrapper: converts effective boost % to a gross-rate bonus in fp units.
+     * Uses FP_SCALE (1,000,000) consistent with the rest of the economy pipeline.
+     */
+    public static function grossRateBonusFpFromBoostPct(float $boostPct): int
+    {
+        return (int)round(self::grossRateBonusFromBoostPct($boostPct) * FP_SCALE);
+    }
+
+    /**
      * Split fixed-point amount into whole coins and residual fractional fp.
      */
     public static function splitFixedPoint($amountFp) {
@@ -240,13 +300,19 @@ class Economy {
     }
 
     /**
-     * Gross per-tick rate in fixed point after boost modifier and guaranteed boost floor.
+     * Gross per-tick rate in fixed point after boost modifier, guaranteed boost floor,
+     * and piecewise interpolated gross-rate bonus.
      */
     public static function calculateGrossRatePerTickFp($season, $player, $participation, $boostModFp, $isLockInTick = false) {
         $baseUbi = self::calculateUBI($season, $player, $participation, $isLockInTick);
         $ratePerTickFp = self::toFixedPoint($baseUbi);
         $ratePerTickFp = self::applyBoostModifierFp($ratePerTickFp, (int)$boostModFp);
         $ratePerTickFp += self::guaranteedBoostFloorFp((int)$boostModFp);
+        // Piecewise interpolated bonus: converts boostModFp to boost% (1% = FP_SCALE/100)
+        // and applies the smooth tiered bonus on top of the UBI-derived rate.
+        $fpPerPercent = FP_SCALE / 100.0;
+        $boostPct = (float)(int)$boostModFp / $fpPerPercent;
+        $ratePerTickFp += self::grossRateBonusFpFromBoostPct($boostPct);
         return max(0, (int)$ratePerTickFp);
     }
 
