@@ -177,7 +177,11 @@ class Economy {
             [$x1, $y1] = $pts[$i];
             [$x2, $y2] = $pts[$i + 1];
             if ($x <= $x2) {
-                $t = ($x - $x1) / ($x2 - $x1);
+                $width = $x2 - $x1;
+                if ($width <= 0.0) {
+                    return (float)$y2;
+                }
+                $t = ($x - $x1) / $width;
                 return $y1 + $t * ($y2 - $y1);
             }
         }

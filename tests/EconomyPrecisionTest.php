@@ -511,7 +511,7 @@ class EconomyPrecisionTest extends TestCase
      * Exact breakpoint values must match the design table (BOOST_RATE_BONUS_BREAKPOINTS).
      * Each breakpoint maps to its defined bonus without rounding error.
      */
-    public function testGrossRateBonusTierEndpoints(): void
+    public function testGrossRateBonusBreakpointEndpoints(): void
     {
         $cases = [
               0.0 =>   0.0,
@@ -541,7 +541,7 @@ class EconomyPrecisionTest extends TestCase
      * Representative interpolation samples between breakpoints.
      * Verifies continuous linear blending within each segment.
      */
-    public function testGrossRateBonusInTierInterpolation(): void
+    public function testGrossRateBonusSegmentInterpolation(): void
     {
         // 0–10: midpoint 5% → 0 + (8-0)*0.5 = 4.0
         $this->assertEqualsWithDelta(4.0, Economy::grossRateBonusFromBoostPct(5.0), 0.0001,
