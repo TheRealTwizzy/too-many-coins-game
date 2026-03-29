@@ -503,25 +503,28 @@ class EconomyPrecisionTest extends TestCase
      */
     public function testGrossRateBonusClampsAbove500(): void
     {
-        $this->assertEqualsWithDelta(85.0, Economy::grossRateBonusFromBoostPct(501.0), 0.0001);
-        $this->assertEqualsWithDelta(85.0, Economy::grossRateBonusFromBoostPct(9999.0), 0.0001);
+        $this->assertEqualsWithDelta(100.0, Economy::grossRateBonusFromBoostPct(501.0), 0.0001);
+        $this->assertEqualsWithDelta(100.0, Economy::grossRateBonusFromBoostPct(9999.0), 0.0001);
     }
 
     /**
-     * Exact tier endpoint values must match the design table.
-     * Each tier boundary maps to its defined bonus without rounding error.
+     * Exact breakpoint values must match the design table (BOOST_RATE_BONUS_BREAKPOINTS).
+     * Each breakpoint maps to its defined bonus without rounding error.
      */
-    public function testGrossRateBonusTierEndpoints(): void
+    public function testGrossRateBonusBreakpointEndpoints(): void
     {
         $cases = [
-              0.0 =>  0.0,
-             25.0 =>  0.0,
-             75.0 =>  4.0,
-            150.0 => 10.0,
-            250.0 => 22.0,
-            350.0 => 40.0,
-            450.0 => 65.0,
-            500.0 => 85.0,
+              0.0 =>   0.0,
+             10.0 =>   8.0,
+             25.0 =>  16.0,
+             50.0 =>  28.0,
+             75.0 =>  37.0,
+            100.0 =>  45.0,
+            150.0 =>  58.0,
+            200.0 =>  68.0,
+            300.0 =>  82.0,
+            400.0 =>  92.0,
+            500.0 => 100.0,
         ];
 
         foreach ($cases as $boostPct => $expected) {
@@ -529,40 +532,40 @@ class EconomyPrecisionTest extends TestCase
                 $expected,
                 Economy::grossRateBonusFromBoostPct((float)$boostPct),
                 0.0001,
-                "Tier endpoint {$boostPct}% should yield bonus {$expected}."
+                "Breakpoint {$boostPct}% should yield bonus {$expected}."
             );
         }
     }
 
     /**
-     * Representative in-tier interpolation samples.
+     * Representative interpolation samples between breakpoints.
      * Verifies continuous linear blending within each segment.
      */
-    public function testGrossRateBonusInTierInterpolation(): void
+    public function testGrossRateBonusSegmentInterpolation(): void
     {
-        // Tier 25–75: midpoint 50% → 0 + (4-0)*0.5 = 2.0
-        $this->assertEqualsWithDelta(2.0, Economy::grossRateBonusFromBoostPct(50.0), 0.0001,
-            '50% (mid of 25–75 tier) should interpolate to 2.0');
+        // 0–10: midpoint 5% → 0 + (8-0)*0.5 = 4.0
+        $this->assertEqualsWithDelta(4.0, Economy::grossRateBonusFromBoostPct(5.0), 0.0001,
+            '5% (mid of 0–10 segment) should interpolate to 4.0');
 
-        // Tier 75–150: midpoint 112.5% → 4 + (10-4)*0.5 = 7.0
-        $this->assertEqualsWithDelta(7.0, Economy::grossRateBonusFromBoostPct(112.5), 0.0001,
-            '112.5% (mid of 75–150 tier) should interpolate to 7.0');
+        // 10–25: midpoint 17.5% → 8 + (16-8)*0.5 = 12.0
+        $this->assertEqualsWithDelta(12.0, Economy::grossRateBonusFromBoostPct(17.5), 0.0001,
+            '17.5% (mid of 10–25 segment) should interpolate to 12.0');
 
-        // Tier 150–250: 25% into segment → 10 + (22-10)*0.25 = 13.0
-        $this->assertEqualsWithDelta(13.0, Economy::grossRateBonusFromBoostPct(175.0), 0.0001,
-            '175% (25% into 150–250 tier) should interpolate to 13.0');
+        // 50–75: midpoint 62.5% → 28 + (37-28)*0.5 = 32.5
+        $this->assertEqualsWithDelta(32.5, Economy::grossRateBonusFromBoostPct(62.5), 0.0001,
+            '62.5% (mid of 50–75 segment) should interpolate to 32.5');
 
-        // Tier 250–350: 75% into segment → 22 + (40-22)*0.75 = 35.5
-        $this->assertEqualsWithDelta(35.5, Economy::grossRateBonusFromBoostPct(325.0), 0.0001,
-            '325% (75% into 250–350 tier) should interpolate to 35.5');
+        // 100–150: midpoint 125% → 45 + (58-45)*0.5 = 51.5
+        $this->assertEqualsWithDelta(51.5, Economy::grossRateBonusFromBoostPct(125.0), 0.0001,
+            '125% (mid of 100–150 segment) should interpolate to 51.5');
 
-        // Tier 350–450: midpoint 400% → 40 + (65-40)*0.5 = 52.5
-        $this->assertEqualsWithDelta(52.5, Economy::grossRateBonusFromBoostPct(400.0), 0.0001,
-            '400% (mid of 350–450 tier) should interpolate to 52.5');
+        // 200–300: midpoint 250% → 68 + (82-68)*0.5 = 75.0
+        $this->assertEqualsWithDelta(75.0, Economy::grossRateBonusFromBoostPct(250.0), 0.0001,
+            '250% (mid of 200–300 segment) should interpolate to 75.0');
 
-        // Tier 450–500: midpoint 475% → 65 + (85-65)*0.5 = 75.0
-        $this->assertEqualsWithDelta(75.0, Economy::grossRateBonusFromBoostPct(475.0), 0.0001,
-            '475% (mid of 450–500 tier) should interpolate to 75.0');
+        // 400–500: midpoint 450% → 92 + (100-92)*0.5 = 96.0
+        $this->assertEqualsWithDelta(96.0, Economy::grossRateBonusFromBoostPct(450.0), 0.0001,
+            '450% (mid of 400–500 segment) should interpolate to 96.0');
     }
 
     /**
@@ -589,7 +592,7 @@ class EconomyPrecisionTest extends TestCase
      */
     public function testGrossRateBonusFpRoundTrip(): void
     {
-        $cases = [0.0, 25.0, 50.0, 150.0, 250.0, 350.0, 475.0, 500.0];
+        $cases = [0.0, 10.0, 25.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0];
         foreach ($cases as $pct) {
             $float  = Economy::grossRateBonusFromBoostPct($pct);
             $fp     = Economy::grossRateBonusFpFromBoostPct($pct);
