@@ -126,56 +126,63 @@ class Economy {
     }
 
     /**
+     * Breakpoint curve for diminishing-returns gross-rate bonus (coins/tick) vs boost %.
+     *
+     * Each entry is [boostPct, rateBonus]. The curve is piecewise-linear between
+     * adjacent points, giving strong early gains that taper off at high boost levels.
+     * To rebalance, edit only these values — the interpolation logic is unchanged.
+     *
+     * boostPct must be monotonically increasing; rateBonus must be non-decreasing.
+     */
+    private const BOOST_RATE_BONUS_BREAKPOINTS = [
+        [   0.0,   0.0],
+        [  10.0,   8.0],
+        [  25.0,  16.0],
+        [  50.0,  28.0],
+        [  75.0,  37.0],
+        [ 100.0,  45.0],
+        [ 150.0,  58.0],
+        [ 200.0,  68.0],
+        [ 300.0,  82.0],
+        [ 400.0,  92.0],
+        [ 500.0, 100.0],
+    ];
+
+    /**
      * Piecewise linear interpolation of gross-rate bonus (coins/tick) from effective boost %.
      *
-     * Tiers (boostPct hard-clamped to [0, 500] for future-proofing; the tick engine
-     * currently caps boostModFp at 4,000,000 fp = 400%, so the 450–500% tier is
-     * unreachable under the default engine clamp):
-     *   0–25%    → +0 to +0    (flat, no bonus below 25%)
-     *   25–75%   → +0 to +4
-     *   75–150%  → +4 to +10
-     *   150–250% → +10 to +22
-     *   250–350% → +22 to +40
-     *   350–450% → +40 to +65  (effective max at 400% engine cap: ~+52.5)
-     *   450–500% → +65 to +85  (reachable only if engine cap is raised above 400%)
-     *
-     * Each value shown is the bonus at the upper bound of the range.
-     *
-     * Interpolation rule (continuous within each interval):
-     *   bonus = startBonus + (endBonus - startBonus) * progress
-     *   progress = (boostPct - tierMin) / (tierMax - tierMin)
-     *
-     * boostPct is hard-clamped to [0, 500] before lookup.
+     * Uses BOOST_RATE_BONUS_BREAKPOINTS for a configurable diminishing-returns curve.
+     * boostPct below the minimum breakpoint returns the minimum bonus (clamp low).
+     * boostPct above the maximum breakpoint returns the maximum bonus (clamp high).
+     * Values between breakpoints are linearly interpolated.
      */
     public static function grossRateBonusFromBoostPct(float $boostPct): float
     {
-        // Hard clamp to design envelope [0, 500]
-        $x = max(0.0, min(500.0, $boostPct));
+        $pts = self::BOOST_RATE_BONUS_BREAKPOINTS;
+        $x   = (float)$boostPct;
 
-        // [tierMin, tierMax, startBonus, endBonus]
-        $segments = [
-            [  0.0,  25.0,  0.0,  0.0],
-            [ 25.0,  75.0,  0.0,  4.0],
-            [ 75.0, 150.0,  4.0, 10.0],
-            [150.0, 250.0, 10.0, 22.0],
-            [250.0, 350.0, 22.0, 40.0],
-            [350.0, 450.0, 40.0, 65.0],
-            [450.0, 500.0, 65.0, 85.0],
-        ];
-
-        foreach ($segments as [$minPct, $maxPct, $startBonus, $endBonus]) {
-            if ($x > $maxPct) {
-                continue;
-            }
-            $width = $maxPct - $minPct;
-            if ($width <= 0.0) {
-                return (float)$endBonus;
-            }
-            $progress = ($x - $minPct) / $width;
-            return $startBonus + ($endBonus - $startBonus) * $progress;
+        // Clamp below minimum
+        if ($x <= $pts[0][0]) {
+            return (float)$pts[0][1];
         }
 
-        return 85.0; // x == 500, already clamped above
+        // Clamp above maximum
+        $last = count($pts) - 1;
+        if ($x >= $pts[$last][0]) {
+            return (float)$pts[$last][1];
+        }
+
+        // Piecewise linear interpolation between bracketing breakpoints
+        for ($i = 0; $i < $last; $i++) {
+            [$x1, $y1] = $pts[$i];
+            [$x2, $y2] = $pts[$i + 1];
+            if ($x <= $x2) {
+                $t = ($x - $x1) / ($x2 - $x1);
+                return $y1 + $t * ($y2 - $y1);
+            }
+        }
+
+        return (float)$pts[$last][1]; // unreachable
     }
 
     /**
