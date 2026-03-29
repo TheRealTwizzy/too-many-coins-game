@@ -82,14 +82,29 @@ define('SIGIL_INVENTORY_ADJ_THRESHOLD', 5);    // Trigger every N same-tier sigi
 define('SIGIL_INVENTORY_ADJ_STEP_FP',   10000); // Reduce odds by 1% (10,000 / 1,000,000) per trigger
 define('SIGIL_INVENTORY_ADJ_MAX_STEPS', 10);   // Cap: maximum 10 triggers (≤10% total reduction per tier)
 
-// Boost-based drop frequency adjustment:
-//   An active boost modifier (expressed as a fixed-point value where FP_SCALE = 1,000,000
-//   represents 100%) reduces the Bernoulli denominator, directly increasing drop frequency.
-//   Every SIGIL_BOOST_DROP_RATE_STEP_FP of boost lowers the denominator by 1, capped at
-//   SIGIL_BOOST_DROP_RATE_MAX_BONUS total reduction.  Example: with a 40% boost the
-//   denominator drops from 13 to 11 (~9.09% vs ~7.69% base rate).
-define('SIGIL_BOOST_DROP_RATE_STEP_FP',  200000); // 20% boost per denominator-reduction step
-define('SIGIL_BOOST_DROP_RATE_MAX_BONUS', 3);      // Maximum denominator reduction from boosts
+// Boost-based drop frequency adjustment (negative pressure):
+//   High boost activity signals an active sigil economy; the Bernoulli denominator is
+//   INCREASED (drop frequency decreases) to prevent runaway accumulation while boosts
+//   are running.  Every SIGIL_BOOST_DROP_RATE_STEP_FP of active boost modifier raises the
+//   denominator by 1, capped at SIGIL_BOOST_DROP_RATE_MAX_PENALTY steps.
+//   SIGIL_BOOST_DROP_RATE_FLOOR / CEILING clamp the final denominator so drops remain
+//   viable in all states and never become excessively rare.
+//   Example: base denominator 13, 40% boost → 13 + 2 = 15 (~6.67% vs ~7.69% base rate).
+define('SIGIL_BOOST_DROP_RATE_STEP_FP',    200000); // 20% boost per denominator-penalty step
+define('SIGIL_BOOST_DROP_RATE_MAX_PENALTY',      4); // Maximum denominator increase from boost activity
+define('SIGIL_BOOST_DROP_RATE_FLOOR',            8); // Absolute minimum denominator (most generous rate)
+define('SIGIL_BOOST_DROP_RATE_CEILING',         32); // Absolute maximum denominator (most restrictive rate)
+
+// Inventory-based uplift (empty/low inventory => more drops):
+//   When a player holds fewer than SIGIL_INVENTORY_UPLIFT_THRESHOLD sigils of a given
+//   tier, that tier's conditional odds are increased by SIGIL_INVENTORY_UPLIFT_STEP_FP per
+//   step below the threshold, capped at SIGIL_INVENTORY_UPLIFT_MAX_STEPS total steps.
+//   This preserves active-player engagement: players who spend sigils on boost activation
+//   quickly find their inventories replenished.  Anti-inversion is re-enforced after the
+//   uplift so T1 >= T2 >= T3 >= T4 >= T5 is never violated.
+define('SIGIL_INVENTORY_UPLIFT_THRESHOLD',  3);     // Uplift applies when tier count < this value
+define('SIGIL_INVENTORY_UPLIFT_STEP_FP',   15000);  // Add 1.5% (15,000 / 1,000,000) per uplift step
+define('SIGIL_INVENTORY_UPLIFT_MAX_STEPS',      3); // Cap: at most 3 uplift steps per tier
 
 // Per-tier conditional-odds bounds (parts per 1,000,000).
 // Dynamic adjustments are clamped within [MIN, MAX] for each tier, then monotonic
