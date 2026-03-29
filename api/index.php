@@ -472,6 +472,37 @@ function getSigilDropRateMetadata($sigilPower = 0) {
     ];
 }
 
+/**
+ * Build the sigil_drop_rates payload from a pre-computed per-player drop config.
+ * Uses the full dynamic model (inventory-aware scaling + boost-pressure) rather
+ * than the simpler sigil-power scalar used by getSigilDropRateMetadata().
+ *
+ * @param array $dropConfig Return value of Economy::computePerPlayerSigilDropConfig().
+ * @return array
+ */
+function getSigilDropRateMetadataFromConfig(array $dropConfig) {
+    $dropRate = max(1, (int)$dropConfig['drop_rate']);
+    $tierOdds = $dropConfig['tier_odds'];
+    $basePercent = 100.0 / $dropRate;
+    $tiers = [];
+    foreach ($tierOdds as $tier => $oddsFp) {
+        $oddsFp = (int)$oddsFp;
+        $conditionalPercent = ($oddsFp / 1000000) * 100;
+        $effectivePercent = $basePercent * ($oddsFp / 1000000);
+        $tiers[] = [
+            'tier' => (int)$tier,
+            'odds_fp' => $oddsFp,
+            'chance_percent' => round($effectivePercent, 6),
+            'conditional_percent' => round($conditionalPercent, 6),
+        ];
+    }
+    return [
+        'base_one_in' => $dropRate,
+        'base_percent' => round($basePercent, 6),
+        'tiers' => $tiers,
+    ];
+}
+
 function calculatePlayerRatePerTick($season, $player, $participation, $activeBoosts) {
     if (!$season || !$participation) return 0;
     if (isPlayerFrozen((int)$player['player_id'], (int)$season['season_id'])) {
@@ -668,8 +699,12 @@ function getSeasonDetail($player, $seasonId) {
             [(int)$player['player_id'], (int)$seasonId]
         );
         if ($participation) {
-            $sigilPower = Economy::calculateSigilPower($participation);
-            $season['sigil_drop_rates'] = getSigilDropRateMetadata($sigilPower);
+            // Surface effective rates from the same live model used by gameplay:
+            // inventory-aware per-tier scaling + boost-activity pressure on denominator.
+            $playerBoosts = getActiveBoosts($player);
+            $boostModFp = (int)($playerBoosts['total_modifier_fp'] ?? 0);
+            $dropConfig = Economy::computePerPlayerSigilDropConfig($participation, $boostModFp);
+            $season['sigil_drop_rates'] = getSigilDropRateMetadataFromConfig($dropConfig);
             $season['player_combine_recipes'] = getCombineRecipesForParticipation($participation);
             $season['player_tier6_visible'] = shouldRevealTier6($participation);
             $season['player_can_freeze'] = ((int)($participation['sigils_t6'] ?? 0) > 0);

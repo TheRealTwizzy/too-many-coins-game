@@ -695,6 +695,7 @@ const TMC = {
         const isExpired = status === 'Expired';
         const timerLabel = this.getSeasonDetailTimerLabel(detail);
         const sigilRates = Array.isArray(detail?.sigil_drop_rates?.tiers) ? detail.sigil_drop_rates.tiers : [];
+        const sigilBasePercent = Number(detail?.sigil_drop_rates?.base_percent || 0);
         const sigilRateByTier = {};
         sigilRates.forEach((rateRow) => {
             if (rateRow && rateRow.tier) {
@@ -756,12 +757,13 @@ const TMC = {
                     <!-- Sigils Panel -->
                     <div class="action-panel">
                         <h3>Sigils</h3>
+                        <p class="panel-info">Drop chance per eligible tick: <strong>${this.truncatePercent(sigilBasePercent)}%</strong></p>
                         <div class="sigil-display">
                             ${this.getVisibleSigils(part).map((sigil) => `
                                 <div class="sigil-item tier-${sigil.tier}">
                                     <span class="sigil-tier">T${sigil.tier}</span>
                                     <span class="sigil-count">${sigil.count}</span>
-                                    ${sigil.tier <= 5 ? `<span class="sigil-rate">${this.formatPercentCompact(sigilRateByTier[sigil.tier] || 0)}%</span>` : '<span class="sigil-rate">Crafted only</span>'}
+                                    ${sigil.tier <= 5 ? `<span class="sigil-rate">${this.truncatePercent(sigilRateByTier[sigil.tier] || 0)}%</span>` : '<span class="sigil-rate">Crafted only</span>'}
                                 </div>
                             `).join('')}
                         </div>
@@ -2416,6 +2418,14 @@ const TMC = {
         }
 
         return num.toFixed(4).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    },
+
+    // Truncate (not round) a percentage to 0.01 precision (two decimal places).
+    // Returns a string without a '%' suffix, e.g. 12.349 -> "12.34", 0.009 -> "0.00".
+    truncatePercent(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return '0.00';
+        return (Math.floor(num * 100) / 100).toFixed(2);
     },
 
     escapeHtml(str) {
