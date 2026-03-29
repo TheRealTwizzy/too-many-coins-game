@@ -486,4 +486,162 @@ class EconomyPrecisionTest extends TestCase
         // Over 2 ticks: 2 + 3 = 5 coins total === floor(2.5 * 2)
         $this->assertSame(5, $coins1 + $coins2);
     }
+
+    // ==================== Piecewise Gross-Rate Bonus ====================
+
+    /**
+     * Clamp: values below 0% are treated as 0% (no negative bonus).
+     */
+    public function testGrossRateBonusClampsBelowZero(): void
+    {
+        $this->assertSame(0.0, Economy::grossRateBonusFromBoostPct(-1.0));
+        $this->assertSame(0.0, Economy::grossRateBonusFromBoostPct(-999.0));
+    }
+
+    /**
+     * Clamp: values above 500% are treated as 500% (hard cap).
+     */
+    public function testGrossRateBonusClampsAbove500(): void
+    {
+        $this->assertEqualsWithDelta(85.0, Economy::grossRateBonusFromBoostPct(501.0), 0.0001);
+        $this->assertEqualsWithDelta(85.0, Economy::grossRateBonusFromBoostPct(9999.0), 0.0001);
+    }
+
+    /**
+     * Exact tier endpoint values must match the design table.
+     * Each tier boundary maps to its defined bonus without rounding error.
+     */
+    public function testGrossRateBonusTierEndpoints(): void
+    {
+        $cases = [
+              0.0 =>  0.0,
+             25.0 =>  0.0,
+             75.0 =>  4.0,
+            150.0 => 10.0,
+            250.0 => 22.0,
+            350.0 => 40.0,
+            450.0 => 65.0,
+            500.0 => 85.0,
+        ];
+
+        foreach ($cases as $boostPct => $expected) {
+            $this->assertEqualsWithDelta(
+                $expected,
+                Economy::grossRateBonusFromBoostPct((float)$boostPct),
+                0.0001,
+                "Tier endpoint {$boostPct}% should yield bonus {$expected}."
+            );
+        }
+    }
+
+    /**
+     * Representative in-tier interpolation samples.
+     * Verifies continuous linear blending within each segment.
+     */
+    public function testGrossRateBonusInTierInterpolation(): void
+    {
+        // Tier 25–75: midpoint 50% → 0 + (4-0)*0.5 = 2.0
+        $this->assertEqualsWithDelta(2.0, Economy::grossRateBonusFromBoostPct(50.0), 0.0001,
+            '50% (mid of 25–75 tier) should interpolate to 2.0');
+
+        // Tier 75–150: midpoint 112.5% → 4 + (10-4)*0.5 = 7.0
+        $this->assertEqualsWithDelta(7.0, Economy::grossRateBonusFromBoostPct(112.5), 0.0001,
+            '112.5% (mid of 75–150 tier) should interpolate to 7.0');
+
+        // Tier 150–250: 25% into segment → 10 + (22-10)*0.25 = 13.0
+        $this->assertEqualsWithDelta(13.0, Economy::grossRateBonusFromBoostPct(175.0), 0.0001,
+            '175% (25% into 150–250 tier) should interpolate to 13.0');
+
+        // Tier 250–350: 75% into segment → 22 + (40-22)*0.75 = 35.5
+        $this->assertEqualsWithDelta(35.5, Economy::grossRateBonusFromBoostPct(325.0), 0.0001,
+            '325% (75% into 250–350 tier) should interpolate to 35.5');
+
+        // Tier 350–450: midpoint 400% → 40 + (65-40)*0.5 = 52.5
+        $this->assertEqualsWithDelta(52.5, Economy::grossRateBonusFromBoostPct(400.0), 0.0001,
+            '400% (mid of 350–450 tier) should interpolate to 52.5');
+
+        // Tier 450–500: midpoint 475% → 65 + (85-65)*0.5 = 75.0
+        $this->assertEqualsWithDelta(75.0, Economy::grossRateBonusFromBoostPct(475.0), 0.0001,
+            '475% (mid of 450–500 tier) should interpolate to 75.0');
+    }
+
+    /**
+     * Monotonically non-decreasing bonus across the full [0, 500] range.
+     * Ensures no downward jumps at any step.
+     */
+    public function testGrossRateBonusIsMonotonicOver0To500(): void
+    {
+        $prev = Economy::grossRateBonusFromBoostPct(0.0);
+        for ($pct = 1; $pct <= 500; $pct++) {
+            $curr = Economy::grossRateBonusFromBoostPct((float)$pct);
+            $this->assertGreaterThanOrEqual(
+                $prev,
+                $curr,
+                "Bonus at {$pct}% ({$curr}) must be >= bonus at " . ($pct - 1) . "% ({$prev})."
+            );
+            $prev = $curr;
+        }
+    }
+
+    /**
+     * Fixed-point wrapper: grossRateBonusFpFromBoostPct must round-trip correctly.
+     * Verifies that fp value / FP_SCALE ≈ grossRateBonusFromBoostPct for key points.
+     */
+    public function testGrossRateBonusFpRoundTrip(): void
+    {
+        $cases = [0.0, 25.0, 50.0, 150.0, 250.0, 350.0, 475.0, 500.0];
+        foreach ($cases as $pct) {
+            $float  = Economy::grossRateBonusFromBoostPct($pct);
+            $fp     = Economy::grossRateBonusFpFromBoostPct($pct);
+            $this->assertEqualsWithDelta(
+                $float,
+                $fp / FP_SCALE,
+                0.5 / FP_SCALE, // tolerance: half a fp unit
+                "FP round-trip failed at {$pct}%: float={$float}, fp/SCALE=" . ($fp / FP_SCALE)
+            );
+        }
+    }
+
+    /**
+     * Integration: piecewise bonus contributes to gross_rate_fp via calculateRateBreakdown.
+     * A player with no boost gets no piecewise bonus; one with a 250% boost (2,500,000 fp)
+     * must have a strictly higher gross_rate_fp than the same player with no boost.
+     */
+    public function testPiecewiseBonusRaisesGrossRateVsUnboosted(): void
+    {
+        $season = $this->makeSeasonFixture();
+        $player = $this->makePlayerFixture();
+
+        $ratesUnboosted     = Economy::calculateRateBreakdown($season, $player, $player, 0, false);
+        // 250% boost = 2,500,000 fp
+        $ratesWith250PctBoost = Economy::calculateRateBreakdown($season, $player, $player, 2500000, false);
+
+        $this->assertGreaterThan(
+            (int)$ratesUnboosted['gross_rate_fp'],
+            (int)$ratesWith250PctBoost['gross_rate_fp'],
+            'gross_rate_fp with 250% boost must exceed gross_rate_fp with no boost.'
+        );
+    }
+
+    /**
+     * Integration: at max clamped boost (400%) gross_rate_fp must exceed the 400% boost
+     * piecewise bonus in fp units (i.e., the bonus is present and additive on top of UBI).
+     * Uses 4,000,000 fp = 400% to match the tick engine's 5x UBI multiplier cap.
+     */
+    public function testPiecewiseBonusAtMaxBoostIsAddedToGrossRate(): void
+    {
+        $season = $this->makeSeasonFixture(['base_ubi_active_per_tick' => 30]);
+        $player = $this->makePlayerFixture();
+
+        // 400% boost (max clamped by tick engine) = 4,000,000 fp
+        $rates = Economy::calculateRateBreakdown($season, $player, $player, 4000000, false);
+
+        // The piecewise bonus alone at 400% is given by grossRateBonusFpFromBoostPct(400.0).
+        $expectedPiecewiseFp = Economy::grossRateBonusFpFromBoostPct(400.0);
+        $this->assertGreaterThan(
+            $expectedPiecewiseFp,
+            (int)$rates['gross_rate_fp'],
+            'gross_rate_fp at max boost must exceed the piecewise bonus alone (UBI is additive).'
+        );
+    }
 }
