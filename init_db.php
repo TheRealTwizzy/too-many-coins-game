@@ -80,6 +80,39 @@ try {
     }
 
     try {
+        $pdo->exec("ALTER TABLE season_participation ADD COLUMN pending_rng_sigil_drops BIGINT NOT NULL DEFAULT 0");
+        $results[] = 'Added pending_rng_sigil_drops column';
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), 'Duplicate column') === false) {
+            $results[] = 'pending_rng_sigil_drops: ' . $e->getMessage();
+        } else {
+            $results[] = 'pending_rng_sigil_drops column already exists';
+        }
+    }
+
+    try {
+        $pdo->exec("ALTER TABLE season_participation ADD COLUMN pending_pity_sigil_drops BIGINT NOT NULL DEFAULT 0");
+        $results[] = 'Added pending_pity_sigil_drops column';
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), 'Duplicate column') === false) {
+            $results[] = 'pending_pity_sigil_drops: ' . $e->getMessage();
+        } else {
+            $results[] = 'pending_pity_sigil_drops column already exists';
+        }
+    }
+
+    try {
+        $pdo->exec("ALTER TABLE season_participation ADD COLUMN sigil_next_delivery_tick BIGINT NOT NULL DEFAULT 0");
+        $results[] = 'Added sigil_next_delivery_tick column';
+    } catch (PDOException $e) {
+        if (strpos($e->getMessage(), 'Duplicate column') === false) {
+            $results[] = 'sigil_next_delivery_tick: ' . $e->getMessage();
+        } else {
+            $results[] = 'sigil_next_delivery_tick column already exists';
+        }
+    }
+
+    try {
         $pdo->exec("ALTER TABLE season_participation ADD COLUMN coins_fractional_fp BIGINT NOT NULL DEFAULT 0");
         $results[] = 'Added coins_fractional_fp column';
     } catch (PDOException $e) {

@@ -69,6 +69,9 @@ define('SIGIL_DROP_RATE_MAX_POWER', 16); // 1 in 16 (~6.25% combined drop rate a
 define('SIGIL_PITY_TICKS', ticks_from_real_seconds(120000));
 define('SIGIL_MAX_DROPS_WINDOW', 8);
 define('SIGIL_DROP_WINDOW_TICKS', ticks_from_real_seconds(86400));
+// Delivery pacing to prevent bursty notification batches during tick catch-up.
+// Earned drops are queued and released at most one per processing cycle.
+define('SIGIL_PACING_ENABLED', true);
 
 // Per-player dynamic sigil drop rate configuration
 //
@@ -94,6 +97,8 @@ define('SIGIL_BOOST_DROP_RATE_STEP_FP',    200000); // 20% boost per denominator
 define('SIGIL_BOOST_DROP_RATE_MAX_PENALTY',      3); // Maximum denominator increase from boost activity
 define('SIGIL_BOOST_DROP_RATE_FLOOR',            5); // Absolute minimum denominator (most generous rate)
 define('SIGIL_BOOST_DROP_RATE_CEILING',         20); // Absolute maximum denominator (most restrictive rate)
+define('SIGIL_PACING_JITTER_MIN_FP',        500000); // 50% of base interval
+define('SIGIL_PACING_JITTER_MAX_FP',       1500000); // 150% of base interval
 
 // Inventory-based uplift (empty/low inventory => more drops):
 //   When a player holds fewer than SIGIL_INVENTORY_UPLIFT_THRESHOLD sigils of a given

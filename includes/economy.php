@@ -663,4 +663,29 @@ class Economy {
 
         return 1; // Fallback
     }
+
+    /**
+     * Deterministically sample a sigil tier (1-5) from per-player odds without
+     * running the Bernoulli no-drop trial. Used for paced delivery of queued RNG drops.
+     */
+    public static function sampleSigilTier($season, $playerId, $seasonTick, array $dropConfig = null, $sigilPower = 0) {
+        $seed = $season['season_seed'];
+        $input = pack('J', $season['season_id']) . pack('J', $seasonTick) . $seed . pack('J', $playerId);
+        $hash = hash('sha256', $input, true);
+
+        if ($dropConfig !== null) {
+            $tierOdds = $dropConfig['tier_odds'];
+        } else {
+            $tierOdds = self::adjustedSigilTierOdds($sigilPower);
+        }
+
+        $tierRoll = unpack('N', substr($hash, 4, 4))[1] % 1000000;
+        $cumulative = 0;
+        foreach ($tierOdds as $tier => $odds) {
+            $cumulative += (int)$odds;
+            if ($tierRoll < $cumulative) return (int)$tier;
+        }
+
+        return 1;
+    }
 }
