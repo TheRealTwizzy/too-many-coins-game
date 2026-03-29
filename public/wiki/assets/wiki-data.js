@@ -205,20 +205,27 @@ If you are not eligible, the drop pity counter is reset.`
           {
             id: "drop-rates-and-protections",
             title: "Drop Rates and Protections",
-            content: `Default drop controls:
+            content: `Drop controls are computed dynamically per player each tick based on sigil inventory and boost activity:
 
 | Rule | Default |
 |---|---|
-| Base drop rate | 1 in 833 eligible ticks |
+| Base drop rate | 1 in 13 eligible ticks (~7.7%) at zero sigil power |
 | Pity threshold | 120,000 real seconds worth of ticks (2,000 ticks at 60s) |
-| Rolling cap | 3 drops per 24h window |
+| Rolling cap | 8 drops per 24h window |
 
-Tier odds:
-- Tier I: 70%
-- Tier II: 20%
-- Tier III: 8%
-- Tier IV: 1.5%
-- Tier V: 0.5%`
+**Dynamic adjustments (per player, per tick):**
+- **Boost activity (negative pressure):** Every 20% of active boost modifier raises the denominator by 1 (up to +4 steps), reducing overall drop frequency while boosts are running. The denominator is clamped between 8 and 32 so drops remain viable in all states.
+- **Inventory uplift (empty/low):** When a tier's inventory is below 3, that tier's conditional odds are increased by 1.5% per missing sigil (up to +4.5% per tier). Ensures players who spend sigils on boosts retain a practical path to replenishment.
+- **Inventory dampening (high):** For every 5 sigils of a tier held, that tier's conditional odds are reduced by 1% (up to −10% per tier). Prevents a single tier from over-dropping once a player has accumulated many.
+
+**Tier odds (conditional, at zero sigil power):**
+- Tier I: ~33.3%
+- Tier II: ~26.7%
+- Tier III: ~20.0%
+- Tier IV: ~13.3%
+- Tier V: ~6.7%
+
+Tier ordering T1 > T2 > T3 > T4 > T5 is always enforced; higher-value tiers can never drop at higher effective rates than lower-value tiers.`
           },
           {
             id: "vault-and-boosts",

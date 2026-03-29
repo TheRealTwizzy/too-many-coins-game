@@ -233,8 +233,9 @@ class TickEngine {
     /**
      * Process Sigil drops for a player over a batch of ticks.
      * Uses configured Bernoulli, pity, and rolling-window throttle limits.
+     * $boostModFp is the pre-computed boost modifier for this player this tick (FP_SCALE = 1,000,000).
      */
-    private static function processSigilDrops($season, $player, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick) {
+    private static function processSigilDrops($season, $player, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp = 0) {
         $db = Database::getInstance();
         $playerId = $player['player_id'];
         
@@ -275,6 +276,10 @@ class TickEngine {
             return;
         }
         
+        // Pre-compute per-player drop config once for this batch (accounts for inventory
+        // and boost activity); reused across every tick in the loop for efficiency.
+        $dropConfig = Economy::computePerPlayerSigilDropConfig($player, $boostModFp);
+
         $newPityCounter = $pityCounter;
         for ($t = 0; $t < $ticksToProcess && $dropsAwarded < $maxNewDrops; $t++) {
             $tickIndex = $lastSeasonTick + $t;
@@ -288,8 +293,7 @@ class TickEngine {
                 continue;
             }
 
-            $sigilPower = Economy::calculateSigilPower($player);
-            $tier = Economy::processSigilDrop($season, $playerId, $absoluteTick, $sigilPower);
+            $tier = Economy::processSigilDrop($season, $playerId, $absoluteTick, 0, $dropConfig);
             if ($tier > 0) {
                 self::awardSigilDrop($playerId, $seasonId, $tier, $absoluteTick, 'RNG');
                 $dropsAwarded++;
