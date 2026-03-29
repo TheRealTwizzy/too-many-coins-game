@@ -83,8 +83,10 @@ class Database {
 
             try {
                 $this->pdo->exec($sql);
+                // INSERT IGNORE: if a concurrent worker already recorded this migration
+                // (race on multi-worker startup), silently skip the duplicate insert.
                 $this->query(
-                    'INSERT INTO schema_migrations (migration_name, checksum, status) VALUES (?, ?, ?)',
+                    'INSERT IGNORE INTO schema_migrations (migration_name, checksum, status) VALUES (?, ?, ?)',
                     [$migrationName, $checksum, 'applied']
                 );
             } catch (Throwable $e) {
@@ -141,9 +143,20 @@ class Database {
             [DB_NAME]
         );
         if (!$col) {
-            $this->pdo->exec(
-                "ALTER TABLE schema_migrations ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'applied'"
-            );
+            try {
+                $this->pdo->exec(
+                    "ALTER TABLE schema_migrations ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'applied'"
+                );
+            } catch (PDOException $e) {
+                // In multi-worker startup, another worker may have added the column
+                // between the information_schema probe and this ALTER TABLE.
+                // MySQL reports this as SQLSTATE '42S21' / error code 1060
+                // ("Duplicate column name"). Ignore that specific case; rethrow anything else.
+                $code = $e->getCode();
+                if ($code !== '42S21' && $code !== 1060 && $code !== '1060') {
+                    throw $e;
+                }
+            }
         }
     }
 

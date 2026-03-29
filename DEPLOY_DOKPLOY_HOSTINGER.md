@@ -97,7 +97,7 @@ Automatic SQL migrations on redeploy are enabled by default:
 
 **Production recommendation:** set `TMC_AUTO_SQL_MIGRATIONS=false` and apply migrations as a controlled deployment step to avoid syntax-incompatibility failures causing log-spam on every API request. If a migration fails while `TMC_AUTO_SQL_MIGRATIONS=true`, it is recorded in `schema_migrations` with `status='failed'` and not retried — but operators must check for failed rows and apply a corrected replacement migration manually. Query to check: `SELECT * FROM schema_migrations WHERE status = 'failed';`.
 
-Migration SQL must be compatible with MySQL 5.7+. Avoid `ADD COLUMN IF NOT EXISTS`; use stored procedures with `INFORMATION_SCHEMA` guards instead (see `migration_20260329b_*_compat.sql` for the pattern).
+Migration SQL must be compatible with MySQL 5.7+. Avoid `ADD COLUMN IF NOT EXISTS`; use `PREPARE/EXECUTE` with `INFORMATION_SCHEMA` guards instead (see `migration_20260329b_*_compat.sql` for the pattern). This approach also works with manual `mysql < file.sql` application.
 
 Use identical DB values in both services. The worker service uses `TMC_WORKER_*` values and `TMC_TICK_REAL_SECONDS` to process ticks internally.
 

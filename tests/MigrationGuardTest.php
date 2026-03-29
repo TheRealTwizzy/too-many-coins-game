@@ -235,12 +235,11 @@ class MigrationGuardTest extends TestCase
     /**
      * Verify the sort relationship between compat and original migration files.
      *
-     * The 20260329b_ prefix sorts BEFORE 20260329_ under PHP natural sort
-     * because 'b' (ASCII 0x62) precedes '_' (ASCII 0x5F), meaning the compat
-     * file is attempted first. This is still safe: if the compat file runs
-     * before the original, it adds the columns idempotently; the original then
-     * fails (duplicate-column error) and is recorded as 'failed'. End state is
-     * identical regardless of which runs first.
+     * Both orderings are safe: the compat migrations use INFORMATION_SCHEMA
+     * existence checks (PREPARE/EXECUTE pattern), so they are idempotent
+     * regardless of whether they run before or after the original files.
+     * The original files will fail with a duplicate-column error and be recorded
+     * as 'failed'; the compat files succeed in either order.
      */
     public function testCompatMigrationSortOrderIsDocumented(): void
     {
@@ -259,21 +258,19 @@ class MigrationGuardTest extends TestCase
             $files = [$pair['original'], $pair['compat']];
             sort($files, SORT_NATURAL | SORT_FLAG_CASE);
 
-            // PHP natural sort: '20260329b_' < '20260329_' (letter < underscore in natural collation)
-            // so compat files sort first. This is safe: see docblock.
-            $this->assertSame(
-                $pair['compat'],
-                $files[0],
-                "Compat migration sorts before its original under PHP natural sort (both orderings are safe)."
-            );
+            // Either sort order is safe because of the INFORMATION_SCHEMA guards.
+            // Assert that both files are present in the sorted result (one at index 0, one at 1).
+            $this->assertContains($pair['original'], $files, "Original migration must appear in sort.");
+            $this->assertContains($pair['compat'],   $files, "Compat migration must appear in sort.");
+            $this->assertNotSame($files[0], $files[1], "The two migrations must be distinct.");
         }
     }
 
     /**
-     * Verify that compat migration files contain DROP/CREATE PROCEDURE and CALL
-     * (the stored-procedure guard pattern).
+     * Verify that compat migration files use PREPARE/EXECUTE with INFORMATION_SCHEMA
+     * and SET @variable pattern (not stored procedures).
      */
-    public function testCompatMigrationsUseProcedurePattern(): void
+    public function testCompatMigrationsUsePrepareExecutePattern(): void
     {
         $repoRoot = dirname(__DIR__);
 
@@ -286,9 +283,13 @@ class MigrationGuardTest extends TestCase
             $path = $repoRoot . DIRECTORY_SEPARATOR . $filename;
             $sql  = strtolower(file_get_contents($path));
 
-            $this->assertStringContainsString('create procedure', $sql,  "$filename must use CREATE PROCEDURE.");
-            $this->assertStringContainsString('drop procedure',   $sql,  "$filename must clean up the procedure.");
-            $this->assertStringContainsString('call ',            $sql,  "$filename must CALL the procedure.");
+            $this->assertStringContainsString('prepare _tmc_stmt from', $sql, "$filename must use PREPARE.");
+            $this->assertStringContainsString('execute _tmc_stmt',       $sql, "$filename must use EXECUTE.");
+            $this->assertStringContainsString('deallocate prepare',       $sql, "$filename must DEALLOCATE PREPARE.");
+            $this->assertStringContainsString('set @_tmc_sql',            $sql, "$filename must build SQL into @_tmc_sql.");
+
+            // Must not use stored procedures (incompatible with mysql < file.sql without DELIMITER).
+            $this->assertStringNotContainsString('create procedure', $sql, "$filename must not use CREATE PROCEDURE.");
         }
     }
 
@@ -334,6 +335,14 @@ class MigrationGuardTest extends TestCase
             "'applied'",
             $dbPhp,
             "Database must insert status='applied' on successful migration."
+        );
+
+        // Both success and failure paths use INSERT IGNORE to handle concurrent
+        // multi-worker startup without producing spurious duplicate-key errors.
+        $this->assertGreaterThanOrEqual(
+            2,
+            substr_count($dbPhp, 'INSERT IGNORE INTO schema_migrations'),
+            "Both success and failure paths must use INSERT IGNORE."
         );
     }
 

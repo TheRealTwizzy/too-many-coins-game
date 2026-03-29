@@ -102,7 +102,7 @@ Guidelines:
 
 - Add new DB changes as new `migration_*.sql` files (do not edit already-applied files).
 - Keep auto-applied migrations idempotent where possible.
-- Write migrations using MySQL 5.7+ compatible syntax. Avoid `ADD COLUMN IF NOT EXISTS` (supported only on some MySQL 8.x variants). Use stored procedures with `INFORMATION_SCHEMA` guards instead (see existing `migration_20260329b_*_compat.sql` files for the pattern).
+- Write migrations using MySQL 5.7+ compatible syntax. Avoid `ADD COLUMN IF NOT EXISTS` (supported only on some MySQL 8.x variants). Use `PREPARE/EXECUTE` with `INFORMATION_SCHEMA` guards instead (see existing `migration_20260329b_*_compat.sql` files for the pattern). This approach works with both runtime PDO execution and manual `mysql < file.sql` application.
 
 ### Failure-loop guard
 

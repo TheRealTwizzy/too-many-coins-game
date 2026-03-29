@@ -5,127 +5,112 @@
 --
 -- Replaces: migration_20260329_hoarding_sink_active_seasons_hotfix.sql
 -- Reason:   The original uses ADD COLUMN IF NOT EXISTS which is not supported on
---           all MySQL variants in production. This version uses a stored procedure
+--           all MySQL variants in production. This version uses PREPARE/EXECUTE
 --           with INFORMATION_SCHEMA guards and is idempotent on all MySQL 5.7+.
+--           It also works with manual application via `mysql < file.sql`.
 
-DROP PROCEDURE IF EXISTS _tmc_hoarding_sink_compat;
+-- seasons table columns -------------------------------------------------------
 
-CREATE PROCEDURE _tmc_hoarding_sink_compat()
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_sink_enabled'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_sink_enabled TINYINT(1) NOT NULL DEFAULT 0;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_sink_enabled');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_sink_enabled TINYINT(1) NOT NULL DEFAULT 0');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_safe_hours'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_safe_hours INT NOT NULL DEFAULT 12;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_safe_hours');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_safe_hours INT NOT NULL DEFAULT 12');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_safe_min_coins'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_safe_min_coins BIGINT NOT NULL DEFAULT 20000;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_safe_min_coins');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_safe_min_coins BIGINT NOT NULL DEFAULT 20000');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_tier1_excess_cap'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_tier1_excess_cap BIGINT NOT NULL DEFAULT 50000;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_tier1_excess_cap');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_tier1_excess_cap BIGINT NOT NULL DEFAULT 50000');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_tier2_excess_cap'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_tier2_excess_cap BIGINT NOT NULL DEFAULT 200000;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_tier2_excess_cap');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_tier2_excess_cap BIGINT NOT NULL DEFAULT 200000');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_tier1_rate_hourly_fp'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_tier1_rate_hourly_fp INT NOT NULL DEFAULT 200;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_tier1_rate_hourly_fp');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_tier1_rate_hourly_fp INT NOT NULL DEFAULT 200');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_tier2_rate_hourly_fp'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_tier2_rate_hourly_fp INT NOT NULL DEFAULT 500;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_tier2_rate_hourly_fp');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_tier2_rate_hourly_fp INT NOT NULL DEFAULT 500');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_tier3_rate_hourly_fp'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_tier3_rate_hourly_fp INT NOT NULL DEFAULT 1000;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_tier3_rate_hourly_fp');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_tier3_rate_hourly_fp INT NOT NULL DEFAULT 1000');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_sink_cap_ratio_fp'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_sink_cap_ratio_fp INT NOT NULL DEFAULT 350000;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_sink_cap_ratio_fp');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_sink_cap_ratio_fp INT NOT NULL DEFAULT 350000');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'seasons'
-          AND COLUMN_NAME  = 'hoarding_idle_multiplier_fp'
-    ) THEN
-        ALTER TABLE seasons
-            ADD COLUMN hoarding_idle_multiplier_fp INT NOT NULL DEFAULT 1250000;
-    END IF;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'seasons'
+    AND COLUMN_NAME = 'hoarding_idle_multiplier_fp');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE seasons ADD COLUMN hoarding_idle_multiplier_fp INT NOT NULL DEFAULT 1250000');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME   = 'season_participation'
-          AND COLUMN_NAME  = 'hoarding_sink_total'
-    ) THEN
-        ALTER TABLE season_participation
-            ADD COLUMN hoarding_sink_total BIGINT NOT NULL DEFAULT 0;
-    END IF;
-END;
+-- season_participation table columns ------------------------------------------
 
-CALL _tmc_hoarding_sink_compat();
-
-DROP PROCEDURE IF EXISTS _tmc_hoarding_sink_compat;
+SET @_tmc_col_exists = (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'season_participation'
+    AND COLUMN_NAME = 'hoarding_sink_total');
+SET @_tmc_sql = IF(@_tmc_col_exists > 0, 'SELECT 1',
+    'ALTER TABLE season_participation ADD COLUMN hoarding_sink_total BIGINT NOT NULL DEFAULT 0');
+PREPARE _tmc_stmt FROM @_tmc_sql;
+EXECUTE _tmc_stmt;
+DEALLOCATE PREPARE _tmc_stmt;
 
 -- Backfill currently live seasons with conservative starter tuning.
 -- 'Active' = season is open for participation; 'Blackout' = season is in its
