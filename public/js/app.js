@@ -805,7 +805,7 @@ const TMC = {
                     <!-- Lock-In Panel -->
                     <div class="action-panel panel-lockin">
                         <h3>Lock-In</h3>
-                        <p class="panel-info">Exit the season early and convert <strong>${this.formatNumber(part.seasonal_stars)} Seasonal Stars</strong> to Global Stars.</p>
+                        <p class="panel-info">Exit the season early. T1–T5 Sigils are refunded to Seasonal Stars. All Seasonal Stars then convert to Global Stars at <strong>65% (floor)</strong>. T6 Sigils are destroyed with no refund.</p>
                         <p class="panel-warning">This will destroy all your Coins, Sigils, and Boosts. This action is irreversible.</p>
                         <button class="btn btn-danger btn-lg" onclick="TMC.confirmLockIn()" 
                             ${!p.can_lock_in || isBlackout ? 'disabled' : ''}>
@@ -1367,8 +1367,34 @@ const TMC = {
     },
 
     confirmLockIn() {
-        const stars = this.state.player.participation.seasonal_stars;
-        if (!confirm(`Are you sure you want to Lock-In?\n\nThis will:\n- Convert ${this.formatNumber(stars)} Seasonal Stars to Global Stars\n- Destroy ALL your Coins, Sigils, and Boosts\n- Remove you from this season\n\nThis action is IRREVERSIBLE.`)) {
+        const participation = this.state.player && this.state.player.participation;
+        const sigils = participation ? (participation.sigils || []) : [];
+        const t6Count = Number(sigils[5] || 0);
+
+        // T6 warning must appear FIRST and ONLY if the player owns any T6 sigils.
+        if (t6Count > 0) {
+            if (!confirm(
+                `⚠️ T6 Sigil Destruction Warning\n\n` +
+                `You own ${t6Count} Tier 6 Sigil(s). ` +
+                `T6 Sigils will be DESTROYED with NO refund upon Lock-In.\n\n` +
+                `Do you wish to continue?`
+            )) {
+                return;
+            }
+        }
+
+        const stars = participation ? participation.seasonal_stars : 0;
+        if (!confirm(
+            `Are you sure you want to Lock-In?\n\n` +
+            `This will:\n` +
+            `- Refund T1–T5 Sigils back to Seasonal Stars\n` +
+            `- Convert all Seasonal Stars to Global Stars at 65% (rounded down)\n` +
+            `- Destroy ALL your Coins, T6 Sigils, and Boosts\n` +
+            `- Remove you from this season\n\n` +
+            `Current Seasonal Stars: ${this.formatNumber(stars)} ` +
+            `(final Global Stars payout will be floor(total × 0.65))\n\n` +
+            `This action is IRREVERSIBLE.`
+        )) {
             return;
         }
         this.lockIn();

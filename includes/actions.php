@@ -293,23 +293,60 @@ class Actions {
         
         $gameTime = GameTime::now();
         $seasonalStars = (int)$participation['seasonal_stars'];
-        
+
+        // --- Step 1: Determine per-tier star refund values for T1–T5 sigils ---
+        // T1–T3: look up current vault cost from season_vault.
+        // T4–T5: derived from combine recipes (each higher tier costs N lower-tier sigils).
+        $vaultRows = $db->fetchAll(
+            "SELECT tier, current_cost_stars FROM season_vault WHERE season_id = ? AND tier IN (1,2,3)",
+            [$seasonId]
+        );
+        $vaultCostByTier = [];
+        foreach ($vaultRows as $vr) {
+            $vaultCostByTier[(int)$vr['tier']] = (int)$vr['current_cost_stars'];
+        }
+        $t3Cost = $vaultCostByTier[3] ?? 0;
+        // T4 is crafted by combining SIGIL_COMBINE_RECIPES[3] (=3) T3 sigils, so its
+        // star value equals that many T3 costs.  T5 uses SIGIL_COMBINE_RECIPES[4] (=3) T4s.
+        $t4Cost = (int)(SIGIL_COMBINE_RECIPES[3] ?? 0) * $t3Cost;
+        $t5Cost = (int)(SIGIL_COMBINE_RECIPES[4] ?? 0) * $t4Cost;
+        $tierCosts = [
+            $vaultCostByTier[1] ?? 0,
+            $vaultCostByTier[2] ?? 0,
+            $t3Cost,
+            $t4Cost,
+            $t5Cost,
+        ];
+
+        // --- Step 2: Compute payout (sigil refund → seasonal → 65% floor → global) ---
+        $sigilCounts = [
+            (int)$participation['sigils_t1'],
+            (int)$participation['sigils_t2'],
+            (int)$participation['sigils_t3'],
+            (int)$participation['sigils_t4'],
+            (int)$participation['sigils_t5'],
+        ];
+        $payout = Economy::computeEarlyLockInPayout($seasonalStars, $sigilCounts, $tierCosts);
+        $totalSeasonalStars = $payout['total_seasonal_stars'];
+        $sigilRefundStars   = $payout['sigil_refund_stars'];
+        $globalStarsGained  = $payout['global_stars_gained'];
+
         $db->beginTransaction();
         try {
-            // 1. Record Lock-In snapshot
+            // 1. Record Lock-In snapshot (snapshot reflects total seasonal including sigil refunds)
             $db->query(
                 "UPDATE season_participation SET 
                  lock_in_effect_tick = ?,
                  lock_in_snapshot_seasonal_stars = ?,
                  lock_in_snapshot_participation_time = participation_time_total
                  WHERE player_id = ? AND season_id = ?",
-                [$gameTime, $seasonalStars, $playerId, $seasonId]
+                [$gameTime, $totalSeasonalStars, $playerId, $seasonId]
             );
             
-            // 2. Convert SeasonalStars -> GlobalStars 1:1
+            // 2. Convert total seasonal stars → global stars at 65% floor
             $db->query(
                 "UPDATE players SET global_stars = global_stars + ? WHERE player_id = ?",
-                [$seasonalStars, $playerId]
+                [$globalStarsGained, $playerId]
             );
             
             // 3. Destroy all season-bound resources
@@ -348,11 +385,15 @@ class Actions {
             }
             
             $db->commit();
+
+            $msg = "Locked in! Converted {$totalSeasonalStars} Seasonal Stars (including "
+                 . "{$sigilRefundStars} refunded from sigils) to {$globalStarsGained} Global Stars (65% floor).";
             return [
                 'success' => true,
-                'seasonal_stars_converted' => $seasonalStars,
-                'global_stars_gained' => $seasonalStars,
-                'message' => "Locked in! Converted {$seasonalStars} Seasonal Stars to Global Stars."
+                'sigil_refund_stars'     => $sigilRefundStars,
+                'seasonal_stars_converted' => $totalSeasonalStars,
+                'global_stars_gained'    => $globalStarsGained,
+                'message' => $msg,
             ];
         } catch (Exception $e) {
             $db->rollback();

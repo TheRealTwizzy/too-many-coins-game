@@ -155,6 +155,20 @@ class Notifications {
         $payload = $row['payload_json'] ?? null;
         $row['payload'] = $payload ? json_decode($payload, true) : null;
         unset($row['payload_json']);
+        // Ensure DATETIME fields carry explicit UTC designator so JS `new Date()`
+        // always parses them as UTC regardless of browser/engine behaviour.
+        $row['created_at'] = self::isoUtc($row['created_at'] ?? null);
+        $row['read_at']    = self::isoUtc($row['read_at'] ?? null);
         return $row;
+    }
+
+    /**
+     * Convert a MySQL DATETIME string ("YYYY-MM-DD HH:MM:SS") to an ISO 8601
+     * UTC string ("YYYY-MM-DDTHH:MM:SS+00:00") suitable for unambiguous JS
+     * Date parsing.  Returns null for null/empty input.
+     */
+    private static function isoUtc(?string $dt): ?string {
+        if ($dt === null || $dt === '') return null;
+        return str_replace(' ', 'T', $dt) . '+00:00';
     }
 }
