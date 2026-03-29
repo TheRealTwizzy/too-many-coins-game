@@ -247,6 +247,43 @@ class Economy {
     }
     
     /**
+     * Compute Early Lock-In payout.
+     *
+     * Conversion order (per canon):
+     *  1. T1–T5 sigils are refunded at their per-tier star values and added to
+     *     the player's seasonal star total.
+     *  2. The combined seasonal star total is then converted to global stars at
+     *     65% (floor).
+     *
+     * T6 sigils are NOT refunded and must be handled separately by the caller
+     * (they are destroyed with no compensation).
+     *
+     * @param int   $seasonalStars  Player's current seasonal star balance.
+     * @param int[] $sigilCounts    Indexed array [0..4] = counts for T1–T5.
+     * @param int[] $tierCosts      Indexed array [0..4] = star refund value per sigil for T1–T5.
+     * @return array {
+     *     sigil_refund_stars: int,
+     *     total_seasonal_stars: int,
+     *     global_stars_gained: int
+     * }
+     */
+    public static function computeEarlyLockInPayout(int $seasonalStars, array $sigilCounts, array $tierCosts): array {
+        $sigilRefundStars = 0;
+        for ($i = 0; $i < 5; $i++) {
+            $count = (int)($sigilCounts[$i] ?? 0);
+            $cost  = (int)($tierCosts[$i] ?? 0);
+            $sigilRefundStars += $count * $cost;
+        }
+        $totalSeasonalStars = $seasonalStars + $sigilRefundStars;
+        $globalStarsGained  = (int)floor($totalSeasonalStars * 0.65);
+        return [
+            'sigil_refund_stars'   => $sigilRefundStars,
+            'total_seasonal_stars' => $totalSeasonalStars,
+            'global_stars_gained'  => $globalStarsGained,
+        ];
+    }
+
+    /**
      * Calculate vault cost for a tier based on remaining supply
      */
     public static function calculateVaultCost($vaultConfig, $tier, $remaining) {

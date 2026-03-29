@@ -87,13 +87,13 @@ class EconomyPrecisionTest extends TestCase
     {
         $vaultConfig = json_encode([
             ['tier' => 1, 'supply' => 1000, 'cost_table' => [['remaining' => 1, 'cost' => 5]]],
-            ['tier' => 2, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 20]]],
-            ['tier' => 3, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 80]]],
+            ['tier' => 2, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 25]]],
+            ['tier' => 3, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 125]]],
         ]);
 
         $this->assertSame(5, Economy::calculateVaultCost($vaultConfig, 1, 1000));
-        $this->assertSame(20, Economy::calculateVaultCost($vaultConfig, 2, 500));
-        $this->assertSame(80, Economy::calculateVaultCost($vaultConfig, 3, 250));
+        $this->assertSame(25, Economy::calculateVaultCost($vaultConfig, 2, 500));
+        $this->assertSame(125, Economy::calculateVaultCost($vaultConfig, 3, 250));
     }
 
     public function testVaultCostStepTableSelectsFirstMatchingRemainingThreshold(): void
@@ -113,5 +113,61 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(10, Economy::calculateVaultCost($vaultConfig, 1, 500));
         $this->assertSame(20, Economy::calculateVaultCost($vaultConfig, 1, 250));
         $this->assertSame(30, Economy::calculateVaultCost($vaultConfig, 1, 50));
+    }
+
+    // ==================== Early Lock-In Payout ====================
+
+    public function testEarlyLockInPayoutNoSigils(): void
+    {
+        // No sigils: payout = floor(0.65 * seasonalStars)
+        $result = Economy::computeEarlyLockInPayout(100, [0,0,0,0,0], [5,25,125,375,1125]);
+        $this->assertSame(0,   $result['sigil_refund_stars']);
+        $this->assertSame(100, $result['total_seasonal_stars']);
+        $this->assertSame(65,  $result['global_stars_gained']); // floor(100 * 0.65) = 65
+    }
+
+    public function testEarlyLockInPayoutFloorRoundsDown(): void
+    {
+        // 10 seasonal stars → floor(10 * 0.65) = floor(6.5) = 6
+        $result = Economy::computeEarlyLockInPayout(10, [0,0,0,0,0], [5,25,125,375,1125]);
+        $this->assertSame(0,  $result['sigil_refund_stars']);
+        $this->assertSame(10, $result['total_seasonal_stars']);
+        $this->assertSame(6,  $result['global_stars_gained']);
+    }
+
+    public function testEarlyLockInPayoutSigilRefundAddedBeforeConversion(): void
+    {
+        // 1 T1 sigil (5 stars) + 0 seasonal stars → total 5 → floor(5 * 0.65) = floor(3.25) = 3
+        $result = Economy::computeEarlyLockInPayout(0, [1,0,0,0,0], [5,25,125,375,1125]);
+        $this->assertSame(5, $result['sigil_refund_stars']);
+        $this->assertSame(5, $result['total_seasonal_stars']);
+        $this->assertSame(3, $result['global_stars_gained']);
+    }
+
+    public function testEarlyLockInPayoutMixedSigilsAndStars(): void
+    {
+        // 2 T1 (10), 1 T2 (25), 1 T3 (125) = 160 sigil stars + 40 seasonal = 200 total
+        // floor(200 * 0.65) = floor(130.0) = 130
+        $result = Economy::computeEarlyLockInPayout(40, [2,1,1,0,0], [5,25,125,375,1125]);
+        $this->assertSame(160, $result['sigil_refund_stars']);
+        $this->assertSame(200, $result['total_seasonal_stars']);
+        $this->assertSame(130, $result['global_stars_gained']);
+    }
+
+    public function testEarlyLockInPayoutT4AndT5DerivedCosts(): void
+    {
+        // 1 T4 at 375, 1 T5 at 1125 → sigil refund = 1500; total = 1500; floor(1500*0.65)=975
+        $result = Economy::computeEarlyLockInPayout(0, [0,0,0,1,1], [5,25,125,375,1125]);
+        $this->assertSame(1500, $result['sigil_refund_stars']);
+        $this->assertSame(1500, $result['total_seasonal_stars']);
+        $this->assertSame(975,  $result['global_stars_gained']); // floor(1500*0.65)=975
+    }
+
+    public function testEarlyLockInPayoutZeroStarsAndNoSigils(): void
+    {
+        $result = Economy::computeEarlyLockInPayout(0, [0,0,0,0,0], [5,25,125,375,1125]);
+        $this->assertSame(0, $result['sigil_refund_stars']);
+        $this->assertSame(0, $result['total_seasonal_stars']);
+        $this->assertSame(0, $result['global_stars_gained']);
     }
 }

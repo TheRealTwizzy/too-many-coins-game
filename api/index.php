@@ -125,6 +125,16 @@ if (TMC_TICK_ON_REQUEST) {
     }
 }
 
+/**
+ * Convert a MySQL DATETIME string ("YYYY-MM-DD HH:MM:SS") to an ISO 8601
+ * UTC string ("YYYY-MM-DDTHH:MM:SS+00:00") for unambiguous JS Date parsing.
+ * Returns null for null/empty input.
+ */
+function iso_utc_datetime(?string $dt): ?string {
+    if ($dt === null || $dt === '') return null;
+    return str_replace(' ', 'T', $dt) . '+00:00';
+}
+
 try {
     switch ($action) {
         // ==================== AUTH ====================
@@ -850,23 +860,31 @@ function getChatMessages($player, $input) {
     $seasonId = $input['season_id'] ?? null;
     
     if ($channelKind === 'GLOBAL') {
-        return $db->fetchAll(
+        $messages = $db->fetchAll(
             "SELECT message_id, sender_id, handle_snapshot, content, is_admin_post, is_removed, created_at
              FROM chat_messages 
              WHERE channel_kind = 'GLOBAL' AND is_removed = 0
              ORDER BY created_at DESC LIMIT ?",
             [CHAT_MAX_ROWS]
         );
+        foreach ($messages as &$m) {
+            $m['created_at'] = iso_utc_datetime($m['created_at'] ?? null);
+        }
+        return $messages;
     }
     
     if ($channelKind === 'SEASON' && $seasonId) {
-        return $db->fetchAll(
+        $messages = $db->fetchAll(
             "SELECT message_id, sender_id, handle_snapshot, content, is_removed, created_at
              FROM chat_messages 
              WHERE channel_kind = 'SEASON' AND season_id = ? AND is_removed = 0
              ORDER BY created_at DESC LIMIT ?",
             [$seasonId, CHAT_MAX_ROWS]
         );
+        foreach ($messages as &$m) {
+            $m['created_at'] = iso_utc_datetime($m['created_at'] ?? null);
+        }
+        return $messages;
     }
     
     return [];
@@ -905,6 +923,8 @@ function getProfile($viewer, $targetId) {
     $target['badges'] = $badges;
     $target['season_history'] = $history;
     $target['active_participation'] = null;
+    // Normalise DATETIME to ISO 8601 UTC so JS Date() parses it unambiguously.
+    $target['created_at'] = iso_utc_datetime($target['created_at'] ?? null);
 
     if (!empty($target['joined_season_id']) && (int)$target['participation_enabled'] === 1) {
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$target['joined_season_id']]);
@@ -1043,13 +1063,17 @@ function getRecentSigilDrops($player) {
     
     $seasonId = $player['joined_season_id'];
     
-    return $db->fetchAll(
+    $drops = $db->fetchAll(
         "SELECT tier, source, drop_tick, created_at 
          FROM sigil_drop_log 
          WHERE player_id = ? AND season_id = ?
          ORDER BY drop_tick DESC LIMIT 20",
         [$player['player_id'], $seasonId]
     );
+    foreach ($drops as &$d) {
+        $d['created_at'] = iso_utc_datetime($d['created_at'] ?? null);
+    }
+    return $drops;
 }
 
 function getNotificationIdsFromInput($input) {
