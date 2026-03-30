@@ -1639,10 +1639,10 @@ const TMC = {
             }
             const ratePerTick = Number(entry.rate_per_tick || 0);
             const firstColValue = firstCol === 'rate'
-                ? `${this.formatPercentCompact(ratePerTick)} /t`
+                ? `${this.formatPercentCompact(ratePerTick)}`
                 : `#${rank}`;
             const coinsCell = this.formatNumber(entry.coins || 0);
-            const rateCell = `${this.formatPercentCompact(ratePerTick)} /t`;
+            const rateCell = `${this.formatPercentCompact(ratePerTick)}`;
 
             return `
                 <tr class="${isMe ? 'my-row' : ''} ${rank <= 3 ? 'top-three' : ''}">

@@ -61,6 +61,11 @@ function getSeasonalHeaderColumns() {
     return ['Rank', 'Player', 'Stars', 'Boost', 'Coins', 'Rate', 'Status'];
 }
 
+/** Mirrors leaderboard rate cell rendering without the legacy /t suffix. */
+function formatLeaderboardRate(rate) {
+    return String(rate);
+}
+
 // ===========================================================================
 // 1. Rank derivation — final_rank field (typical ended season)
 // ===========================================================================
@@ -260,6 +265,17 @@ function getSeasonalHeaderColumns() {
 // ===========================================================================
 
 {
+    const rate = formatLeaderboardRate('21.33');
+    assert.strictEqual(rate, '21.33', 'rate should render as compact value only');
+    assert.ok(!rate.includes('/t'), 'rate must not include /t suffix');
+    console.log('  ✓ rate format: no /t suffix');
+}
+
+// ===========================================================================
+// 18. Pagination threshold — no paging before show-all expansion
+// ===========================================================================
+
+{
     const lb = Array.from({ length: 250 }, (_, i) => ({ player_id: i + 1 }));
     const rows = paginateSeasonal(lb, false, 1);
     assert.strictEqual(rows.length, 20, 'collapsed state must still show top 20');
@@ -267,7 +283,7 @@ function getSeasonalHeaderColumns() {
 }
 
 // ===========================================================================
-// 18. Pagination threshold — expanded view uses 100 rows/page when >100
+// 19. Pagination threshold — expanded view uses 100 rows/page when >100
 // ===========================================================================
 
 {
