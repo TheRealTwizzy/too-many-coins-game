@@ -50,6 +50,10 @@ require_once __DIR__ . '/../includes/actions.php';
 require_once __DIR__ . '/../includes/tick_engine.php';
 require_once __DIR__ . '/../includes/notifications.php';
 
+if (!defined('LEADERBOARD_MAX_LIMIT')) {
+    define('LEADERBOARD_MAX_LIMIT', 200);
+}
+
 // Database initialization endpoint (must be before server_state check)
 $earlyAction = $_GET['action'] ?? '';
 if ($earlyAction === 'init_db') {
@@ -481,7 +485,6 @@ try {
 }
 
 // ==================== HELPER FUNCTIONS ====================
-const LEADERBOARD_MAX_LIMIT = 200;
 
 function tableExists(Database $db, string $tableName): bool {
     static $cache = [];
