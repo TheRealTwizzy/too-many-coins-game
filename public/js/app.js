@@ -2786,6 +2786,27 @@ const TMC = {
      * The executeFn must accept confirm_economic_impact as a boolean argument.
      */
     async runWithEconGate(previewFn, executeFn, title) {
+        const openConfirmFlow = async (previewPayload, resolve) => {
+            const modal = document.getElementById('econ-confirm-modal');
+            if (!modal) {
+                const ok = window.confirm('This action has economic impact and requires confirmation. Proceed?');
+                if (!ok) {
+                    resolve(null);
+                    return;
+                }
+                const confirmedResult = await executeFn(true);
+                resolve(confirmedResult);
+                return;
+            }
+
+            this._econCancelResolver = resolve;
+            this.showEconConfirm(previewPayload, title, async () => {
+                this._econCancelResolver = null;
+                const confirmedResult = await executeFn(true);
+                resolve(confirmedResult);
+            });
+        };
+
         const preview = await previewFn();
         if (!preview || preview.error) {
             this.toast(preview ? preview.error : 'Preview failed', 'error');
@@ -2794,23 +2815,30 @@ const TMC = {
 
         if (preview.requires_explicit_confirm) {
             return new Promise((resolve) => {
-                this._econCancelResolver = resolve;
-                this.showEconConfirm(preview, title, async () => {
-                    this._econCancelResolver = null;
-                    const result = await executeFn(true);
-                    resolve(result);
-                });
+                openConfirmFlow(preview, resolve);
             });
         }
 
         const directResult = await executeFn(false);
-        if (directResult && directResult.error === 'confirmation_required' && directResult.preview) {
+        if (directResult && directResult.error === 'confirmation_required') {
             return new Promise((resolve) => {
-                this._econCancelResolver = resolve;
-                this.showEconConfirm(directResult.preview, title, async () => {
-                    this._econCancelResolver = null;
-                    const confirmedResult = await executeFn(true);
-                    resolve(confirmedResult);
+                const previewUnavailableMessage = 'Confirmation required but preview is unavailable. Please try again.';
+                const serverPreview = directResult.preview && !directResult.preview.error ? directResult.preview : null;
+                if (serverPreview) {
+                    openConfirmFlow(serverPreview, resolve);
+                    return;
+                }
+
+                previewFn().then((retriedPreview) => {
+                    if (retriedPreview && !retriedPreview.error) {
+                        openConfirmFlow(retriedPreview, resolve);
+                        return;
+                    }
+                    this.toast(previewUnavailableMessage, 'error');
+                    resolve(directResult);
+                }).catch(() => {
+                    this.toast(previewUnavailableMessage, 'error');
+                    resolve(directResult);
                 });
             });
         }
