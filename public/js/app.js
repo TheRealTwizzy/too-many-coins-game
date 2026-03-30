@@ -2732,10 +2732,10 @@ const TMC = {
         if (modal) modal.style.display = 'flex';
     },
 
-    closeEconConfirm() {
+    closeEconConfirm(skipCancelResolve = false) {
         const modal = document.getElementById('econ-confirm-modal');
         if (modal) modal.style.display = 'none';
-        if (typeof this._econCancelResolver === 'function') {
+        if (!skipCancelResolve && typeof this._econCancelResolver === 'function') {
             const resolver = this._econCancelResolver;
             this._econCancelResolver = null;
             resolver(null);
@@ -2745,7 +2745,7 @@ const TMC = {
 
     async executeEconConfirmed() {
         const cb = this._econPendingAction;
-        this.closeEconConfirm();
+        this.closeEconConfirm(true);
         if (cb) await cb();
     },
 
@@ -2787,6 +2787,18 @@ const TMC = {
      */
     async runWithEconGate(previewFn, executeFn, title) {
         const openConfirmFlow = async (previewPayload, resolve) => {
+            const executeConfirmedAction = async () => {
+                try {
+                    const confirmedResult = await executeFn(true);
+                    resolve(confirmedResult);
+                } catch (error) {
+                    const actionLabel = title || 'this action';
+                    console.error(`Error executing confirmed economic action (${actionLabel}):`, error);
+                    this.toast(`Failed to complete ${actionLabel}. Please try again.`, 'error');
+                    resolve(null);
+                }
+            };
+
             const modal = document.getElementById('econ-confirm-modal');
             if (!modal) {
                 const ok = window.confirm('This action has economic impact and requires confirmation. Proceed?');
@@ -2794,16 +2806,14 @@ const TMC = {
                     resolve(null);
                     return;
                 }
-                const confirmedResult = await executeFn(true);
-                resolve(confirmedResult);
+                await executeConfirmedAction();
                 return;
             }
 
             this._econCancelResolver = resolve;
             this.showEconConfirm(previewPayload, title, async () => {
                 this._econCancelResolver = null;
-                const confirmedResult = await executeFn(true);
-                resolve(confirmedResult);
+                await executeConfirmedAction();
             });
         };
 
