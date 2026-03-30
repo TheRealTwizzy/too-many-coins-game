@@ -102,8 +102,11 @@ if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
         header('Content-Type: ' . $mimeTypes[$ext]);
     }
 
-    // Cache static assets (CSS, JS, images) for 1 hour; HTML for 0
-    if (in_array($ext, ['css', 'js', 'png', 'jpg', 'gif', 'svg', 'woff2', 'woff', 'ico'])) {
+    // Keep app shell assets fresh while still caching media/fonts.
+    $isAppShellAsset = ($path === '/js/app.js' || $path === '/css/style.css');
+    if ($isAppShellAsset) {
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+    } else if (in_array($ext, ['css', 'js', 'png', 'jpg', 'gif', 'svg', 'woff2', 'woff', 'ico'])) {
         header('Cache-Control: public, max-age=3600');
     } else {
         header('Cache-Control: no-cache, no-store, must-revalidate');
