@@ -980,7 +980,7 @@ const TMC = {
         const toggleBtn = document.getElementById('season-lb-toggle-btn');
         if (!body) return;
 
-        if (!lb || lb.length === 0 || lb.error) {
+        if (!Array.isArray(lb) || lb.length === 0 || lb.error) {
             body.innerHTML = '';
             if (empty) empty.style.display = '';
             if (toggleWrap) toggleWrap.style.display = 'none';
@@ -1562,7 +1562,7 @@ const TMC = {
         if (!season) return null;
 
         const status = season.computed_status || season.status;
-        if (status === 'Active') return season;
+        if (status === 'Active' || status === 'Blackout') return season;
         return null;
     },
 
@@ -1621,8 +1621,11 @@ const TMC = {
         const firstCol = options.firstCol === 'rate' ? 'rate' : 'rank';
         const showRateNearCoins = !!options.showRateNearCoins;
         return entries.map((entry, i) => {
-            const parsedFinalRank = Number(entry.final_rank);
-            const hasFinalRank = entry.final_rank != null && !Number.isNaN(parsedFinalRank) && parsedFinalRank > 0;
+            // Support rank field under any of the common schema aliases
+            // (final_rank for ended seasons, position/rank for live data).
+            const rawRank = entry.final_rank ?? entry.position ?? entry.rank ?? null;
+            const parsedFinalRank = Number(rawRank);
+            const hasFinalRank = rawRank != null && !Number.isNaN(parsedFinalRank) && parsedFinalRank > 0;
             const rank = hasFinalRank ? parsedFinalRank : (i + 1);
             const isLockedIn = entry.lock_in_effect_tick !== null;
             const isMe = this.state.player && entry.player_id == this.state.player.player_id;
@@ -1672,7 +1675,7 @@ const TMC = {
             this.setLeaderboardHeader(['Rank', 'Player', 'Stars', 'Boost', 'Coins / Rate', 'Status']);
 
             const lb = await this.api('leaderboard', { season_id: activeSeason.season_id, limit: this._globalSeasonalLeaderboardExpanded ? 0 : 20 });
-            if (!lb || lb.length === 0 || lb.error) {
+            if (!Array.isArray(lb) || lb.length === 0 || lb.error) {
                 body.innerHTML = '';
                 empty.style.display = '';
                 empty.innerHTML = '<p>No ranked players yet in this season.</p>';
@@ -1710,7 +1713,7 @@ const TMC = {
         this.setLeaderboardHeader(['Rank', 'Player', 'Global Stars', 'Status']);
         const lb = await this.api('global_leaderboard');
 
-        if (!lb || lb.length === 0 || lb.error) {
+        if (!Array.isArray(lb) || lb.length === 0 || lb.error) {
             body.innerHTML = '';
             empty.style.display = '';
             empty.innerHTML = '<p>No players on the leaderboard yet. Earn Global Stars through season outcomes and Lock-In!</p>';
@@ -2810,6 +2813,15 @@ const TMC = {
                 return;
             }
 
+            // Guard: if a prior confirmation is still pending (e.g. double-click /
+            // rapid re-entry), cancel it so its Promise resolves cleanly rather than
+            // leaking and causing a dead-end for that caller.
+            if (typeof this._econCancelResolver === 'function') {
+                const stale = this._econCancelResolver;
+                this._econCancelResolver = null;
+                stale(null);
+            }
+
             this._econCancelResolver = resolve;
             this.showEconConfirm(previewPayload, title, async () => {
                 this._econCancelResolver = null;
@@ -2844,11 +2856,13 @@ const TMC = {
                         openConfirmFlow(retriedPreview, resolve);
                         return;
                     }
+                    // Preview unavailable — resolve null so callers get a clean
+                    // "no result" rather than a dead-end confirmation_required object.
                     this.toast(previewUnavailableMessage, 'error');
-                    resolve(directResult);
+                    resolve(null);
                 }).catch(() => {
                     this.toast(previewUnavailableMessage, 'error');
-                    resolve(directResult);
+                    resolve(null);
                 });
             });
         }
@@ -2874,7 +2888,7 @@ const TMC = {
         );
 
         if (!result) return;
-        if (result.error && result.error !== 'confirmation_required') {
+        if (result.error) {
             this.toast(result.error, 'error');
             return;
         }
@@ -2930,7 +2944,7 @@ const TMC = {
         );
 
         if (!result) return;
-        if (result.error && result.error !== 'confirmation_required') {
+        if (result.error) {
             this.toast(result.error, 'error');
             return;
         }
@@ -2962,7 +2976,7 @@ const TMC = {
         );
 
         if (!result) return;
-        if (result.error && result.error !== 'confirmation_required') {
+        if (result.error) {
             this.toast(result.error, 'error');
             return;
         }
@@ -2991,7 +3005,7 @@ const TMC = {
         );
 
         if (!result) return;
-        if (result.error && result.error !== 'confirmation_required') {
+        if (result.error) {
             this.toast(result.error, 'error');
             return;
         }
