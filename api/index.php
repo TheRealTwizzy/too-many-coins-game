@@ -185,10 +185,17 @@ try {
             echo json_encode(Actions::seasonJoin($player['player_id'], $seasonId));
             break;
             
+        case 'star_purchase_preview':
+            $player = Auth::requireAuth();
+            echo json_encode(previewStarPurchase($player, (int)($input['stars_requested'] ?? 0)));
+            break;
+
         case 'purchase_stars':
             $player = Auth::requireAuth();
             $starsRequested = (int)($input['stars_requested'] ?? 0);
-            echo json_encode(Actions::purchaseStars($player['player_id'], $starsRequested));
+            $confirmed = !empty($input['confirm_economic_impact']);
+            $result = gatedStarPurchase($player, $starsRequested, $confirmed);
+            echo json_encode($result);
             break;
             
         case 'purchase_vault':
@@ -227,11 +234,18 @@ try {
             echo json_encode(getBoostCatalog());
             break;
             
+        case 'boost_activate_preview':
+            $player = Auth::requireAuth();
+            echo json_encode(previewBoostActivate($player, (int)($input['boost_id'] ?? 0), (string)($input['purchase_kind'] ?? 'power')));
+            break;
+
         case 'purchase_boost':
             $player = Auth::requireAuth();
             $boostId = (int)($input['boost_id'] ?? 0);
             $purchaseKind = (string)($input['purchase_kind'] ?? 'power');
-            echo json_encode(Actions::purchaseBoost($player['player_id'], $boostId, $purchaseKind));
+            $confirmed = !empty($input['confirm_economic_impact']);
+            $result = gatedBoostActivate($player, $boostId, $purchaseKind, $confirmed);
+            echo json_encode($result);
             break;
             
         case 'active_boosts':
@@ -322,16 +336,31 @@ try {
             break;
             
         // ==================== TRADING ====================
-        case 'trade_initiate':
+        case 'trade_preview':
             $player = Auth::requireAuth();
-            echo json_encode(Actions::tradeInitiate(
-                $player['player_id'],
+            echo json_encode(previewTrade(
+                $player,
                 (int)($input['acceptor_id'] ?? 0),
                 (int)($input['side_a_coins'] ?? 0),
                 $input['side_a_sigils'] ?? [0,0,0,0,0,0],
                 (int)($input['side_b_coins'] ?? 0),
                 $input['side_b_sigils'] ?? [0,0,0,0,0,0]
             ));
+            break;
+
+        case 'trade_initiate':
+            $player = Auth::requireAuth();
+            $confirmed = !empty($input['confirm_economic_impact']);
+            $result = gatedTradeInitiate(
+                $player,
+                (int)($input['acceptor_id'] ?? 0),
+                (int)($input['side_a_coins'] ?? 0),
+                $input['side_a_sigils'] ?? [0,0,0,0,0,0],
+                (int)($input['side_b_coins'] ?? 0),
+                $input['side_b_sigils'] ?? [0,0,0,0,0,0],
+                $confirmed
+            );
+            echo json_encode($result);
             break;
             
         case 'trade_accept':
@@ -436,7 +465,8 @@ try {
                 'purchase_cosmetic', 'equip_cosmetic', 'my_cosmetics', 'chat_send',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
-                'profile', 'my_badges', 'season_history', 'tick'
+                'profile', 'my_badges', 'season_history', 'tick',
+                'star_purchase_preview', 'trade_preview', 'boost_activate_preview'
             ]]);
     }
 } catch (Exception $e) {
@@ -1221,4 +1251,359 @@ function getFreezeStatusForPlayer($playerId, $seasonId) {
         'expires_at_real' => $expiresAtReal,
         'remaining_real_seconds' => max(0, $expiresAtReal - $serverNowUnix),
     ];
+}
+
+// ==================== ECONOMIC CONSEQUENCE PREVIEW HELPERS ====================
+
+/**
+ * Compute a risk object for an action.
+ *
+ * @param float $spendFraction  0.0–1.0: fraction of relevant balance consumed.
+ * @param array $extraFlags     Additional string flags to include.
+ * @return array{severity: string, flags: array, explain: string}
+ */
+function computeEconomicRisk(float $spendFraction, array $extraFlags = []): array {
+    $flags = $extraFlags;
+    $severity = 'low';
+    $lines = [];
+
+    if ($spendFraction >= 0.80) {
+        $severity = 'high';
+        $flags[] = 'large_spend';
+        $lines[] = sprintf('Action spends %.0f%% of your available balance.', $spendFraction * 100);
+    } elseif ($spendFraction >= 0.50) {
+        $severity = 'medium';
+        $flags[] = 'moderate_spend';
+        $lines[] = sprintf('Action spends %.0f%% of your available balance.', $spendFraction * 100);
+    }
+
+    if (in_array('last_sigil', $extraFlags, true)) {
+        $severity = ($severity === 'low') ? 'medium' : $severity;
+        $lines[] = 'This will consume your last sigil of this tier.';
+    }
+    if (in_array('no_boost_active', $extraFlags, true)) {
+        $lines[] = 'No existing boost of this type is active; this will start a new one.';
+    }
+    if (in_array('time_extend', $extraFlags, true)) {
+        $lines[] = 'This extends an existing boost duration.';
+    }
+
+    $explain = implode(' ', $lines) ?: 'Action is within normal spend parameters.';
+    return [
+        'severity' => $severity,
+        'flags' => array_values($flags),
+        'explain' => $explain,
+    ];
+}
+
+/**
+ * Build a standard preview payload.
+ */
+function buildPreviewPayload(
+    int $estimatedTotalCost,
+    int $estimatedFee,
+    int $estimatedPriceImpactBp,
+    int $postBalanceEstimate,
+    array $risk,
+    string $type = 'coins'
+): array {
+    $impactPct = round($estimatedPriceImpactBp / 100, 4);
+    return [
+        'estimated_total_cost'     => $estimatedTotalCost,
+        'estimated_fee'            => $estimatedFee,
+        'estimated_price_impact_bp'  => $estimatedPriceImpactBp,
+        'estimated_price_impact_pct' => $impactPct,
+        'post_balance_estimate'    => max(0, $postBalanceEstimate),
+        'balance_type'             => $type,
+        'risk'                     => $risk,
+        'requires_explicit_confirm' => ($risk['severity'] !== 'low'),
+    ];
+}
+
+/**
+ * Preview a star purchase without executing it.
+ */
+function previewStarPurchase(array $player, int $starsRequested): array {
+    $db = Database::getInstance();
+    $playerId = (int)$player['player_id'];
+    $fullPlayer = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
+
+    if (!$fullPlayer['participation_enabled'] || !$fullPlayer['joined_season_id']) {
+        return ['error' => 'Not participating in any season'];
+    }
+    if ($fullPlayer['idle_modal_active']) {
+        return ['error' => 'Cannot perform actions while idle', 'reason_code' => 'idle_gated'];
+    }
+
+    $seasonId = (int)$fullPlayer['joined_season_id'];
+    $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+    $status = GameTime::getSeasonStatus($season);
+    if ($status === 'Blackout') {
+        return ['error' => 'Star purchases are not available during blackout', 'reason_code' => 'blackout_disallows_action'];
+    }
+
+    if ($starsRequested <= 0) {
+        return ['error' => 'Must request a positive star quantity'];
+    }
+
+    $participation = $db->fetch(
+        "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
+        [$playerId, $seasonId]
+    );
+
+    $starPrice = (int)$season['current_star_price'];
+    if ($starPrice <= 0) return ['error' => 'Invalid star price'];
+
+    $estimatedCost = $starsRequested * $starPrice;
+    $coins = (int)$participation['coins'];
+    $totalSupply = max(1, (int)$season['total_coins_supply']);
+    $priceImpactBp = (int)round(($estimatedCost / $totalSupply) * 10000);
+
+    $spendFraction = $coins > 0 ? min(1.0, $estimatedCost / $coins) : 1.0;
+    $risk = computeEconomicRisk($spendFraction);
+
+    $payload = buildPreviewPayload(
+        $estimatedCost,
+        0,
+        $priceImpactBp,
+        $coins - $estimatedCost,
+        $risk
+    );
+    $payload['stars_requested'] = $starsRequested;
+    $payload['star_price'] = $starPrice;
+    $payload['coins_available'] = $coins;
+
+    return array_merge(['success' => true, 'preview_type' => 'star_purchase'], $payload);
+}
+
+/**
+ * Gated star purchase: runs preview first; blocks medium/high risk without confirm flag.
+ */
+function gatedStarPurchase(array $player, int $starsRequested, bool $confirmed): array {
+    $preview = previewStarPurchase($player, $starsRequested);
+    if (!empty($preview['error'])) return $preview;
+
+    if ($preview['requires_explicit_confirm'] && !$confirmed) {
+        return [
+            'error' => 'confirmation_required',
+            'reason_code' => 'confirmation_required',
+            'message' => 'This action has medium or high economic impact. Send confirm_economic_impact=1 to proceed.',
+            'preview' => $preview,
+        ];
+    }
+
+    $result = Actions::purchaseStars($player['player_id'], $starsRequested);
+    if (!empty($result['success'])) {
+        $result['receipt'] = [
+            'executed_total_cost'     => (int)($result['coins_spent'] ?? 0),
+            'executed_fee'            => 0,
+            'executed_price_impact_bp' => $preview['estimated_price_impact_bp'],
+            'executed_price_impact_pct' => $preview['estimated_price_impact_pct'],
+            'post_balance_estimate'   => max(0, $preview['coins_available'] - (int)($result['coins_spent'] ?? 0)),
+            'stars_purchased'         => (int)($result['stars_purchased'] ?? 0),
+        ];
+    }
+    return $result;
+}
+
+/**
+ * Preview a trade without executing it.
+ */
+function previewTrade(
+    array $player,
+    int $acceptorId,
+    int $sideACoins,
+    array $sideASigils,
+    int $sideBCoins,
+    array $sideBSigils
+): array {
+    $db = Database::getInstance();
+    $playerId = (int)$player['player_id'];
+    $fullPlayer = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
+
+    if (!$fullPlayer['participation_enabled'] || !$fullPlayer['joined_season_id']) {
+        return ['error' => 'Not participating in any season'];
+    }
+    if ($fullPlayer['idle_modal_active']) {
+        return ['error' => 'Cannot trade while idle', 'reason_code' => 'idle_gated'];
+    }
+
+    $seasonId = (int)$fullPlayer['joined_season_id'];
+    $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+    $status = GameTime::getSeasonStatus($season);
+    if ($status === 'Blackout') {
+        return ['error' => 'Trading is not available during blackout', 'reason_code' => 'blackout_disallows_action'];
+    }
+
+    $participation = $db->fetch(
+        "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
+        [$playerId, $seasonId]
+    );
+
+    $aCoins = max(0, (int)$sideACoins);
+    $declaredValue = Economy::calculateTradeValue($season, $aCoins, $sideASigils, $sideBCoins, $sideBSigils);
+    $fee = Economy::calculateTradeFee($season, $declaredValue);
+    $totalCost = $aCoins + $fee;
+
+    $coins = (int)$participation['coins'];
+    $totalSupply = max(1, (int)$season['total_coins_supply']);
+    $priceImpactBp = (int)round(($totalCost / $totalSupply) * 10000);
+
+    $spendFraction = $coins > 0 ? min(1.0, $totalCost / $coins) : 1.0;
+    $extraFlags = [];
+    if ($fee > 0) $extraFlags[] = 'fee_applies';
+    $risk = computeEconomicRisk($spendFraction, $extraFlags);
+
+    $payload = buildPreviewPayload(
+        $totalCost,
+        $fee,
+        $priceImpactBp,
+        $coins - $totalCost,
+        $risk
+    );
+    $payload['declared_value'] = $declaredValue;
+    $payload['side_a_coins'] = $aCoins;
+    $payload['coins_available'] = $coins;
+
+    return array_merge(['success' => true, 'preview_type' => 'trade'], $payload);
+}
+
+/**
+ * Gated trade initiate: runs preview first; blocks medium/high risk without confirm flag.
+ */
+function gatedTradeInitiate(
+    array $player,
+    int $acceptorId,
+    int $sideACoins,
+    array $sideASigils,
+    int $sideBCoins,
+    array $sideBSigils,
+    bool $confirmed
+): array {
+    $preview = previewTrade($player, $acceptorId, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils);
+    if (!empty($preview['error'])) return $preview;
+
+    if ($preview['requires_explicit_confirm'] && !$confirmed) {
+        return [
+            'error' => 'confirmation_required',
+            'reason_code' => 'confirmation_required',
+            'message' => 'This trade has medium or high economic impact. Send confirm_economic_impact=1 to proceed.',
+            'preview' => $preview,
+        ];
+    }
+
+    $result = Actions::tradeInitiate($player['player_id'], $acceptorId, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils);
+    if (!empty($result['success'])) {
+        $result['receipt'] = [
+            'executed_total_cost'      => (int)($sideACoins) + (int)($result['fee'] ?? 0),
+            'executed_fee'             => (int)($result['fee'] ?? 0),
+            'executed_price_impact_bp' => $preview['estimated_price_impact_bp'],
+            'executed_price_impact_pct' => $preview['estimated_price_impact_pct'],
+            'post_balance_estimate'    => max(0, $preview['coins_available'] - (int)$sideACoins - (int)($result['fee'] ?? 0)),
+            'declared_value'           => (int)($result['declared_value'] ?? 0),
+        ];
+    }
+    return $result;
+}
+
+/**
+ * Preview a boost activation without executing it.
+ */
+function previewBoostActivate(array $player, int $boostId, string $purchaseKind): array {
+    $db = Database::getInstance();
+    $playerId = (int)$player['player_id'];
+    $fullPlayer = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
+
+    if (!$fullPlayer['participation_enabled'] || !$fullPlayer['joined_season_id']) {
+        return ['error' => 'Not participating in any season'];
+    }
+    if ($fullPlayer['idle_modal_active']) {
+        return ['error' => 'Cannot perform actions while idle', 'reason_code' => 'idle_gated'];
+    }
+
+    $seasonId = (int)$fullPlayer['joined_season_id'];
+    $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+    $status = GameTime::getSeasonStatus($season);
+    if ($status === 'Blackout' || $status !== 'Active') {
+        return ['error' => 'Boost activation is only available during active season', 'reason_code' => 'blackout_disallows_action'];
+    }
+
+    $boost = $db->fetch("SELECT * FROM boost_catalog WHERE boost_id = ?", [$boostId]);
+    if (!$boost) return ['error' => 'Boost not found'];
+    $boost = BoostCatalog::normalize($boost);
+
+    $tierRequired = (int)$boost['tier_required'];
+    $sigilCost = (int)$boost['sigil_cost'];
+
+    $participation = $db->fetch(
+        "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
+        [$playerId, $seasonId]
+    );
+
+    $sigilCol = "sigils_t{$tierRequired}";
+    $sigilsOwned = (int)($participation[$sigilCol] ?? 0);
+
+    $gameTime = GameTime::now();
+    $activeRow = $db->fetch(
+        "SELECT * FROM active_boosts WHERE player_id = ? AND season_id = ? AND boost_id = ? AND is_active = 1 AND expires_tick >= ? ORDER BY expires_tick DESC LIMIT 1",
+        [$playerId, $seasonId, $boostId, $gameTime]
+    );
+
+    $extraFlags = [];
+    if (!$activeRow) $extraFlags[] = 'no_boost_active';
+    if ($purchaseKind === 'time') $extraFlags[] = 'time_extend';
+    if ($sigilsOwned <= $sigilCost) $extraFlags[] = 'last_sigil';
+
+    $spendFraction = $sigilsOwned > 0 ? min(1.0, $sigilCost / $sigilsOwned) : 1.0;
+    $risk = computeEconomicRisk($spendFraction, $extraFlags);
+
+    $payload = buildPreviewPayload(
+        $sigilCost,
+        0,
+        0,
+        max(0, $sigilsOwned - $sigilCost),
+        $risk,
+        "sigils_t{$tierRequired}"
+    );
+    $payload['boost_id']       = $boostId;
+    $payload['boost_name']     = $boost['name'];
+    $payload['tier_required']  = $tierRequired;
+    $payload['sigil_cost']     = $sigilCost;
+    $payload['sigils_owned']   = $sigilsOwned;
+    $payload['purchase_kind']  = $purchaseKind;
+    $payload['modifier_fp']    = (int)$boost['modifier_fp'];
+    $payload['modifier_percent'] = round((int)$boost['modifier_fp'] / 10000, 1);
+
+    return array_merge(['success' => true, 'preview_type' => 'boost_activate'], $payload);
+}
+
+/**
+ * Gated boost activate: runs preview first; blocks medium/high risk without confirm flag.
+ */
+function gatedBoostActivate(array $player, int $boostId, string $purchaseKind, bool $confirmed): array {
+    $preview = previewBoostActivate($player, $boostId, $purchaseKind);
+    if (!empty($preview['error'])) return $preview;
+
+    if ($preview['requires_explicit_confirm'] && !$confirmed) {
+        return [
+            'error' => 'confirmation_required',
+            'reason_code' => 'confirmation_required',
+            'message' => 'This boost activation has medium or high economic impact. Send confirm_economic_impact=1 to proceed.',
+            'preview' => $preview,
+        ];
+    }
+
+    $result = Actions::purchaseBoost($player['player_id'], $boostId, $purchaseKind);
+    if (!empty($result['success'])) {
+        $result['receipt'] = [
+            'executed_total_cost'      => (int)($result['sigils_consumed'] ?? 0),
+            'executed_fee'             => 0,
+            'executed_price_impact_bp' => 0,
+            'executed_price_impact_pct' => 0.0,
+            'post_balance_estimate'    => (int)$preview['post_balance_estimate'],
+            'tier_consumed'            => (int)($result['tier_consumed'] ?? 0),
+            'sigils_consumed'          => (int)($result['sigils_consumed'] ?? 0),
+        ];
+    }
+    return $result;
 }
