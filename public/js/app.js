@@ -401,6 +401,12 @@ const TMC = {
         const boostSelector = document.getElementById('time-boost-select');
         if (!boostSelector) return;
 
+        // Mobile native select menus flicker if option labels are rewritten while
+        // the control is open/focused. Freeze live option updates during interaction.
+        if (document.activeElement === boostSelector) {
+            return;
+        }
+
         const selectedTier = this._selectedTimeSigilTier;
         if (!selectedTier) return;
 
