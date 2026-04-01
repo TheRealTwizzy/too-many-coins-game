@@ -1323,6 +1323,8 @@ const TMC = {
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const durationTicks = parseInt(b.duration_ticks);
             const timeExtensionTicks = parseInt(b.time_extension_ticks || 0);
+            const durationRealSeconds = parseInt(b.duration_real_seconds || 0, 10) || 0;
+            const timeExtensionRealSeconds = parseInt(b.time_extension_real_seconds || 0, 10) || 0;
             const activeBoost = activeSelfBoosts.find((ab) => parseInt(ab.boost_id, 10) === parseInt(b.boost_id, 10)) || null;
             const currentModifierFp = activeBoost ? (parseInt(activeBoost.modifier_fp, 10) || 0) : 0;
             const powerCapFp = parseInt(b.power_cap_fp || 1000000, 10) || 1000000;
@@ -1340,8 +1342,12 @@ const TMC = {
             const description = this.getBoostDescription(b);
             const displayName = this.getBoostDisplayName(b.name);
             const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
-            const durationLabel = this.formatBoostDuration(durationTicks, 'short');
-            const timePurchaseLabel = `+${this.formatBoostDuration(timeExtensionTicks, 'short')}`;
+            const durationLabel = durationRealSeconds > 0
+                ? this.formatDurationFromSeconds(durationRealSeconds, 'short')
+                : this.formatBoostDuration(durationTicks, 'short');
+            const timePurchaseLabel = '+' + (timeExtensionRealSeconds > 0
+                ? this.formatDurationFromSeconds(timeExtensionRealSeconds, 'short')
+                : this.formatBoostDuration(timeExtensionTicks, 'short'));
             const powerTitle = !hasSigil
                 ? 'Not enough Sigils'
                 : (projectedModifierFp > powerCapFp
@@ -1423,6 +1429,28 @@ const TMC = {
 
         if (style === 'long') return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
         return `${minutes} min`;
+    },
+
+    formatDurationFromSeconds(totalSeconds, style = 'short') {
+        const total = Math.max(0, parseInt(totalSeconds, 10) || 0);
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+
+        if (hours > 0) {
+            if (minutes > 0) {
+                return style === 'long'
+                    ? `${hours} ${hours === 1 ? 'hour' : 'hours'} ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+                    : `${hours}h ${minutes}m`;
+            }
+            return style === 'long'
+                ? `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+                : `${hours} ${hours === 1 ? 'hr' : 'hrs'}`;
+        }
+
+        const mins = Math.max(1, minutes);
+        return style === 'long'
+            ? `${mins} ${mins === 1 ? 'minute' : 'minutes'}`
+            : `${mins} min`;
     },
 
     getBoostDescription(boost) {

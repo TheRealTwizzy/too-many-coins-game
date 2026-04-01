@@ -101,6 +101,8 @@ class BoostCatalog
         $boost['name'] = $canonical['name'];
         $boost['description'] = '';
         $boost['scope'] = $canonical['scope'];
+        $boost['duration_real_seconds'] = (int)$canonical['duration_seconds'];
+        $boost['time_extension_real_seconds'] = (int)$canonical['time_extension_seconds'];
         $boost['duration_ticks'] = ticks_from_real_seconds($canonical['duration_seconds']);
         $boost['time_extension_ticks'] = ticks_from_real_seconds($canonical['time_extension_seconds']);
         $boost['base_modifier_fp'] = $canonical['modifier_fp'];
