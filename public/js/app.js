@@ -361,7 +361,22 @@ const TMC = {
     },
 
     _formatBoostTimeLeft(remainingSeconds) {
-        return remainingSeconds > 0 ? this.formatSecondsRemaining(remainingSeconds) : 'Expiring\u2026';
+        return remainingSeconds > 0 ? this.formatBoostSecondsRemaining(remainingSeconds) : 'Expiring\u2026';
+    },
+
+    formatBoostSecondsRemaining(seconds) {
+        const total = Math.max(0, parseInt(seconds, 10) || 0);
+        if (total <= 0) return 'Ended';
+
+        const days = Math.floor(total / 86400);
+        const hours = Math.floor((total % 86400) / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const secs = total % 60;
+
+        if (days > 0) return `${days}d ${hours}h ${minutes}m ${secs}s`;
+        if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+        if (minutes > 0) return `${minutes}m ${secs}s`;
+        return `${secs}s`;
     },
 
     // Called every second by the realtime interval to update boost remaining-
