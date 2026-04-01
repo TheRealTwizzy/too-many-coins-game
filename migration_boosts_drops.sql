@@ -77,12 +77,12 @@ CREATE TABLE IF NOT EXISTS sigil_drop_log (
 
 INSERT INTO boost_catalog (name, description, tier_required, sigil_cost, scope, duration_ticks, modifier_id, modifier_fp, max_stack, icon) VALUES
 -- Tier I: Self UBI boost
-('Trickle', '', 1, 1, 'SELF', 60, 1, 100000, 5, 'trickle'),
+('Trickle', '', 1, 1, 'SELF', 1440, 1, 50000, 20, 'trickle'),
 -- Tier II: Self UBI boost
-('Surge', '', 2, 1, 'SELF', 180, 2, 150000, 5, 'surge'),
+('Surge', '', 2, 1, 'SELF', 720, 2, 100000, 10, 'surge'),
 -- Tier III: Self UBI boost
-('Flow', '', 3, 1, 'SELF', 360, 3, 250000, 2, 'flow'),
+('Flow', '', 3, 1, 'SELF', 360, 3, 250000, 4, 'flow'),
 -- Tier IV: Self UBI boost
-('Tide', '', 4, 1, 'SELF', 720, 4, 500000, 1, 'tide'),
+('Tide', '', 4, 1, 'SELF', 180, 4, 500000, 2, 'tide'),
 -- Tier V: Self UBI boost
-('Age', '', 5, 1, 'SELF', 1440, 5, 1000000, 1, 'age');
+('Age', '', 5, 1, 'SELF', 60, 5, 1000000, 1, 'age');

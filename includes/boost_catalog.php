@@ -17,18 +17,18 @@ class BoostCatalog
      * time_extension_seconds is the flat amount added when a player purchases a time
      * extension from the Boost Catalog. It is the EXACT amount shown on the purchase
      * button and must NOT be multiplied by the player's current power stack.
-     *   Tier 1 (Trickle): +5 min
-     *   Tier 2 (Surge):   +15 min
-     *   Tier 3 (Flow):    +30 min
-     *   Tier 4 (Tide):    +60 min
-     *   Tier 5 (Age):     +90 min
+     *   Tier 1 (Trickle): +30 min
+     *   Tier 2 (Surge):   +60 min
+     *   Tier 3 (Flow):    +180 min
+     *   Tier 4 (Tide):    +360 min
+     *   Tier 5 (Age):     +720 min
      */
     private const DEFINITIONS = [
         1 => [
             'name' => 'Trickle',
             'scope' => 'SELF',
-            'duration_seconds' => 1 * 60 * 60,
-            'time_extension_seconds' => 5 * 60,
+            'duration_seconds' => 24 * 60 * 60,
+            'time_extension_seconds' => 30 * 60,
             'modifier_fp' => 50000,
             'max_stack' => 20,
             'icon' => 'trickle',
@@ -39,8 +39,8 @@ class BoostCatalog
         2 => [
             'name' => 'Surge',
             'scope' => 'SELF',
-            'duration_seconds' => 3 * 60 * 60,
-            'time_extension_seconds' => 15 * 60,
+            'duration_seconds' => 12 * 60 * 60,
+            'time_extension_seconds' => 60 * 60,
             'modifier_fp' => 100000,
             'max_stack' => 10,
             'icon' => 'surge',
@@ -52,7 +52,7 @@ class BoostCatalog
             'name' => 'Flow',
             'scope' => 'SELF',
             'duration_seconds' => 6 * 60 * 60,
-            'time_extension_seconds' => 30 * 60,
+            'time_extension_seconds' => 180 * 60,
             'modifier_fp' => 250000,
             'max_stack' => 4,
             'icon' => 'flow',
@@ -63,8 +63,8 @@ class BoostCatalog
         4 => [
             'name' => 'Tide',
             'scope' => 'SELF',
-            'duration_seconds' => 12 * 60 * 60,
-            'time_extension_seconds' => 60 * 60,
+            'duration_seconds' => 3 * 60 * 60,
+            'time_extension_seconds' => 360 * 60,
             'modifier_fp' => 500000,
             'max_stack' => 2,
             'icon' => 'tide',
@@ -75,8 +75,8 @@ class BoostCatalog
         5 => [
             'name' => 'Age',
             'scope' => 'SELF',
-            'duration_seconds' => 24 * 60 * 60,
-            'time_extension_seconds' => 90 * 60,
+            'duration_seconds' => 1 * 60 * 60,
+            'time_extension_seconds' => 720 * 60,
             'modifier_fp' => 1000000,
             'max_stack' => 1,
             'icon' => 'age',

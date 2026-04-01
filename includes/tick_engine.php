@@ -416,6 +416,15 @@ class TickEngine {
     private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source) {
         $db = Database::getInstance();
         $sigilCol = "sigils_t{$tier}";
+
+        $participation = $db->fetch(
+            "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
+            [(int)$playerId, (int)$seasonId]
+        );
+        if (!$participation || !Economy::canReceiveSigilTier($participation, (int)$tier, 1)) {
+            // Hard-cap behavior: discard blocked drops instead of queueing.
+            return;
+        }
         
         // Add sigil to inventory
         $db->query(

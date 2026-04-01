@@ -597,6 +597,58 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
     ];
 }
 
+function getDefaultVaultRowsFromSeason($season) {
+    $defaults = [
+        ['tier' => 1, 'supply' => 500, 'cost' => 50],
+        ['tier' => 2, 'supply' => 250, 'cost' => 250],
+        ['tier' => 3, 'supply' => 125, 'cost' => 1000],
+    ];
+
+    $config = json_decode((string)($season['vault_config'] ?? ''), true);
+    if (is_array($config)) {
+        foreach ($config as $row) {
+            $tier = (int)($row['tier'] ?? 0);
+            if ($tier < 1 || $tier > 3) {
+                continue;
+            }
+            $supply = max(0, (int)($row['supply'] ?? 0));
+            $costTable = isset($row['cost_table']) && is_array($row['cost_table']) ? $row['cost_table'] : [];
+            $cost = 0;
+            if (!empty($costTable)) {
+                $cost = max(0, (int)($costTable[0]['cost'] ?? 0));
+            }
+            if ($supply > 0 && $cost > 0) {
+                $defaults[$tier - 1] = ['tier' => $tier, 'supply' => $supply, 'cost' => $cost];
+            }
+        }
+    }
+
+    $rows = [];
+    foreach ($defaults as $d) {
+        $rows[] = [
+            'season_id' => (int)$season['season_id'],
+            'tier' => (int)$d['tier'],
+            'initial_supply' => (int)$d['supply'],
+            'remaining_supply' => (int)$d['supply'],
+            'current_cost_stars' => (int)$d['cost'],
+            'last_published_cost_stars' => (int)$d['cost'],
+        ];
+    }
+
+    return $rows;
+}
+
+function getVaultRowsForViewer($season, $player) {
+    if (
+        $player
+        && (int)($player['participation_enabled'] ?? 0) === 1
+        && (int)($player['joined_season_id'] ?? 0) === (int)$season['season_id']
+    ) {
+        return Actions::getPlayerSeasonVaultRows((int)$player['player_id'], (int)$season['season_id']);
+    }
+    return getDefaultVaultRowsFromSeason($season);
+}
+
 function getGameState($player) {
     $db = Database::getInstance();
     $gameTime = GameTime::now();
@@ -620,11 +672,8 @@ function getGameState($player) {
         $s['blackout_remaining'] = max(0, $blackoutTime - $gameTime);
         $s['is_blackout'] = ($gameTime >= $blackoutTime && $gameTime < $endTime);
         
-        // Get vault info
-        $s['vault'] = $db->fetchAll(
-            "SELECT * FROM season_vault WHERE season_id = ? ORDER BY tier",
-            [$s['season_id']]
-        );
+        // Get vault info (player-scoped when viewing joined season).
+        $s['vault'] = getVaultRowsForViewer($s, $player);
         $s['sigil_drop_rates'] = getSigilDropRateMetadata();
         
         // Remove binary seed from response
@@ -670,6 +719,17 @@ function getGameState($player) {
                     (int)($participation['sigils_t6'] ?? 0)
                 ],
                 'sigils_total' => (int)$participation['sigils_t1'] + (int)$participation['sigils_t2'] + (int)$participation['sigils_t3'] + (int)$participation['sigils_t4'] + (int)$participation['sigils_t5'] + (int)($participation['sigils_t6'] ?? 0),
+                'sigil_caps' => [
+                    'total' => (int)SIGIL_INVENTORY_TOTAL_CAP,
+                    'tiers' => [
+                        1 => (int)Economy::getSigilTierCap(1),
+                        2 => (int)Economy::getSigilTierCap(2),
+                        3 => (int)Economy::getSigilTierCap(3),
+                        4 => (int)Economy::getSigilTierCap(4),
+                        5 => (int)Economy::getSigilTierCap(5),
+                        6 => (int)Economy::getSigilTierCap(6),
+                    ],
+                ],
                 'participation_time' => (int)$participation['participation_time_total'],
                 'active_ticks' => (int)$participation['active_ticks_total'],
                 'lock_in_stars' => $participation['lock_in_snapshot_seasonal_stars'],
@@ -768,10 +828,7 @@ function getSeasonDetail($player, $seasonId) {
     applySeasonCountdownFields($season, $gameTime);
     
     // Vault
-    $season['vault'] = $db->fetchAll(
-        "SELECT * FROM season_vault WHERE season_id = ? ORDER BY tier",
-        [$seasonId]
-    );
+    $season['vault'] = getVaultRowsForViewer($season, $player);
     $season['sigil_drop_rates'] = getSigilDropRateMetadata();
 
     if ($player && (int)$player['joined_season_id'] === (int)$seasonId && (int)$player['participation_enabled'] === 1) {
@@ -780,11 +837,7 @@ function getSeasonDetail($player, $seasonId) {
             [(int)$player['player_id'], (int)$seasonId]
         );
         if ($participation) {
-            // Surface effective rates from the same live model used by gameplay:
-            // inventory-aware per-tier scaling + boost-activity pressure on denominator.
-            $playerBoosts = getActiveBoosts($player);
-            $boostModFp = (int)($playerBoosts['total_modifier_fp'] ?? 0);
-            $dropConfig = Economy::computePerPlayerSigilDropConfig($participation, $boostModFp);
+            $dropConfig = Economy::computePerPlayerSigilDropConfig($participation, 0);
             $season['sigil_drop_rates'] = getSigilDropRateMetadataFromConfig($dropConfig);
             $season['player_combine_recipes'] = getCombineRecipesForParticipation($participation);
             $season['player_tier6_visible'] = shouldRevealTier6($participation);
@@ -1454,7 +1507,7 @@ function getCombineRecipesForParticipation($participation) {
             'to_tier' => (int)$fromTier + 1,
             'required' => (int)$required,
             'owned' => $owned,
-            'can_combine' => $owned >= (int)$required,
+            'can_combine' => $owned >= (int)$required && Economy::canReceiveSigilTier($participation, ((int)$fromTier + 1), 1),
         ];
     }
     return $recipes;

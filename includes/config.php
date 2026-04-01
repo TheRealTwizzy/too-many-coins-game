@@ -133,6 +133,15 @@ define('SIGIL_TIER_ODDS_MAX', [
 
 // Sigil progression and crafting
 define('SIGIL_MAX_TIER', 6);
+define('SIGIL_INVENTORY_TOTAL_CAP', 50);
+define('SIGIL_INVENTORY_TIER_CAPS', [
+    1 => 50,
+    2 => 20,
+    3 => 10,
+    4 => 4,
+    5 => 2,
+    6 => 1,
+]);
 define('SIGIL_COMBINE_RECIPES', [
     1 => 5,
     2 => 5,

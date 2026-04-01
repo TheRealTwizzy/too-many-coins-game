@@ -176,14 +176,14 @@ class EconomyPrecisionTest extends TestCase
     public function testVaultCostUsesTargetTierDefaultsForNaturalProgression(): void
     {
         $vaultConfig = json_encode([
-            ['tier' => 1, 'supply' => 1000, 'cost_table' => [['remaining' => 1, 'cost' => 5]]],
-            ['tier' => 2, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 25]]],
-            ['tier' => 3, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 125]]],
+            ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
+            ['tier' => 2, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 250]]],
+            ['tier' => 3, 'supply' => 125, 'cost_table' => [['remaining' => 1, 'cost' => 1000]]],
         ]);
 
-        $this->assertSame(5, Economy::calculateVaultCost($vaultConfig, 1, 1000));
-        $this->assertSame(25, Economy::calculateVaultCost($vaultConfig, 2, 500));
-        $this->assertSame(125, Economy::calculateVaultCost($vaultConfig, 3, 250));
+        $this->assertSame(50, Economy::calculateVaultCost($vaultConfig, 1, 500));
+        $this->assertSame(250, Economy::calculateVaultCost($vaultConfig, 2, 250));
+        $this->assertSame(1000, Economy::calculateVaultCost($vaultConfig, 3, 125));
     }
 
     public function testVaultCostStepTableSelectsFirstMatchingRemainingThreshold(): void
@@ -210,7 +210,7 @@ class EconomyPrecisionTest extends TestCase
     public function testEarlyLockInPayoutNoSigils(): void
     {
         // No sigils: payout = floor(0.65 * seasonalStars)
-        $result = Economy::computeEarlyLockInPayout(100, [0,0,0,0,0], [5,25,125,375,1125]);
+        $result = Economy::computeEarlyLockInPayout(100, [0,0,0,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(0,   $result['sigil_refund_stars']);
         $this->assertSame(100, $result['total_seasonal_stars']);
         $this->assertSame(65,  $result['global_stars_gained']); // floor(100 * 0.65) = 65
@@ -219,7 +219,7 @@ class EconomyPrecisionTest extends TestCase
     public function testEarlyLockInPayoutFloorRoundsDown(): void
     {
         // 10 seasonal stars → floor(10 * 0.65) = floor(6.5) = 6
-        $result = Economy::computeEarlyLockInPayout(10, [0,0,0,0,0], [5,25,125,375,1125]);
+        $result = Economy::computeEarlyLockInPayout(10, [0,0,0,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(0,  $result['sigil_refund_stars']);
         $this->assertSame(10, $result['total_seasonal_stars']);
         $this->assertSame(6,  $result['global_stars_gained']);
@@ -227,35 +227,35 @@ class EconomyPrecisionTest extends TestCase
 
     public function testEarlyLockInPayoutSigilRefundAddedBeforeConversion(): void
     {
-        // 1 T1 sigil (5 stars) + 0 seasonal stars → total 5 → floor(5 * 0.65) = floor(3.25) = 3
-        $result = Economy::computeEarlyLockInPayout(0, [1,0,0,0,0], [5,25,125,375,1125]);
-        $this->assertSame(5, $result['sigil_refund_stars']);
-        $this->assertSame(5, $result['total_seasonal_stars']);
-        $this->assertSame(3, $result['global_stars_gained']);
+        // 1 T1 sigil (50 stars) + 0 seasonal stars → total 50 → floor(50 * 0.65) = 32
+        $result = Economy::computeEarlyLockInPayout(0, [1,0,0,0,0], [50,250,1000,3000,9000]);
+        $this->assertSame(50, $result['sigil_refund_stars']);
+        $this->assertSame(50, $result['total_seasonal_stars']);
+        $this->assertSame(32, $result['global_stars_gained']);
     }
 
     public function testEarlyLockInPayoutMixedSigilsAndStars(): void
     {
-        // 2 T1 (10), 1 T2 (25), 1 T3 (125) = 160 sigil stars + 40 seasonal = 200 total
-        // floor(200 * 0.65) = floor(130.0) = 130
-        $result = Economy::computeEarlyLockInPayout(40, [2,1,1,0,0], [5,25,125,375,1125]);
-        $this->assertSame(160, $result['sigil_refund_stars']);
-        $this->assertSame(200, $result['total_seasonal_stars']);
-        $this->assertSame(130, $result['global_stars_gained']);
+        // 2 T1 (100), 1 T2 (250), 1 T3 (1000) = 1350 sigil stars + 40 seasonal = 1390 total
+        // floor(1390 * 0.65) = 903
+        $result = Economy::computeEarlyLockInPayout(40, [2,1,1,0,0], [50,250,1000,3000,9000]);
+        $this->assertSame(1350, $result['sigil_refund_stars']);
+        $this->assertSame(1390, $result['total_seasonal_stars']);
+        $this->assertSame(903, $result['global_stars_gained']);
     }
 
     public function testEarlyLockInPayoutT4AndT5DerivedCosts(): void
     {
-        // 1 T4 at 375, 1 T5 at 1125 → sigil refund = 1500; total = 1500; floor(1500*0.65)=975
-        $result = Economy::computeEarlyLockInPayout(0, [0,0,0,1,1], [5,25,125,375,1125]);
-        $this->assertSame(1500, $result['sigil_refund_stars']);
-        $this->assertSame(1500, $result['total_seasonal_stars']);
-        $this->assertSame(975,  $result['global_stars_gained']); // floor(1500*0.65)=975
+        // 1 T4 at 3000, 1 T5 at 9000 → sigil refund = 12000; total = 12000; floor(12000*0.65)=7800
+        $result = Economy::computeEarlyLockInPayout(0, [0,0,0,1,1], [50,250,1000,3000,9000]);
+        $this->assertSame(12000, $result['sigil_refund_stars']);
+        $this->assertSame(12000, $result['total_seasonal_stars']);
+        $this->assertSame(7800,  $result['global_stars_gained']); // floor(12000*0.65)=7800
     }
 
     public function testEarlyLockInPayoutZeroStarsAndNoSigils(): void
     {
-        $result = Economy::computeEarlyLockInPayout(0, [0,0,0,0,0], [5,25,125,375,1125]);
+        $result = Economy::computeEarlyLockInPayout(0, [0,0,0,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(0, $result['sigil_refund_stars']);
         $this->assertSame(0, $result['total_seasonal_stars']);
         $this->assertSame(0, $result['global_stars_gained']);

@@ -9,6 +9,53 @@ require_once __DIR__ . '/database.php';
 
 class Economy {
 
+    public static function getSigilTierCap($tier) {
+        $tier = (int)$tier;
+        $caps = (array)SIGIL_INVENTORY_TIER_CAPS;
+        return max(0, (int)($caps[$tier] ?? 0));
+    }
+
+    public static function getSigilTotalCap() {
+        return max(0, (int)SIGIL_INVENTORY_TOTAL_CAP);
+    }
+
+    public static function getSigilTotal($participation) {
+        if (!$participation || !is_array($participation)) {
+            return 0;
+        }
+        $total = 0;
+        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+            $total += max(0, (int)($participation['sigils_t' . $tier] ?? 0));
+        }
+        return (int)$total;
+    }
+
+    public static function canReceiveSigilTier($participation, $tier, $amount = 1) {
+        if (!$participation || !is_array($participation)) {
+            return false;
+        }
+
+        $tier = (int)$tier;
+        $amount = max(0, (int)$amount);
+        if ($tier < 1 || $tier > SIGIL_MAX_TIER || $amount <= 0) {
+            return false;
+        }
+
+        $col = 'sigils_t' . $tier;
+        $currentTier = max(0, (int)($participation[$col] ?? 0));
+        $currentTotal = self::getSigilTotal($participation);
+        $tierCap = self::getSigilTierCap($tier);
+        $totalCap = self::getSigilTotalCap();
+
+        if ($tierCap > 0 && ($currentTier + $amount) > $tierCap) {
+            return false;
+        }
+        if ($totalCap > 0 && ($currentTotal + $amount) > $totalCap) {
+            return false;
+        }
+        return true;
+    }
+
     /**
      * Estimate sigil power from tiered sigil inventory.
      */
@@ -591,146 +638,18 @@ class Economy {
     }
     
     /**
-     * Compute per-player sigil drop configuration.
+     * Compute sigil drop configuration.
      *
-     * Returns an array with:
-     *   'drop_rate' => int   – Bernoulli denominator (1-in-N chance per eligible tick)
-     *   'tier_odds' => int[] – Conditional per-tier odds (parts per 1,000,000, sum = 1,000,000)
+     * Sigil drops are fixed and no longer affected by player sigil inventory,
+     * sigil power, or active boost modifier. The function keeps a stable shape
+     * for existing call sites.
      *
-     * How per-player dynamic rates are computed:
-     *  1. Power-adjusted baseline odds are obtained from adjustedSigilTierOdds(), which
-     *     already blends SIGIL_TIER_ODDS toward SIGIL_TIER_ODDS_MAX_POWER based on the
-     *     player's total sigil power (higher power → lower base drop frequency).
-     *  2. Inventory-aware adjustment: for each tier T:
-     *       • Dampening – the player's current sigils_tT count divided by
-     *         SIGIL_INVENTORY_ADJ_THRESHOLD gives whole steps; each step reduces that
-     *         tier's odds by SIGIL_INVENTORY_ADJ_STEP_FP, capped at
-     *         SIGIL_INVENTORY_ADJ_MAX_STEPS. Prevents over-dropping a tier that already
-     *         has many sigils.
-     *       • Uplift   – when sigils_tT < SIGIL_INVENTORY_UPLIFT_THRESHOLD, the deficit
-     *         (threshold − count, capped at SIGIL_INVENTORY_UPLIFT_MAX_STEPS) provides an
-     *         equivalent number of SIGIL_INVENTORY_UPLIFT_STEP_FP increases to that tier's
-     *         odds. Ensures active players who have spent down their inventory can still
-     *         acquire sigils for boost activation.
-     *  3. Per-tier clamping: each tier's odds are clamped within the configured
-     *     [SIGIL_TIER_ODDS_MIN[tier], SIGIL_TIER_ODDS_MAX[tier]] bounds.
-     *  4. Monotonic ordering enforcement: for every adjacent pair, odds[T] is capped at
-     *     odds[T-1] so lower-tier sigils can never be rarer than higher-tier sigils.
-     *  5. Renormalization: values are scaled proportionally so their sum equals exactly
-     *     1,000,000; a rounding remainder is applied to T1.
-     *  6. Boost-based drop frequency (negative pressure): high boost activity raises the
-     *     Bernoulli denominator by 1 per SIGIL_BOOST_DROP_RATE_STEP_FP of active boost
-     *     modifier, capped at SIGIL_BOOST_DROP_RATE_MAX_PENALTY, then clamped to
-     *     [SIGIL_BOOST_DROP_RATE_FLOOR, SIGIL_BOOST_DROP_RATE_CEILING]. This reduces
-     *     overall drop frequency when boosts are running, keeping the economy balanced,
-     *     while the floor ensures drops never disappear entirely.
-     *
-     * Balancing guarantees:
-     *  - T1 >= T2 >= T3 >= T4 >= T5 is enforced at every evaluation (monotonic ordering).
-     *  - Inventory uplift does not invert tier rarity; anti-inversion re-runs after Step 2.
-     *  - Drops remain the primary sigil acquisition source; the vault provides a secondary
-     *    path at significant star cost, and combining provides a tertiary upgrade path.
-     *  - The denominator floor (SIGIL_BOOST_DROP_RATE_FLOOR) prevents boost activity from
-     *    starving active players of sigil drops.
-     *
-     * @param array $player     Season-participation row (must include sigils_t1…sigils_t5 fields).
-     * @param int   $boostModFp Combined boost modifier in fixed-point (FP_SCALE = 1,000,000 → 100%).
      * @return array{drop_rate: int, tier_odds: array<int,int>}
      */
     public static function computePerPlayerSigilDropConfig($player, $boostModFp = 0) {
-        $sigilPower = self::calculateSigilPower($player);
-
-        // Step 1: Power-adjusted baseline tier odds (sum = 1,000,000)
-        $tierOdds = self::adjustedSigilTierOdds($sigilPower);
-
-        $minOdds = SIGIL_TIER_ODDS_MIN;
-        $maxOdds = SIGIL_TIER_ODDS_MAX;
-
-        // Step 2: Per-tier inventory-aware adjustment (dampening for high counts; uplift for low/empty)
-        $adjThreshold   = max(1, (int)SIGIL_INVENTORY_ADJ_THRESHOLD);
-        $adjStepFp      = max(0, (int)SIGIL_INVENTORY_ADJ_STEP_FP);
-        $adjMaxSteps    = max(0, (int)SIGIL_INVENTORY_ADJ_MAX_STEPS);
-        $upliftThresh   = max(1, (int)SIGIL_INVENTORY_UPLIFT_THRESHOLD);
-        $upliftStepFp   = max(0, (int)SIGIL_INVENTORY_UPLIFT_STEP_FP);
-        $upliftMaxSteps = max(0, (int)SIGIL_INVENTORY_UPLIFT_MAX_STEPS);
-
-        foreach ($tierOdds as $tier => $odds) {
-            $col   = 'sigils_t' . $tier;
-            $count = (int)($player[$col] ?? 0);
-
-            // Dampening: reduce odds when the player already holds many of this tier.
-            $dampSteps = min($adjMaxSteps, intdiv($count, $adjThreshold));
-            $odds     -= $dampSteps * $adjStepFp;
-
-            // Uplift: increase odds when inventory is low or empty so active players
-            // who spend sigils on boosts retain access to replenishment drops.
-            if ($count < $upliftThresh) {
-                $upliftSteps = min($upliftMaxSteps, $upliftThresh - $count);
-                $odds       += $upliftSteps * $upliftStepFp;
-            }
-
-            $tierOdds[$tier] = $odds;
-        }
-
-        // Step 3: Clamp each tier within configured [min, max] bounds
-        foreach ($tierOdds as $tier => $odds) {
-            $lo = (int)($minOdds[$tier] ?? 0);
-            $hi = (int)($maxOdds[$tier] ?? 1000000);
-            $tierOdds[$tier] = self::clamp($odds, $lo, $hi);
-        }
-
-        // Step 4: Enforce monotonic ordering – T1 >= T2 >= T3 >= T4 >= T5
-        // Lower-tier sigils (T1) must never become rarer than higher-tier sigils (T5).
-        $tiers = array_keys($tierOdds);
-        sort($tiers); // [1, 2, 3, 4, 5]
-        for ($i = 1; $i < count($tiers); $i++) {
-            $prev = $tiers[$i - 1];
-            $curr = $tiers[$i];
-            if ($tierOdds[$curr] > $tierOdds[$prev]) {
-                $tierOdds[$curr] = $tierOdds[$prev];
-            }
-        }
-
-        // Step 5: Renormalize to exactly 1,000,000
-        $sum = array_sum($tierOdds);
-        if ($sum <= 0) {
-            // Safety fallback: return unmodified base odds
-            $tierOdds = SIGIL_TIER_ODDS;
-        } else {
-            // Proportional scaling to preserve relative ratios, then fix rounding on T1
-            $scaled = [];
-            foreach ($tierOdds as $tier => $odds) {
-                $scaled[$tier] = intdiv($odds * 1000000, $sum);
-            }
-            $scaledSum = array_sum($scaled);
-            $scaled[$tiers[0]] = max(0, $scaled[$tiers[0]] + (1000000 - $scaledSum));
-            $tierOdds = $scaled;
-
-            // Re-enforce monotonic ordering after the rounding delta on T1
-            for ($i = 1; $i < count($tiers); $i++) {
-                $prev = $tiers[$i - 1];
-                $curr = $tiers[$i];
-                if ($tierOdds[$curr] > $tierOdds[$prev]) {
-                    $tierOdds[$curr] = $tierOdds[$prev];
-                }
-            }
-        }
-
-        // Step 6: Boost-based drop frequency adjustment (negative pressure).
-        //   High boost activity raises the denominator, reducing overall drop frequency
-        //   within reason.  The floor/ceiling clamps ensure drops remain viable at all times.
-        $dropRate   = self::sigilDropRateForPower($sigilPower);
-        $boostMod   = max(0, (int)$boostModFp);
-        $stepFp     = max(1, (int)SIGIL_BOOST_DROP_RATE_STEP_FP);
-        $maxPenalty = max(0, (int)SIGIL_BOOST_DROP_RATE_MAX_PENALTY);
-        $floor      = max(1, (int)SIGIL_BOOST_DROP_RATE_FLOOR);
-        $ceiling    = max($floor, (int)SIGIL_BOOST_DROP_RATE_CEILING);
-        $penalty    = min($maxPenalty, intdiv($boostMod, $stepFp));
-        $dropRate   = self::clamp($dropRate + $penalty, $floor, $ceiling);
-
         return [
-            'drop_rate' => $dropRate,
-            'tier_odds' => $tierOdds,
+            'drop_rate' => max(1, (int)SIGIL_DROP_RATE),
+            'tier_odds' => SIGIL_TIER_ODDS,
         ];
     }
 

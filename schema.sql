@@ -127,6 +127,23 @@ CREATE TABLE IF NOT EXISTS season_vault (
     FOREIGN KEY (season_id) REFERENCES seasons(season_id)
 ) ENGINE=InnoDB;
 
+-- Vault inventory per player per season per tier
+CREATE TABLE IF NOT EXISTS player_season_vault (
+    player_id BIGINT UNSIGNED NOT NULL,
+    season_id BIGINT UNSIGNED NOT NULL,
+    tier TINYINT UNSIGNED NOT NULL,  -- 1-3 vault tiers only
+    initial_supply INT NOT NULL DEFAULT 0,
+    remaining_supply INT NOT NULL DEFAULT 0,
+    current_cost_stars BIGINT NOT NULL DEFAULT 0,
+    last_published_cost_stars BIGINT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (player_id, season_id, tier),
+    INDEX idx_psv_season_player (season_id, player_id),
+    FOREIGN KEY (player_id) REFERENCES players(player_id),
+    FOREIGN KEY (season_id) REFERENCES seasons(season_id)
+) ENGINE=InnoDB;
+
 -- ============================================================
 -- SEASON PARTICIPATION
 -- ============================================================

@@ -838,6 +838,7 @@ const TMC = {
                     <div class="action-panel">
                         <h3>Sigils</h3>
                         <p class="panel-info">Drop chance per eligible tick: <strong>${this.truncatePercent(sigilBasePercent)}%</strong></p>
+                        <p class="panel-info">Sigil cap: ${part.sigils_total}/${(part.sigil_caps && part.sigil_caps.total) ? part.sigil_caps.total : 50}</p>
                         <div class="sigil-display">
                             ${this.getVisibleSigils(part).map((sigil) => `
                                 <div class="sigil-item tier-${sigil.tier}">
@@ -882,6 +883,12 @@ const TMC = {
                                     const remaining = Number(v.remaining_supply ?? 0);
                                     const initial = Number(v.initial_supply ?? 0);
                                     const cost = Number(v.current_cost_stars ?? 0);
+                                    const tier = Number(v.tier ?? 0);
+                                    const capTotal = Number((part.sigil_caps && part.sigil_caps.total) ? part.sigil_caps.total : 50);
+                                    const capTier = Number((part.sigil_caps && part.sigil_caps.tiers && part.sigil_caps.tiers[tier]) ? part.sigil_caps.tiers[tier] : 0);
+                                    const ownedTier = Number((part.sigils && part.sigils[tier - 1]) ? part.sigils[tier - 1] : 0);
+                                    const capBlocked = (capTotal > 0 && Number(part.sigils_total || 0) >= capTotal)
+                                        || (capTier > 0 && ownedTier >= capTier);
                                     return `
                                     <div class="vault-item tier-${v.tier}">
                                         <span class="vault-tier">Tier ${v.tier}</span>
@@ -889,8 +896,8 @@ const TMC = {
                                         <span class="vault-cost">${cost} stars</span>
                                         <button class="btn btn-sm btn-primary" 
                                             onclick="TMC.purchaseVault(${v.tier})"
-                                            ${remaining <= 0 || isBlackout ? 'disabled' : ''}>
-                                            ${remaining <= 0 ? 'Sold Out' : 'Buy'}
+                                            ${remaining <= 0 || isBlackout || capBlocked ? 'disabled' : ''}>
+                                            ${remaining <= 0 ? 'Sold Out' : (capBlocked ? 'Cap Reached' : 'Buy')}
                                         </button>
                                     </div>
                                 `;}).join('')}
@@ -1305,18 +1312,18 @@ const TMC = {
             const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
             const boostKey = String(displayName || b.name || '').trim().toLowerCase();
             const durationDisplayByBoost = {
-                trickle: '1hr',
-                surge: '3hrs',
+                trickle: '24hrs',
+                surge: '12hrs',
                 flow: '6hrs',
-                tide: '12hrs',
-                age: '24hrs',
+                tide: '3hrs',
+                age: '1hr',
             };
             const timePurchaseLabelByBoost = {
-                trickle: '+5 mins',
-                surge: '+15 mins',
-                flow: '+30 mins',
-                tide: '+60 mins',
-                age: '+90 mins',
+                trickle: '+30 mins',
+                surge: '+60 mins',
+                flow: '+180 mins',
+                tide: '+360 mins',
+                age: '+720 mins',
             };
             const durationLabel = durationDisplayByBoost[boostKey] || this.formatBoostDuration(durationTicks, 'short');
             const timePurchaseLabel = timePurchaseLabelByBoost[boostKey] || `+${timeExtensionTicks} mins`;

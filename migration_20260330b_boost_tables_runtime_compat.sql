@@ -38,14 +38,14 @@ CREATE TABLE IF NOT EXISTS active_boosts (
 
 INSERT INTO boost_catalog (name, description, tier_required, sigil_cost, scope, duration_ticks, modifier_id, modifier_fp, max_stack, icon)
 SELECT * FROM (
-    SELECT 'Trickle', '', 1, 1, 'SELF', 60, 1, 100000, 5, 'trickle'
+    SELECT 'Trickle', '', 1, 1, 'SELF', 1440, 1, 50000, 20, 'trickle'
     UNION ALL
-    SELECT 'Surge', '', 2, 1, 'SELF', 180, 2, 150000, 5, 'surge'
+    SELECT 'Surge', '', 2, 1, 'SELF', 720, 2, 100000, 10, 'surge'
     UNION ALL
-    SELECT 'Flow', '', 3, 1, 'SELF', 360, 3, 250000, 2, 'flow'
+    SELECT 'Flow', '', 3, 1, 'SELF', 360, 3, 250000, 4, 'flow'
     UNION ALL
-    SELECT 'Tide', '', 4, 1, 'SELF', 720, 4, 500000, 1, 'tide'
+    SELECT 'Tide', '', 4, 1, 'SELF', 180, 4, 500000, 2, 'tide'
     UNION ALL
-    SELECT 'Age', '', 5, 1, 'SELF', 1440, 5, 1000000, 1, 'age'
+    SELECT 'Age', '', 5, 1, 'SELF', 60, 5, 1000000, 1, 'age'
 ) AS defaults
 WHERE NOT EXISTS (SELECT 1 FROM boost_catalog LIMIT 1);
