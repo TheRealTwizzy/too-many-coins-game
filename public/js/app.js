@@ -398,59 +398,40 @@ const TMC = {
     _tickTimePurchaseBoostSelector() {
         if (!this._timePurchaseFlowOpen || this._timePurchaseStep < 2) return;
 
-        const boostSelector = document.getElementById('time-boost-select');
-        if (!boostSelector) return;
-
-        // Mobile native select menus flicker if option labels are rewritten while
-        // the control is open/focused. Freeze live option updates during interaction.
-        if (document.activeElement === boostSelector) {
-            return;
-        }
-
         const selectedTier = this._selectedTimeSigilTier;
         if (!selectedTier) return;
 
         const candidates = this.getTimePurchaseCandidates(selectedTier);
-        const prevSelected = parseInt(boostSelector.value, 10) || this._selectedTimeBoostId;
+        const prevSelected = this._selectedTimeBoostId;
         const selectedBoostId = candidates.some(c => c.boostId === prevSelected)
             ? prevSelected
             : (candidates.length > 0 ? candidates[0].boostId : null);
         this._selectedTimeBoostId = selectedBoostId;
 
-        const byId = new Map();
-        candidates.forEach((c) => byId.set(String(c.boostId), c));
-
-        if (candidates.length === 0) {
-            if (boostSelector.options.length !== 1 || !boostSelector.options[0].disabled) {
-                boostSelector.innerHTML = '<option value="" selected disabled>No active boosts eligible</option>';
-            }
-            boostSelector.disabled = true;
-        } else {
-            // Remove stale options first.
-            for (let i = boostSelector.options.length - 1; i >= 0; i--) {
-                const opt = boostSelector.options[i];
-                if (!byId.has(String(opt.value))) {
-                    boostSelector.remove(i);
+        const toggle = document.getElementById('time-boost-picker-toggle');
+        if (toggle) {
+            if (selectedBoostId) {
+                const selectedCandidate = candidates.find(c => c.boostId === selectedBoostId);
+                if (selectedCandidate) {
+                    toggle.textContent = `${selectedCandidate.boostName} (${this.formatBoostSecondsRemaining(selectedCandidate.remainingSeconds)} left)`;
                 }
+            } else {
+                toggle.textContent = candidates.length > 0 ? 'Choose boost' : 'No active boosts eligible';
             }
-
-            // Update existing options and append missing ones without nuking the element.
-            candidates.forEach((c) => {
-                const value = String(c.boostId);
-                let opt = Array.from(boostSelector.options).find((o) => String(o.value) === value);
-                const label = `${c.boostName} (${this.formatBoostSecondsRemaining(c.remainingSeconds)} left)`;
-                if (!opt) {
-                    opt = document.createElement('option');
-                    opt.value = value;
-                    opt.dataset.boostName = c.boostName;
-                    boostSelector.appendChild(opt);
-                }
-                opt.textContent = label;
-            });
-
-            boostSelector.disabled = false;
-            boostSelector.value = String(selectedBoostId);
+            toggle.disabled = candidates.length === 0;
         }
+
+        candidates.forEach((c) => {
+            const timerEl = document.querySelector(`[data-boost-timer-for="${c.boostId}"]`);
+            if (timerEl) {
+                timerEl.textContent = `${this.formatBoostSecondsRemaining(c.remainingSeconds)} left`;
+            }
+        });
+
+        document.querySelectorAll('.time-boost-menu-item').forEach((item) => {
+            const id = parseInt(item.getAttribute('data-boost-id'), 10) || 0;
+            item.classList.toggle('is-selected', id === selectedBoostId);
+        });
 
         const applyBtn = document.getElementById('time-apply-btn');
         if (applyBtn) {
@@ -1330,6 +1311,7 @@ const TMC = {
     _selectedTimeBoostId: null,
     _timePurchaseFlowOpen: false,
     _timePurchaseStep: 1,
+    _timeBoostPickerOpen: false,
 
     async loadBoostCatalog() {
         const catalog = await this.api('boost_catalog');
@@ -1465,12 +1447,19 @@ const TMC = {
             }).join('')
             : '<option value="" selected disabled>No sigils</option>';
 
-        const boostOptionsHtml = timeCandidates.length > 0
+        const selectedCandidate = timeCandidates.find(c => c.boostId === selectedBoostId) || null;
+        const pickerLabel = selectedCandidate
+            ? `${selectedCandidate.boostName} (${this.formatBoostSecondsRemaining(selectedCandidate.remainingSeconds)} left)`
+            : (timeCandidates.length > 0 ? 'Choose boost' : 'No active boosts eligible');
+        const boostMenuItemsHtml = timeCandidates.length > 0
             ? timeCandidates.map((c) => {
-                const selected = c.boostId === selectedBoostId ? ' selected' : '';
-                return `<option value="${c.boostId}"${selected}>${this.escapeHtml(c.boostName)} (${this.formatBoostSecondsRemaining(c.remainingSeconds)} left)</option>`;
+                const selected = c.boostId === selectedBoostId ? ' is-selected' : '';
+                return `<button type="button" class="time-boost-menu-item${selected}" data-boost-id="${c.boostId}" onclick="TMC.selectTimeBoostCandidate(${c.boostId})">
+                    <span class="time-boost-menu-name">${this.escapeHtml(c.boostName)}</span>
+                    <span class="time-boost-menu-timer" data-boost-timer-for="${c.boostId}">${this.formatBoostSecondsRemaining(c.remainingSeconds)} left</span>
+                </button>`;
             }).join('')
-            : '<option value="" selected disabled>No active boosts eligible</option>';
+            : '<div class="time-boost-menu-empty">No active boosts eligible</div>';
 
         const flowControlsHtml = this._timePurchaseFlowOpen
             ? `
@@ -1479,7 +1468,12 @@ const TMC = {
                         ? `<select id="time-sigil-tier-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeTierSelectionChanged()" ${hasTimeSigils ? '' : 'disabled'}>${tierOptionsHtml}</select>
                            <button class="btn btn-primary btn-sm" onclick="TMC.advanceTimePurchaseStep()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>Next</button>`
                         : ''}
-                    ${this._timePurchaseStep >= 2 && selectedTier ? `<select id="time-boost-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeBoostSelectionChanged()" ${timeCandidates.length > 0 ? '' : 'disabled'}>${boostOptionsHtml}</select>` : ''}
+                    ${this._timePurchaseStep >= 2 && selectedTier ? `
+                        <div class="time-boost-picker ${this._timeBoostPickerOpen ? 'open' : ''}">
+                            <button type="button" id="time-boost-picker-toggle" class="input-field boost-time-flow-select time-boost-picker-toggle" onclick="TMC.toggleTimeBoostPicker()" ${timeCandidates.length > 0 ? '' : 'disabled'}>${this.escapeHtml(pickerLabel)}</button>
+                            <div id="time-boost-picker-menu" class="time-boost-picker-menu ${this._timeBoostPickerOpen ? 'open' : ''}">${boostMenuItemsHtml}</div>
+                        </div>
+                    ` : ''}
                     ${this._timePurchaseStep >= 2 ? `<button id="time-apply-btn" class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>` : ''}
                     <button class="btn btn-outline btn-sm" onclick="TMC.cancelTimePurchaseFlow()">Cancel</button>
                 </div>
@@ -1506,6 +1500,7 @@ const TMC = {
 
         this._timePurchaseFlowOpen = true;
         this._timePurchaseStep = 1;
+        this._timeBoostPickerOpen = false;
         if (!spendable.some(o => o.tier === this._selectedTimeSigilTier)) {
             this._selectedTimeSigilTier = spendable[0].tier;
         }
@@ -1520,6 +1515,7 @@ const TMC = {
             return;
         }
         this._timePurchaseStep = 2;
+        this._timeBoostPickerOpen = false;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
     },
@@ -1527,6 +1523,7 @@ const TMC = {
     cancelTimePurchaseFlow() {
         this._timePurchaseFlowOpen = false;
         this._timePurchaseStep = 1;
+        this._timeBoostPickerOpen = false;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
     },
@@ -1535,14 +1532,21 @@ const TMC = {
         const selector = document.getElementById('time-sigil-tier-select');
         if (!selector || !selector.value) return;
         this._selectedTimeSigilTier = parseInt(selector.value, 10) || null;
+        this._timeBoostPickerOpen = false;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
     },
 
-    onTimeBoostSelectionChanged() {
-        const selector = document.getElementById('time-boost-select');
-        if (!selector || !selector.value) return;
-        this._selectedTimeBoostId = parseInt(selector.value, 10) || null;
+    toggleTimeBoostPicker() {
+        if (!this._timePurchaseFlowOpen || this._timePurchaseStep < 2) return;
+        this._timeBoostPickerOpen = !this._timeBoostPickerOpen;
+        this.renderBoostCatalog();
+    },
+
+    selectTimeBoostCandidate(boostId) {
+        this._selectedTimeBoostId = parseInt(boostId, 10) || null;
+        this._timeBoostPickerOpen = false;
+        this.renderBoostCatalog();
     },
 
     getBoostDisplayName(name) {
@@ -1703,14 +1707,11 @@ const TMC = {
         }
 
         const tierSelector = document.getElementById('time-sigil-tier-select');
-        const boostSelector = document.getElementById('time-boost-select');
 
         const selectedTier = tierSelector && tierSelector.value
             ? (parseInt(tierSelector.value, 10) || null)
             : this._selectedTimeSigilTier;
-        const selectedBoostId = boostSelector && boostSelector.value
-            ? (parseInt(boostSelector.value, 10) || null)
-            : this._selectedTimeBoostId;
+        const selectedBoostId = this._selectedTimeBoostId;
 
         if (!selectedTier || selectedTier < 1 || selectedTier > 5) {
             this.toast('Select a sigil tier for +Time', 'error');
@@ -1724,6 +1725,7 @@ const TMC = {
         await this.purchaseBoostTimeGated(selectedBoostId, selectedTier);
         this._timePurchaseFlowOpen = false;
         this._timePurchaseStep = 1;
+        this._timeBoostPickerOpen = false;
     },
 
     chooseTimeSigilTier(boostId) {
