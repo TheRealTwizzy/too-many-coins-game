@@ -1311,6 +1311,7 @@ const TMC = {
     _selectedTimeBoostId: null,
     _timePurchaseFlowOpen: false,
     _timePurchaseStep: 1,
+    _timeTierPickerOpen: false,
     _timeBoostPickerOpen: false,
 
     async loadBoostCatalog() {
@@ -1440,12 +1441,19 @@ const TMC = {
             : (timeCandidates.length > 0 ? timeCandidates[0].boostId : null);
         this._selectedTimeBoostId = selectedBoostId;
 
-        const tierOptionsHtml = spendableTiers.length > 0
+        const selectedTierOption = spendableTiers.find((o) => o.tier === selectedTier) || null;
+        const tierPickerLabel = selectedTierOption
+            ? `Tier ${selectedTierOption.tier} (${selectedTierOption.owned}) +${this.formatDurationFromSeconds(selectedTierOption.extensionRealSeconds, 'short')}`
+            : 'No sigils';
+        const tierMenuItemsHtml = spendableTiers.length > 0
             ? spendableTiers.map((o) => {
-                const selected = o.tier === selectedTier ? ' selected' : '';
-                return `<option value="${o.tier}"${selected}>Tier ${o.tier} (${o.owned}) +${this.formatDurationFromSeconds(o.extensionRealSeconds, 'short')}</option>`;
+                const selected = o.tier === selectedTier ? ' is-selected' : '';
+                return `<button type="button" class="time-tier-menu-item${selected}" data-tier="${o.tier}" onclick="TMC.selectTimeTier(${o.tier})">
+                    <span class="time-tier-menu-name">Tier ${o.tier}</span>
+                    <span class="time-tier-menu-meta">${o.owned} owned • +${this.formatDurationFromSeconds(o.extensionRealSeconds, 'short')}</span>
+                </button>`;
             }).join('')
-            : '<option value="" selected disabled>No sigils</option>';
+            : '<div class="time-boost-menu-empty">No sigils</div>';
 
         const selectedCandidate = timeCandidates.find(c => c.boostId === selectedBoostId) || null;
         const pickerLabel = selectedCandidate
@@ -1465,7 +1473,10 @@ const TMC = {
             ? `
                 <div class="boost-time-flow-controls">
                     ${this._timePurchaseStep < 2
-                        ? `<select id="time-sigil-tier-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeTierSelectionChanged()" ${hasTimeSigils ? '' : 'disabled'}>${tierOptionsHtml}</select>
+                        ? `<div class="time-tier-picker ${this._timeTierPickerOpen ? 'open' : ''}">
+                               <button type="button" id="time-tier-picker-toggle" class="input-field boost-time-flow-select time-tier-picker-toggle" onclick="TMC.toggleTimeTierPicker()" ${hasTimeSigils ? '' : 'disabled'}>${this.escapeHtml(tierPickerLabel)}</button>
+                               <div id="time-tier-picker-menu" class="time-tier-picker-menu ${this._timeTierPickerOpen ? 'open' : ''}">${tierMenuItemsHtml}</div>
+                           </div>
                            <button class="btn btn-primary btn-sm" onclick="TMC.advanceTimePurchaseStep()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>Next</button>`
                         : ''}
                     ${this._timePurchaseStep >= 2 && selectedTier ? `
@@ -1500,6 +1511,7 @@ const TMC = {
 
         this._timePurchaseFlowOpen = true;
         this._timePurchaseStep = 1;
+        this._timeTierPickerOpen = false;
         this._timeBoostPickerOpen = false;
         if (!spendable.some(o => o.tier === this._selectedTimeSigilTier)) {
             this._selectedTimeSigilTier = spendable[0].tier;
@@ -1515,6 +1527,7 @@ const TMC = {
             return;
         }
         this._timePurchaseStep = 2;
+        this._timeTierPickerOpen = false;
         this._timeBoostPickerOpen = false;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
@@ -1523,15 +1536,23 @@ const TMC = {
     cancelTimePurchaseFlow() {
         this._timePurchaseFlowOpen = false;
         this._timePurchaseStep = 1;
+        this._timeTierPickerOpen = false;
         this._timeBoostPickerOpen = false;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
     },
 
-    onTimeTierSelectionChanged() {
-        const selector = document.getElementById('time-sigil-tier-select');
-        if (!selector || !selector.value) return;
-        this._selectedTimeSigilTier = parseInt(selector.value, 10) || null;
+    toggleTimeTierPicker() {
+        if (!this._timePurchaseFlowOpen || this._timePurchaseStep >= 2) return;
+        this._timeTierPickerOpen = !this._timeTierPickerOpen;
+        this.renderBoostCatalog();
+    },
+
+    selectTimeTier(tier) {
+        const parsedTier = parseInt(tier, 10) || null;
+        if (!parsedTier || parsedTier < 1 || parsedTier > 5) return;
+        this._selectedTimeSigilTier = parsedTier;
+        this._timeTierPickerOpen = false;
         this._timeBoostPickerOpen = false;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
@@ -1539,6 +1560,7 @@ const TMC = {
 
     toggleTimeBoostPicker() {
         if (!this._timePurchaseFlowOpen || this._timePurchaseStep < 2) return;
+        this._timeTierPickerOpen = false;
         this._timeBoostPickerOpen = !this._timeBoostPickerOpen;
         this.renderBoostCatalog();
     },
@@ -1706,11 +1728,7 @@ const TMC = {
             return;
         }
 
-        const tierSelector = document.getElementById('time-sigil-tier-select');
-
-        const selectedTier = tierSelector && tierSelector.value
-            ? (parseInt(tierSelector.value, 10) || null)
-            : this._selectedTimeSigilTier;
+        const selectedTier = this._selectedTimeSigilTier;
         const selectedBoostId = this._selectedTimeBoostId;
 
         if (!selectedTier || selectedTier < 1 || selectedTier > 5) {
@@ -1725,6 +1743,7 @@ const TMC = {
         await this.purchaseBoostTimeGated(selectedBoostId, selectedTier);
         this._timePurchaseFlowOpen = false;
         this._timePurchaseStep = 1;
+        this._timeTierPickerOpen = false;
         this._timeBoostPickerOpen = false;
     },
 
@@ -1803,13 +1822,50 @@ const TMC = {
             <span class="boost-total-mod">Total UBI Modifier: <strong>+${boosts.total_modifier_percent}%</strong></span>
         </div>`;
 
+        const tierClassForBoost = (b) => {
+            const boostTier = parseInt(b.tier_required, 10) || 0;
+            if (boostTier >= 1 && boostTier <= 5) return `tier-${boostTier}`;
+            const boostId = parseInt(b.boost_id, 10) || 0;
+            const catalogBoost = Array.isArray(this._boostCatalog)
+                ? this._boostCatalog.find((cb) => (parseInt(cb.boost_id, 10) || 0) === boostId)
+                : null;
+            const fallbackTier = catalogBoost ? (parseInt(catalogBoost.tier_required, 10) || 0) : 0;
+            return fallbackTier >= 1 && fallbackTier <= 5 ? `tier-${fallbackTier}` : '';
+        };
+
+        const sortBoostsByTier = (items) => {
+            const ranked = Array.isArray(items) ? [...items] : [];
+            const getTierRank = (boost) => {
+                const directTier = parseInt(boost.tier_required, 10) || 0;
+                if (directTier >= 1 && directTier <= 5) return directTier;
+                const boostId = parseInt(boost.boost_id, 10) || 0;
+                const catalogBoost = Array.isArray(this._boostCatalog)
+                    ? this._boostCatalog.find((cb) => (parseInt(cb.boost_id, 10) || 0) === boostId)
+                    : null;
+                const fallbackTier = catalogBoost ? (parseInt(catalogBoost.tier_required, 10) || 0) : 0;
+                return fallbackTier >= 1 && fallbackTier <= 5 ? fallbackTier : 99;
+            };
+
+            ranked.sort((a, b) => {
+                const aTier = getTierRank(a);
+                const bTier = getTierRank(b);
+                if (aTier !== bTier) return aTier - bTier;
+
+                const aName = this.getBoostDisplayName(a.name).toLowerCase();
+                const bName = this.getBoostDisplayName(b.name).toLowerCase();
+                return aName.localeCompare(bName);
+            });
+            return ranked;
+        };
+
         const renderBoost = (b, type) => {
             const remainingSeconds = this.getLiveBoostRemainingSeconds(b);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const timeLeft = this._formatBoostTimeLeft(remainingSeconds);
             const displayName = this.getBoostDisplayName(b.name);
             const boostKey = this._getBoostKey(b);
-            return `<div class="active-boost-item ${type}" data-boost-id="${boostKey}">
+            const tierClass = tierClassForBoost(b);
+            return `<div class="active-boost-item ${type} ${tierClass}" data-boost-id="${boostKey}">
                 <span class="ab-name">${this.escapeHtml(displayName)}</span>
                 <span class="ab-mod">+${modPercent}%</span>
                 <span class="ab-time">${timeLeft}</span>
@@ -1818,7 +1874,8 @@ const TMC = {
         };
 
         if (boosts.self.length > 0) {
-            html += '<div class="ab-section"><h4>Your Boosts</h4>' + boosts.self.map(b => renderBoost(b, 'self')).join('') + '</div>';
+            const orderedSelf = sortBoostsByTier(boosts.self);
+            html += '<div class="ab-section"><h4>Your Boosts</h4>' + orderedSelf.map(b => renderBoost(b, 'self')).join('') + '</div>';
         }
         if (boosts.global.length > 0) {
             html += '<div class="ab-section"><h4>Season-Wide Boosts</h4>' + boosts.global.map(b => renderBoost(b, 'global')).join('') + '</div>';

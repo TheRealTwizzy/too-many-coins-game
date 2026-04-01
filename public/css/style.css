@@ -2004,6 +2004,68 @@ a:hover { text-decoration: underline; }
     max-width: 240px;
 }
 
+.time-tier-picker {
+    position: relative;
+    min-width: 190px;
+}
+
+.time-tier-picker-toggle {
+    text-align: left;
+    width: 100%;
+}
+
+.time-tier-picker-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    z-index: 42;
+    width: min(92vw, 320px);
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 0.25rem;
+}
+
+.time-tier-picker-menu.open {
+    display: block;
+}
+
+.time-tier-menu-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.time-tier-menu-item:hover {
+    background: var(--bg-card-hover);
+}
+
+.time-tier-menu-item.is-selected {
+    background: rgba(34, 197, 94, 0.12);
+}
+
+.time-tier-menu-name {
+    font-weight: 600;
+}
+
+.time-tier-menu-meta {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
 .time-boost-picker {
     position: relative;
     min-width: 200px;
@@ -2085,6 +2147,17 @@ a:hover { text-decoration: underline; }
         min-width: 0;
         max-width: none;
         flex: 1 1 100%;
+    }
+
+    .time-tier-picker {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .time-tier-picker-menu {
+        left: 0;
+        right: auto;
+        width: 100%;
     }
 
     .time-boost-picker {
@@ -2297,6 +2370,12 @@ a:hover { text-decoration: underline; }
     background: rgba(239, 68, 68, 0.1);
     border-left: 3px solid #ef4444;
 }
+
+.active-boost-item.tier-1 { border-left-color: #9ca3af; }
+.active-boost-item.tier-2 { border-left-color: #22c55e; }
+.active-boost-item.tier-3 { border-left-color: #3b82f6; }
+.active-boost-item.tier-4 { border-left-color: #a855f7; }
+.active-boost-item.tier-5 { border-left-color: #f59e0b; }
 
 .ab-name {
     font-weight: 600;
