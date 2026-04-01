@@ -1336,18 +1336,32 @@ const TMC = {
             const currentPowerPercent = (currentModifierFp / 10000).toFixed(1);
             const powerCapPercent = (powerCapFp / 10000).toFixed(1);
             const currentRemainingTicks = activeBoost ? Math.max(0, (parseInt(activeBoost.expires_tick, 10) || 0) - nowTick) : 0;
-            const projectedRemainingTicks = currentRemainingTicks + Math.max(1, timeExtensionTicks);
             const canBuyPower = !!hasSigil && projectedModifierFp <= powerCapFp && projectedTotalFp <= totalPowerCapFp;
-            const canBuyTime = !!activeBoost && !!hasSigil && projectedRemainingTicks <= timeCapTicks;
+            const timeSigilOptions = this.getAvailableTimeSigilOptions(part, currentRemainingTicks, timeCapTicks);
+            const hasAnyTimeSigil = timeSigilOptions.length > 0;
+            const hasApplicableTimeSigil = timeSigilOptions.some(o => o.canApply);
+            const canBuyTime = !!activeBoost && hasAnyTimeSigil && hasApplicableTimeSigil;
+            const timeTierSelectId = `boost-time-tier-${b.boost_id}`;
             const description = this.getBoostDescription(b);
             const displayName = this.getBoostDisplayName(b.name);
             const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
             const durationLabel = durationRealSeconds > 0
                 ? this.formatDurationFromSeconds(durationRealSeconds, 'short')
                 : this.formatBoostDuration(durationTicks, 'short');
-            const timePurchaseLabel = '+' + (timeExtensionRealSeconds > 0
+            const fallbackTimePurchaseLabel = '+' + (timeExtensionRealSeconds > 0
                 ? this.formatDurationFromSeconds(timeExtensionRealSeconds, 'short')
                 : this.formatBoostDuration(timeExtensionTicks, 'short'));
+            const timePurchaseLabel = timeSigilOptions.length > 0
+                ? '+' + this.formatDurationFromSeconds(timeSigilOptions[0].extensionRealSeconds, 'short') + ' by sigil tier'
+                : fallbackTimePurchaseLabel;
+            const timeSigilOptionsHtml = timeSigilOptions.length > 0
+                ? timeSigilOptions.map((o, idx) => {
+                    const label = `Tier ${o.tier} (${o.owned}) +${this.formatDurationFromSeconds(o.extensionRealSeconds, 'short')}`;
+                    const selected = idx === 0 ? ' selected' : '';
+                    const disabled = o.canApply ? '' : ' disabled';
+                    return `<option value="${o.tier}"${selected}${disabled}>${this.escapeHtml(label)}</option>`;
+                }).join('')
+                : '<option value="" selected disabled>No sigils available</option>';
             const powerTitle = !hasSigil
                 ? 'Not enough Sigils'
                 : (projectedModifierFp > powerCapFp
@@ -1355,9 +1369,9 @@ const TMC = {
                     : (projectedTotalFp > totalPowerCapFp ? 'Combined boost cap is +500%' : ''));
             const timeTitle = !activeBoost
                 ? 'Activate boost power first'
-                : (!hasSigil
+                : (!hasAnyTimeSigil
                     ? 'Not enough Sigils'
-                    : (projectedRemainingTicks > timeCapTicks ? 'This product is capped at 48h duration' : ''));
+                    : (!hasApplicableTimeSigil ? 'This product is capped at 48h duration' : ''));
 
             return `
                 <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
@@ -1380,6 +1394,10 @@ const TMC = {
                             ${!canBuyPower ? `disabled title="${this.escapeHtml(powerTitle)}"` : ''}>
                             Power +${modPercent}%
                         </button>
+                        <select id="${timeTierSelectId}" class="input-field boost-time-tier-select"
+                            ${(!activeBoost || !hasAnyTimeSigil) ? 'disabled' : ''}>
+                            ${timeSigilOptionsHtml}
+                        </select>
                         <button class="btn btn-sm btn-outline"
                             onclick="TMC.purchaseBoostTimeGated(${b.boost_id})"
                             ${!canBuyTime ? `disabled title="${this.escapeHtml(timeTitle)}"` : ''}>
@@ -1451,6 +1469,78 @@ const TMC = {
         return style === 'long'
             ? `${mins} ${mins === 1 ? 'minute' : 'minutes'}`
             : `${mins} min`;
+    },
+
+    getTimeExtensionMapByTier() {
+        const map = {};
+        const catalog = Array.isArray(this._boostCatalog) ? this._boostCatalog : [];
+        catalog.forEach((b) => {
+            const tier = parseInt(b.tier_required, 10);
+            if (!tier || map[tier]) return;
+            map[tier] = {
+                extensionTicks: parseInt(b.time_extension_ticks || 0, 10) || 0,
+                extensionRealSeconds: parseInt(b.time_extension_real_seconds || 0, 10) || 0
+            };
+        });
+        return map;
+    },
+
+    getAvailableTimeSigilOptions(participation, currentRemainingTicks = 0, timeCapTicks = 2880) {
+        const options = [];
+        const sigils = participation && Array.isArray(participation.sigils) ? participation.sigils : [];
+        const extensionByTier = this.getTimeExtensionMapByTier();
+
+        for (let tier = 1; tier <= 5; tier++) {
+            const owned = parseInt(sigils[tier - 1] || 0, 10) || 0;
+            if (owned <= 0) continue;
+
+            const tierExtension = extensionByTier[tier] || {};
+            const extensionTicks = Math.max(1, parseInt(tierExtension.extensionTicks || 0, 10) || 0);
+            const extensionRealSeconds = Math.max(1, parseInt(tierExtension.extensionRealSeconds || 0, 10) || (extensionTicks * 60));
+            const canApply = (currentRemainingTicks + extensionTicks) <= timeCapTicks;
+
+            options.push({ tier, owned, extensionTicks, extensionRealSeconds, canApply });
+        }
+
+        return options;
+    },
+
+    chooseTimeSigilTier(boostId) {
+        const selector = document.getElementById(`boost-time-tier-${boostId}`);
+        if (selector && selector.value) {
+            const selected = parseInt(selector.value, 10);
+            if (selected >= 1 && selected <= 5) {
+                return selected;
+            }
+        }
+
+        const p = this.state.player;
+        const part = p ? p.participation : null;
+        const activeSelfBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.self)) ? p.active_boosts.self : [];
+        const nowTick = parseInt((p && p.active_boosts && p.active_boosts.server_now) || 0, 10) || 0;
+        const boost = this._boostCatalog ? this._boostCatalog.find(b => parseInt(b.boost_id, 10) === parseInt(boostId, 10)) : null;
+        const activeBoost = activeSelfBoosts.find((ab) => parseInt(ab.boost_id, 10) === parseInt(boostId, 10)) || null;
+        const timeCapTicks = boost ? (parseInt(boost.time_cap_ticks || 2880, 10) || 2880) : 2880;
+
+        if (!activeBoost) {
+            this.toast('Activate boost power first before purchasing additional time', 'error');
+            return null;
+        }
+
+        const currentRemainingTicks = Math.max(0, (parseInt(activeBoost.expires_tick, 10) || 0) - nowTick);
+        const options = this.getAvailableTimeSigilOptions(part, currentRemainingTicks, timeCapTicks)
+            .filter(o => o.canApply);
+
+        if (options.length === 0) {
+            this.toast('No eligible sigils available for this time purchase', 'error');
+            return null;
+        }
+
+        if (options.length === 1) {
+            return options[0].tier;
+        }
+
+        return options[0].tier;
     },
 
     getBoostDescription(boost) {
@@ -3159,10 +3249,12 @@ const TMC = {
     async purchaseBoostTimeGated(boostId) {
         const boost = this._boostCatalog ? this._boostCatalog.find(b => b.boost_id == boostId) : null;
         const name = boost ? this.getBoostDisplayName(boost.name) : `Boost #${boostId}`;
+        const selectedTier = this.chooseTimeSigilTier(boostId);
+        if (!selectedTier) return;
 
         const result = await this.runWithEconGate(
-            () => this.api('boost_activate_preview', { boost_id: boostId, purchase_kind: 'time' }),
-            (confirm) => this.api('purchase_boost', { boost_id: boostId, purchase_kind: 'time', confirm_economic_impact: confirm ? 1 : 0 }),
+            () => this.api('boost_activate_preview', { boost_id: boostId, purchase_kind: 'time', time_sigil_tier: selectedTier }),
+            (confirm) => this.api('purchase_boost', { boost_id: boostId, purchase_kind: 'time', time_sigil_tier: selectedTier, confirm_economic_impact: confirm ? 1 : 0 }),
             `Confirm: ${name} Extension`
         );
 

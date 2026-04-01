@@ -90,6 +90,27 @@ class BoostCatalog
         ],
     ];
 
+    public static function hasTier(int $tier): bool
+    {
+        return isset(self::DEFINITIONS[$tier]);
+    }
+
+    public static function getTimeExtensionTicksForTier(int $tier): int
+    {
+        if (!isset(self::DEFINITIONS[$tier])) {
+            return 0;
+        }
+        return ticks_from_real_seconds((int)self::DEFINITIONS[$tier]['time_extension_seconds']);
+    }
+
+    public static function getTimeExtensionRealSecondsForTier(int $tier): int
+    {
+        if (!isset(self::DEFINITIONS[$tier])) {
+            return 0;
+        }
+        return (int)self::DEFINITIONS[$tier]['time_extension_seconds'];
+    }
+
     public static function normalize(array $boost): array
     {
         $tier = (int)($boost['tier_required'] ?? 0);

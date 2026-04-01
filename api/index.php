@@ -241,15 +241,21 @@ try {
             
         case 'boost_activate_preview':
             $player = Auth::requireAuth();
-            echo json_encode(previewBoostActivate($player, (int)($input['boost_id'] ?? 0), (string)($input['purchase_kind'] ?? 'power')));
+            echo json_encode(previewBoostActivate(
+                $player,
+                (int)($input['boost_id'] ?? 0),
+                (string)($input['purchase_kind'] ?? 'power'),
+                isset($input['time_sigil_tier']) ? (int)$input['time_sigil_tier'] : null
+            ));
             break;
 
         case 'purchase_boost':
             $player = Auth::requireAuth();
             $boostId = (int)($input['boost_id'] ?? 0);
             $purchaseKind = (string)($input['purchase_kind'] ?? 'power');
+            $timeSigilTier = isset($input['time_sigil_tier']) ? (int)$input['time_sigil_tier'] : null;
             $confirmed = !empty($input['confirm_economic_impact']);
-            $result = gatedBoostActivate($player, $boostId, $purchaseKind, $confirmed);
+            $result = gatedBoostActivate($player, $boostId, $purchaseKind, $confirmed, $timeSigilTier);
             echo json_encode($result);
             break;
             
@@ -1853,7 +1859,7 @@ function gatedTradeInitiate(
 /**
  * Preview a boost activation without executing it.
  */
-function previewBoostActivate(array $player, int $boostId, string $purchaseKind): array {
+function previewBoostActivate(array $player, int $boostId, string $purchaseKind, ?int $timeSigilTier = null): array {
     $db = Database::getInstance();
     $playerId = (int)$player['player_id'];
     $fullPlayer = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
@@ -1886,16 +1892,31 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
     $perProductPowerCapFp = (int)($boost['power_cap_fp'] ?? BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
     $totalPowerCapFp = (int)($boost['total_power_cap_fp'] ?? BoostCatalog::TOTAL_POWER_CAP_FP);
     $perProductTimeCapTicks = (int)($boost['time_cap_ticks'] ?? ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT));
+    $timeSigilTierUsed = null;
+    $timeExtensionTicks = (int)($boost['time_extension_ticks'] ?? 0);
+    $timeExtensionRealSeconds = (int)($boost['time_extension_real_seconds'] ?? 0);
+
+    $sigilTierToConsume = $tierRequired;
+    if ($purchaseKind === 'time') {
+        $requestedTier = $timeSigilTier !== null ? (int)$timeSigilTier : $tierRequired;
+        if (!BoostCatalog::hasTier($requestedTier)) {
+            return ['error' => 'Invalid time sigil tier'];
+        }
+        $sigilTierToConsume = $requestedTier;
+        $timeSigilTierUsed = $requestedTier;
+        $timeExtensionTicks = max(1, BoostCatalog::getTimeExtensionTicksForTier($requestedTier));
+        $timeExtensionRealSeconds = max(1, BoostCatalog::getTimeExtensionRealSecondsForTier($requestedTier));
+    }
 
     $participation = $db->fetch(
         "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
         [$playerId, $seasonId]
     );
 
-    $sigilCol = "sigils_t{$tierRequired}";
+    $sigilCol = "sigils_t{$sigilTierToConsume}";
     $sigilsOwned = (int)($participation[$sigilCol] ?? 0);
     if ($sigilsOwned < $sigilCost) {
-        return ['error' => "Insufficient Tier {$tierRequired} Sigils"];
+        return ['error' => "Insufficient Tier {$sigilTierToConsume} Sigils"];
     }
 
     $gameTime = GameTime::now();
@@ -1937,7 +1958,7 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
         }
         $currentExpiresTick = max($gameTime, (int)$activeRow['expires_tick']);
         $maxExpiresTick = $gameTime + $perProductTimeCapTicks;
-        $extendTicks = max(1, (int)($boost['time_extension_ticks'] ?? 0));
+        $extendTicks = max(1, $timeExtensionTicks);
         if ($currentExpiresTick >= $maxExpiresTick || ($currentExpiresTick + $extendTicks) > $maxExpiresTick) {
             return ['error' => 'Maximum boost time reached for this product (48h)'];
         }
@@ -1957,16 +1978,20 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
         0,
         max(0, $sigilsOwned - $sigilCost),
         $risk,
-        "sigils_t{$tierRequired}"
+        "sigils_t{$sigilTierToConsume}"
     );
     $payload['boost_id']       = $boostId;
     $payload['boost_name']     = $boost['name'];
     $payload['tier_required']  = $tierRequired;
+    $payload['sigil_tier_to_consume'] = $sigilTierToConsume;
     $payload['sigil_cost']     = $sigilCost;
     $payload['sigils_owned']   = $sigilsOwned;
     $payload['purchase_kind']  = $purchaseKind;
     $payload['modifier_fp']    = (int)$boost['modifier_fp'];
     $payload['modifier_percent'] = round((int)$boost['modifier_fp'] / 10000, 1);
+    $payload['time_extension_ticks'] = $timeExtensionTicks;
+    $payload['time_extension_real_seconds'] = $timeExtensionRealSeconds;
+    $payload['time_sigil_tier_used'] = $timeSigilTierUsed;
     $payload['power_cap_fp'] = $perProductPowerCapFp;
     $payload['total_power_cap_fp'] = $totalPowerCapFp;
     $payload['time_cap_ticks'] = $perProductTimeCapTicks;
@@ -1977,8 +2002,8 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
 /**
  * Gated boost activate: runs preview first; blocks medium/high risk without confirm flag.
  */
-function gatedBoostActivate(array $player, int $boostId, string $purchaseKind, bool $confirmed): array {
-    $preview = previewBoostActivate($player, $boostId, $purchaseKind);
+function gatedBoostActivate(array $player, int $boostId, string $purchaseKind, bool $confirmed, ?int $timeSigilTier = null): array {
+    $preview = previewBoostActivate($player, $boostId, $purchaseKind, $timeSigilTier);
     if (!empty($preview['error'])) return $preview;
 
     if ($preview['requires_explicit_confirm'] && !$confirmed) {
@@ -1990,7 +2015,7 @@ function gatedBoostActivate(array $player, int $boostId, string $purchaseKind, b
         ];
     }
 
-    $result = Actions::purchaseBoost($player['player_id'], $boostId, $purchaseKind);
+    $result = Actions::purchaseBoost($player['player_id'], $boostId, $purchaseKind, $timeSigilTier);
     if (!empty($result['success'])) {
         $result['receipt'] = [
             'executed_total_cost'      => (int)($result['sigils_consumed'] ?? 0),

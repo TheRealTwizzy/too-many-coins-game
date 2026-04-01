@@ -957,7 +957,7 @@ class Actions {
      * Per canon: player submits boost_id, server validates sigil tier requirement,
      * destroys the sigil, and activates the boost for its duration.
      */
-    public static function purchaseBoost($playerId, $boostId, $purchaseKind = 'power') {
+    public static function purchaseBoost($playerId, $boostId, $purchaseKind = 'power', $timeSigilTier = null) {
         $db = Database::getInstance();
         $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
         
@@ -990,6 +990,7 @@ class Actions {
         $scope = $boost['scope'];
         $durationTicks = (int)$boost['duration_ticks'];
         $timeExtensionTicks = (int)($boost['time_extension_ticks'] ?? 0);
+        $timeExtensionRealSeconds = (int)($boost['time_extension_real_seconds'] ?? 0);
         $modifierFp = (int)$boost['modifier_fp'];
         $baseModifierFp = (int)($boost['base_modifier_fp'] ?? $modifierFp);
         $maxStack = (int)$boost['max_stack'];
@@ -997,21 +998,34 @@ class Actions {
         $totalPowerCapFp = (int)($boost['total_power_cap_fp'] ?? BoostCatalog::TOTAL_POWER_CAP_FP);
         $perProductTimeCapTicks = (int)($boost['time_cap_ticks'] ?? ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT));
         
+        $purchaseKind = strtolower(trim((string)$purchaseKind));
+        if ($purchaseKind !== 'power' && $purchaseKind !== 'time') {
+            return ['error' => 'Invalid boost purchase kind'];
+        }
+
+        $sigilTierToConsume = $tierRequired;
+        $timeTierUsed = null;
+        if ($purchaseKind === 'time') {
+            $requestedTier = is_numeric($timeSigilTier) ? (int)$timeSigilTier : $tierRequired;
+            if (!BoostCatalog::hasTier($requestedTier)) {
+                return ['error' => 'Invalid time sigil tier'];
+            }
+            $sigilTierToConsume = $requestedTier;
+            $timeTierUsed = $requestedTier;
+            $timeExtensionTicks = max(1, BoostCatalog::getTimeExtensionTicksForTier($requestedTier));
+            $timeExtensionRealSeconds = max(1, BoostCatalog::getTimeExtensionRealSecondsForTier($requestedTier));
+        }
+
         // Get participation
         $participation = $db->fetch(
             "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
-        
-        // Check sigil inventory
-        $sigilCol = "sigils_t{$tierRequired}";
-        if ((int)$participation[$sigilCol] < $sigilCost) {
-            return ['error' => "Insufficient Tier {$tierRequired} Sigils. Need {$sigilCost}, have {$participation[$sigilCol]}"];
-        }
 
-        $purchaseKind = strtolower(trim((string)$purchaseKind));
-        if ($purchaseKind !== 'power' && $purchaseKind !== 'time') {
-            return ['error' => 'Invalid boost purchase kind'];
+        // Check sigil inventory for the selected spend tier.
+        $sigilCol = "sigils_t{$sigilTierToConsume}";
+        if ((int)$participation[$sigilCol] < $sigilCost) {
+            return ['error' => "Insufficient Tier {$sigilTierToConsume} Sigils. Need {$sigilCost}, have {$participation[$sigilCol]}"];
         }
 
         // Load currently-active boost rows (legacy-safe; collapse multiple rows).
@@ -1133,12 +1147,14 @@ class Actions {
                 'time_cap_ticks' => $perProductTimeCapTicks,
                 'duration_ticks' => $durationTicks,
                 'time_extension_ticks' => $timeExtensionTicks,
+                'time_extension_real_seconds' => $timeExtensionRealSeconds,
                 'expires_tick' => $expiresTick,
                 'sigils_consumed' => $sigilCost,
-                'tier_consumed' => $tierRequired,
+                'tier_consumed' => $sigilTierToConsume,
+                'time_sigil_tier_used' => $timeTierUsed,
                 'message' => ($purchaseKind === 'power')
                     ? "{$boost['name']} power purchased. Total UBI +" . round($newModifier / 10000, 1) . "% for {$scopeLabel}."
-                    : "{$boost['name']} timer extended by {$extendTicks} ticks."
+                    : "{$boost['name']} timer extended using Tier {$sigilTierToConsume} sigil power."
             ];
         } catch (Exception $e) {
             $db->rollback();
