@@ -391,6 +391,39 @@ const TMC = {
             if (!el) return;
             el.textContent = this._formatBoostTimeLeft(this.getLiveBoostRemainingSeconds(b));
         });
+
+        this._tickTimePurchaseBoostSelector();
+    },
+
+    _tickTimePurchaseBoostSelector() {
+        if (!this._timePurchaseFlowOpen || this._timePurchaseStep < 2) return;
+
+        const boostSelector = document.getElementById('time-boost-select');
+        if (!boostSelector) return;
+
+        const selectedTier = this._selectedTimeSigilTier;
+        if (!selectedTier) return;
+
+        const candidates = this.getTimePurchaseCandidates(selectedTier);
+        const prevSelected = parseInt(boostSelector.value, 10) || this._selectedTimeBoostId;
+        const selectedBoostId = candidates.some(c => c.boostId === prevSelected)
+            ? prevSelected
+            : (candidates.length > 0 ? candidates[0].boostId : null);
+        this._selectedTimeBoostId = selectedBoostId;
+
+        boostSelector.innerHTML = candidates.length > 0
+            ? candidates.map((c) => {
+                const selected = c.boostId === selectedBoostId ? ' selected' : '';
+                return `<option value="${c.boostId}"${selected}>${this.escapeHtml(c.boostName)} (${this.formatBoostSecondsRemaining(c.remainingSeconds)} left)</option>`;
+            }).join('')
+            : '<option value="" selected disabled>No active boosts eligible</option>';
+        boostSelector.disabled = candidates.length === 0;
+
+        const applyBtn = document.getElementById('time-apply-btn');
+        if (applyBtn) {
+            applyBtn.disabled = candidates.length === 0;
+            applyBtn.title = candidates.length === 0 ? 'No active boosts eligible for this +Time action' : '';
+        }
     },
 
     _tickFreezeCountdowns() {
@@ -1409,16 +1442,12 @@ const TMC = {
         const flowControlsHtml = this._timePurchaseFlowOpen
             ? `
                 <div class="boost-time-flow-controls">
-                    <div class="boost-time-step">Step 1: choose sigil tier</div>
-                    <select id="time-sigil-tier-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeTierSelectionChanged()" ${hasTimeSigils ? '' : 'disabled'}>
-                        ${tierOptionsHtml}
-                    </select>
                     ${this._timePurchaseStep < 2
-                        ? `<button class="btn btn-primary btn-sm" onclick="TMC.advanceTimePurchaseStep()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>Next</button>`
+                        ? `<select id="time-sigil-tier-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeTierSelectionChanged()" ${hasTimeSigils ? '' : 'disabled'}>${tierOptionsHtml}</select>
+                           <button class="btn btn-primary btn-sm" onclick="TMC.advanceTimePurchaseStep()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>Next</button>`
                         : ''}
-                    ${this._timePurchaseStep >= 2 && selectedTier ? '<div class="boost-time-step">Step 2: choose boost</div>' : ''}
                     ${this._timePurchaseStep >= 2 && selectedTier ? `<select id="time-boost-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeBoostSelectionChanged()" ${timeCandidates.length > 0 ? '' : 'disabled'}>${boostOptionsHtml}</select>` : ''}
-                    ${this._timePurchaseStep >= 2 ? `<button class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>` : ''}
+                    ${this._timePurchaseStep >= 2 ? `<button id="time-apply-btn" class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>` : ''}
                     <button class="btn btn-outline btn-sm" onclick="TMC.cancelTimePurchaseFlow()">Cancel</button>
                 </div>
             `
