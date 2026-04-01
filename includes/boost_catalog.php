@@ -9,6 +9,10 @@ require_once __DIR__ . '/config.php';
 
 class BoostCatalog
 {
+    public const POWER_CAP_FP_PER_PRODUCT = 1000000; // 100%
+    public const TOTAL_POWER_CAP_FP = 5000000; // 500%
+    public const TIME_CAP_SECONDS_PER_PRODUCT = 48 * 60 * 60; // 48 hours
+
     /**
      * Canonical boost definitions keyed by tier.
      * Durations are expressed in real seconds, then converted to ticks via
@@ -113,6 +117,9 @@ class BoostCatalog
         $boost['sigil_cost'] = $canonical['sigil_cost'];
         $boost['vault_price_discount_fp'] = (int)$canonical['vault_price_discount_fp'];
         $boost['vault_stock_leverage_fp'] = (int)$canonical['vault_stock_leverage_fp'];
+        $boost['power_cap_fp'] = self::POWER_CAP_FP_PER_PRODUCT;
+        $boost['total_power_cap_fp'] = self::TOTAL_POWER_CAP_FP;
+        $boost['time_cap_ticks'] = ticks_from_real_seconds(self::TIME_CAP_SECONDS_PER_PRODUCT);
         $boost['current_stack'] = max(0, min(
             (int)$boost['max_stack'],
             (int)ceil(max(0, (int)$boost['modifier_fp']) / max(1, (int)$boost['base_modifier_fp']))

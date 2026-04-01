@@ -1294,6 +1294,11 @@ const TMC = {
         const p = this.state.player;
         const part = p ? p.participation : null;
         const activeSelfBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.self)) ? p.active_boosts.self : [];
+        const activeGlobalBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.global)) ? p.active_boosts.global : [];
+        const nowTick = parseInt((p && p.active_boosts && p.active_boosts.server_now) || 0, 10) || 0;
+        const totalActiveModifierFp = [...activeSelfBoosts, ...activeGlobalBoosts].reduce((sum, ab) => {
+            return sum + (parseInt(ab.modifier_fp, 10) || 0);
+        }, 0);
         const tierNames = ['', 'Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
         const tierIcons = ['', '&#9672;', '&#9670;', '&#9733;', '&#10038;', '&#9830;'];
 
@@ -1303,30 +1308,35 @@ const TMC = {
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const durationTicks = parseInt(b.duration_ticks);
             const timeExtensionTicks = parseInt(b.time_extension_ticks || 0);
-            const activeBoost = activeSelfBoosts.find((ab) => parseInt(ab.tier_required) === tier) || null;
-            const currentStack = activeBoost ? (parseInt(activeBoost.current_stack || 0) || 0) : 0;
-            const maxStack = parseInt(b.max_stack || 0) || 0;
-            const canBuyTime = !!activeBoost;
+            const activeBoost = activeSelfBoosts.find((ab) => parseInt(ab.boost_id, 10) === parseInt(b.boost_id, 10)) || null;
+            const currentModifierFp = activeBoost ? (parseInt(activeBoost.modifier_fp, 10) || 0) : 0;
+            const powerCapFp = parseInt(b.power_cap_fp || 1000000, 10) || 1000000;
+            const totalPowerCapFp = parseInt(b.total_power_cap_fp || 5000000, 10) || 5000000;
+            const timeCapTicks = parseInt(b.time_cap_ticks || 2880, 10) || 2880;
+            const baseModifierFp = parseInt(b.base_modifier_fp || b.modifier_fp || 0, 10) || 0;
+            const projectedModifierFp = currentModifierFp + baseModifierFp;
+            const projectedTotalFp = totalActiveModifierFp - currentModifierFp + projectedModifierFp;
+            const currentPowerPercent = (currentModifierFp / 10000).toFixed(1);
+            const powerCapPercent = (powerCapFp / 10000).toFixed(1);
+            const currentRemainingTicks = activeBoost ? Math.max(0, (parseInt(activeBoost.expires_tick, 10) || 0) - nowTick) : 0;
+            const projectedRemainingTicks = currentRemainingTicks + Math.max(1, timeExtensionTicks);
+            const canBuyPower = !!hasSigil && projectedModifierFp <= powerCapFp && projectedTotalFp <= totalPowerCapFp;
+            const canBuyTime = !!activeBoost && !!hasSigil && projectedRemainingTicks <= timeCapTicks;
             const description = this.getBoostDescription(b);
             const displayName = this.getBoostDisplayName(b.name);
             const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
-            const boostKey = String(displayName || b.name || '').trim().toLowerCase();
-            const durationDisplayByBoost = {
-                trickle: '24hrs',
-                surge: '12hrs',
-                flow: '6hrs',
-                tide: '3hrs',
-                age: '1hr',
-            };
-            const timePurchaseLabelByBoost = {
-                trickle: '+30 mins',
-                surge: '+60 mins',
-                flow: '+180 mins',
-                tide: '+360 mins',
-                age: '+720 mins',
-            };
-            const durationLabel = durationDisplayByBoost[boostKey] || this.formatBoostDuration(durationTicks, 'short');
-            const timePurchaseLabel = timePurchaseLabelByBoost[boostKey] || `+${timeExtensionTicks} mins`;
+            const durationLabel = this.formatBoostDuration(durationTicks, 'short');
+            const timePurchaseLabel = `+${this.formatBoostDuration(timeExtensionTicks, 'short')}`;
+            const powerTitle = !hasSigil
+                ? 'Not enough Sigils'
+                : (projectedModifierFp > powerCapFp
+                    ? 'This product is capped at +100% power'
+                    : (projectedTotalFp > totalPowerCapFp ? 'Combined boost cap is +500%' : ''));
+            const timeTitle = !activeBoost
+                ? 'Activate boost power first'
+                : (!hasSigil
+                    ? 'Not enough Sigils'
+                    : (projectedRemainingTicks > timeCapTicks ? 'This product is capped at 48h duration' : ''));
 
             return `
                 <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
@@ -1339,19 +1349,19 @@ const TMC = {
                             <span class="boost-modifier">+${modPercent}% UBI</span>
                             <span class="boost-duration">${durationLabel}</span>
                         </div>
-                        <span class="boost-have boost-have-inline">Power: ${currentStack}/${maxStack}</span>
+                        <span class="boost-have boost-have-inline">Power: +${currentPowerPercent}% / +${powerCapPercent}%</span>
                         <span class="boost-have boost-have-inline">(You have: ${part ? part.sigils[tier-1] : 0})</span>
                     </div>
                     ${description ? `<p class="boost-desc">${this.escapeHtml(description)}</p>` : ''}
                     <div class="action-row">
-                        <button class="btn btn-sm ${hasSigil ? 'btn-primary' : 'btn-outline'}"
+                        <button class="btn btn-sm ${canBuyPower ? 'btn-primary' : 'btn-outline'}"
                             onclick="TMC.purchaseBoostPowerGated(${b.boost_id})"
-                            ${!hasSigil ? 'disabled title="Not enough Sigils"' : ''}>
+                            ${!canBuyPower ? `disabled title="${this.escapeHtml(powerTitle)}"` : ''}>
                             Power +${modPercent}%
                         </button>
-                        <button class="btn btn-sm ${hasSigil ? 'btn-outline' : 'btn-outline'}"
+                        <button class="btn btn-sm btn-outline"
                             onclick="TMC.purchaseBoostTimeGated(${b.boost_id})"
-                            ${(!hasSigil || !canBuyTime) ? 'disabled title="Activate boost power first"' : ''}>
+                            ${!canBuyTime ? `disabled title="${this.escapeHtml(timeTitle)}"` : ''}>
                             Time ${timePurchaseLabel}
                         </button>
                     </div>

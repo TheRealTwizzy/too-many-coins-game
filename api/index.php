@@ -1456,7 +1456,7 @@ function getActiveBoosts($player) {
     $totalModFp = 0;
     foreach ($selfBoosts as $b) $totalModFp += (int)$b['modifier_fp'];
     foreach ($globalBoosts as $b) $totalModFp += (int)$b['modifier_fp'];
-    $totalModFp = min($totalModFp, 4000000); // Cap at 400% bonus
+    $totalModFp = min($totalModFp, BoostCatalog::TOTAL_POWER_CAP_FP); // Cap at 500% bonus
     
     return [
         'self' => $selfBoosts,
@@ -1879,6 +1879,10 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
 
     $tierRequired = (int)$boost['tier_required'];
     $sigilCost = (int)$boost['sigil_cost'];
+    $baseModifierFp = (int)($boost['base_modifier_fp'] ?? (int)$boost['modifier_fp']);
+    $perProductPowerCapFp = (int)($boost['power_cap_fp'] ?? BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
+    $totalPowerCapFp = (int)($boost['total_power_cap_fp'] ?? BoostCatalog::TOTAL_POWER_CAP_FP);
+    $perProductTimeCapTicks = (int)($boost['time_cap_ticks'] ?? ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT));
 
     $participation = $db->fetch(
         "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
@@ -1892,10 +1896,49 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
     }
 
     $gameTime = GameTime::now();
-    $activeRow = $db->fetch(
-        "SELECT * FROM active_boosts WHERE player_id = ? AND season_id = ? AND boost_id = ? AND is_active = 1 AND expires_tick >= ? ORDER BY expires_tick DESC LIMIT 1",
+    $activeRows = $db->fetchAll(
+        "SELECT * FROM active_boosts WHERE player_id = ? AND season_id = ? AND boost_id = ? AND is_active = 1 AND expires_tick >= ? ORDER BY expires_tick DESC, id ASC",
         [$playerId, $seasonId, $boostId, $gameTime]
     );
+    $activeRow = count($activeRows) > 0 ? $activeRows[0] : null;
+
+    $currentBoostTotalFp = 0;
+    foreach ($activeRows as $row) {
+        $currentBoostTotalFp += max(0, (int)($row['modifier_fp'] ?? 0));
+    }
+
+    if ($purchaseKind === 'power') {
+        $currentModifierFp = max(0, (int)($activeRow['modifier_fp'] ?? 0));
+        if ($currentModifierFp >= $perProductPowerCapFp) {
+            return ['error' => 'Maximum boost power reached for this product (100%)'];
+        }
+
+        $combinedRow = $db->fetch(
+            "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
+             FROM active_boosts
+             WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
+               AND ((scope = 'SELF' AND player_id = ?) OR scope = 'GLOBAL')",
+            [$seasonId, $gameTime, $playerId]
+        );
+        $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
+        $newModifierFp = min($perProductPowerCapFp, $currentModifierFp + $baseModifierFp);
+        $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $newModifierFp;
+        if ($projectedCombinedFp > $totalPowerCapFp) {
+            return ['error' => 'Total boost cap reached (500% combined)'];
+        }
+    }
+
+    if ($purchaseKind === 'time') {
+        if (!$activeRow) {
+            return ['error' => 'Activate boost power first before purchasing additional time'];
+        }
+        $currentExpiresTick = max($gameTime, (int)$activeRow['expires_tick']);
+        $maxExpiresTick = $gameTime + $perProductTimeCapTicks;
+        $extendTicks = max(1, (int)($boost['time_extension_ticks'] ?? 0));
+        if ($currentExpiresTick >= $maxExpiresTick || ($currentExpiresTick + $extendTicks) > $maxExpiresTick) {
+            return ['error' => 'Maximum boost time reached for this product (48h)'];
+        }
+    }
 
     $extraFlags = [];
     if (!$activeRow) $extraFlags[] = 'no_boost_active';
@@ -1921,6 +1964,9 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
     $payload['purchase_kind']  = $purchaseKind;
     $payload['modifier_fp']    = (int)$boost['modifier_fp'];
     $payload['modifier_percent'] = round((int)$boost['modifier_fp'] / 10000, 1);
+    $payload['power_cap_fp'] = $perProductPowerCapFp;
+    $payload['total_power_cap_fp'] = $totalPowerCapFp;
+    $payload['time_cap_ticks'] = $perProductTimeCapTicks;
 
     return array_merge(['success' => true, 'preview_type' => 'boost_activate'], $payload);
 }

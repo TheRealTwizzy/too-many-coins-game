@@ -993,6 +993,9 @@ class Actions {
         $modifierFp = (int)$boost['modifier_fp'];
         $baseModifierFp = (int)($boost['base_modifier_fp'] ?? $modifierFp);
         $maxStack = (int)$boost['max_stack'];
+        $perProductPowerCapFp = (int)($boost['power_cap_fp'] ?? BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
+        $totalPowerCapFp = (int)($boost['total_power_cap_fp'] ?? BoostCatalog::TOTAL_POWER_CAP_FP);
+        $perProductTimeCapTicks = (int)($boost['time_cap_ticks'] ?? ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT));
         
         // Get participation
         $participation = $db->fetch(
@@ -1023,6 +1026,20 @@ class Actions {
         $active = count($activeRows) > 0 ? $activeRows[0] : null;
         $extraRows = count($activeRows) > 1 ? array_slice($activeRows, 1) : [];
 
+        $currentBoostTotalFp = 0;
+        foreach ($activeRows as $row) {
+            $currentBoostTotalFp += max(0, (int)($row['modifier_fp'] ?? 0));
+        }
+
+        $combinedRow = $db->fetch(
+            "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
+             FROM active_boosts
+             WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
+               AND ((scope = 'SELF' AND player_id = ?) OR scope = 'GLOBAL')",
+            [$seasonId, $gameTime, $playerId]
+        );
+        $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
+
         $currentModifier = (int)($active['modifier_fp'] ?? 0);
         $currentStacks = (int)ceil(max(0, $currentModifier) / max(1, $baseModifierFp));
         $currentStacks = max(0, min($maxStack, $currentStacks));
@@ -1030,8 +1047,16 @@ class Actions {
         if ($purchaseKind === 'time' && !$active) {
             return ['error' => 'Activate boost power first before purchasing additional time'];
         }
-        if ($purchaseKind === 'power' && $active && $currentStacks >= $maxStack) {
-            return ['error' => 'Maximum boost power reached for this tier'];
+        if ($purchaseKind === 'power' && $currentModifier >= $perProductPowerCapFp) {
+            return ['error' => 'Maximum boost power reached for this product (100%)'];
+        }
+        if ($purchaseKind === 'time' && $active) {
+            $currentExpiresTick = max($gameTime, (int)$active['expires_tick']);
+            $maxExpiresTick = $gameTime + $perProductTimeCapTicks;
+            $extendTicks = max(1, $timeExtensionTicks);
+            if ($currentExpiresTick >= $maxExpiresTick || ($currentExpiresTick + $extendTicks) > $maxExpiresTick) {
+                return ['error' => 'Maximum boost time reached for this product (48h)'];
+            }
         }
         
         $db->beginTransaction();
@@ -1043,8 +1068,13 @@ class Actions {
             );
 
             if ($purchaseKind === 'power') {
+                $newModifier = min($perProductPowerCapFp, $currentModifier + $baseModifierFp);
+                $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $newModifier;
+                if ($projectedCombinedFp > $totalPowerCapFp) {
+                    throw new Exception('Total boost cap reached (500% combined)');
+                }
+
                 if ($active) {
-                    $newModifier = min($baseModifierFp * $maxStack, $currentModifier + $baseModifierFp);
                     $db->query(
                         "UPDATE active_boosts
                          SET modifier_fp = ?, activated_tick = ?, is_active = 1
@@ -1098,6 +1128,9 @@ class Actions {
                 'modifier_percent' => round($newModifier / 10000, 1),
                 'stack_count' => $newStacks,
                 'max_stack' => $maxStack,
+                'power_cap_fp' => $perProductPowerCapFp,
+                'total_power_cap_fp' => $totalPowerCapFp,
+                'time_cap_ticks' => $perProductTimeCapTicks,
                 'duration_ticks' => $durationTicks,
                 'time_extension_ticks' => $timeExtensionTicks,
                 'expires_tick' => $expiresTick,
@@ -1109,7 +1142,9 @@ class Actions {
             ];
         } catch (Exception $e) {
             $db->rollback();
-            return ['error' => 'Boost activation failed: ' . $e->getMessage()];
+            return ['error' => $e->getMessage() === 'Total boost cap reached (500% combined)'
+                ? 'Total boost cap reached (500% combined)'
+                : ('Boost activation failed: ' . $e->getMessage())];
         }
     }
 

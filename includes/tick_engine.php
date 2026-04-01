@@ -560,8 +560,8 @@ class TickEngine {
             $totalMod += (int)$b['modifier_fp'];
         }
         
-        // Clamp: max 5x UBI multiplier (mod_cap_multiplier_fp = 5_000_000)
-        $maxMod = 5000000 - FP_SCALE; // 4_000_000
+        // Clamp: max 6x UBI multiplier (500% bonus over base rate)
+        $maxMod = 5000000;
         return Economy::clamp($totalMod, 0, $maxMod);
     }
     
