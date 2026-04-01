@@ -1263,6 +1263,7 @@ const TMC = {
     _selectedTimeSigilTier: null,
     _selectedTimeBoostId: null,
     _timePurchaseFlowOpen: false,
+    _timePurchaseStep: 1,
 
     async loadBoostCatalog() {
         const catalog = await this.api('boost_catalog');
@@ -1412,9 +1413,12 @@ const TMC = {
                     <select id="time-sigil-tier-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeTierSelectionChanged()" ${hasTimeSigils ? '' : 'disabled'}>
                         ${tierOptionsHtml}
                     </select>
-                    ${selectedTier ? '<div class="boost-time-step">Step 2: choose boost</div>' : ''}
-                    ${selectedTier ? `<select id="time-boost-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeBoostSelectionChanged()" ${timeCandidates.length > 0 ? '' : 'disabled'}>${boostOptionsHtml}</select>` : ''}
-                    <button class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>
+                    ${this._timePurchaseStep < 2
+                        ? `<button class="btn btn-primary btn-sm" onclick="TMC.advanceTimePurchaseStep()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>Next</button>`
+                        : ''}
+                    ${this._timePurchaseStep >= 2 && selectedTier ? '<div class="boost-time-step">Step 2: choose boost</div>' : ''}
+                    ${this._timePurchaseStep >= 2 && selectedTier ? `<select id="time-boost-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeBoostSelectionChanged()" ${timeCandidates.length > 0 ? '' : 'disabled'}>${boostOptionsHtml}</select>` : ''}
+                    ${this._timePurchaseStep >= 2 ? `<button class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>` : ''}
                     <button class="btn btn-outline btn-sm" onclick="TMC.cancelTimePurchaseFlow()">Cancel</button>
                 </div>
             `
@@ -1439,6 +1443,7 @@ const TMC = {
         }
 
         this._timePurchaseFlowOpen = true;
+        this._timePurchaseStep = 1;
         if (!spendable.some(o => o.tier === this._selectedTimeSigilTier)) {
             this._selectedTimeSigilTier = spendable[0].tier;
         }
@@ -1446,8 +1451,20 @@ const TMC = {
         this.renderBoostCatalog();
     },
 
+    advanceTimePurchaseStep() {
+        if (!this._timePurchaseFlowOpen) return;
+        if (!this._selectedTimeSigilTier || this._selectedTimeSigilTier < 1 || this._selectedTimeSigilTier > 5) {
+            this.toast('Select a sigil tier first', 'error');
+            return;
+        }
+        this._timePurchaseStep = 2;
+        this._selectedTimeBoostId = null;
+        this.renderBoostCatalog();
+    },
+
     cancelTimePurchaseFlow() {
         this._timePurchaseFlowOpen = false;
+        this._timePurchaseStep = 1;
         this._selectedTimeBoostId = null;
         this.renderBoostCatalog();
     },
@@ -1618,6 +1635,10 @@ const TMC = {
             this.startTimePurchaseFlow();
             return;
         }
+        if (this._timePurchaseStep < 2) {
+            this.toast('Complete Step 1 first', 'error');
+            return;
+        }
 
         const tierSelector = document.getElementById('time-sigil-tier-select');
         const boostSelector = document.getElementById('time-boost-select');
@@ -1640,6 +1661,7 @@ const TMC = {
 
         await this.purchaseBoostTimeGated(selectedBoostId, selectedTier);
         this._timePurchaseFlowOpen = false;
+        this._timePurchaseStep = 1;
     },
 
     chooseTimeSigilTier(boostId) {
