@@ -49,6 +49,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/actions.php';
 require_once __DIR__ . '/../includes/tick_engine.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/sigil_drops_api.php';
 
 if (!defined('LEADERBOARD_MAX_LIMIT')) {
     define('LEADERBOARD_MAX_LIMIT', 200);
@@ -1481,13 +1482,20 @@ function getRecentSigilDrops($player) {
     $seasonId = $player['joined_season_id'];
     
     $drops = $db->fetchAll(
-        "SELECT tier, source, drop_tick, created_at 
-         FROM sigil_drop_log 
-         WHERE player_id = ? AND season_id = ?
+        "SELECT sdl.tier, sdl.source, sdl.drop_tick, sdl.created_at, pn.payload_json,
+                s.start_time AS season_start_time, s.end_time AS season_end_time
+         FROM sigil_drop_log sdl
+         JOIN seasons s ON s.season_id = sdl.season_id
+         LEFT JOIN player_notifications pn
+           ON pn.player_id = sdl.player_id
+          AND pn.event_key = CONCAT('sigil_drop:', sdl.season_id, ':', sdl.drop_tick, ':', sdl.tier, ':', LOWER(sdl.source))
+         WHERE sdl.player_id = ? AND sdl.season_id = ?
          ORDER BY drop_tick DESC LIMIT 20",
         [$player['player_id'], $seasonId]
     );
+
     foreach ($drops as &$d) {
+        $d = normalizeRecentSigilDropRow($d);
         $d['created_at'] = iso_utc_datetime($d['created_at'] ?? null);
     }
     return $drops;

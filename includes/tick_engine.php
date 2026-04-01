@@ -298,122 +298,40 @@ class TickEngine {
     
     /**
      * Process Sigil drops for a player over a batch of ticks.
-     * Uses configured Bernoulli, pity, and rolling-window throttle limits.
-     * $boostModFp is the pre-computed boost modifier for this player this tick (FP_SCALE = 1,000,000).
+     * Deterministic model:
+     * - One drop attempt per tick
+     * - Activity scales gate chance (Active=1.0, Idle=0.5, Offline=0)
+     * - Season progression scales tier weights only
      */
     private static function processSigilDrops($season, $player, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp = 0) {
-        $db = Database::getInstance();
         $playerId = $player['player_id'];
-        
-        // Only active, online, participating players get drops
-        if (!$player['online_current'] || $player['activity_state'] !== 'Active') {
-            // Reset pity counter when not eligible
-            $db->query(
-                "UPDATE season_participation SET eligible_ticks_since_last_drop = 0 
-                 WHERE player_id = ? AND season_id = ?",
-                [$playerId, $seasonId]
-            );
+
+        // Offline players are hard-stopped and receive no drop attempts.
+        $activityState = Economy::resolveSigilDropActivityState($player);
+        if ($activityState === 'Offline') {
             return;
         }
-        
-        $pityCounter = (int)($player['eligible_ticks_since_last_drop'] ?? 0);
-        $pendingRngDrops = max(0, (int)($player['pending_rng_sigil_drops'] ?? 0));
-        $pendingPityDrops = max(0, (int)($player['pending_pity_sigil_drops'] ?? 0));
-        $nextDeliveryTick = max(0, (int)($player['sigil_next_delivery_tick'] ?? 0));
-        
-        // Check throttle: count drops in the rolling window
-        $windowStart = max(0, $currentSeasonTick - SIGIL_DROP_WINDOW_TICKS);
-        $windowStartGameTime = $startTime + $windowStart;
-        $dropsInWindow = $db->fetch(
-            "SELECT COUNT(*) as cnt FROM sigil_drop_log 
-             WHERE player_id = ? AND season_id = ? AND drop_tick >= ?",
-            [$playerId, $seasonId, $windowStartGameTime]
-        )['cnt'] ?? 0;
-        
-        $throttled = ($dropsInWindow >= SIGIL_MAX_DROPS_WINDOW);
-        
-        // Pre-compute per-player drop config once for this batch (accounts for inventory
-        // and boost activity); reused across every tick in the loop for efficiency.
-        $dropConfig = Economy::computePerPlayerSigilDropConfig($player, $boostModFp);
 
-        // Phase A: accrue earned drops over all processed eligible ticks.
-        $newPityCounter = $pityCounter;
         for ($t = 0; $t < $ticksToProcess; $t++) {
             $tickIndex = $lastSeasonTick + $t;
             $absoluteTick = $startTime + $tickIndex;
 
-            $newPityCounter++;
-            if ($newPityCounter >= SIGIL_PITY_TICKS) {
-                $pendingPityDrops++;
-                $newPityCounter = 0;
-                continue;
-            }
-
-            $tier = Economy::processSigilDrop($season, $playerId, $absoluteTick, 0, $dropConfig);
-            if ($tier > 0) {
-                $pendingRngDrops++;
-                $newPityCounter = 0;
-            }
-        }
-
-        // Phase B: paced delivery – one queued drop per processing cycle.
-        $dropsAwarded = 0;
-        $maxNewDrops = max(0, SIGIL_MAX_DROPS_WINDOW - (int)$dropsInWindow);
-        if (!$throttled && $maxNewDrops > 0 && ($pendingPityDrops + $pendingRngDrops) > 0) {
-            $deliveryAllowed = ($nextDeliveryTick <= 0 || $gameTime >= $nextDeliveryTick);
-            if ($deliveryAllowed) {
-                if ($pendingPityDrops > 0) {
-                    self::awardSigilDrop($playerId, $seasonId, 1, $gameTime, 'PITY');
-                    $pendingPityDrops--;
-                    $dropsAwarded = 1;
-                } elseif ($pendingRngDrops > 0) {
-                    $tier = Economy::sampleSigilTier($season, $playerId, $gameTime, $dropConfig);
-                    self::awardSigilDrop($playerId, $seasonId, $tier, $gameTime, 'RNG');
-                    $pendingRngDrops--;
-                    $dropsAwarded = 1;
+            $drop = Economy::evaluateSigilDropForTick($season, $player, $absoluteTick);
+            if ($drop !== null) {
+                $dropMetadata = (array)($drop['metadata'] ?? []);
+                $dropMetadata['activity_state'] = (string)($drop['activity_state'] ?? 'Unknown');
+                if (isset($drop['season_progress'])) {
+                    $dropMetadata['season_progress'] = (float)$drop['season_progress'];
                 }
+                self::awardSigilDrop($playerId, $seasonId, (int)$drop['tier'], $absoluteTick, 'RNG', $dropMetadata);
             }
         }
-
-        if ($dropsAwarded > 0) {
-            $nextDeliveryTick = self::computeNextSigilDeliveryTick($season, $playerId, $gameTime, (int)$dropConfig['drop_rate']);
-        }
-        
-        // Persist pity and queued pacing state.
-        $db->query(
-            "UPDATE season_participation
-             SET eligible_ticks_since_last_drop = ?,
-                 pending_rng_sigil_drops = ?,
-                 pending_pity_sigil_drops = ?,
-                 sigil_next_delivery_tick = ?
-             WHERE player_id = ? AND season_id = ?",
-            [$newPityCounter, $pendingRngDrops, $pendingPityDrops, $nextDeliveryTick, $playerId, $seasonId]
-        );
     }
 
-    /**
-     * Determine the next eligible delivery tick for queued drops.
-     * Adds deterministic jitter so drops feel naturally random over time.
-     */
-    private static function computeNextSigilDeliveryTick($season, $playerId, $fromTick, $baseDropRate) {
-        $base = max(1, (int)$baseDropRate);
-        $minFp = max(1, (int)SIGIL_PACING_JITTER_MIN_FP);
-        $maxFp = max($minFp, (int)SIGIL_PACING_JITTER_MAX_FP);
-
-        $seed = $season['season_seed'];
-        $input = pack('J', (int)$season['season_id']) . pack('J', (int)$fromTick) . $seed . pack('J', (int)$playerId) . 'pace';
-        $hash = hash('sha256', $input, true);
-        $span = $maxFp - $minFp + 1;
-        $rollFp = $minFp + (unpack('N', substr($hash, 8, 4))[1] % $span);
-
-        $spacing = max(1, intdiv($base * $rollFp, FP_SCALE));
-        return (int)$fromTick + $spacing;
-    }
-    
     /**
      * Award a Sigil drop to a player
      */
-    private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source) {
+    private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = []) {
         $db = Database::getInstance();
         $sigilCol = "sigils_t{$tier}";
 
@@ -465,7 +383,8 @@ class TickEngine {
                     'season_id' => (int)$seasonId,
                     'drop_tick' => (int)$dropTick,
                     'tier' => (int)$tier,
-                    'source' => $sourceNormalized
+                    'source' => $sourceNormalized,
+                    'drop_meta' => $metadata
                 ]
             ]
         );

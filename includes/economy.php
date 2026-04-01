@@ -728,4 +728,143 @@ class Economy {
 
         return 1;
     }
+
+    /**
+     * Resolve player drop activity state from online + activity flags.
+     */
+    public static function resolveSigilDropActivityState($player) {
+        $isOnline = !empty($player['online_current']);
+        if (!$isOnline) {
+            return 'Offline';
+        }
+
+        return (($player['activity_state'] ?? 'Idle') === 'Active') ? 'Active' : 'Idle';
+    }
+
+    /**
+     * Deterministically evaluate one sigil drop attempt for one tick.
+     * Returns null (no drop) or a payload with tier and metadata.
+     */
+    public static function evaluateSigilDropForTick($season, $player, $tickIndex) {
+        $activityState = self::resolveSigilDropActivityState($player);
+        $activityMultiplierFp = self::sigilActivityMultiplierFp($activityState);
+
+        // Offline short-circuit: no RNG draws and no drop.
+        if ($activityMultiplierFp <= 0) {
+            return null;
+        }
+
+        $effectiveDropChanceFp = self::sigilEffectiveDropChanceFp($activityState);
+        if ($effectiveDropChanceFp <= 0) {
+            return null;
+        }
+
+        $seasonId = (int)$season['season_id'];
+        $playerId = (int)$player['player_id'];
+        $tickIndex = (int)$tickIndex;
+        $gateRoll = self::deterministicSigilRollU32($seasonId, $playerId, $tickIndex, 'sigil_gate', $season['season_seed']);
+
+        $u32Range = 4294967296;
+        $gateThreshold = intdiv($effectiveDropChanceFp * $u32Range, FP_SCALE);
+        if ($gateRoll >= $gateThreshold) {
+            return null;
+        }
+
+        $seasonProgressFp = self::sigilSeasonProgressFp($season, $tickIndex);
+        $tierWeights = self::sigilTierWeightsForProgressFp($seasonProgressFp);
+        $tierRoll = self::deterministicSigilRollU32($seasonId, $playerId, $tickIndex, 'sigil_tier', $season['season_seed']);
+        $tier = self::pickWeightedTier($tierWeights, $tierRoll);
+
+        return [
+            'sigil_id' => null,
+            'tier' => (int)$tier,
+            'tick_index' => $tickIndex,
+            'activity_state' => $activityState,
+            'season_progress' => $seasonProgressFp / FP_SCALE,
+            'metadata' => [
+                'algorithm_version' => (string)SIGIL_DROP_ALGORITHM_VERSION,
+                'effective_drop_chance_fp' => $effectiveDropChanceFp,
+                'activity_multiplier_fp' => $activityMultiplierFp,
+                'season_progress_fp' => $seasonProgressFp,
+                'gate_roll_u32' => $gateRoll,
+                'tier_roll_u32' => $tierRoll,
+                'tier_weights' => $tierWeights,
+            ],
+        ];
+    }
+
+    public static function sigilActivityMultiplierFp($activityState) {
+        $multiplierMap = (array)SIGIL_ACTIVITY_MULTIPLIER_FP;
+        return max(0, (int)($multiplierMap[(string)$activityState] ?? 0));
+    }
+
+    public static function sigilEffectiveDropChanceFp($activityState) {
+        $baseChanceFp = max(0, min(FP_SCALE, (int)SIGIL_DROP_CHANCE_FP));
+        $activityMultiplierFp = self::sigilActivityMultiplierFp($activityState);
+        return intdiv($baseChanceFp * $activityMultiplierFp, FP_SCALE);
+    }
+
+    public static function sigilSeasonProgressFp($season, $tickIndex) {
+        return self::seasonProgressFp($season, $tickIndex);
+    }
+
+    public static function sigilTierWeightsForProgressFp($seasonProgressFp) {
+        return self::interpolatedSigilTierWeights($seasonProgressFp);
+    }
+
+    private static function deterministicSigilRollU32($seasonId, $playerId, $tickIndex, $streamTag, $seasonSeed) {
+        $input =
+            pack('J', (int)$seasonId) .
+            pack('J', (int)$playerId) .
+            pack('J', (int)$tickIndex) .
+            (string)$seasonSeed .
+            (string)$streamTag;
+
+        $hash = hash('sha256', $input, true);
+        return (int)unpack('N', substr($hash, 0, 4))[1];
+    }
+
+    private static function seasonProgressFp($season, $tickIndex) {
+        $startTick = (int)($season['start_time'] ?? 0);
+        $endTick = (int)($season['end_time'] ?? $startTick + 1);
+        $duration = max(1, $endTick - $startTick);
+        $elapsed = max(0, min($duration, (int)$tickIndex - $startTick));
+        return max(0, min(FP_SCALE, intdiv($elapsed * FP_SCALE, $duration)));
+    }
+
+    private static function interpolatedSigilTierWeights($seasonProgressFp) {
+        $start = (array)SIGIL_TIER_WEIGHT_START;
+        $end = (array)SIGIL_TIER_WEIGHT_END;
+        $weights = [];
+
+        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+            $from = max(1, (int)($start[$tier] ?? 1));
+            $to = max(1, (int)($end[$tier] ?? $from));
+            $delta = $to - $from;
+            $weights[$tier] = max(1, $from + intdiv($delta * (int)$seasonProgressFp, FP_SCALE));
+        }
+
+        return $weights;
+    }
+
+    private static function pickWeightedTier(array $weights, $rollU32) {
+        $total = 0;
+        foreach ($weights as $weight) {
+            $total += max(1, (int)$weight);
+        }
+        if ($total <= 0) {
+            return 1;
+        }
+
+        $target = ((int)$rollU32 % $total);
+        $cumulative = 0;
+        foreach ($weights as $tier => $weight) {
+            $cumulative += max(1, (int)$weight);
+            if ($target < $cumulative) {
+                return (int)$tier;
+            }
+        }
+
+        return 1;
+    }
 }

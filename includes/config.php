@@ -56,6 +56,36 @@ define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hou
 define('MIN_PARTICIPATION_TICKS', 1);
 
 // Sigil drops
+// Deterministic per-tick drop model:
+// - One drop attempt per tick
+// - Activity scales only the gate chance
+// - Season progress scales only tier weights
+define('SIGIL_DROP_CHANCE_FP', 125000); // 12.5% base gate chance
+define('SIGIL_ACTIVITY_MULTIPLIER_FP', [
+    'Active' => 1000000,
+    'Idle' => 500000,
+    'Offline' => 0,
+]);
+define('SIGIL_TIER_WEIGHT_START', [
+    1 => 1000,
+    2 => 500,
+    3 => 200,
+    4 => 50,
+    5 => 5,
+    6 => 1,
+]);
+define('SIGIL_TIER_WEIGHT_END', [
+    1 => 1100,
+    2 => 650,
+    3 => 420,
+    4 => 290,
+    5 => 260,
+    6 => 259,
+]);
+define('SIGIL_DROP_ALGORITHM_VERSION', 'deterministic_v2');
+
+// Legacy queued/pity sigil controls are retained for compatibility but are
+// no longer part of the active deterministic drop pipeline.
 // Per-tier effective drop rates at zero sigil power (parts per 10,000; T1=8.75% down to T5=0.06%)
 define('SIGIL_TIER_DROP_RATES', [
     1 => 875,  // 8.75%

@@ -156,6 +156,134 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(1000000, $sum, 'SIGIL_TIER_ODDS must sum to exactly 1,000,000.');
     }
 
+    public function testDeterministicSigilDropIsReproducibleForSameInputs(): void
+    {
+        $season = [
+            'season_id' => 1,
+            'start_time' => 1000,
+            'end_time' => 2000,
+            'season_seed' => str_repeat("\x01", 32),
+        ];
+        $player = [
+            'player_id' => 99,
+            'online_current' => 1,
+            'activity_state' => 'Active',
+        ];
+
+        $tick = 1500;
+        $first = Economy::evaluateSigilDropForTick($season, $player, $tick);
+        $second = Economy::evaluateSigilDropForTick($season, $player, $tick);
+
+        $this->assertSame($first, $second);
+    }
+
+    public function testSigilEffectiveDropChanceRespectsActivityMultipliers(): void
+    {
+        $active = Economy::sigilEffectiveDropChanceFp('Active');
+        $idle = Economy::sigilEffectiveDropChanceFp('Idle');
+        $offline = Economy::sigilEffectiveDropChanceFp('Offline');
+
+        $this->assertSame((int)SIGIL_DROP_CHANCE_FP, $active);
+        $this->assertSame(intdiv((int)SIGIL_DROP_CHANCE_FP, 2), $idle);
+        $this->assertSame(0, $offline);
+    }
+
+    public function testSigilSeasonProgressBoundariesClampToZeroAndOne(): void
+    {
+        $season = [
+            'start_time' => 100,
+            'end_time' => 1100,
+        ];
+
+        $this->assertSame(0, Economy::sigilSeasonProgressFp($season, 50));
+        $this->assertSame(0, Economy::sigilSeasonProgressFp($season, 100));
+        $this->assertSame(FP_SCALE, Economy::sigilSeasonProgressFp($season, 1100));
+        $this->assertSame(FP_SCALE, Economy::sigilSeasonProgressFp($season, 1200));
+    }
+
+    public function testSigilTierWeightsStayPositiveAtSeasonBounds(): void
+    {
+        $startWeights = Economy::sigilTierWeightsForProgressFp(0);
+        $endWeights = Economy::sigilTierWeightsForProgressFp(FP_SCALE);
+
+        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+            $this->assertGreaterThan(0, (int)($startWeights[$tier] ?? 0));
+            $this->assertGreaterThan(0, (int)($endWeights[$tier] ?? 0));
+        }
+    }
+
+    public function testOfflinePlayerNeverReceivesSigilDrop(): void
+    {
+        $season = [
+            'season_id' => 1,
+            'start_time' => 1000,
+            'end_time' => 2000,
+            'season_seed' => str_repeat("\x02", 32),
+        ];
+        $player = [
+            'player_id' => 5,
+            'online_current' => 0,
+            'activity_state' => 'Active',
+        ];
+
+        for ($tick = 1000; $tick < 1100; $tick++) {
+            $this->assertNull(Economy::evaluateSigilDropForTick($season, $player, $tick));
+        }
+    }
+
+    public function testAllSigilTiersRemainRollableAcrossSeasonBoundaries(): void
+    {
+        $seasonStart = [
+            'season_id' => 2,
+            'start_time' => 100,
+            'end_time' => 1100,
+            'season_seed' => str_repeat("\x03", 32),
+        ];
+        $seasonEnd = [
+            'season_id' => 2,
+            'start_time' => 100,
+            'end_time' => 1100,
+            'season_seed' => str_repeat("\x03", 32),
+        ];
+        $player = [
+            'player_id' => 11,
+            'online_current' => 1,
+            'activity_state' => 'Active',
+        ];
+
+        $startResult = Economy::evaluateSigilDropForTick($seasonStart, $player, 100);
+        $endResult = Economy::evaluateSigilDropForTick($seasonEnd, $player, 1100);
+
+        if ($startResult !== null) {
+            $weights = $startResult['metadata']['tier_weights'];
+            for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+                $this->assertGreaterThan(0, (int)($weights[$tier] ?? 0));
+            }
+        }
+
+        if ($endResult !== null) {
+            $weights = $endResult['metadata']['tier_weights'];
+            for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+                $this->assertGreaterThan(0, (int)($weights[$tier] ?? 0));
+            }
+        }
+
+        $deltas = [];
+        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+            $start = (int)(SIGIL_TIER_WEIGHT_START[$tier] ?? 1);
+            $end = (int)(SIGIL_TIER_WEIGHT_END[$tier] ?? $start);
+            $deltas[$tier] = abs($end - $start);
+        }
+
+        for ($tier = 1; $tier < SIGIL_MAX_TIER; $tier++) {
+            $this->assertGreaterThanOrEqual(
+                $deltas[$tier],
+                $deltas[$tier + 1],
+                sprintf('Expected tier delta magnitude to scale with rarity between T%d and T%d.', $tier, $tier + 1)
+            );
+        }
+    }
+
     public function testEffectiveSigilTierChancesDecreaseAtFullPower(): void
     {
         $lowPowerOdds = Economy::adjustedSigilTierOdds(0);
