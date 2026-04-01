@@ -1996,11 +1996,43 @@ a:hover { text-decoration: underline; }
     gap: 0.45rem;
     flex-wrap: wrap;
     justify-content: flex-end;
+    margin-left: auto;
 }
 
 .boost-time-flow-select {
     min-width: 170px;
     max-width: 240px;
+}
+
+@media (max-width: 899px) {
+    .boost-catalog-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
+    }
+
+    .boost-time-flow-controls {
+        justify-content: flex-start;
+        margin-left: 0;
+        gap: 0.35rem;
+    }
+
+    .boost-time-flow-select {
+        min-width: 0;
+        max-width: none;
+        flex: 1 1 100%;
+    }
+}
+
+@media (min-width: 900px) {
+    .boost-time-flow-controls {
+        gap: 0.5rem;
+    }
+
+    .boost-time-flow-select {
+        min-width: 185px;
+        max-width: 260px;
+    }
 }
 
 .boost-card {

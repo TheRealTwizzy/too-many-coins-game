@@ -411,13 +411,40 @@ const TMC = {
             : (candidates.length > 0 ? candidates[0].boostId : null);
         this._selectedTimeBoostId = selectedBoostId;
 
-        boostSelector.innerHTML = candidates.length > 0
-            ? candidates.map((c) => {
-                const selected = c.boostId === selectedBoostId ? ' selected' : '';
-                return `<option value="${c.boostId}"${selected}>${this.escapeHtml(c.boostName)} (${this.formatBoostSecondsRemaining(c.remainingSeconds)} left)</option>`;
-            }).join('')
-            : '<option value="" selected disabled>No active boosts eligible</option>';
-        boostSelector.disabled = candidates.length === 0;
+        const byId = new Map();
+        candidates.forEach((c) => byId.set(String(c.boostId), c));
+
+        if (candidates.length === 0) {
+            if (boostSelector.options.length !== 1 || !boostSelector.options[0].disabled) {
+                boostSelector.innerHTML = '<option value="" selected disabled>No active boosts eligible</option>';
+            }
+            boostSelector.disabled = true;
+        } else {
+            // Remove stale options first.
+            for (let i = boostSelector.options.length - 1; i >= 0; i--) {
+                const opt = boostSelector.options[i];
+                if (!byId.has(String(opt.value))) {
+                    boostSelector.remove(i);
+                }
+            }
+
+            // Update existing options and append missing ones without nuking the element.
+            candidates.forEach((c) => {
+                const value = String(c.boostId);
+                let opt = Array.from(boostSelector.options).find((o) => String(o.value) === value);
+                const label = `${c.boostName} (${this.formatBoostSecondsRemaining(c.remainingSeconds)} left)`;
+                if (!opt) {
+                    opt = document.createElement('option');
+                    opt.value = value;
+                    opt.dataset.boostName = c.boostName;
+                    boostSelector.appendChild(opt);
+                }
+                opt.textContent = label;
+            });
+
+            boostSelector.disabled = false;
+            boostSelector.value = String(selectedBoostId);
+        }
 
         const applyBtn = document.getElementById('time-apply-btn');
         if (applyBtn) {
