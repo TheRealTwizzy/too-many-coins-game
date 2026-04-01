@@ -1262,6 +1262,7 @@ const TMC = {
     _boostCatalogCollapsed: true,
     _selectedTimeSigilTier: null,
     _selectedTimeBoostId: null,
+    _timePurchaseFlowOpen: false,
 
     async loadBoostCatalog() {
         const catalog = await this.api('boost_catalog');
@@ -1404,21 +1405,51 @@ const TMC = {
             }).join('')
             : '<option value="" selected disabled>No active boosts eligible</option>';
 
-        grid.innerHTML = `
-            <div class="boost-catalog-header">
-                <h4>Available Purchases</h4>
+        const flowControlsHtml = this._timePurchaseFlowOpen
+            ? `
                 <div class="boost-time-flow-controls">
+                    <div class="boost-time-step">Step 1: choose sigil tier</div>
                     <select id="time-sigil-tier-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeTierSelectionChanged()" ${hasTimeSigils ? '' : 'disabled'}>
                         ${tierOptionsHtml}
                     </select>
-                    <select id="time-boost-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeBoostSelectionChanged()" ${timeCandidates.length > 0 ? '' : 'disabled'}>
-                        ${boostOptionsHtml}
-                    </select>
-                    <button class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>+Time</button>
+                    ${selectedTier ? '<div class="boost-time-step">Step 2: choose boost</div>' : ''}
+                    ${selectedTier ? `<select id="time-boost-select" class="input-field boost-time-flow-select" onchange="TMC.onTimeBoostSelectionChanged()" ${timeCandidates.length > 0 ? '' : 'disabled'}>${boostOptionsHtml}</select>` : ''}
+                    <button class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>
+                    <button class="btn btn-outline btn-sm" onclick="TMC.cancelTimePurchaseFlow()">Cancel</button>
                 </div>
+            `
+            : `<button class="btn btn-primary btn-sm" onclick="TMC.startTimePurchaseFlow()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>+Time</button>`;
+
+        grid.innerHTML = `
+            <div class="boost-catalog-header">
+                <h4>Available Purchases</h4>
+                ${flowControlsHtml}
             </div>
             ${purchaseCards || '<p class="empty-text">No boosts are currently purchasable with your sigils.</p>'}
         `;
+    },
+
+    startTimePurchaseFlow() {
+        const p = this.state.player;
+        const part = p ? p.participation : null;
+        const spendable = this.getSpendableTimeSigilTiers(part);
+        if (spendable.length === 0) {
+            this.toast('No sigils available for time purchases', 'error');
+            return;
+        }
+
+        this._timePurchaseFlowOpen = true;
+        if (!spendable.some(o => o.tier === this._selectedTimeSigilTier)) {
+            this._selectedTimeSigilTier = spendable[0].tier;
+        }
+        this._selectedTimeBoostId = null;
+        this.renderBoostCatalog();
+    },
+
+    cancelTimePurchaseFlow() {
+        this._timePurchaseFlowOpen = false;
+        this._selectedTimeBoostId = null;
+        this.renderBoostCatalog();
     },
 
     onTimeTierSelectionChanged() {
@@ -1583,6 +1614,11 @@ const TMC = {
     },
 
     async purchaseBoostTimeFlowGated() {
+        if (!this._timePurchaseFlowOpen) {
+            this.startTimePurchaseFlow();
+            return;
+        }
+
         const tierSelector = document.getElementById('time-sigil-tier-select');
         const boostSelector = document.getElementById('time-boost-select');
 
@@ -1603,6 +1639,7 @@ const TMC = {
         }
 
         await this.purchaseBoostTimeGated(selectedBoostId, selectedTier);
+        this._timePurchaseFlowOpen = false;
     },
 
     chooseTimeSigilTier(boostId) {
