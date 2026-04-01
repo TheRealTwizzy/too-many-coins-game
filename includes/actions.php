@@ -1011,7 +1011,7 @@ class Actions {
 
         $purchaseKind = strtolower(trim((string)$purchaseKind));
         if ($purchaseKind !== 'power' && $purchaseKind !== 'time') {
-            $purchaseKind = 'power';
+            return ['error' => 'Invalid boost purchase kind'];
         }
 
         // Load currently-active boost rows (legacy-safe; collapse multiple rows).

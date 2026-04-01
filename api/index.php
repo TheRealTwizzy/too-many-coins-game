@@ -1865,7 +1865,10 @@ function previewBoostActivate(array $player, int $boostId, string $purchaseKind)
         return ['error' => 'Cannot perform actions while idle', 'reason_code' => 'idle_gated'];
     }
 
-    $purchaseKind = ($purchaseKind === 'time') ? 'time' : 'power';
+    $purchaseKind = strtolower(trim($purchaseKind));
+    if ($purchaseKind !== 'power' && $purchaseKind !== 'time') {
+        return ['error' => 'Invalid boost purchase kind'];
+    }
     $seasonId = (int)$fullPlayer['joined_season_id'];
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     $status = GameTime::getSeasonStatus($season);
