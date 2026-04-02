@@ -194,7 +194,8 @@ try {
             echo json_encode(adminResetEconomy(
                 $player,
                 (int)($input['target_season_id'] ?? 0),
-                parseInputBool($input['dry_run'] ?? true)
+                parseInputBool($input['dry_run'] ?? true),
+                parseInputBool($input['reset_all'] ?? false)
             ));
             break;
             
@@ -611,16 +612,274 @@ function buildSeasonResetAudit(Database $db, int $seasonId): array {
     ];
 }
 
-function adminResetEconomy(array $player, int $targetSeasonId, bool $dryRun = true): array {
+function buildGlobalResetAudit(Database $db): array {
+    $playerScope = $db->fetch(
+        "SELECT
+            COUNT(*) AS total_players,
+            SUM(CASE WHEN role = 'Player' THEN 1 ELSE 0 END) AS player_accounts,
+            SUM(CASE WHEN role = 'Player' THEN global_stars ELSE 0 END) AS global_stars_total,
+            SUM(CASE WHEN joined_season_id IS NOT NULL AND participation_enabled = 1 THEN 1 ELSE 0 END) AS joined_active,
+            SUM(CASE WHEN joined_season_id IS NOT NULL THEN 1 ELSE 0 END) AS joined_any
+         FROM players"
+    );
+
+    $counts = [
+        'seasons' => (int)($db->fetch('SELECT COUNT(*) AS c FROM seasons')['c'] ?? 0),
+        'season_participation' => (int)($db->fetch('SELECT COUNT(*) AS c FROM season_participation')['c'] ?? 0),
+        'active_boosts' => (int)($db->fetch('SELECT COUNT(*) AS c FROM active_boosts')['c'] ?? 0),
+        'active_freezes' => (int)($db->fetch('SELECT COUNT(*) AS c FROM active_freezes')['c'] ?? 0),
+        'trades' => (int)($db->fetch('SELECT COUNT(*) AS c FROM trades')['c'] ?? 0),
+        'season_vault' => (int)($db->fetch('SELECT COUNT(*) AS c FROM season_vault')['c'] ?? 0),
+        'player_season_vault' => (int)($db->fetch('SELECT COUNT(*) AS c FROM player_season_vault')['c'] ?? 0),
+        'sigil_drop_log' => (int)($db->fetch('SELECT COUNT(*) AS c FROM sigil_drop_log')['c'] ?? 0),
+        'sigil_drop_tracking' => (int)($db->fetch('SELECT COUNT(*) AS c FROM sigil_drop_tracking')['c'] ?? 0),
+        'pending_actions_season_scoped' => (int)($db->fetch('SELECT COUNT(*) AS c FROM pending_actions WHERE season_id IS NOT NULL')['c'] ?? 0),
+        'economy_ledger_season_scoped' => (int)($db->fetch('SELECT COUNT(*) AS c FROM economy_ledger WHERE season_id IS NOT NULL')['c'] ?? 0),
+        'season_chat_messages' => (int)($db->fetch("SELECT COUNT(*) AS c FROM chat_messages WHERE channel_kind = 'SEASON'")['c'] ?? 0),
+        'season_badges' => (int)($db->fetch('SELECT COUNT(*) AS c FROM badges WHERE season_id IS NOT NULL')['c'] ?? 0),
+        'leaderboard_cache' => tableExists($db, 'leaderboard_cache')
+            ? (int)($db->fetch('SELECT COUNT(*) AS c FROM leaderboard_cache')['c'] ?? 0)
+            : 0,
+    ];
+
+    $economy = $db->fetch(
+        "SELECT
+            COALESCE(SUM(coins), 0) AS coins,
+            COALESCE(SUM(seasonal_stars), 0) AS seasonal_stars,
+            COALESCE(SUM(sigils_t1 + sigils_t2 + sigils_t3 + sigils_t4 + sigils_t5 + sigils_t6), 0) AS total_sigils
+         FROM season_participation"
+    );
+
+    return [
+        'scope' => 'all_seasons',
+        'players' => [
+            'total_players' => (int)($playerScope['total_players'] ?? 0),
+            'player_accounts' => (int)($playerScope['player_accounts'] ?? 0),
+            'joined_active_any_season' => (int)($playerScope['joined_active'] ?? 0),
+            'joined_any_season_any_state' => (int)($playerScope['joined_any'] ?? 0),
+            'global_stars_total_players' => (int)($playerScope['global_stars_total'] ?? 0),
+        ],
+        'season_economy' => [
+            'coins_total' => (int)($economy['coins'] ?? 0),
+            'seasonal_stars_total' => (int)($economy['seasonal_stars'] ?? 0),
+            'sigils_total' => (int)($economy['total_sigils'] ?? 0),
+        ],
+        'table_rows' => $counts,
+    ];
+}
+
+function adminResetEconomy(array $player, int $targetSeasonId, bool $dryRun = true, bool $resetAll = false): array {
     if ($denied = requireAdminRole($player)) {
         return $denied;
     }
 
-    if ($targetSeasonId <= 0) {
+    if (!$resetAll && $targetSeasonId <= 0) {
         return ['error' => 'target_season_id is required'];
     }
 
     $db = Database::getInstance();
+
+    if ($resetAll) {
+        $before = buildGlobalResetAudit($db);
+        if ($dryRun) {
+            return [
+                'success' => true,
+                'dry_run' => true,
+                'reset_scope' => 'all_seasons',
+                'audit_before' => $before,
+                'planned_effects' => [
+                    'end_and_remove_all_seasons_including_scheduled',
+                    'force_leave_all_players_from_any_season',
+                    'zero_global_stars_for_player_accounts',
+                    'delete_all_season_economy_and_telemetry',
+                    'reset_server_clock_to_day_0',
+                    'create_fresh_season_with_new_timers'
+                ],
+            ];
+        }
+
+        $templateSeason = $db->fetch('SELECT * FROM seasons ORDER BY season_id DESC LIMIT 1');
+        if (!$templateSeason) {
+            return ['error' => 'No season template found to clone reset configuration'];
+        }
+
+        $seasonDuration = max(1, (int)$templateSeason['end_time'] - (int)$templateSeason['start_time']);
+        $blackoutDuration = max(1, (int)$templateSeason['end_time'] - (int)$templateSeason['blackout_time']);
+        if ($blackoutDuration >= $seasonDuration) {
+            $blackoutDuration = max(1, intdiv($seasonDuration, 5));
+        }
+
+        $newStart = 1;
+        $newEnd = $newStart + $seasonDuration;
+        $newBlackout = $newEnd - $blackoutDuration;
+
+        $db->beginTransaction();
+        try {
+            $db->query(
+                "UPDATE players
+                 SET joined_season_id = NULL,
+                     participation_enabled = 0,
+                     idle_modal_active = 0,
+                     activity_state = 'Active',
+                     idle_since_tick = NULL,
+                     last_activity_tick = NULL,
+                     recent_active_ticks = 0"
+            );
+
+            $db->query("UPDATE players SET global_stars = 0 WHERE role = 'Player'");
+
+            if (tableExists($db, 'leaderboard_cache')) {
+                $db->query('DELETE FROM leaderboard_cache');
+            }
+
+            $db->query('DELETE FROM active_boosts');
+            $db->query('DELETE FROM active_freezes');
+            $db->query('DELETE FROM trades');
+            $db->query('DELETE FROM season_participation');
+            $db->query('DELETE FROM season_vault');
+            $db->query('DELETE FROM player_season_vault');
+            $db->query('DELETE FROM sigil_drop_log');
+            $db->query('DELETE FROM sigil_drop_tracking');
+            $db->query('DELETE FROM pending_actions WHERE season_id IS NOT NULL');
+            $db->query('DELETE FROM economy_ledger WHERE season_id IS NOT NULL');
+            $db->query("DELETE FROM chat_messages WHERE channel_kind = 'SEASON'");
+            $db->query('DELETE FROM badges WHERE season_id IS NOT NULL');
+            $db->query('DELETE FROM seasons');
+
+            $db->query('ALTER TABLE seasons AUTO_INCREMENT = 1');
+
+            $newSeasonId = $db->insert(
+                "INSERT INTO seasons (
+                    start_time, end_time, blackout_time, season_seed, status,
+                    season_expired, expiration_finalized,
+                    base_ubi_active_per_tick, base_ubi_idle_factor_fp, ubi_min_per_tick,
+                    inflation_table, hoarding_window_ticks, target_spend_rate_per_tick, hoarding_min_factor_fp,
+                    hoarding_sink_enabled, hoarding_safe_hours, hoarding_safe_min_coins,
+                    hoarding_tier1_excess_cap, hoarding_tier2_excess_cap,
+                    hoarding_tier1_rate_hourly_fp, hoarding_tier2_rate_hourly_fp, hoarding_tier3_rate_hourly_fp,
+                    hoarding_sink_cap_ratio_fp, hoarding_idle_multiplier_fp,
+                    starprice_table, star_price_cap,
+                    starprice_idle_weight_fp, starprice_active_only,
+                    starprice_max_upstep_fp, starprice_max_downstep_fp,
+                    trade_fee_tiers, trade_min_fee_coins,
+                    vault_config, current_star_price,
+                    total_coins_supply, total_coins_supply_end_of_tick,
+                    coins_active_total, coins_idle_total, effective_price_supply,
+                    last_processed_tick
+                 ) VALUES (
+                    ?, ?, ?, UNHEX(SHA2(CONCAT(UUID(), RAND(), NOW(6)), 256)), 'Scheduled',
+                    0, 0,
+                    ?, ?, ?,
+                    ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?, ?, ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, ?,
+                    ?, 100,
+                    0, 0,
+                    0, 0, 0,
+                    ?
+                 )",
+                [
+                    $newStart,
+                    $newEnd,
+                    $newBlackout,
+                    (int)$templateSeason['base_ubi_active_per_tick'],
+                    (int)$templateSeason['base_ubi_idle_factor_fp'],
+                    (int)$templateSeason['ubi_min_per_tick'],
+                    (string)$templateSeason['inflation_table'],
+                    (int)$templateSeason['hoarding_window_ticks'],
+                    (int)$templateSeason['target_spend_rate_per_tick'],
+                    (int)$templateSeason['hoarding_min_factor_fp'],
+                    (int)$templateSeason['hoarding_sink_enabled'],
+                    (int)$templateSeason['hoarding_safe_hours'],
+                    (int)$templateSeason['hoarding_safe_min_coins'],
+                    (int)$templateSeason['hoarding_tier1_excess_cap'],
+                    (int)$templateSeason['hoarding_tier2_excess_cap'],
+                    (int)$templateSeason['hoarding_tier1_rate_hourly_fp'],
+                    (int)$templateSeason['hoarding_tier2_rate_hourly_fp'],
+                    (int)$templateSeason['hoarding_tier3_rate_hourly_fp'],
+                    (int)$templateSeason['hoarding_sink_cap_ratio_fp'],
+                    (int)$templateSeason['hoarding_idle_multiplier_fp'],
+                    (string)$templateSeason['starprice_table'],
+                    (int)$templateSeason['star_price_cap'],
+                    (int)$templateSeason['starprice_idle_weight_fp'],
+                    (int)$templateSeason['starprice_active_only'],
+                    (int)$templateSeason['starprice_max_upstep_fp'],
+                    (int)$templateSeason['starprice_max_downstep_fp'],
+                    (string)$templateSeason['trade_fee_tiers'],
+                    (int)$templateSeason['trade_min_fee_coins'],
+                    (string)$templateSeason['vault_config'],
+                    $newStart,
+                ]
+            );
+
+            $vaultRows = json_decode((string)($templateSeason['vault_config'] ?? ''), true);
+            if (!is_array($vaultRows) || empty($vaultRows)) {
+                $vaultRows = [
+                    ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
+                    ['tier' => 2, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 250]]],
+                    ['tier' => 3, 'supply' => 125, 'cost_table' => [['remaining' => 1, 'cost' => 1000]]],
+                ];
+            }
+
+            foreach ($vaultRows as $row) {
+                $tier = (int)($row['tier'] ?? 0);
+                if ($tier < 1 || $tier > 3) {
+                    continue;
+                }
+                $supply = max(0, (int)($row['supply'] ?? 0));
+                $costTable = is_array($row['cost_table'] ?? null) ? $row['cost_table'] : [];
+                $cost = !empty($costTable) ? max(0, (int)($costTable[0]['cost'] ?? 0)) : 0;
+                if ($supply <= 0 || $cost <= 0) {
+                    continue;
+                }
+                $db->query(
+                    'INSERT INTO season_vault (season_id, tier, initial_supply, remaining_supply, current_cost_stars, last_published_cost_stars) VALUES (?, ?, ?, ?, ?, ?)',
+                    [(int)$newSeasonId, $tier, $supply, $supply, $cost, $cost]
+                );
+            }
+
+            $db->query(
+                "UPDATE server_state
+                 SET server_mode = 'NORMAL',
+                     current_year_seq = 1,
+                     global_tick_index = 0,
+                     last_tick_processed_at = NULL,
+                     created_at = NOW()"
+            );
+
+            $db->query('DELETE FROM yearly_state');
+            $db->query(
+                "INSERT INTO yearly_state (year_seq, year_seed, started_at)
+                 VALUES (1, UNHEX(SHA2(CONCAT(UUID(), RAND(), NOW(6)), 256)), 0)"
+            );
+
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollback();
+            return ['error' => 'Global reset failed: ' . $e->getMessage()];
+        }
+
+        $after = buildGlobalResetAudit($db);
+        return [
+            'success' => true,
+            'dry_run' => false,
+            'reset_scope' => 'all_seasons',
+            'new_season_id' => (int)$newSeasonId,
+            'new_season_window' => [
+                'start_time' => (int)$newStart,
+                'end_time' => (int)$newEnd,
+                'blackout_time' => (int)$newBlackout,
+            ],
+            'audit_before' => $before,
+            'audit_after' => $after,
+        ];
+    }
+
     $targetSeason = $db->fetch('SELECT * FROM seasons WHERE season_id = ?', [$targetSeasonId]);
     if (!$targetSeason) {
         return ['error' => 'Target season not found'];
