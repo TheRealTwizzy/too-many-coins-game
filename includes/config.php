@@ -19,6 +19,33 @@ function ticks_from_real_seconds($seconds) {
     return max(1, (int)ceil($seconds / $tickRealSeconds));
 }
 
+function game_ticks_to_real_seconds($gameTicks) {
+    if ($gameTicks <= 0) return 0;
+    $scale = max(1, (int)(getenv('TMC_TIME_SCALE') ?: 1));
+    $tickRealSeconds = max(1, (int)(getenv('TMC_TICK_REAL_SECONDS') ?: 60));
+    return max(0, intdiv(((int)$gameTicks) * $tickRealSeconds, $scale));
+}
+
+function get_timing_diagnostics(?int $workerIntervalSeconds = null) {
+    $warnings = [];
+    if ((int)TIME_SCALE !== 1) {
+        $warnings[] = 'time_scale_not_one';
+    }
+    if ($workerIntervalSeconds !== null && $workerIntervalSeconds < (int)TICK_REAL_SECONDS) {
+        $warnings[] = 'worker_interval_faster_than_tick_real_seconds';
+    }
+
+    return [
+        'time_scale' => (int)TIME_SCALE,
+        'tick_real_seconds' => (int)TICK_REAL_SECONDS,
+        'idle_timeout_ticks' => (int)IDLE_TIMEOUT_TICKS,
+        'idle_timeout_real_seconds' => game_ticks_to_real_seconds((int)IDLE_TIMEOUT_TICKS),
+        'tick_on_request' => (bool)TMC_TICK_ON_REQUEST,
+        'worker_interval_seconds' => $workerIntervalSeconds,
+        'warnings' => $warnings,
+    ];
+}
+
 // Database variables (prefer DB_*; support common platform aliases)
 define('DB_HOST', env_first(['DB_HOST', 'MYSQLHOST', 'MYSQL_HOST', 'HOSTINGER_DB_HOST'], ''));
 define('DB_PORT', env_first(['DB_PORT', 'MYSQLPORT', 'MYSQL_PORT', 'HOSTINGER_DB_PORT'], ''));

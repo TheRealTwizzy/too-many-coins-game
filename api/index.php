@@ -665,6 +665,7 @@ function getGameState($player) {
         'global_tick_index' => $gameTime,
         'server_mode' => 'NORMAL',
         'lifecycle_phase' => 'Release',
+        'timing' => get_timing_diagnostics(),
         'seasons' => [],
         'player' => null
     ];

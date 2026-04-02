@@ -16,6 +16,7 @@ $intervalSeconds = max(1, (int)(getenv('TMC_WORKER_INTERVAL_SECONDS') ?: getenv(
 $startDelaySeconds = max(0, (int)(getenv('TMC_WORKER_START_DELAY_SECONDS') ?: 0));
 $runOnce = filter_var(getenv('TMC_WORKER_RUN_ONCE') ?: '0', FILTER_VALIDATE_BOOLEAN);
 $errorBackoffSeconds = max(1, (int)(getenv('TMC_WORKER_ERROR_BACKOFF_SECONDS') ?: 2));
+$timing = get_timing_diagnostics($intervalSeconds);
 
 if ($startDelaySeconds > 0) {
     error_log("[tick-worker] startup delay: {$startDelaySeconds}s");
@@ -23,6 +24,13 @@ if ($startDelaySeconds > 0) {
 }
 
 error_log("[tick-worker] starting (interval={$intervalSeconds}s, run_once=" . ($runOnce ? 'true' : 'false') . ")");
+error_log("[tick-worker] timing (time_scale=" . $timing['time_scale']
+    . ", tick_real_seconds=" . $timing['tick_real_seconds']
+    . ", idle_timeout_ticks=" . $timing['idle_timeout_ticks']
+    . ", idle_timeout_real_seconds=" . $timing['idle_timeout_real_seconds'] . ")");
+if (!empty($timing['warnings'])) {
+    error_log('[tick-worker] timing warnings: ' . implode(',', $timing['warnings']));
+}
 
 while (true) {
     $cycleStarted = microtime(true);

@@ -77,6 +77,13 @@ Worker service env:
 - `TMC_WORKER_INTERVAL_SECONDS=5`
 - `TMC_WORKER_START_DELAY_SECONDS=2`
 
+Important timing safety:
+
+- Keep `TMC_TIME_SCALE=1` in test/live lanes.
+- Effective real idle timeout is approximately `900 / TMC_TIME_SCALE` seconds.
+- If `TMC_TIME_SCALE` is accidentally raised (for example 30), players can be marked idle in about 30 seconds.
+- Keep `TMC_WORKER_INTERVAL_SECONDS` aligned with `TMC_TICK_REAL_SECONDS` unless you intentionally want catch-up behavior.
+
 Optional worker tuning:
 
 - `TMC_WORKER_ERROR_BACKOFF_SECONDS=2`
@@ -163,7 +170,8 @@ Validation checks:
 
 1. Web service is healthy at `/` and `/api/index.php?action=game_state`.
 2. Worker service logs show startup line: `[tick-worker] starting ...`.
-3. `server_state.last_tick_processed_at` advances every few seconds.
+3. Worker service logs show `time_scale=1` in `[tick-worker] timing (...)`.
+4. `server_state.last_tick_processed_at` advances every few seconds.
 
 Fallback only if worker service cannot be used:
 
