@@ -140,6 +140,45 @@ Backward-compatibility alias still works:
 
 - `TMC_AUTO_SQL_HOTFIX=false`
 
+## Season Reset (Preserve Accounts/Auth)
+
+To rebuild season timelines/state without removing player accounts or authentication data,
+use the season reset utilities under `tools/`.
+
+What this reset preserves:
+
+- `players` identity/auth columns (email/password/session)
+- `handle_registry`
+- `handle_history`
+
+What this reset clears/rebuilds:
+
+- season-bound runtime tables (`seasons`, `season_participation`, vault/trade/ledger/action tables)
+- season pointers/participation flags on `players`
+- `server_state`/`yearly_state` bootstrap timing rows
+
+Preferred runner (no `mysql` CLI required):
+
+```bash
+php tools/run-season-reset.php
+```
+
+Runner modes:
+
+- Reset + verify (default): `php tools/run-season-reset.php`
+- Verify only: `php tools/run-season-reset.php --verify-only`
+- Reset only: `php tools/run-season-reset.php --no-verify`
+
+Raw SQL alternatives:
+
+```bash
+mysql -u USER -p DB_NAME < tools/reinitialize-seasons-preserve-accounts.sql
+mysql -u USER -p DB_NAME < tools/verify-season-timing.sql
+```
+
+After reset, trigger one normal API request or one tick call so bootstrap recreates
+`server_state`, `yearly_state`, and fresh season rows.
+
 ## Wiki (In-Repo, Same Domain)
 
 The project now includes an isolated wiki surface served under:
