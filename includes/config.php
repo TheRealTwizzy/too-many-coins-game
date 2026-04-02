@@ -28,7 +28,7 @@ define('DB_PASS', env_first(['DB_PASS', 'MYSQLPASSWORD', 'MYSQL_PASSWORD', 'HOST
 
 // Season timing constants
 define('SEASON_ANCHOR', 345600);        // 1970-01-05T00:00:00Z in seconds
-define('SEASON_DURATION', ticks_from_real_seconds(2419200));   // 28 days
+define('SEASON_DURATION', ticks_from_real_seconds(1209600));   // 14 days
 define('SEASON_CADENCE', ticks_from_real_seconds(604800));     // 7 days
 define('BLACKOUT_DURATION', ticks_from_real_seconds(259200));  // 72 hours
 
