@@ -55,6 +55,42 @@ class Notifications {
         return $rows;
     }
 
+    public static function listForPlayerWithUnread($playerId, $limit = 50) {
+        $db = Database::getInstance();
+        $safeLimit = max(1, min(100, (int)$limit));
+
+        $rows = $db->fetchAll(
+            "SELECT notification_id, category, title, body, payload_json, is_read, created_at, read_at,
+                    (SELECT COUNT(*)
+                     FROM player_notifications pn2
+                     WHERE pn2.player_id = ?
+                       AND pn2.removed_at IS NULL
+                       AND pn2.is_read = 0) AS unread_count
+             FROM player_notifications pn
+             WHERE pn.player_id = ? AND pn.removed_at IS NULL
+             ORDER BY pn.created_at DESC, pn.notification_id DESC
+             LIMIT {$safeLimit}",
+            [(int)$playerId, (int)$playerId]
+        );
+
+        $unreadCount = 0;
+        foreach ($rows as &$row) {
+            $unreadCount = max($unreadCount, (int)($row['unread_count'] ?? 0));
+            unset($row['unread_count']);
+            $row = self::normalizeRow($row);
+        }
+        unset($row);
+
+        if (empty($rows)) {
+            $unreadCount = self::unreadCount($playerId);
+        }
+
+        return [
+            'notifications' => $rows,
+            'unread_count' => (int)$unreadCount,
+        ];
+    }
+
     public static function getByIdForPlayer($playerId, $notificationId) {
         $db = Database::getInstance();
         $row = $db->fetch(

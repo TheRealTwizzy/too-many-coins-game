@@ -426,6 +426,36 @@ class EconomyPrecisionTest extends TestCase
         );
     }
 
+    public function testCanReceiveSigilTierAllowsCombineWhenTotalWouldDecreaseAtCap(): void
+    {
+        $participation = [
+            'sigils_t1' => 31,
+            'sigils_t2' => 19,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        // 5 T1 -> 1 T2 should be allowed at total cap because projected total is 46.
+        $this->assertTrue(Economy::canReceiveSigilTier($participation, 2, 1, 5));
+    }
+
+    public function testCanReceiveSigilTierStillHonorsTierCapDuringCombine(): void
+    {
+        $participation = [
+            'sigils_t1' => 50,
+            'sigils_t2' => 20,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        // Tier 2 cap is 20, so destination cap still blocks despite net total decrease.
+        $this->assertFalse(Economy::canReceiveSigilTier($participation, 2, 1, 5));
+    }
+
     // ==================== Rate Breakdown / Net Mint ====================
 
     /**

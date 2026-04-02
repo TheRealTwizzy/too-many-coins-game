@@ -30,13 +30,14 @@ class Economy {
         return (int)$total;
     }
 
-    public static function canReceiveSigilTier($participation, $tier, $amount = 1) {
+    public static function canReceiveSigilTier($participation, $tier, $amount = 1, $totalDecrease = 0) {
         if (!$participation || !is_array($participation)) {
             return false;
         }
 
         $tier = (int)$tier;
         $amount = max(0, (int)$amount);
+        $totalDecrease = max(0, (int)$totalDecrease);
         if ($tier < 1 || $tier > SIGIL_MAX_TIER || $amount <= 0) {
             return false;
         }
@@ -50,7 +51,7 @@ class Economy {
         if ($tierCap > 0 && ($currentTier + $amount) > $tierCap) {
             return false;
         }
-        if ($totalCap > 0 && ($currentTotal + $amount) > $totalCap) {
+        if ($totalCap > 0 && (($currentTotal + $amount - $totalDecrease) > $totalCap)) {
             return false;
         }
         return true;

@@ -54,6 +54,9 @@ require_once __DIR__ . '/../includes/sigil_drops_api.php';
 if (!defined('LEADERBOARD_MAX_LIMIT')) {
     define('LEADERBOARD_MAX_LIMIT', 200);
 }
+if (!defined('LEADERBOARD_CACHE_TTL_TICKS')) {
+    define('LEADERBOARD_CACHE_TTL_TICKS', 1);
+}
 
 // Database initialization endpoint (must be before server_state check)
 $earlyAction = $_GET['action'] ?? '';
@@ -185,6 +188,15 @@ try {
         case 'global_leaderboard':
             echo json_encode(getGlobalLeaderboard());
             break;
+
+        case 'admin_reset_economy':
+            $player = Auth::requireAuth();
+            echo json_encode(adminResetEconomy(
+                $player,
+                (int)($input['target_season_id'] ?? 0),
+                parseInputBool($input['dry_run'] ?? true)
+            ));
+            break;
             
         // ==================== SEASON ACTIONS ====================
         case 'season_join':
@@ -287,10 +299,11 @@ try {
         case 'notifications_list':
             $player = Auth::requireAuth();
             $limit = (int)($input['limit'] ?? 50);
+            $notificationState = Notifications::listForPlayerWithUnread($player['player_id'], $limit);
             echo json_encode([
                 'success' => true,
-                'notifications' => Notifications::listForPlayer($player['player_id'], $limit),
-                'unread_count' => Notifications::unreadCount($player['player_id'])
+                'notifications' => $notificationState['notifications'],
+                'unread_count' => $notificationState['unread_count']
             ]);
             break;
 
@@ -494,7 +507,7 @@ try {
                 'purchase_cosmetic', 'equip_cosmetic', 'my_cosmetics', 'chat_send',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
-                'profile', 'my_badges', 'season_history', 'tick',
+                'profile', 'my_badges', 'season_history', 'tick', 'admin_reset_economy',
                 'star_purchase_preview', 'trade_preview', 'boost_activate_preview'
             ]]);
     }
@@ -522,6 +535,338 @@ function tableExists(Database $db, string $tableName): bool {
 
     $cache[$tableName] = ((int)($row['c'] ?? 0)) > 0;
     return $cache[$tableName];
+}
+
+function parseInputBool($value): bool {
+    if (is_bool($value)) {
+        return $value;
+    }
+    if (is_int($value) || is_float($value)) {
+        return ((int)$value) !== 0;
+    }
+    $normalized = strtolower(trim((string)$value));
+    return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+}
+
+function requireAdminRole(array $player): ?array {
+    if (strtolower((string)($player['role'] ?? '')) !== 'admin') {
+        http_response_code(403);
+        return ['error' => 'Admin role required'];
+    }
+    return null;
+}
+
+function buildSeasonResetAudit(Database $db, int $seasonId): array {
+    $playerScope = $db->fetch(
+        "SELECT
+            COUNT(*) AS total_players,
+            SUM(CASE WHEN role = 'Player' THEN 1 ELSE 0 END) AS player_accounts,
+            SUM(CASE WHEN joined_season_id = ? AND participation_enabled = 1 THEN 1 ELSE 0 END) AS actively_joined,
+            SUM(CASE WHEN joined_season_id = ? THEN 1 ELSE 0 END) AS joined_any_state,
+            SUM(CASE WHEN role = 'Player' THEN global_stars ELSE 0 END) AS global_stars_total
+         FROM players",
+        [$seasonId, $seasonId]
+    );
+
+    $counts = [
+        'season_participation' => (int)($db->fetch('SELECT COUNT(*) AS c FROM season_participation WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'active_boosts' => (int)($db->fetch('SELECT COUNT(*) AS c FROM active_boosts WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'active_freezes' => (int)($db->fetch('SELECT COUNT(*) AS c FROM active_freezes WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'trades' => (int)($db->fetch('SELECT COUNT(*) AS c FROM trades WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'season_vault' => (int)($db->fetch('SELECT COUNT(*) AS c FROM season_vault WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'player_season_vault' => (int)($db->fetch('SELECT COUNT(*) AS c FROM player_season_vault WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'sigil_drop_log' => (int)($db->fetch('SELECT COUNT(*) AS c FROM sigil_drop_log WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'sigil_drop_tracking' => (int)($db->fetch('SELECT COUNT(*) AS c FROM sigil_drop_tracking WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'pending_actions' => (int)($db->fetch('SELECT COUNT(*) AS c FROM pending_actions WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'economy_ledger' => (int)($db->fetch('SELECT COUNT(*) AS c FROM economy_ledger WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+        'season_chat_messages' => (int)($db->fetch("SELECT COUNT(*) AS c FROM chat_messages WHERE channel_kind = 'SEASON' AND season_id = ?", [$seasonId])['c'] ?? 0),
+        'season_badges' => (int)($db->fetch('SELECT COUNT(*) AS c FROM badges WHERE season_id = ?', [$seasonId])['c'] ?? 0),
+    ];
+
+    $economy = $db->fetch(
+        "SELECT
+            COALESCE(SUM(coins), 0) AS coins,
+            COALESCE(SUM(seasonal_stars), 0) AS seasonal_stars,
+            COALESCE(SUM(sigils_t1 + sigils_t2 + sigils_t3 + sigils_t4 + sigils_t5 + sigils_t6), 0) AS total_sigils
+         FROM season_participation
+         WHERE season_id = ?",
+        [$seasonId]
+    );
+
+    return [
+        'season_id' => $seasonId,
+        'players' => [
+            'total_players' => (int)($playerScope['total_players'] ?? 0),
+            'player_accounts' => (int)($playerScope['player_accounts'] ?? 0),
+            'joined_target_season_active' => (int)($playerScope['actively_joined'] ?? 0),
+            'joined_target_season_any_state' => (int)($playerScope['joined_any_state'] ?? 0),
+            'global_stars_total_players' => (int)($playerScope['global_stars_total'] ?? 0),
+        ],
+        'season_economy' => [
+            'coins_total' => (int)($economy['coins'] ?? 0),
+            'seasonal_stars_total' => (int)($economy['seasonal_stars'] ?? 0),
+            'sigils_total' => (int)($economy['total_sigils'] ?? 0),
+        ],
+        'table_rows' => $counts,
+    ];
+}
+
+function adminResetEconomy(array $player, int $targetSeasonId, bool $dryRun = true): array {
+    if ($denied = requireAdminRole($player)) {
+        return $denied;
+    }
+
+    if ($targetSeasonId <= 0) {
+        return ['error' => 'target_season_id is required'];
+    }
+
+    $db = Database::getInstance();
+    $targetSeason = $db->fetch('SELECT * FROM seasons WHERE season_id = ?', [$targetSeasonId]);
+    if (!$targetSeason) {
+        return ['error' => 'Target season not found'];
+    }
+
+    $before = buildSeasonResetAudit($db, $targetSeasonId);
+    if ($dryRun) {
+        return [
+            'success' => true,
+            'dry_run' => true,
+            'target_season' => [
+                'season_id' => (int)$targetSeason['season_id'],
+                'status' => (string)$targetSeason['status'],
+                'start_time' => (int)$targetSeason['start_time'],
+                'end_time' => (int)$targetSeason['end_time'],
+            ],
+            'audit_before' => $before,
+            'planned_effects' => [
+                'force_leave_target_season',
+                'zero_global_stars_for_player_accounts',
+                'delete_target_season_economy_and_telemetry',
+                'retire_target_season_and_create_new_active_season'
+            ],
+        ];
+    }
+
+    $gameTime = GameTime::now();
+    $seasonDuration = max(1, (int)$targetSeason['end_time'] - (int)$targetSeason['start_time']);
+    $blackoutDuration = max(1, (int)$targetSeason['end_time'] - (int)$targetSeason['blackout_time']);
+    if ($blackoutDuration >= $seasonDuration) {
+        $blackoutDuration = max(1, intdiv($seasonDuration, 5));
+    }
+
+    $newStart = $gameTime + 1;
+    $newEnd = $newStart + $seasonDuration;
+    $newBlackout = $newEnd - $blackoutDuration;
+
+    $db->beginTransaction();
+    try {
+        $db->query(
+            "UPDATE players
+             SET joined_season_id = NULL,
+                 participation_enabled = 0,
+                 idle_modal_active = 0,
+                 activity_state = 'Active',
+                 idle_since_tick = NULL
+             WHERE joined_season_id = ?",
+            [$targetSeasonId]
+        );
+
+        $db->query("UPDATE players SET global_stars = 0 WHERE role = 'Player'");
+
+        $db->query('DELETE FROM active_boosts WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM active_freezes WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM trades WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM season_participation WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM season_vault WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM player_season_vault WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM sigil_drop_log WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM sigil_drop_tracking WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM pending_actions WHERE season_id = ?', [$targetSeasonId]);
+        $db->query('DELETE FROM economy_ledger WHERE season_id = ?', [$targetSeasonId]);
+        $db->query("DELETE FROM chat_messages WHERE channel_kind = 'SEASON' AND season_id = ?", [$targetSeasonId]);
+        $db->query('DELETE FROM badges WHERE season_id = ?', [$targetSeasonId]);
+
+        $db->query(
+            "UPDATE seasons
+             SET status = 'Expired',
+                 season_expired = 1,
+                 expiration_finalized = 1,
+                 current_star_price = 100,
+                 total_coins_supply = 0,
+                 total_coins_supply_end_of_tick = 0,
+                 coins_active_total = 0,
+                 coins_idle_total = 0,
+                 effective_price_supply = 0,
+                 last_processed_tick = ?
+             WHERE season_id = ?",
+            [$gameTime, $targetSeasonId]
+        );
+
+        $newSeasonId = $db->insert(
+            "INSERT INTO seasons (
+                start_time, end_time, blackout_time, season_seed, status,
+                season_expired, expiration_finalized,
+                base_ubi_active_per_tick, base_ubi_idle_factor_fp, ubi_min_per_tick,
+                inflation_table, hoarding_window_ticks, target_spend_rate_per_tick, hoarding_min_factor_fp,
+                hoarding_sink_enabled, hoarding_safe_hours, hoarding_safe_min_coins,
+                hoarding_tier1_excess_cap, hoarding_tier2_excess_cap,
+                hoarding_tier1_rate_hourly_fp, hoarding_tier2_rate_hourly_fp, hoarding_tier3_rate_hourly_fp,
+                hoarding_sink_cap_ratio_fp, hoarding_idle_multiplier_fp,
+                starprice_table, star_price_cap,
+                starprice_idle_weight_fp, starprice_active_only,
+                starprice_max_upstep_fp, starprice_max_downstep_fp,
+                trade_fee_tiers, trade_min_fee_coins,
+                vault_config, current_star_price,
+                total_coins_supply, total_coins_supply_end_of_tick,
+                coins_active_total, coins_idle_total, effective_price_supply,
+                last_processed_tick
+             ) VALUES (
+                ?, ?, ?, UNHEX(SHA2(CONCAT(UUID(), RAND(), NOW(6)), 256)), 'Active',
+                0, 0,
+                ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, ?,
+                ?, 100,
+                0, 0,
+                0, 0, 0,
+                ?
+             )",
+            [
+                $newStart,
+                $newEnd,
+                $newBlackout,
+                (int)$targetSeason['base_ubi_active_per_tick'],
+                (int)$targetSeason['base_ubi_idle_factor_fp'],
+                (int)$targetSeason['ubi_min_per_tick'],
+                (string)$targetSeason['inflation_table'],
+                (int)$targetSeason['hoarding_window_ticks'],
+                (int)$targetSeason['target_spend_rate_per_tick'],
+                (int)$targetSeason['hoarding_min_factor_fp'],
+                (int)$targetSeason['hoarding_sink_enabled'],
+                (int)$targetSeason['hoarding_safe_hours'],
+                (int)$targetSeason['hoarding_safe_min_coins'],
+                (int)$targetSeason['hoarding_tier1_excess_cap'],
+                (int)$targetSeason['hoarding_tier2_excess_cap'],
+                (int)$targetSeason['hoarding_tier1_rate_hourly_fp'],
+                (int)$targetSeason['hoarding_tier2_rate_hourly_fp'],
+                (int)$targetSeason['hoarding_tier3_rate_hourly_fp'],
+                (int)$targetSeason['hoarding_sink_cap_ratio_fp'],
+                (int)$targetSeason['hoarding_idle_multiplier_fp'],
+                (string)$targetSeason['starprice_table'],
+                (int)$targetSeason['star_price_cap'],
+                (int)$targetSeason['starprice_idle_weight_fp'],
+                (int)$targetSeason['starprice_active_only'],
+                (int)$targetSeason['starprice_max_upstep_fp'],
+                (int)$targetSeason['starprice_max_downstep_fp'],
+                (string)$targetSeason['trade_fee_tiers'],
+                (int)$targetSeason['trade_min_fee_coins'],
+                (string)$targetSeason['vault_config'],
+                $newStart,
+            ]
+        );
+
+        $vaultRows = json_decode((string)($targetSeason['vault_config'] ?? ''), true);
+        if (!is_array($vaultRows) || empty($vaultRows)) {
+            $vaultRows = [
+                ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
+                ['tier' => 2, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 250]]],
+                ['tier' => 3, 'supply' => 125, 'cost_table' => [['remaining' => 1, 'cost' => 1000]]],
+            ];
+        }
+
+        foreach ($vaultRows as $row) {
+            $tier = (int)($row['tier'] ?? 0);
+            if ($tier < 1 || $tier > 3) {
+                continue;
+            }
+            $supply = max(0, (int)($row['supply'] ?? 0));
+            $costTable = is_array($row['cost_table'] ?? null) ? $row['cost_table'] : [];
+            $cost = !empty($costTable) ? max(0, (int)($costTable[0]['cost'] ?? 0)) : 0;
+            if ($supply <= 0 || $cost <= 0) {
+                continue;
+            }
+            $db->query(
+                'INSERT INTO season_vault (season_id, tier, initial_supply, remaining_supply, current_cost_stars, last_published_cost_stars) VALUES (?, ?, ?, ?, ?, ?)',
+                [(int)$newSeasonId, $tier, $supply, $supply, $cost, $cost]
+            );
+        }
+
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollback();
+        return ['error' => 'Reset failed: ' . $e->getMessage()];
+    }
+
+    $after = buildSeasonResetAudit($db, $targetSeasonId);
+    return [
+        'success' => true,
+        'dry_run' => false,
+        'target_season_id' => $targetSeasonId,
+        'new_season_id' => (int)$newSeasonId,
+        'new_season_window' => [
+            'start_time' => (int)$newStart,
+            'end_time' => (int)$newEnd,
+            'blackout_time' => (int)$newBlackout,
+        ],
+        'audit_before' => $before,
+        'audit_after_target_season' => $after,
+    ];
+}
+
+function getCachedLeaderboardRows(Database $db, int $seasonId, int $nowTick): ?array {
+    if (!tableExists($db, 'leaderboard_cache')) {
+        return null;
+    }
+
+    $row = $db->fetch(
+        "SELECT generated_tick, payload_json
+         FROM leaderboard_cache
+         WHERE season_id = ?",
+        [$seasonId]
+    );
+    if (!$row) {
+        return null;
+    }
+
+    $generatedTick = (int)($row['generated_tick'] ?? 0);
+    if ($generatedTick < ($nowTick - (int)LEADERBOARD_CACHE_TTL_TICKS)) {
+        return null;
+    }
+
+    $decoded = json_decode((string)($row['payload_json'] ?? ''), true);
+    if (!is_array($decoded)) {
+        return null;
+    }
+
+    return $decoded;
+}
+
+function storeCachedLeaderboardRows(Database $db, int $seasonId, int $nowTick, array $rows): void {
+    if (!tableExists($db, 'leaderboard_cache')) {
+        return;
+    }
+
+    $payload = json_encode(array_values($rows));
+    if ($payload === false) {
+        return;
+    }
+
+    $db->query(
+        "INSERT INTO leaderboard_cache (season_id, generated_tick, row_count, payload_json)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            generated_tick = VALUES(generated_tick),
+            row_count = VALUES(row_count),
+            payload_json = VALUES(payload_json)",
+        [$seasonId, $nowTick, count($rows), $payload]
+    );
 }
 
 function getSigilDropRateMetadata($sigilPower = 0) {
@@ -718,6 +1063,8 @@ function getGameState($player) {
         $activeBoosts = getActiveBoosts($player);
         $rateMetrics = calculatePlayerRatePerTick($joinedSeason, $player, $participation, $activeBoosts);
         
+        $notificationState = Notifications::listForPlayerWithUnread($player['player_id'], 50);
+
         $state['player'] = [
             'player_id' => $player['player_id'],
             'handle' => $player['handle'],
@@ -768,8 +1115,8 @@ function getGameState($player) {
             ] : null,
             'active_boosts' => $activeBoosts,
             'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player) : [],
-            'notifications' => Notifications::listForPlayer($player['player_id'], 50),
-            'notifications_unread_count' => Notifications::unreadCount($player['player_id']),
+            'notifications' => $notificationState['notifications'],
+            'notifications_unread_count' => $notificationState['unread_count'],
             'can_lock_in' => canLockIn($player, $participation),
             'can_purchase_stars' => canPurchaseStars($player),
             'can_trade' => canTrade($player),
@@ -987,6 +1334,12 @@ function getLeaderboard($seasonId, int $limit = 0, string $sortKey = 'stars', st
     $status = GameTime::getSeasonStatus($season);
     if ($status === 'Active' || $status === 'Blackout') {
         $gameTime = GameTime::now();
+        if ($isDefaultSqlSort) {
+            $cachedRows = getCachedLeaderboardRows($db, (int)$seasonId, (int)$gameTime);
+            if (is_array($cachedRows)) {
+                return ($limit > 0) ? array_slice($cachedRows, 0, $limit) : $cachedRows;
+            }
+        }
         $hasBoostTables = tableExists($db, 'active_boosts');
         $hasFreezeTable = tableExists($db, 'active_freezes');
 
@@ -1273,6 +1626,11 @@ function getLeaderboard($seasonId, int $limit = 0, string $sortKey = 'stars', st
         if (!$isDefaultSqlSort && $limit > 0) {
             $rows = array_slice($rows, 0, $limit);
         }
+
+        if ($isDefaultSqlSort) {
+            storeCachedLeaderboardRows($db, (int)$seasonId, (int)$gameTime, $rows);
+        }
+
         return $rows;
     }
 
@@ -1733,7 +2091,7 @@ function getCombineRecipesForParticipation($participation) {
             'to_tier' => (int)$fromTier + 1,
             'required' => (int)$required,
             'owned' => $owned,
-            'can_combine' => $owned >= (int)$required && Economy::canReceiveSigilTier($participation, ((int)$fromTier + 1), 1),
+            'can_combine' => $owned >= (int)$required && Economy::canReceiveSigilTier($participation, ((int)$fromTier + 1), 1, (int)$required),
         ];
     }
     return $recipes;
