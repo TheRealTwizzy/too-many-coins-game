@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS players (
     activity_state ENUM('Active', 'Idle') NOT NULL DEFAULT 'Active',
     idle_since_tick BIGINT DEFAULT NULL,
     last_activity_tick BIGINT DEFAULT NULL,
+    recent_active_ticks BIGINT NOT NULL DEFAULT 0,
     connection_seq INT UNSIGNED NOT NULL DEFAULT 0,
     session_token VARCHAR(128) DEFAULT NULL,
     INDEX idx_handle_lower (handle_lower),

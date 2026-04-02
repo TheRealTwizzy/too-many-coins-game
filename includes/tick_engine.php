@@ -193,13 +193,31 @@ class TickEngine {
                      WHERE player_id = ? AND season_id = ?",
                     [$ticksToProcess, $ticksToProcess, $activeTicks, $playerId, $seasonId]
                 );
+
+                // Keep a rolling memory of the most recent uninterrupted active span.
+                if (($p['activity_state'] ?? 'Idle') === 'Active') {
+                    $recentActiveTicks = max(0, (int)($p['recent_active_ticks'] ?? 0));
+                    $recentActiveTicks = min(
+                        (int)ticks_from_real_seconds(14 * 24 * 60 * 60),
+                        $recentActiveTicks + $ticksToProcess
+                    );
+                    $db->query(
+                        "UPDATE players SET recent_active_ticks = ? WHERE player_id = ?",
+                        [$recentActiveTicks, $playerId]
+                    );
+                }
                 
                 // Phase 7: Activity evaluation (idle check)
                 if ($p['activity_state'] === 'Active') {
                     $lastActivityTick = $p['last_activity_tick'] ?? ($startTime + $lastSeasonTick);
                     $ticksSinceActivity = $gameTime - $lastActivityTick;
-                    
-                    if ($ticksSinceActivity >= IDLE_TIMEOUT_TICKS) {
+
+                    $graceTicks = max(1, (int)ACTIVITY_DECAY_GRACE_TICKS);
+                    $recentActiveTicks = max((int)ACTIVITY_FALLBACK_ACTIVE_TICKS, (int)($p['recent_active_ticks'] ?? 0));
+                    $decayDurationTicks = max($graceTicks, (int)round($recentActiveTicks / 3));
+                    $idleThresholdTicks = $graceTicks + $decayDurationTicks;
+
+                    if ($ticksSinceActivity >= $idleThresholdTicks) {
                         $db->query(
                             "UPDATE players SET activity_state = 'Idle', idle_modal_active = 1, idle_since_tick = ?
                              WHERE player_id = ?",
@@ -216,6 +234,33 @@ class TickEngine {
                                 'payload' => ['at_tick' => (int)$gameTime]
                             ]
                         );
+                    }
+                } elseif ($p['activity_state'] === 'Idle') {
+                    $idleSinceTick = (int)($p['idle_since_tick'] ?? 0);
+                    if ($idleSinceTick > 0) {
+                        $recentActiveTicks = max((int)ACTIVITY_FALLBACK_ACTIVE_TICKS, (int)($p['recent_active_ticks'] ?? 0));
+                        $forcedOfflineTicks = max((int)ACTIVITY_FORCED_OFFLINE_MIN_TICKS, (int)round($recentActiveTicks / 4));
+                        $idleElapsed = max(0, $gameTime - $idleSinceTick);
+
+                        if ($idleElapsed >= $forcedOfflineTicks && (int)($p['online_current'] ?? 0) === 1) {
+                            $db->query(
+                                "UPDATE players
+                                 SET online_current = 0, session_token = NULL, connection_seq = connection_seq + 1
+                                 WHERE player_id = ?",
+                                [$playerId]
+                            );
+                            Notifications::create(
+                                $playerId,
+                                'idle',
+                                'Logged out while idle',
+                                'You were moved offline after extended idle time. Please log in again.',
+                                [
+                                    'is_read' => true,
+                                    'event_key' => 'forced_offline:' . $gameTime,
+                                    'payload' => ['at_tick' => (int)$gameTime]
+                                ]
+                            );
+                        }
                     }
                 }
             }

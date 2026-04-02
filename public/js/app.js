@@ -25,6 +25,8 @@ const TMC = {
         notifications: [],
         notificationsUnread: 0,
         notificationsOpen: false,
+        seasonDetailSortKey: 'stars',
+        seasonDetailSortDir: 'desc',
     },
 
     API_BASE: '/api/index.php',
@@ -927,16 +929,6 @@ const TMC = {
                             </div>
                             ${visibleCombineRecipes.length === 0 ? '<p class="panel-info">No combinations currently available.</p>' : ''}
                         </div>
-                        ${part.can_freeze ? `
-                            <div class="sigil-freeze-section">
-                                <h4>Tier 6 Freeze</h4>
-                                <p class="panel-info">Consume 1 Tier 6 sigil to nullify a target's boost percentage while boosts continue to count down.</p>
-                                <div class="action-row">
-                                    <input type="text" id="freeze-target-handle" class="input-field" placeholder="Target handle">
-                                    <button class="btn btn-danger" onclick="TMC.freezeByHandle()" ${isBlackout ? 'disabled' : ''}>Freeze by Handle</button>
-                                </div>
-                            </div>
-                        ` : ''}
                         <div class="sigil-vault-section">
                             <h4>Sigil Vault</h4>
                             <p class="panel-info">Purchase Sigils with Seasonal Stars</p>
@@ -1004,18 +996,10 @@ const TMC = {
         // Leaderboard
         html += `
             <div class="season-leaderboard">
-                <h3><button class="season-lb-title-link" type="button" onclick="TMC.openSeasonalLeaderboardTab()">Season Leaderboard</button></h3>
+                <h3><button class="season-lb-title-link" type="button" onclick="TMC.openSeasonalLeaderboardTab()">Seasonal Players</button></h3>
                 <table class="leaderboard-table">
                     <thead>
-                        <tr>
-                            <th>Rate</th>
-                            <th>Player</th>
-                            <th>Stars</th>
-                            <th>Boost</th>
-                            <th>Coins</th>
-                            <th>Status</th>
-                            ${isParticipating && part && part.can_freeze ? '<th>Action</th>' : ''}
-                        </tr>
+                        ${this.renderSeasonDetailHeaderRow()}
                     </thead>
                     <tbody id="season-lb-body">
                     </tbody>
@@ -1044,7 +1028,12 @@ const TMC = {
     },
 
     async loadSeasonLeaderboard(seasonId) {
-        const lb = await this.api('leaderboard', { season_id: seasonId, limit: 20 });
+        const lb = await this.api('leaderboard', {
+            season_id: seasonId,
+            limit: 20,
+            sort_key: this.state.seasonDetailSortKey,
+            sort_dir: this.state.seasonDetailSortDir
+        });
         const body = document.getElementById('season-lb-body');
         const empty = document.getElementById('season-lb-empty');
         const toggleWrap = document.getElementById('season-lb-toggle-wrap');
@@ -1059,10 +1048,9 @@ const TMC = {
         }
         if (empty) empty.style.display = 'none';
 
-        const includeActions = !!(this.state.currentScreen === 'season-detail' && this.state.player && this.state.player.participation && this.state.player.participation.can_freeze);
         const capped = lb.slice(0, 20);
         const rows = this._seasonDetailLeaderboardExpanded ? capped : capped.slice(0, 3);
-        body.innerHTML = this.renderSeasonLeaderboardRows(rows, includeActions, { firstCol: 'rate', showRateColumn: false });
+        body.innerHTML = this.renderSeasonLeaderboardRows(rows, { firstCol: 'rate', showRateColumn: false });
 
         if (toggleWrap && toggleBtn) {
             if (lb.length > 3) {
@@ -1083,6 +1071,39 @@ const TMC = {
 
     openSeasonalLeaderboardTab() {
         this.navigate('global-lb', { tab: 'seasonal' });
+    },
+
+    renderSeasonDetailHeaderRow() {
+        const mk = (label, sortKey) => {
+            const active = this.state.seasonDetailSortKey === sortKey;
+            const arrow = active ? (this.state.seasonDetailSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+            return `<th class="sortable-col"><button type="button" class="btn-link-sort ${active ? 'active' : ''}" onclick="TMC.setSeasonDetailSort('${sortKey}')">${label}${arrow}</button></th>`;
+        };
+
+        return `<tr>${[
+            mk('Rate', 'rate'),
+            mk('Player', 'player'),
+            mk('Stars', 'stars'),
+            mk('Boost', 'boost'),
+            mk('Coins', 'coins'),
+            mk('Status', 'status')
+        ].join('')}</tr>`;
+    },
+
+    setSeasonDetailSort(sortKey) {
+        const allowed = ['player', 'stars', 'boost', 'coins', 'rate', 'status'];
+        if (!allowed.includes(sortKey)) return;
+
+        if (this.state.seasonDetailSortKey === sortKey) {
+            this.state.seasonDetailSortDir = this.state.seasonDetailSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.state.seasonDetailSortKey = sortKey;
+            this.state.seasonDetailSortDir = (sortKey === 'player' || sortKey === 'status') ? 'asc' : 'desc';
+        }
+
+        if (this.state.currentSeason) {
+            this.loadSeasonLeaderboard(this.state.currentSeason);
+        }
     },
 
     // ==================== ACTIONS ====================
@@ -1259,8 +1280,12 @@ const TMC = {
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
-    async freezeByPlayerId(targetPlayerId) {
-        const result = await this.api('freeze_player_ubi', { target_player_id: targetPlayerId });
+    async freezeByPlayerId(targetPlayerId, profilePlayerId = null) {
+        const result = await this.api('freeze_player_ubi', {
+            target_player_id: targetPlayerId,
+            action_context: 'profile',
+            profile_player_id: profilePlayerId || targetPlayerId
+        });
         if (result.error) {
             this.toast(result.error, 'error', { category: 'error_action' });
             return;
@@ -1277,31 +1302,31 @@ const TMC = {
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
-    async freezeByHandle() {
-        const input = document.getElementById('freeze-target-handle');
-        const targetHandle = input ? String(input.value || '').trim() : '';
-        if (!targetHandle) {
-            this.toast('Enter a target handle.', 'error', { category: 'error_validation' });
-            return;
-        }
-
-        const result = await this.api('freeze_player_ubi', { target_handle: targetHandle });
+    async meltSelfFreeze(profilePlayerId) {
+        const result = await this.api('melt_freeze_ubi', {
+            action_context: 'profile',
+            profile_player_id: profilePlayerId
+        });
         if (result.error) {
             this.toast(result.error, 'error', { category: 'error_action' });
             return;
         }
-        this.toast(result.message || 'Freeze applied.', 'success', {
-            category: 'freeze_apply',
+        this.toast(result.message || 'Melt applied.', 'success', {
+            category: 'melt_apply',
             payload: {
-                target_player_id: Number(result.target_player_id) || null,
-                target_handle: result.target_handle || targetHandle,
-                freeze_duration_ticks: Number(result.freeze_duration_ticks) || 0,
+                reduced_ticks: Number(result.reduced_ticks) || 0,
+                remaining_ticks: Number(result.remaining_ticks) || 0,
                 expires_tick: Number(result.expires_tick) || null
             }
         });
-        if (input) input.value = '';
         await this.refreshGameState();
-        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+        this.loadProfile(profilePlayerId);
+    },
+
+    async freezeProfileTarget(targetPlayerId) {
+        await this.freezeByPlayerId(targetPlayerId, targetPlayerId);
+        await this.refreshGameState();
+        this.loadProfile(targetPlayerId);
     },
 
     // ==================== BOOSTS ====================
@@ -1689,7 +1714,7 @@ const TMC = {
     getTimePurchaseCandidates(selectedTier) {
         const p = this.state.player;
         const activeSelfBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.self)) ? p.active_boosts.self : [];
-        const nowTick = parseInt((p && p.active_boosts && p.active_boosts.server_now) || 0, 10) || 0;
+        const remainingCapTicks = Math.max(0, parseInt((p && p.active_boosts && p.active_boosts.remaining_self_time_cap_ticks) || 0, 10) || 0);
         const extensionByTier = this.getTimeExtensionMapByTier();
         const tierExt = extensionByTier[selectedTier] || null;
         if (!tierExt) return [];
@@ -1703,9 +1728,7 @@ const TMC = {
                 const catalogBoost = this._boostCatalog ? this._boostCatalog.find(b => parseInt(b.boost_id, 10) === boostId) : null;
                 if (!catalogBoost) return null;
 
-                const timeCapTicks = parseInt(catalogBoost.time_cap_ticks || 2880, 10) || 2880;
-                const remainingTicks = Math.max(0, (parseInt(activeBoost.expires_tick, 10) || 0) - nowTick);
-                const canApply = (remainingTicks + extendTicks) <= timeCapTicks;
+                const canApply = extendTicks <= remainingCapTicks;
                 if (!canApply) return null;
 
                 return {
@@ -1759,18 +1782,16 @@ const TMC = {
         const p = this.state.player;
         const part = p ? p.participation : null;
         const activeSelfBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.self)) ? p.active_boosts.self : [];
-        const nowTick = parseInt((p && p.active_boosts && p.active_boosts.server_now) || 0, 10) || 0;
         const boost = this._boostCatalog ? this._boostCatalog.find(b => parseInt(b.boost_id, 10) === parseInt(boostId, 10)) : null;
         const activeBoost = activeSelfBoosts.find((ab) => parseInt(ab.boost_id, 10) === parseInt(boostId, 10)) || null;
-        const timeCapTicks = boost ? (parseInt(boost.time_cap_ticks || 2880, 10) || 2880) : 2880;
+        const remainingCapTicks = Math.max(0, parseInt((p && p.active_boosts && p.active_boosts.remaining_self_time_cap_ticks) || 0, 10) || 0);
 
         if (!activeBoost) {
             this.toast('Activate boost power first before purchasing additional time', 'error');
             return null;
         }
 
-        const currentRemainingTicks = Math.max(0, (parseInt(activeBoost.expires_tick, 10) || 0) - nowTick);
-        const options = this.getAvailableTimeSigilOptions(part, currentRemainingTicks, timeCapTicks)
+        const options = this.getAvailableTimeSigilOptions(part, 0, remainingCapTicks)
             .filter(o => o.canApply);
 
         if (options.length === 0) {
@@ -1820,6 +1841,7 @@ const TMC = {
 
         let html = `<div class="active-boosts-summary">
             <span class="boost-total-mod">Total UBI Modifier: <strong>+${boosts.total_modifier_percent}%</strong></span>
+            <span class="boost-total-mod">Boost Time Cap Remaining: <strong>${this.formatBoostDuration(Math.max(0, Number(boosts.remaining_self_time_cap_ticks || 0)), 'short')}</strong></span>
         </div>`;
 
         const tierClassForBoost = (b) => {
@@ -2018,6 +2040,7 @@ const TMC = {
     },
 
     getPlayerStatus(entry) {
+        if (entry.activity_state_display) return entry.activity_state_display;
         if (!entry.online_current) return 'Offline';
         return entry.activity_state || 'Offline';
     },
@@ -2048,8 +2071,7 @@ const TMC = {
         theadRow.innerHTML = columns.map((c) => `<th>${c}</th>`).join('');
     },
 
-    renderSeasonLeaderboardRows(entries, includeActions = false, options = {}) {
-        const canFreeze = includeActions && !!(this.state.player && this.state.player.participation && this.state.player.participation.can_freeze);
+    renderSeasonLeaderboardRows(entries, options = {}) {
         const firstCol = options.firstCol === 'rate' ? 'rate' : 'rank';
         const showRateColumn = options.showRateColumn !== false;
         return entries.map((entry, i) => {
@@ -2085,7 +2107,6 @@ const TMC = {
                     <td class="stars-cell">${coinsCell}</td>
                     ${showRateColumn ? `<td class="rate-cell">${rateCell}</td>` : ''}
                     <td class="status-cell">${statusBadge}</td>
-                    ${canFreeze ? `<td class="status-cell">${(!isMe && entry.activity_state === 'Active') ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); TMC.freezeByPlayerId(${entry.player_id})">Freeze</button>` : ''}</td>` : ''}
                 </tr>
             `;
         }).join('');
@@ -2102,7 +2123,7 @@ const TMC = {
         if (this.state.leaderboardTab === 'seasonal' && activeSeason) {
             if (globalPagerWrap) globalPagerWrap.style.display = 'none';
             this.setLeaderboardMeta(
-                `Season #${activeSeason.season_id} Leaderboard`,
+                `Season #${activeSeason.season_id} Seasonal Players`,
                 'Ranked by Seasonal Stars in your active season.'
             );
             this.setLeaderboardHeader(['Rank', 'Player', 'Stars', 'Boost', 'Coins', 'Rate', 'Status']);
@@ -2135,7 +2156,7 @@ const TMC = {
             } else {
                 this._globalSeasonalLeaderboardPage = 1;
             }
-            body.innerHTML = this.renderSeasonLeaderboardRows(visibleRows, false, { firstCol: 'rank', showRateColumn: true });
+            body.innerHTML = this.renderSeasonLeaderboardRows(visibleRows, { firstCol: 'rank', showRateColumn: true });
 
             const seasonalToggleWrap = document.getElementById('global-seasonal-lb-toggle-wrap');
             const seasonalToggleBtn = document.getElementById('global-seasonal-lb-toggle-btn');
@@ -2671,6 +2692,11 @@ const TMC = {
             this.state.player.joined_season_id == activeParticipation.season_id &&
             seasonStatus === 'Active'
         );
+        const canFreezeFromProfile = !!(activeParticipation && activeParticipation.can_be_frozen_by_viewer);
+        const canMeltOnProfile = !!(activeParticipation && activeParticipation.can_melt);
+        const freezeData = activeParticipation && activeParticipation.freeze ? activeParticipation.freeze : null;
+        const isFrozen = !!(freezeData && freezeData.is_frozen);
+        const boostRows = Array.isArray(activeParticipation?.active_boosts) ? activeParticipation.active_boosts : [];
 
         const inventoryHtml = activeParticipation ? `
             <div class="profile-inventory">
@@ -2684,6 +2710,24 @@ const TMC = {
                         <span class="stat-label">Season</span>
                         <span class="stat-value">#${activeParticipation.season_id}</span>
                     </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Stars</span>
+                        <span class="stat-value">${this.formatNumber(activeParticipation.seasonal_stars || 0)}</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Rate</span>
+                        <span class="stat-value">${this.formatPercentCompact(Number(activeParticipation.rate_per_tick || 0))}</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Total Boost %</span>
+                        <span class="stat-value">${Number(activeParticipation.total_boost_percent || 0).toFixed(2)}%</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span class="stat-label">Freeze</span>
+                        <span class="stat-value">${isFrozen
+                            ? this.formatDurationFromSeconds(Number(freezeData.remaining_real_seconds || 0), 'short')
+                            : 'Not Frozen'}</span>
+                    </div>
                 </div>
                 <div class="sigil-display profile-sigil-display">
                     ${visibleProfileSigils.map((row) => `
@@ -2692,6 +2736,20 @@ const TMC = {
                             <span class="sigil-count">${row.count}</span>
                         </div>
                     `).join('')}
+                </div>
+                <div class="profile-boosts">
+                    <h4>Active Boosts</h4>
+                    ${boostRows.length ? `
+                        <div class="vault-grid">
+                            ${boostRows.map((boost) => `
+                                <div class="vault-item tier-${Math.max(1, Math.min(5, Number(boost.boost_id || 1)))}">
+                                    <span class="vault-tier">${this.escapeHtml(boost.name || 'Boost')}</span>
+                                    <span class="vault-remaining">+${Number(boost.modifier_percent || 0).toFixed(2)}%</span>
+                                    <span class="vault-cost">${this.formatDurationFromSeconds(Number(boost.remaining_real_seconds || 0), 'short')} left</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p class="panel-info">No active boosts.</p>'}
                 </div>
             </div>
         ` : `
@@ -2718,7 +2776,13 @@ const TMC = {
                     </div>
                 </div>
                 ${inventoryHtml}
-                ${canOpenTrade ? `<div class="profile-actions"><button class="btn btn-primary" onclick="TMC.openTradeRequest(${profile.player_id}, ${activeParticipation.season_id})">Open Trade Request</button></div>` : ''}
+                ${(canOpenTrade || canFreezeFromProfile || canMeltOnProfile) ? `
+                    <div class="profile-actions">
+                        ${canOpenTrade ? `<button class="btn btn-primary" onclick="TMC.openTradeRequest(${profile.player_id}, ${activeParticipation.season_id})">Open Trade Request</button>` : ''}
+                        ${canFreezeFromProfile ? `<button class="btn btn-danger" onclick="TMC.freezeProfileTarget(${profile.player_id})">Freeze (-15m/stack)</button>` : ''}
+                        ${canMeltOnProfile ? `<button class="btn btn-outline" onclick="TMC.meltSelfFreeze(${profile.player_id})">Melt (Use T6, -15m)</button>` : ''}
+                    </div>
+                ` : ''}
                 ${badges ? `<div class="profile-badges"><h3>Badges</h3><div class="badges-row">${badges}</div></div>` : ''}
                 ${history ? `
                     <div class="profile-history">
