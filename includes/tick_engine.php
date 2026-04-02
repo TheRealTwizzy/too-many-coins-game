@@ -193,31 +193,13 @@ class TickEngine {
                      WHERE player_id = ? AND season_id = ?",
                     [$ticksToProcess, $ticksToProcess, $activeTicks, $playerId, $seasonId]
                 );
-
-                // Keep a rolling memory of the most recent uninterrupted active span.
-                if (($p['activity_state'] ?? 'Idle') === 'Active') {
-                    $recentActiveTicks = max(0, (int)($p['recent_active_ticks'] ?? 0));
-                    $recentActiveTicks = min(
-                        (int)ticks_from_real_seconds(14 * 24 * 60 * 60),
-                        $recentActiveTicks + $ticksToProcess
-                    );
-                    $db->query(
-                        "UPDATE players SET recent_active_ticks = ? WHERE player_id = ?",
-                        [$recentActiveTicks, $playerId]
-                    );
-                }
                 
                 // Phase 7: Activity evaluation (idle check)
                 if ($p['activity_state'] === 'Active') {
                     $lastActivityTick = $p['last_activity_tick'] ?? ($startTime + $lastSeasonTick);
                     $ticksSinceActivity = $gameTime - $lastActivityTick;
-
-                    $graceTicks = max(1, (int)ACTIVITY_DECAY_GRACE_TICKS);
-                    $recentActiveTicks = max((int)ACTIVITY_FALLBACK_ACTIVE_TICKS, (int)($p['recent_active_ticks'] ?? 0));
-                    $decayDurationTicks = max($graceTicks, (int)round($recentActiveTicks / 3));
-                    $idleThresholdTicks = $graceTicks + $decayDurationTicks;
-
-                    if ($ticksSinceActivity >= $idleThresholdTicks) {
+                    
+                    if ($ticksSinceActivity >= IDLE_TIMEOUT_TICKS) {
                         $db->query(
                             "UPDATE players SET activity_state = 'Idle', idle_modal_active = 1, idle_since_tick = ?
                              WHERE player_id = ?",
@@ -234,33 +216,6 @@ class TickEngine {
                                 'payload' => ['at_tick' => (int)$gameTime]
                             ]
                         );
-                    }
-                } elseif ($p['activity_state'] === 'Idle') {
-                    $idleSinceTick = (int)($p['idle_since_tick'] ?? 0);
-                    if ($idleSinceTick > 0) {
-                        $recentActiveTicks = max((int)ACTIVITY_FALLBACK_ACTIVE_TICKS, (int)($p['recent_active_ticks'] ?? 0));
-                        $forcedOfflineTicks = max((int)ACTIVITY_FORCED_OFFLINE_MIN_TICKS, (int)round($recentActiveTicks / 4));
-                        $idleElapsed = max(0, $gameTime - $idleSinceTick);
-
-                        if ($idleElapsed >= $forcedOfflineTicks && (int)($p['online_current'] ?? 0) === 1) {
-                            $db->query(
-                                "UPDATE players
-                                 SET online_current = 0, session_token = NULL, connection_seq = connection_seq + 1
-                                 WHERE player_id = ?",
-                                [$playerId]
-                            );
-                            Notifications::create(
-                                $playerId,
-                                'idle',
-                                'Logged out while idle',
-                                'You were moved offline after extended idle time. Please log in again.',
-                                [
-                                    'is_read' => true,
-                                    'event_key' => 'forced_offline:' . $gameTime,
-                                    'payload' => ['at_tick' => (int)$gameTime]
-                                ]
-                            );
-                        }
                     }
                 }
             }
@@ -357,7 +312,6 @@ class TickEngine {
             return;
         }
 
-        $dropQueue = [];
         for ($t = 0; $t < $ticksToProcess; $t++) {
             $tickIndex = $lastSeasonTick + $t;
             $absoluteTick = $startTime + $tickIndex;
@@ -369,17 +323,8 @@ class TickEngine {
                 if (isset($drop['season_progress'])) {
                     $dropMetadata['season_progress'] = (float)$drop['season_progress'];
                 }
-                $dropQueue[] = [
-                    'tier' => (int)$drop['tier'],
-                    'drop_tick' => (int)$absoluteTick,
-                    'source' => 'RNG',
-                    'metadata' => $dropMetadata,
-                ];
+                self::awardSigilDrop($playerId, $seasonId, (int)$drop['tier'], $absoluteTick, 'RNG', $dropMetadata);
             }
-        }
-
-        if (!empty($dropQueue)) {
-            self::awardSigilDropsBatch((int)$playerId, (int)$seasonId, $dropQueue);
         }
     }
 
@@ -450,124 +395,6 @@ class TickEngine {
              VALUES (?, ?, 0, 1, ?)
              ON DUPLICATE KEY UPDATE eligible_ticks_since_last_drop = 0, total_drops = total_drops + 1, last_drop_tick = ?",
             [$playerId, $seasonId, $dropTick, $dropTick]
-        );
-    }
-
-    /**
-     * Award multiple Sigil drops in one persistence pass for a player.
-     */
-    private static function awardSigilDropsBatch($playerId, $seasonId, array $drops) {
-        $db = Database::getInstance();
-        $participation = $db->fetch(
-            "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
-            [(int)$playerId, (int)$seasonId]
-        );
-        if (!$participation) {
-            return;
-        }
-
-        $acceptedDrops = [];
-        $tierCounts = [];
-        foreach ($drops as $drop) {
-            $tier = max(1, min((int)SIGIL_MAX_TIER, (int)($drop['tier'] ?? 0)));
-            if (!Economy::canReceiveSigilTier($participation, $tier, 1)) {
-                continue;
-            }
-
-            $sigilCol = 'sigils_t' . $tier;
-            $participation[$sigilCol] = max(0, (int)($participation[$sigilCol] ?? 0)) + 1;
-            $tierCounts[$tier] = (int)($tierCounts[$tier] ?? 0) + 1;
-
-            $acceptedDrops[] = [
-                'tier' => $tier,
-                'drop_tick' => (int)($drop['drop_tick'] ?? 0),
-                'source' => (string)($drop['source'] ?? 'RNG'),
-                'metadata' => (array)($drop['metadata'] ?? []),
-            ];
-        }
-
-        if (empty($acceptedDrops)) {
-            return;
-        }
-
-        $setParts = [];
-        $params = [];
-        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
-            $delta = (int)($tierCounts[$tier] ?? 0);
-            if ($delta <= 0) {
-                continue;
-            }
-            $setParts[] = "sigils_t{$tier} = sigils_t{$tier} + ?";
-            $params[] = $delta;
-        }
-        $setParts[] = 'sigil_drops_total = sigil_drops_total + ?';
-        $params[] = count($acceptedDrops);
-        $params[] = (int)$playerId;
-        $params[] = (int)$seasonId;
-
-        $db->query(
-            'UPDATE season_participation SET ' . implode(', ', $setParts) . ' WHERE player_id = ? AND season_id = ?',
-            $params
-        );
-
-        $values = [];
-        $logParams = [];
-        foreach ($acceptedDrops as $drop) {
-            $values[] = '(?, ?, ?, ?, ?)';
-            $logParams[] = (int)$playerId;
-            $logParams[] = (int)$seasonId;
-            $logParams[] = (int)$drop['drop_tick'];
-            $logParams[] = (int)$drop['tier'];
-            $logParams[] = (string)$drop['source'];
-        }
-        $db->query(
-            'INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source) VALUES ' . implode(', ', $values),
-            $logParams
-        );
-
-        $tierNames = [
-            1 => 'Common',
-            2 => 'Uncommon',
-            3 => 'Rare',
-            4 => 'Epic',
-            5 => 'Legendary'
-        ];
-        $lastDropTick = 0;
-        foreach ($acceptedDrops as $drop) {
-            $tier = (int)$drop['tier'];
-            $sourceNormalized = strtoupper((string)$drop['source']) === 'PITY' ? 'pity' : 'rng';
-            $tierName = $tierNames[$tier] ?? ('Tier ' . $tier);
-            $lastDropTick = max($lastDropTick, (int)$drop['drop_tick']);
-
-            Notifications::create(
-                $playerId,
-                'sigil_drop',
-                'Sigil Drop: Tier ' . $tier,
-                sprintf('You found a %s sigil (%s).', $tierName, strtoupper($sourceNormalized)),
-                [
-                    'event_key' => sprintf(
-                        'sigil_drop:%d:%d:%d:%s',
-                        (int)$seasonId,
-                        (int)$drop['drop_tick'],
-                        $tier,
-                        $sourceNormalized
-                    ),
-                    'payload' => [
-                        'season_id' => (int)$seasonId,
-                        'drop_tick' => (int)$drop['drop_tick'],
-                        'tier' => $tier,
-                        'source' => $sourceNormalized,
-                        'drop_meta' => (array)$drop['metadata']
-                    ]
-                ]
-            );
-        }
-
-        $db->query(
-            "INSERT INTO sigil_drop_tracking (player_id, season_id, eligible_ticks_since_last_drop, total_drops, last_drop_tick)
-             VALUES (?, ?, 0, ?, ?)
-             ON DUPLICATE KEY UPDATE eligible_ticks_since_last_drop = 0, total_drops = total_drops + VALUES(total_drops), last_drop_tick = VALUES(last_drop_tick)",
-            [(int)$playerId, (int)$seasonId, count($acceptedDrops), (int)$lastDropTick]
         );
     }
     

@@ -30,14 +30,13 @@ class Economy {
         return (int)$total;
     }
 
-    public static function canReceiveSigilTier($participation, $tier, $amount = 1, $totalDecrease = 0) {
+    public static function canReceiveSigilTier($participation, $tier, $amount = 1) {
         if (!$participation || !is_array($participation)) {
             return false;
         }
 
         $tier = (int)$tier;
         $amount = max(0, (int)$amount);
-        $totalDecrease = max(0, (int)$totalDecrease);
         if ($tier < 1 || $tier > SIGIL_MAX_TIER || $amount <= 0) {
             return false;
         }
@@ -51,7 +50,7 @@ class Economy {
         if ($tierCap > 0 && ($currentTier + $amount) > $tierCap) {
             return false;
         }
-        if ($totalCap > 0 && (($currentTotal + $amount - $totalDecrease) > $totalCap)) {
+        if ($totalCap > 0 && ($currentTotal + $amount) > $totalCap) {
             return false;
         }
         return true;
@@ -327,39 +326,6 @@ class Economy {
     public static function hoardingSinkEnabled($season) {
         return ((int)($season['hoarding_sink_enabled'] ?? 0)) === 1;
     }
-
-    /**
-     * Resolve decayed UBI between active and idle bases using a quadratic curve.
-     *
-     * The decay starts after ACTIVITY_DECAY_GRACE_TICKS of inactivity and reaches the
-     * idle base after D = max(grace, round(recentActive/3)).
-     */
-    public static function calculateDecayedUbi($baseActive, $idleBase, $player, $nowTick) {
-        $baseActive = max(0, (int)$baseActive);
-        $idleBase = max(0, (int)$idleBase);
-
-        $lastActivityTick = (int)($player['last_activity_tick'] ?? 0);
-        if ($lastActivityTick <= 0) {
-            return $baseActive;
-        }
-
-        $inactivityTicks = max(0, (int)$nowTick - $lastActivityTick);
-        $graceTicks = max(1, (int)ACTIVITY_DECAY_GRACE_TICKS);
-        if ($inactivityTicks <= $graceTicks) {
-            return $baseActive;
-        }
-
-        $recentActiveTicks = max((int)ACTIVITY_FALLBACK_ACTIVE_TICKS, (int)($player['recent_active_ticks'] ?? 0));
-        $decayDurationTicks = max($graceTicks, (int)round($recentActiveTicks / 3));
-        $x = min($decayDurationTicks, $inactivityTicks - $graceTicks);
-
-        // f(x) = (1 - x/D)^2 expressed in fixed point.
-        $remainingFp = max(0, FP_SCALE - intdiv($x * FP_SCALE, max(1, $decayDurationTicks)));
-        $curveFp = intdiv($remainingFp * $remainingFp, FP_SCALE);
-        $delta = max(0, $baseActive - $idleBase);
-
-        return $idleBase + self::fpMultiply($delta, $curveFp);
-    }
     
     /**
      * Calculate UBI for a player on a given tick
@@ -373,13 +339,12 @@ class Economy {
         
         $baseActive = (int)$season['base_ubi_active_per_tick'];
         $idleFactorFp = (int)$season['base_ubi_idle_factor_fp'];
-        $idleBase = self::fpMultiply($baseActive, $idleFactorFp);
         
         // Branch selection based on activity state
         if ($player['activity_state'] === 'Active') {
-            $ubi = self::calculateDecayedUbi($baseActive, $idleBase, $player, GameTime::now());
+            $ubi = $baseActive;
         } else {
-            $ubi = $idleBase;
+            $ubi = self::fpMultiply($baseActive, $idleFactorFp);
         }
         
         // Apply inflation dampening

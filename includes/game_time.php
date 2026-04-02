@@ -14,30 +14,21 @@ require_once __DIR__ . '/database.php';
 class GameTime {
     
     private static $serverEpoch = null;
-    private static $serverEpochLastCheckReal = 0;
-    private const SERVER_EPOCH_RECHECK_SECONDS = 2;
     private static $legacyScaleChecked = false;
     
     /**
      * Get the real-world Unix timestamp when the server was first initialized
      */
     private static function getServerEpoch() {
-        $realNow = time();
-        if (
-            self::$serverEpoch !== null
-            && ($realNow - (int)self::$serverEpochLastCheckReal) < self::SERVER_EPOCH_RECHECK_SECONDS
-        ) {
-            return self::$serverEpoch;
-        }
-
+        if (self::$serverEpoch !== null) return self::$serverEpoch;
+        
         $db = Database::getInstance();
         $state = $db->fetch("SELECT created_at FROM server_state WHERE id = 1");
         if ($state) {
             self::$serverEpoch = strtotime($state['created_at'] . ' UTC');
         } else {
-            self::$serverEpoch = $realNow;
+            self::$serverEpoch = time();
         }
-        self::$serverEpochLastCheckReal = $realNow;
         return self::$serverEpoch;
     }
     

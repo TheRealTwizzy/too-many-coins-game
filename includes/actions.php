@@ -858,7 +858,7 @@ class Actions {
         $db->query(
             "UPDATE players SET 
              idle_modal_active = 0, activity_state = 'Active',
-             idle_since_tick = NULL, last_activity_tick = ?, recent_active_ticks = 0
+             idle_since_tick = NULL, last_activity_tick = ?
              WHERE player_id = ?",
             [$gameTime, $playerId]
         );
@@ -997,7 +997,6 @@ class Actions {
         $perProductPowerCapFp = (int)($boost['power_cap_fp'] ?? BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
         $totalPowerCapFp = (int)($boost['total_power_cap_fp'] ?? BoostCatalog::TOTAL_POWER_CAP_FP);
         $perProductTimeCapTicks = (int)($boost['time_cap_ticks'] ?? ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT));
-        $aggregateSelfTimeCapTicks = ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT);
         
         $purchaseKind = strtolower(trim((string)$purchaseKind));
         if ($purchaseKind !== 'power' && $purchaseKind !== 'time') {
@@ -1055,25 +1054,9 @@ class Actions {
         );
         $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
 
-        $selfRemainingRow = $db->fetch(
-            "SELECT COALESCE(SUM(expires_tick - ? + 1), 0) AS remaining_ticks
-             FROM active_boosts
-             WHERE season_id = ? AND player_id = ? AND scope = 'SELF' AND is_active = 1 AND expires_tick >= ?",
-            [$gameTime, $seasonId, $playerId, $gameTime]
-        );
-        $currentSelfRemainingTicks = max(0, (int)($selfRemainingRow['remaining_ticks'] ?? 0));
-
         $currentModifier = (int)($active['modifier_fp'] ?? 0);
         $currentStacks = (int)ceil(max(0, $currentModifier) / max(1, $baseModifierFp));
         $currentStacks = max(0, min($maxStack, $currentStacks));
-
-        $proposedTimeAddTicks = 0;
-        if ($purchaseKind === 'power' && !$active) {
-            $proposedTimeAddTicks = max(1, $durationTicks);
-        }
-        if ($purchaseKind === 'time' && $active) {
-            $proposedTimeAddTicks = max(1, $timeExtensionTicks);
-        }
 
         if ($purchaseKind === 'time' && !$active) {
             return ['error' => 'Activate boost power first before purchasing additional time'];
@@ -1081,13 +1064,13 @@ class Actions {
         if ($purchaseKind === 'power' && $currentModifier >= $perProductPowerCapFp) {
             return ['error' => 'Maximum boost power reached for this product (100%)'];
         }
-        if (($currentSelfRemainingTicks + $proposedTimeAddTicks) > $aggregateSelfTimeCapTicks) {
-            return [
-                'error' => 'Maximum total active boost time reached (48h)',
-                'self_time_cap_ticks' => $aggregateSelfTimeCapTicks,
-                'current_self_remaining_ticks' => $currentSelfRemainingTicks,
-                'remaining_self_time_cap_ticks' => max(0, $aggregateSelfTimeCapTicks - $currentSelfRemainingTicks),
-            ];
+        if ($purchaseKind === 'time' && $active) {
+            $currentExpiresTick = max($gameTime, (int)$active['expires_tick']);
+            $maxExpiresTick = $gameTime + $perProductTimeCapTicks;
+            $extendTicks = max(1, $timeExtensionTicks);
+            if ($currentExpiresTick >= $maxExpiresTick || ($currentExpiresTick + $extendTicks) > $maxExpiresTick) {
+                return ['error' => 'Maximum boost time reached for this product (48h)'];
+            }
         }
         
         $db->beginTransaction();
@@ -1151,10 +1134,6 @@ class Actions {
             
             $scopeLabel = ($scope === 'GLOBAL') ? 'all players in the season' : 'you';
             $newStacks = max(0, min($maxStack, (int)ceil(max(0, $newModifier) / max(1, $baseModifierFp))));
-            $projectedSelfRemainingTicks = max(0, min(
-                $aggregateSelfTimeCapTicks,
-                $currentSelfRemainingTicks + $proposedTimeAddTicks
-            ));
             return [
                 'success' => true,
                 'boost_name' => $boost['name'],
@@ -1166,9 +1145,6 @@ class Actions {
                 'power_cap_fp' => $perProductPowerCapFp,
                 'total_power_cap_fp' => $totalPowerCapFp,
                 'time_cap_ticks' => $perProductTimeCapTicks,
-                'self_time_cap_ticks' => $aggregateSelfTimeCapTicks,
-                'total_self_remaining_ticks' => $projectedSelfRemainingTicks,
-                'remaining_self_time_cap_ticks' => max(0, $aggregateSelfTimeCapTicks - $projectedSelfRemainingTicks),
                 'duration_ticks' => $durationTicks,
                 'time_extension_ticks' => $timeExtensionTicks,
                 'time_extension_real_seconds' => $timeExtensionRealSeconds,
@@ -1232,7 +1208,7 @@ class Actions {
         if ($owned < $required) {
             return ['error' => "Insufficient Tier {$fromTier} Sigils. Need {$required}, have {$owned}"];
         }
-        if (!Economy::canReceiveSigilTier($participation, $toTier, 1, $required)) {
+        if (!Economy::canReceiveSigilTier($participation, $toTier, 1)) {
             return ['error' => "Tier {$toTier} sigil inventory cap reached"];
         }
 
@@ -1268,7 +1244,7 @@ class Actions {
     /**
      * Consume a Tier 6 sigil to freeze another player's UBI accrual to 0/tick.
      */
-    public static function freezePlayerUbi($playerId, $targetPlayerId = null, $targetHandle = null, $actionContext = '', $profilePlayerId = 0) {
+    public static function freezePlayerUbi($playerId, $targetPlayerId = null, $targetHandle = null) {
         $db = Database::getInstance();
         $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
 
@@ -1286,25 +1262,18 @@ class Actions {
             return ['error' => 'Freeze is only available during active season'];
         }
 
-        if ((string)$actionContext !== 'profile') {
-            return ['error' => 'Freeze can only be used from a player profile'];
-        }
-
         $target = null;
         $targetPlayerId = (int)$targetPlayerId;
-        if ($targetPlayerId <= 0) {
-            return ['error' => 'Freeze requires a target profile player'];
-        }
         if ($targetPlayerId > 0) {
             $target = $db->fetch(
                 "SELECT player_id, handle FROM players WHERE player_id = ? AND joined_season_id = ? AND participation_enabled = 1",
                 [$targetPlayerId, $seasonId]
             );
-        }
-
-        $profilePlayerId = (int)$profilePlayerId;
-        if ($profilePlayerId > 0 && $target && (int)$target['player_id'] !== $profilePlayerId) {
-            return ['error' => 'Freeze target does not match profile context'];
+        } elseif ($targetHandle !== null && trim((string)$targetHandle) !== '') {
+            $target = $db->fetch(
+                "SELECT player_id, handle FROM players WHERE handle_lower = ? AND joined_season_id = ? AND participation_enabled = 1",
+                [strtolower(trim((string)$targetHandle)), $seasonId]
+            );
         }
 
         if (!$target) {
@@ -1383,99 +1352,6 @@ class Actions {
         } catch (Exception $e) {
             $db->rollback();
             return ['error' => 'Freeze action failed'];
-        }
-    }
-
-    /**
-     * Consume one Tier 6 sigil to reduce your own freeze timer by 15 minutes.
-     */
-    public static function meltFreezeUbi($playerId, $actionContext = '', $profilePlayerId = 0) {
-        $db = Database::getInstance();
-        $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
-
-        if (!$player['participation_enabled'] || !$player['joined_season_id']) {
-            return ['error' => 'Not participating in any season'];
-        }
-        if ($player['idle_modal_active']) {
-            return ['error' => 'Cannot perform actions while idle', 'reason_code' => 'idle_gated'];
-        }
-
-        if ((string)$actionContext !== 'profile') {
-            return ['error' => 'Melt can only be used from your own profile'];
-        }
-        if ((int)$profilePlayerId > 0 && (int)$profilePlayerId !== (int)$playerId) {
-            return ['error' => 'Melt can only be used on your own profile'];
-        }
-
-        $seasonId = (int)$player['joined_season_id'];
-        $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
-        $status = GameTime::getSeasonStatus($season);
-        if ($status !== 'Active' && $status !== 'Blackout') {
-            return ['error' => 'Melt is only available during active season or blackout'];
-        }
-
-        $participation = $db->fetch(
-            "SELECT sigils_t6 FROM season_participation WHERE player_id = ? AND season_id = ?",
-            [$playerId, $seasonId]
-        );
-        if ((int)($participation['sigils_t6'] ?? 0) < 1) {
-            return ['error' => 'You need at least 1 Tier 6 sigil'];
-        }
-
-        $nowTick = GameTime::now();
-        $existing = $db->fetch(
-            "SELECT freeze_id, expires_tick FROM active_freezes
-             WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?
-             ORDER BY expires_tick DESC LIMIT 1",
-            [$seasonId, $playerId, $nowTick]
-        );
-
-        if (!$existing) {
-            return ['error' => 'You are not currently frozen'];
-        }
-
-        $oldExpires = (int)$existing['expires_tick'];
-        $newExpires = max($nowTick, $oldExpires - (int)FREEZE_STACK_EXTENSION_TICKS);
-        $newRemaining = max(0, $newExpires - $nowTick);
-
-        $db->beginTransaction();
-        try {
-            $db->query(
-                "UPDATE season_participation SET sigils_t6 = sigils_t6 - 1 WHERE player_id = ? AND season_id = ?",
-                [$playerId, $seasonId]
-            );
-
-            if ($newRemaining <= 0) {
-                $db->query(
-                    "UPDATE active_freezes SET expires_tick = ?, is_active = 0 WHERE freeze_id = ?",
-                    [$nowTick, (int)$existing['freeze_id']]
-                );
-            } else {
-                $db->query(
-                    "UPDATE active_freezes SET expires_tick = ? WHERE freeze_id = ?",
-                    [$newExpires, (int)$existing['freeze_id']]
-                );
-            }
-
-            $db->query(
-                "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
-                [$nowTick, $playerId]
-            );
-
-            $db->commit();
-
-            return [
-                'success' => true,
-                'reduced_ticks' => (int)FREEZE_STACK_EXTENSION_TICKS,
-                'remaining_ticks' => $newRemaining,
-                'expires_tick' => ($newRemaining > 0 ? $newExpires : null),
-                'message' => $newRemaining > 0
-                    ? ('Melt applied. Freeze reduced by ' . (int)FREEZE_STACK_EXTENSION_TICKS . ' ticks.')
-                    : 'Melt applied. Freeze cleared.'
-            ];
-        } catch (Exception $e) {
-            $db->rollback();
-            return ['error' => 'Melt action failed'];
         }
     }
 }

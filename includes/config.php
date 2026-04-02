@@ -28,7 +28,7 @@ define('DB_PASS', env_first(['DB_PASS', 'MYSQLPASSWORD', 'MYSQL_PASSWORD', 'HOST
 
 // Season timing constants
 define('SEASON_ANCHOR', 345600);        // 1970-01-05T00:00:00Z in seconds
-define('SEASON_DURATION', ticks_from_real_seconds(1209600));   // 14 days
+define('SEASON_DURATION', ticks_from_real_seconds(2419200));   // 28 days
 define('SEASON_CADENCE', ticks_from_real_seconds(604800));     // 7 days
 define('BLACKOUT_DURATION', ticks_from_real_seconds(259200));  // 72 hours
 
@@ -45,9 +45,6 @@ define('TMC_AUTO_SQL_MIGRATIONS', filter_var(env_first(['TMC_AUTO_SQL_MIGRATIONS
 
 // Activity
 define('IDLE_TIMEOUT_TICKS', ticks_from_real_seconds(900));  // 15 real minutes
-define('ACTIVITY_DECAY_GRACE_TICKS', ticks_from_real_seconds(300)); // 5 real minutes
-define('ACTIVITY_FALLBACK_ACTIVE_TICKS', ticks_from_real_seconds(1800)); // 30 real minutes
-define('ACTIVITY_FORCED_OFFLINE_MIN_TICKS', ticks_from_real_seconds(60)); // 1 real minute floor
 
 // Trade
 define('TRADE_TIMEOUT_TICKS', ticks_from_real_seconds(3600));  // 1 real hour
@@ -63,9 +60,7 @@ define('MIN_PARTICIPATION_TICKS', 1);
 // - One drop attempt per tick
 // - Activity scales only the gate chance
 // - Season progress scales only tier weights
-// 14-day season tuning target: reduce overall throughput so Tier 6 attainments
-// (drops + combines) land near 3-5 per engaged player per season.
-define('SIGIL_DROP_CHANCE_FP', max(1, (int)env_first(['TMC_SIGIL_DROP_CHANCE_FP'], '2500'))); // 0.25% default gate chance
+define('SIGIL_DROP_CHANCE_FP', 125000); // 12.5% base gate chance
 define('SIGIL_ACTIVITY_MULTIPLIER_FP', [
     'Active' => 1000000,
     'Idle' => 500000,
