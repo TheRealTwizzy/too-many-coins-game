@@ -20,7 +20,7 @@ class SigilDropsApiContractTest extends TestCase
                 'drop_meta' => [
                     'activity_state' => 'Idle',
                     'season_progress_fp' => 250000,
-                    'algorithm_version' => 'deterministic_v2',
+                    'algorithm_version' => (string)SIGIL_DROP_ALGORITHM_VERSION,
                 ],
             ]),
         ];
@@ -32,7 +32,7 @@ class SigilDropsApiContractTest extends TestCase
         $this->assertSame(1550, (int)$normalized['tick_index']);
         $this->assertSame('Idle', (string)$normalized['activity_state']);
         $this->assertEqualsWithDelta(0.25, (float)$normalized['season_progress'], 0.000001);
-        $this->assertSame('deterministic_v2', (string)$normalized['metadata']['algorithm_version']);
+        $this->assertSame((string)SIGIL_DROP_ALGORITHM_VERSION, (string)$normalized['metadata']['algorithm_version']);
     }
 
     public function testNormalizeRecentSigilDropRowFallsBackWhenPayloadMissing(): void

@@ -320,6 +320,9 @@ class TickEngine {
             if ($drop !== null) {
                 $dropMetadata = (array)($drop['metadata'] ?? []);
                 $dropMetadata['activity_state'] = (string)($drop['activity_state'] ?? 'Unknown');
+                if (isset($drop['season_phase'])) {
+                    $dropMetadata['season_phase'] = (string)$drop['season_phase'];
+                }
                 if (isset($drop['season_progress'])) {
                     $dropMetadata['season_progress'] = (float)$drop['season_progress'];
                 }
@@ -362,7 +365,8 @@ class TickEngine {
             2 => 'Uncommon',
             3 => 'Rare',
             4 => 'Epic',
-            5 => 'Legendary'
+            5 => 'Legendary',
+            6 => 'Mythic',
         ];
         $sourceNormalized = strtoupper((string)$source) === 'PITY' ? 'pity' : 'rng';
         $tierName = $tierNames[(int)$tier] ?? ('Tier ' . (int)$tier);

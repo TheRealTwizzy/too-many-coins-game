@@ -771,7 +771,8 @@ class Economy {
         }
 
         $seasonProgressFp = self::sigilSeasonProgressFp($season, $tickIndex);
-        $tierWeights = self::sigilTierWeightsForProgressFp($seasonProgressFp);
+        $seasonPhase = self::sigilSeasonPhase($season, $tickIndex);
+        $tierWeights = self::sigilTierWeightsForPhase($seasonPhase);
         $tierRoll = self::deterministicSigilRollU32($seasonId, $playerId, $tickIndex, 'sigil_tier', $season['season_seed']);
         $tier = self::pickWeightedTier($tierWeights, $tierRoll);
 
@@ -780,15 +781,18 @@ class Economy {
             'tier' => (int)$tier,
             'tick_index' => $tickIndex,
             'activity_state' => $activityState,
+            'season_phase' => $seasonPhase,
             'season_progress' => $seasonProgressFp / FP_SCALE,
             'metadata' => [
                 'algorithm_version' => (string)SIGIL_DROP_ALGORITHM_VERSION,
                 'effective_drop_chance_fp' => $effectiveDropChanceFp,
                 'activity_multiplier_fp' => $activityMultiplierFp,
+                'season_phase' => $seasonPhase,
                 'season_progress_fp' => $seasonProgressFp,
                 'gate_roll_u32' => $gateRoll,
                 'tier_roll_u32' => $tierRoll,
                 'tier_weights' => $tierWeights,
+                'available_tiers' => self::sigilAvailableTiersForPhase($seasonPhase),
             ],
         ];
     }
@@ -808,8 +812,74 @@ class Economy {
         return self::seasonProgressFp($season, $tickIndex);
     }
 
+    public static function sigilSeasonPhase($season, $tickIndex) {
+        $startTick = (int)($season['start_time'] ?? 0);
+        $endTick = (int)($season['end_time'] ?? $startTick + 1);
+        $duration = max(1, $endTick - $startTick);
+
+        $blackoutTicks = max(1, min($duration, (int)SIGIL_BLACKOUT_DURATION_TICKS));
+        $blackoutStartTick = $endTick - $blackoutTicks;
+        if ((int)$tickIndex >= $blackoutStartTick) {
+            return (string)SIGIL_SEASON_PHASE_LATE_BLACKOUT;
+        }
+
+        $preBlackoutSpan = max(1, $blackoutStartTick - $startTick);
+        $elapsedPreBlackout = max(0, min($preBlackoutSpan, (int)$tickIndex - $startTick));
+        $earlyCutoff = max(1, intdiv($preBlackoutSpan * (int)SIGIL_EARLY_PHASE_FRACTION_FP, FP_SCALE));
+
+        if ($elapsedPreBlackout < $earlyCutoff) {
+            return (string)SIGIL_SEASON_PHASE_EARLY;
+        }
+
+        return (string)SIGIL_SEASON_PHASE_MID;
+    }
+
     public static function sigilTierWeightsForProgressFp($seasonProgressFp) {
-        return self::interpolatedSigilTierWeights($seasonProgressFp);
+        $progress = max(0, min(FP_SCALE, (int)$seasonProgressFp));
+        if ($progress >= FP_SCALE) {
+            return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_LATE_BLACKOUT);
+        }
+        if ($progress < (int)SIGIL_EARLY_PHASE_FRACTION_FP) {
+            return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_EARLY);
+        }
+
+        return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_MID);
+    }
+
+    public static function sigilAvailableTiersForPhase($phase) {
+        $phase = (string)$phase;
+        $map = (array)SIGIL_PHASE_AVAILABLE_TIERS;
+        $tiers = $map[$phase] ?? $map[(string)SIGIL_SEASON_PHASE_EARLY] ?? [1, 2, 3];
+
+        $normalized = [];
+        foreach ((array)$tiers as $tier) {
+            $tier = (int)$tier;
+            if ($tier >= 1 && $tier <= SIGIL_MAX_TIER) {
+                $normalized[] = $tier;
+            }
+        }
+
+        sort($normalized);
+        return array_values(array_unique($normalized));
+    }
+
+    public static function sigilTierWeightsForPhase($phase) {
+        $phase = (string)$phase;
+        $phaseWeights = (array)SIGIL_PHASE_TIER_WEIGHTS;
+        $rawWeights = (array)($phaseWeights[$phase] ?? []);
+        $available = self::sigilAvailableTiersForPhase($phase);
+        $allowed = array_fill_keys($available, true);
+
+        $weights = [];
+        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+            if (!isset($allowed[$tier])) {
+                $weights[$tier] = 0;
+                continue;
+            }
+            $weights[$tier] = max(1, (int)($rawWeights[$tier] ?? 1));
+        }
+
+        return $weights;
     }
 
     private static function deterministicSigilRollU32($seasonId, $playerId, $tickIndex, $streamTag, $seasonSeed) {
@@ -832,25 +902,10 @@ class Economy {
         return max(0, min(FP_SCALE, intdiv($elapsed * FP_SCALE, $duration)));
     }
 
-    private static function interpolatedSigilTierWeights($seasonProgressFp) {
-        $start = (array)SIGIL_TIER_WEIGHT_START;
-        $end = (array)SIGIL_TIER_WEIGHT_END;
-        $weights = [];
-
-        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
-            $from = max(1, (int)($start[$tier] ?? 1));
-            $to = max(1, (int)($end[$tier] ?? $from));
-            $delta = $to - $from;
-            $weights[$tier] = max(1, $from + intdiv($delta * (int)$seasonProgressFp, FP_SCALE));
-        }
-
-        return $weights;
-    }
-
     private static function pickWeightedTier(array $weights, $rollU32) {
         $total = 0;
         foreach ($weights as $weight) {
-            $total += max(1, (int)$weight);
+            $total += max(0, (int)$weight);
         }
         if ($total <= 0) {
             return 1;
@@ -859,7 +914,7 @@ class Economy {
         $target = ((int)$rollU32 % $total);
         $cumulative = 0;
         foreach ($weights as $tier => $weight) {
-            $cumulative += max(1, (int)$weight);
+            $cumulative += max(0, (int)$weight);
             if ($target < $cumulative) {
                 return (int)$tier;
             }

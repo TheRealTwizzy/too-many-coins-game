@@ -206,8 +206,14 @@ class EconomyPrecisionTest extends TestCase
         $startWeights = Economy::sigilTierWeightsForProgressFp(0);
         $endWeights = Economy::sigilTierWeightsForProgressFp(FP_SCALE);
 
+        $this->assertGreaterThan(0, (int)($startWeights[1] ?? 0));
+        $this->assertGreaterThan(0, (int)($startWeights[2] ?? 0));
+        $this->assertGreaterThan(0, (int)($startWeights[3] ?? 0));
+        $this->assertSame(0, (int)($startWeights[4] ?? 0));
+        $this->assertSame(0, (int)($startWeights[5] ?? 0));
+        $this->assertSame(0, (int)($startWeights[6] ?? 0));
+
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
-            $this->assertGreaterThan(0, (int)($startWeights[$tier] ?? 0));
             $this->assertGreaterThan(0, (int)($endWeights[$tier] ?? 0));
         }
     }
@@ -231,57 +237,57 @@ class EconomyPrecisionTest extends TestCase
         }
     }
 
-    public function testAllSigilTiersRemainRollableAcrossSeasonBoundaries(): void
+    public function testSigilSeasonPhaseAvailabilityAcrossBoundaries(): void
     {
-        $seasonStart = [
+        $season = [
             'season_id' => 2,
-            'start_time' => 100,
-            'end_time' => 1100,
+            'start_time' => 1000,
+            'end_time' => 1000 + ticks_from_real_seconds(1209600),
             'season_seed' => str_repeat("\x03", 32),
         ];
-        $seasonEnd = [
-            'season_id' => 2,
-            'start_time' => 100,
-            'end_time' => 1100,
-            'season_seed' => str_repeat("\x03", 32),
+
+        $earlyPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time']);
+        $midPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time'] + ticks_from_real_seconds(6 * 86400));
+        $latePhase = Economy::sigilSeasonPhase($season, (int)$season['end_time'] - 1);
+
+        $this->assertSame((string)SIGIL_SEASON_PHASE_EARLY, $earlyPhase);
+        $this->assertSame((string)SIGIL_SEASON_PHASE_MID, $midPhase);
+        $this->assertSame((string)SIGIL_SEASON_PHASE_LATE_BLACKOUT, $latePhase);
+
+        $earlyWeights = Economy::sigilTierWeightsForPhase($earlyPhase);
+        $midWeights = Economy::sigilTierWeightsForPhase($midPhase);
+        $lateWeights = Economy::sigilTierWeightsForPhase($latePhase);
+
+        $this->assertGreaterThan(0, (int)$earlyWeights[1]);
+        $this->assertGreaterThan(0, (int)$earlyWeights[2]);
+        $this->assertGreaterThan(0, (int)$earlyWeights[3]);
+        $this->assertSame(0, (int)$earlyWeights[4]);
+        $this->assertSame(0, (int)$earlyWeights[5]);
+        $this->assertSame(0, (int)$earlyWeights[6]);
+
+        $this->assertGreaterThan(0, (int)$midWeights[4]);
+        $this->assertGreaterThan(0, (int)$midWeights[5]);
+        $this->assertSame(0, (int)$midWeights[6]);
+
+        $this->assertGreaterThan(0, (int)$lateWeights[6]);
+    }
+
+    public function testBlackoutTierSixIsOnlyAvailableInFinalThreeDays(): void
+    {
+        $season = [
+            'season_id' => 5,
+            'start_time' => 1000,
+            'end_time' => 1000 + ticks_from_real_seconds(1209600),
+            'season_seed' => str_repeat("\x04", 32),
         ];
-        $player = [
-            'player_id' => 11,
-            'online_current' => 1,
-            'activity_state' => 'Active',
-        ];
 
-        $startResult = Economy::evaluateSigilDropForTick($seasonStart, $player, 100);
-        $endResult = Economy::evaluateSigilDropForTick($seasonEnd, $player, 1100);
+        $blackoutStart = (int)$season['end_time'] - (int)SIGIL_BLACKOUT_DURATION_TICKS;
 
-        if ($startResult !== null) {
-            $weights = $startResult['metadata']['tier_weights'];
-            for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
-                $this->assertGreaterThan(0, (int)($weights[$tier] ?? 0));
-            }
-        }
+        $preBlackoutWeights = Economy::sigilTierWeightsForPhase(Economy::sigilSeasonPhase($season, $blackoutStart - 1));
+        $blackoutWeights = Economy::sigilTierWeightsForPhase(Economy::sigilSeasonPhase($season, $blackoutStart));
 
-        if ($endResult !== null) {
-            $weights = $endResult['metadata']['tier_weights'];
-            for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
-                $this->assertGreaterThan(0, (int)($weights[$tier] ?? 0));
-            }
-        }
-
-        $deltas = [];
-        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
-            $start = (int)(SIGIL_TIER_WEIGHT_START[$tier] ?? 1);
-            $end = (int)(SIGIL_TIER_WEIGHT_END[$tier] ?? $start);
-            $deltas[$tier] = abs($end - $start);
-        }
-
-        for ($tier = 1; $tier < SIGIL_MAX_TIER; $tier++) {
-            $this->assertGreaterThanOrEqual(
-                $deltas[$tier],
-                $deltas[$tier + 1],
-                sprintf('Expected tier delta magnitude to scale with rarity between T%d and T%d.', $tier, $tier + 1)
-            );
-        }
+        $this->assertSame(0, (int)($preBlackoutWeights[6] ?? 0));
+        $this->assertGreaterThan(0, (int)($blackoutWeights[6] ?? 0));
     }
 
     public function testEffectiveSigilTierChancesDecreaseAtFullPower(): void

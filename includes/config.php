@@ -86,30 +86,46 @@ define('MIN_PARTICIPATION_TICKS', 1);
 // Deterministic per-tick drop model:
 // - One drop attempt per tick
 // - Activity scales only the gate chance
-// - Season progress scales only tier weights
+// - Season phase gates tier availability and weights
 define('SIGIL_DROP_CHANCE_FP', 125000); // 12.5% base gate chance
 define('SIGIL_ACTIVITY_MULTIPLIER_FP', [
     'Active' => 1000000,
     'Idle' => 500000,
     'Offline' => 0,
 ]);
-define('SIGIL_TIER_WEIGHT_START', [
-    1 => 1000,
-    2 => 500,
-    3 => 200,
-    4 => 50,
-    5 => 5,
-    6 => 1,
+define('SIGIL_SEASON_PHASE_EARLY', 'EARLY');
+define('SIGIL_SEASON_PHASE_MID', 'MID');
+define('SIGIL_SEASON_PHASE_LATE_BLACKOUT', 'LATE_BLACKOUT');
+define('SIGIL_BLACKOUT_DURATION_TICKS', ticks_from_real_seconds(259200)); // Final 3 real days
+define('SIGIL_EARLY_PHASE_FRACTION_FP', 500000); // First half of non-blackout window
+define('SIGIL_PHASE_AVAILABLE_TIERS', [
+    SIGIL_SEASON_PHASE_EARLY => [1, 2, 3],
+    SIGIL_SEASON_PHASE_MID => [1, 2, 3, 4, 5],
+    SIGIL_SEASON_PHASE_LATE_BLACKOUT => [1, 2, 3, 4, 5, 6],
 ]);
-define('SIGIL_TIER_WEIGHT_END', [
-    1 => 1100,
-    2 => 650,
-    3 => 420,
-    4 => 290,
-    5 => 260,
-    6 => 259,
+define('SIGIL_PHASE_TIER_WEIGHTS', [
+    SIGIL_SEASON_PHASE_EARLY => [
+        1 => 1000,
+        2 => 450,
+        3 => 90,
+    ],
+    SIGIL_SEASON_PHASE_MID => [
+        1 => 1000,
+        2 => 600,
+        3 => 260,
+        4 => 45,
+        5 => 8,
+    ],
+    SIGIL_SEASON_PHASE_LATE_BLACKOUT => [
+        1 => 960,
+        2 => 620,
+        3 => 320,
+        4 => 120,
+        5 => 22,
+        6 => 3,
+    ],
 ]);
-define('SIGIL_DROP_ALGORITHM_VERSION', 'deterministic_v2');
+define('SIGIL_DROP_ALGORITHM_VERSION', 'deterministic_v3');
 
 // Legacy queued/pity sigil controls are retained for compatibility but are
 // no longer part of the active deterministic drop pipeline.
@@ -197,14 +213,14 @@ define('SIGIL_INVENTORY_TIER_CAPS', [
     3 => 10,
     4 => 4,
     5 => 2,
-    6 => 1,
+    6 => 8,
 ]);
 define('SIGIL_COMBINE_RECIPES', [
     1 => 5,
     2 => 5,
     3 => 3,
     4 => 3,
-    5 => 2,
+    5 => 3,
 ]);
 
 // Tier-odds scaling by sigil power. Tier 6 is intentionally excluded from RNG drops.
