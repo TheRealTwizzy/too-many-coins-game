@@ -903,49 +903,20 @@ const TMC = {
                         <p class="panel-info">Sigil cap: ${part.sigils_total}/${(part.sigil_caps && part.sigil_caps.total) ? part.sigil_caps.total : 25}</p>
                         <div class="sigil-display">
                             ${this.getVisibleSigils(part).map((sigil) => `
-                                <div class="sigil-item tier-${sigil.tier} ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? 'is-clickable' : ''}"
+                                <div class="sigil-item tier-${sigil.tier} ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? 'is-clickable' : ''} ${this._selectedSigilActionTier === sigil.tier ? 'is-selected' : ''}"
                                     ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `onclick="TMC.openSigilActionPicker(${sigil.tier})"` : ''}>
                                     <span class="sigil-tier">T${sigil.tier}</span>
                                     <span class="sigil-count">${sigil.count}</span>
                                     ${sigil.tier <= 5 ? `<span class="sigil-rate">${this.truncatePercent(sigilRateByTier[sigil.tier] || 0)}%</span>` : '<span class="sigil-rate">Crafted only</span>'}
+                                    ${this._selectedSigilActionTier === sigil.tier && sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `
+                                        <div class="sigil-card-actions">
+                                            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); TMC.spendSigilBoostGated(${sigil.tier}, 'power')">+Power</button>
+                                            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); TMC.spendSigilBoostGated(${sigil.tier}, 'time')">+Time</button>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `).join('')}
                         </div>
-                        <div class="sigil-action-picker ${this._selectedSigilActionTier ? 'active' : ''}">
-                            <h4>Sigil Boost Action</h4>
-                            <p class="panel-info">Click a Tier 1-5 sigil card, then choose +Power or +Time.</p>
-                            <div class="boost-time-flow-controls">
-                                <button class="input-field boost-time-flow-select"
-                                    ${this._selectedSigilActionTier ? '' : 'disabled'}>
-                                    ${this._selectedSigilActionTier ? `Tier ${this._selectedSigilActionTier} selected` : 'No sigil tier selected'}
-                                </button>
-                                <div class="time-tier-picker ${this._sigilActionMenuOpen ? 'open' : ''}">
-                                    <button type="button" class="input-field boost-time-flow-select time-tier-picker-toggle"
-                                        onclick="TMC.toggleSigilActionMenu()"
-                                        ${this._selectedSigilActionTier ? '' : 'disabled'}>
-                                        ${this._selectedSigilActionKind === 'time' ? '+Time' : (this._selectedSigilActionKind === 'power' ? '+Power' : 'Choose action')}
-                                    </button>
-                                    <div class="time-tier-picker-menu ${this._sigilActionMenuOpen ? 'open' : ''}">
-                                        <button type="button" class="time-tier-menu-item ${this._selectedSigilActionKind === 'power' ? 'is-selected' : ''}" onclick="TMC.selectSigilActionKind('power')">
-                                            <span class="time-tier-menu-name">+Power</span>
-                                            <span class="time-tier-menu-meta">Increase active boost %</span>
-                                        </button>
-                                        <button type="button" class="time-tier-menu-item ${this._selectedSigilActionKind === 'time' ? 'is-selected' : ''}" onclick="TMC.selectSigilActionKind('time')">
-                                            <span class="time-tier-menu-name">+Time</span>
-                                            <span class="time-tier-menu-meta">Extend remaining duration</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <button class="btn btn-primary btn-sm" onclick="TMC.applySigilActionGated()"
-                                    ${this._selectedSigilActionTier && this._selectedSigilActionKind && !isBlackout ? '' : 'disabled'}>
-                                    Spend Sigil
-                                </button>
-                                <button class="btn btn-outline btn-sm" onclick="TMC.clearSigilActionPicker()" ${this._selectedSigilActionTier ? '' : 'disabled'}>
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                        <div id="active-boosts-display"></div>
                         <div class="sigil-combine-section">
                             <h4>Sigil Forge</h4>
                             <div class="vault-grid">
@@ -1287,50 +1258,18 @@ const TMC = {
         if (parsedTier < 1 || parsedTier > 5) {
             return;
         }
+        if (this._selectedSigilActionTier === parsedTier) {
+            this._selectedSigilActionTier = null;
+            this.loadSeasonDetail(this.state.currentSeason);
+            return;
+        }
         this._selectedSigilActionTier = parsedTier;
-        this._selectedSigilActionKind = null;
-        this._sigilActionMenuOpen = false;
         this.loadSeasonDetail(this.state.currentSeason);
     },
 
     clearSigilActionPicker() {
         this._selectedSigilActionTier = null;
-        this._selectedSigilActionKind = null;
-        this._sigilActionMenuOpen = false;
         this.loadSeasonDetail(this.state.currentSeason);
-    },
-
-    toggleSigilActionMenu() {
-        if (!this._selectedSigilActionTier) {
-            return;
-        }
-        this._sigilActionMenuOpen = !this._sigilActionMenuOpen;
-        this.loadSeasonDetail(this.state.currentSeason);
-    },
-
-    selectSigilActionKind(kind) {
-        const actionKind = String(kind || '').toLowerCase();
-        if (actionKind !== 'power' && actionKind !== 'time') {
-            return;
-        }
-        this._selectedSigilActionKind = actionKind;
-        this._sigilActionMenuOpen = false;
-        this.loadSeasonDetail(this.state.currentSeason);
-    },
-
-    async applySigilActionGated() {
-        const tier = parseInt(this._selectedSigilActionTier, 10) || 0;
-        const kind = String(this._selectedSigilActionKind || '').toLowerCase();
-        if (tier < 1 || tier > 5) {
-            this.toast('Select a sigil tier first', 'error');
-            return;
-        }
-        if (kind !== 'power' && kind !== 'time') {
-            this.toast('Select +Power or +Time first', 'error');
-            return;
-        }
-
-        await this.spendSigilBoostGated(tier, kind);
     },
 
     async freezeByPlayerId(targetPlayerId) {
@@ -1388,8 +1327,6 @@ const TMC = {
     _timeTierPickerOpen: false,
     _timeBoostPickerOpen: false,
     _selectedSigilActionTier: null,
-    _selectedSigilActionKind: null,
-    _sigilActionMenuOpen: false,
 
     async loadBoostCatalog() {
         const catalog = await this.api('boost_catalog');
@@ -3635,7 +3572,6 @@ const TMC = {
                 }
             });
             if (result.receipt) this.showEconReceipt(result.receipt, 'Boost Updated');
-            this._sigilActionMenuOpen = false;
             await this.refreshGameState();
             if (this.state.currentSeason) {
                 this.loadSeasonDetail(this.state.currentSeason);
