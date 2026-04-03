@@ -1347,8 +1347,6 @@ const TMC = {
         const nowTick = parseInt((p && p.active_boosts && p.active_boosts.server_now) || 0, 10) || 0;
         const activeBoost = activeSelfBoosts[0] || null;
         const totalActiveModifierFp = activeBoost ? (parseInt(activeBoost.modifier_fp, 10) || 0) : 0;
-        const tierIcons = ['', '&#9672;', '&#9670;', '&#9733;', '&#10038;', '&#9830;'];
-
         const purchaseCards = this._boostCatalog.map(b => {
             const tier = parseInt(b.tier_required);
             const hasSigil = part && part.sigils[tier - 1] >= parseInt(b.sigil_cost);
@@ -1366,8 +1364,7 @@ const TMC = {
             const powerCapPercent = (powerCapFp / 10000).toFixed(1);
             const canBuyPower = !!hasSigil && projectedModifierFp <= powerCapFp && projectedTotalFp <= totalPowerCapFp;
             const description = this.getBoostDescription(b);
-            const displayName = this.getBoostDisplayName(b.name);
-            const displayIcon = this.getBoostDisplayIcon(b.icon, tierIcons[tier]);
+            const displayName = 'Boost';
             const durationLabel = durationRealSeconds > 0
                 ? this.formatDurationFromSeconds(durationRealSeconds, 'short')
                 : this.formatBoostDuration(durationTicks, 'short');
@@ -1382,10 +1379,9 @@ const TMC = {
             }
 
             return `
-                <div class="boost-card tier-${tier} ${hasSigil ? '' : 'boost-locked'}">
+                <div class="boost-card ${hasSigil ? '' : 'boost-locked'}">
                     <div class="boost-card-header">
                         <div class="boost-title">
-                            <span class="boost-icon">${displayIcon}</span>
                             <span class="boost-name">${this.escapeHtml(displayName)}</span>
                         </div>
                         <div class="boost-inline-meta">
@@ -1693,7 +1689,7 @@ const TMC = {
 
                 return {
                     boostId,
-                    boostName: this.getBoostDisplayName(catalogBoost.name),
+                    boostName: 'Boost',
                     remainingSeconds: Math.max(0, parseInt(activeBoost.remaining_real_seconds, 10) || this.getLiveBoostRemainingSeconds(activeBoost)),
                     extensionRealSeconds: extendRealSeconds
                 };
@@ -1805,25 +1801,13 @@ const TMC = {
             <span class="boost-total-mod">Total UBI Modifier: <strong>+${boosts.total_modifier_percent}%</strong></span>
         </div>`;
 
-        const tierClassForBoost = (b) => {
-            const boostTier = parseInt(b.tier_required, 10) || 0;
-            if (boostTier >= 1 && boostTier <= 5) return `tier-${boostTier}`;
-            const boostId = parseInt(b.boost_id, 10) || 0;
-            const catalogBoost = Array.isArray(this._boostCatalog)
-                ? this._boostCatalog.find((cb) => (parseInt(cb.boost_id, 10) || 0) === boostId)
-                : null;
-            const fallbackTier = catalogBoost ? (parseInt(catalogBoost.tier_required, 10) || 0) : 0;
-            return fallbackTier >= 1 && fallbackTier <= 5 ? `tier-${fallbackTier}` : '';
-        };
-
         const renderBoost = (b) => {
             const remainingSeconds = this.getLiveBoostRemainingSeconds(b);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const timeLeft = this._formatBoostTimeLeft(remainingSeconds);
-            const displayName = this.getBoostDisplayName(b.name);
+            const displayName = 'Boost';
             const boostKey = this._getBoostKey(b);
-            const tierClass = tierClassForBoost(b);
-            return `<div class="active-boost-item self ${tierClass}" data-boost-id="${boostKey}">
+            return `<div class="active-boost-item self" data-boost-id="${boostKey}">
                 <span class="ab-name">${this.escapeHtml(displayName)}</span>
                 <span class="ab-mod">+${modPercent}%</span>
                 <span class="ab-time">${timeLeft}</span>
