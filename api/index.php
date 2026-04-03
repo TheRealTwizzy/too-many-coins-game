@@ -600,6 +600,35 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
     ];
 }
 
+function calculateLeaderboardRowMetrics($season, array $row): array {
+    $boostCapFp = (int)BoostCatalog::TOTAL_POWER_CAP_FP;
+    $boostModFp = max(0, min((int)($row['boost_mod_fp'] ?? 0), $boostCapFp));
+    $isFrozen = ((int)($row['is_frozen'] ?? 0) > 0);
+
+    $playerShim = [
+        'participation_enabled' => 1,
+        'activity_state' => $row['activity_state'] ?? 'Offline',
+    ];
+    $participationShim = [
+        'coins' => (int)($row['coins'] ?? 0),
+        'participation_time_total' => (int)($row['participation_time_total'] ?? 0),
+    ];
+
+    $breakdown = Economy::calculateRateBreakdown(
+        $season,
+        $playerShim,
+        $participationShim,
+        $boostModFp,
+        $isFrozen
+    );
+
+    return [
+        'rate_per_tick' => round(((int)$breakdown['gross_rate_fp']) / FP_SCALE, 2),
+        'boost_pct' => round($boostModFp / 10000, 1),
+        'boost_mod_fp' => $boostModFp,
+    ];
+}
+
 function getGameState($player) {
     $db = Database::getInstance();
     $gameTime = GameTime::now();
@@ -861,6 +890,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
     $status = GameTime::getSeasonStatus($season);
     if ($status === 'Active' || $status === 'Blackout') {
         $gameTime = GameTime::now();
+        $boostCapFp = (int)BoostCatalog::TOTAL_POWER_CAP_FP;
         $hasBoostTables = tableExists($db, 'active_boosts');
         $hasFreezeTable = tableExists($db, 'active_freezes');
 
@@ -879,8 +909,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                         COALESCE(sp.placement_bonus, 0) AS placement_bonus,
                         p.activity_state, p.online_current,
                         COALESCE(frz.is_frozen, 0) AS is_frozen,
-                        ROUND(LEAST(COALESCE(self_b.self_fp, 0), 4000000) / 10000, 1) AS boost_pct
-                        , LEAST(COALESCE(self_b.self_fp, 0), 4000000) AS boost_mod_fp
+                           LEAST(COALESCE(self_b.self_fp, 0), ?) AS boost_mod_fp
                  FROM players p
                  LEFT JOIN season_participation sp ON sp.player_id = p.player_id AND sp.season_id = ?
                  LEFT JOIN (
@@ -898,8 +927,8 @@ function getLeaderboard($seasonId, int $limit = 0) {
                   WHERE p.joined_season_id = ? AND p.participation_enabled = 1
                   ORDER BY COALESCE(sp.seasonal_stars, 0) DESC, p.player_id ASC{$limitClause}",
                 $limit > 0
-                                        ? [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                                        : [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
+                                        ? [$boostCapFp, $seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
+                                        : [$boostCapFp, $seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
             );
             if (empty($rows)) {
                 $rows = $db->fetchAll(
@@ -916,8 +945,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                             COALESCE(sp.placement_bonus, 0) AS placement_bonus,
                             p.activity_state, p.online_current,
                             COALESCE(frz.is_frozen, 0) AS is_frozen,
-                            ROUND(LEAST(COALESCE(self_b.self_fp, 0), 4000000) / 10000, 1) AS boost_pct
-                            , LEAST(COALESCE(self_b.self_fp, 0), 4000000) AS boost_mod_fp
+                            LEAST(COALESCE(self_b.self_fp, 0), ?) AS boost_mod_fp
                      FROM season_participation sp
                      JOIN players p ON p.player_id = sp.player_id
                      LEFT JOIN (
@@ -935,8 +963,8 @@ function getLeaderboard($seasonId, int $limit = 0) {
                      WHERE sp.season_id = ?
                      ORDER BY COALESCE(sp.seasonal_stars, 0) DESC, sp.player_id ASC{$limitClause}",
                     $limit > 0
-                        ? [$seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                        : [$seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
+                        ? [$boostCapFp, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
+                        : [$boostCapFp, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
                 );
             }
         } elseif ($hasFreezeTable) {
@@ -1055,22 +1083,9 @@ function getLeaderboard($seasonId, int $limit = 0) {
             }
         }
         foreach ($rows as &$row) {
-            $playerShim = [
-                'participation_enabled' => 1,
-                'activity_state' => $row['activity_state'] ?? 'Offline',
-            ];
-            $participationShim = [
-                'coins' => (int)($row['coins'] ?? 0),
-                'participation_time_total' => (int)($row['participation_time_total'] ?? 0),
-            ];
-            $breakdown = Economy::calculateRateBreakdown(
-                $season,
-                $playerShim,
-                $participationShim,
-                (int)($row['boost_mod_fp'] ?? 0),
-                ((int)($row['is_frozen'] ?? 0) > 0)
-            );
-            $row['rate_per_tick'] = round(((int)$breakdown['gross_rate_fp']) / FP_SCALE, 2);
+            $metrics = calculateLeaderboardRowMetrics($season, $row);
+            $row['rate_per_tick'] = (float)$metrics['rate_per_tick'];
+            $row['boost_pct'] = (float)$metrics['boost_pct'];
             unset($row['boost_mod_fp']);
         }
         unset($row);

@@ -66,6 +66,17 @@ function formatLeaderboardRate(rate) {
     return String(rate);
 }
 
+/** Mirrors boost cell rendering in renderSeasonLeaderboardRows. */
+function renderBoostCell(entry) {
+    return entry.boost_pct != null ? String(entry.boost_pct) + '%' : '0%';
+}
+
+/** Mirrors rate coercion in renderSeasonLeaderboardRows. */
+function renderRateCell(entry) {
+    const ratePerTick = Number(entry.rate_per_tick || 0);
+    return String(ratePerTick);
+}
+
 // ===========================================================================
 // 1. Rank derivation — final_rank field (typical ended season)
 // ===========================================================================
@@ -272,7 +283,29 @@ function formatLeaderboardRate(rate) {
 }
 
 // ===========================================================================
-// 18. Pagination threshold — no paging before show-all expansion
+// 18. Boost passthrough — leaderboard must render API-provided boost as-is
+// ===========================================================================
+
+{
+    const entry = { boost_pct: 450.0 };
+    const cell = renderBoostCell(entry);
+    assert.strictEqual(cell, '450%', 'boost cell must render canonical API boost value without re-clamping');
+    console.log('  ✓ boost passthrough: API value renders unchanged (supports >400%)');
+}
+
+// ===========================================================================
+// 19. Rate passthrough — leaderboard must render API-provided rate as-is
+// ===========================================================================
+
+{
+    const entry = { rate_per_tick: 123.45 };
+    const cell = renderRateCell(entry);
+    assert.strictEqual(cell, '123.45', 'rate cell must render canonical API rate value without reinterpretation');
+    console.log('  ✓ rate passthrough: API value renders unchanged');
+}
+
+// ===========================================================================
+// 20. Pagination threshold — no paging before show-all expansion
 // ===========================================================================
 
 {
@@ -283,7 +316,7 @@ function formatLeaderboardRate(rate) {
 }
 
 // ===========================================================================
-// 19. Pagination threshold — expanded view uses 100 rows/page when >100
+// 21. Pagination threshold — expanded view uses 100 rows/page when >100
 // ===========================================================================
 
 {
