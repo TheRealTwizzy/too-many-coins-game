@@ -1446,7 +1446,8 @@ function getCombineRecipesForParticipation($participation) {
             'to_tier' => (int)$fromTier + 1,
             'required' => (int)$required,
             'owned' => $owned,
-            'can_combine' => $owned >= (int)$required && Economy::canReceiveSigilTier($participation, ((int)$fromTier + 1), 1),
+            'can_combine' => $owned >= (int)$required
+                && Economy::canReceiveSigilTier($participation, ((int)$fromTier + 1), 1, (int)$required),
         ];
     }
     return $recipes;

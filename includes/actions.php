@@ -1023,7 +1023,7 @@ class Actions {
         if ($owned < $required) {
             return ['error' => "Insufficient Tier {$fromTier} Sigils. Need {$required}, have {$owned}"];
         }
-        if (!Economy::canReceiveSigilTier($participation, $toTier, 1)) {
+        if (!Economy::canReceiveSigilTier($participation, $toTier, 1, $required)) {
             return ['error' => "Tier {$toTier} sigil inventory cap reached"];
         }
 

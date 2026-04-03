@@ -130,6 +130,40 @@ class EconomyPrecisionTest extends TestCase
         $this->assertEqualsWithDelta(8.75, $effectivePercent, 0.1);
     }
 
+    public function testCanReceiveSigilTierBlocksPureGainAtTotalCap(): void
+    {
+        $participation = [
+            'sigils_t1' => 5,
+            'sigils_t2' => 20,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        $this->assertFalse(
+            Economy::canReceiveSigilTier($participation, 2, 1),
+            'Pure +1 sigil gain should be blocked at total cap.'
+        );
+    }
+
+    public function testCanReceiveSigilTierAllowsNetReductionAtTotalCap(): void
+    {
+        $participation = [
+            'sigils_t1' => 5,
+            'sigils_t2' => 20,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        $this->assertTrue(
+            Economy::canReceiveSigilTier($participation, 2, 1, 5),
+            'Combine-style net reduction should remain allowed at total cap.'
+        );
+    }
+
     public function testSigilTierDropRatesScaleFromT1ToT5(): void
     {
         // Verify SIGIL_TIER_DROP_RATES is defined with correct tier bounds
