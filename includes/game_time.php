@@ -193,17 +193,6 @@ class GameTime {
                     [$startTime, $endTime, $blackoutTime, $seed,
                      $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable, $tradeFeeTiers, $vaultConfig, $startTime]
                 );
-                
-                // Create vault inventory
-                $vaultItems = json_decode($vaultConfig, true);
-                foreach ($vaultItems as $item) {
-                    $initialCost = $item['cost_table'][0]['cost'];
-                    $db->query(
-                        "INSERT INTO season_vault (season_id, tier, initial_supply, remaining_supply, current_cost_stars, last_published_cost_stars)
-                         VALUES (?, ?, ?, ?, ?, ?)",
-                        [$seasonId, $item['tier'], $item['supply'], $item['supply'], $initialCost, $initialCost]
-                    );
-                }
             }
         }
         

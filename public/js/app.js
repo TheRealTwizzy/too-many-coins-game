@@ -948,34 +948,6 @@ const TMC = {
                                 </div>
                             </div>
                         ` : ''}
-                        <div class="sigil-vault-section">
-                            <h4>Sigil Vault</h4>
-                            <p class="panel-info">Purchase Sigils with Seasonal Stars</p>
-                            <div class="vault-grid">
-                                ${(detail.vault || []).map(v => {
-                                    const remaining = Number(v.remaining_supply ?? 0);
-                                    const initial = Number(v.initial_supply ?? 0);
-                                    const cost = Number(v.current_cost_stars ?? 0);
-                                    const tier = Number(v.tier ?? 0);
-                                    const capTotal = Number((part.sigil_caps && part.sigil_caps.total) ? part.sigil_caps.total : 25);
-                                    const capTier = Number((part.sigil_caps && part.sigil_caps.tiers && part.sigil_caps.tiers[tier]) ? part.sigil_caps.tiers[tier] : 0);
-                                    const ownedTier = Number((part.sigils && part.sigils[tier - 1]) ? part.sigils[tier - 1] : 0);
-                                    const capBlocked = (capTotal > 0 && Number(part.sigils_total || 0) >= capTotal)
-                                        || (capTier > 0 && ownedTier >= capTier);
-                                    return `
-                                    <div class="vault-item tier-${v.tier}">
-                                        <span class="vault-tier">Tier ${v.tier}</span>
-                                        <span class="vault-remaining">${remaining}/${initial} left</span>
-                                        <span class="vault-cost">${cost} stars</span>
-                                        <button class="btn btn-sm btn-primary" 
-                                            onclick="TMC.purchaseVault(${v.tier})"
-                                            ${remaining <= 0 || isBlackout || capBlocked ? 'disabled' : ''}>
-                                            ${remaining <= 0 ? 'Sold Out' : (capBlocked ? 'Cap Reached' : 'Buy')}
-                                        </button>
-                                    </div>
-                                `;}).join('')}
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Lock-In Panel -->
@@ -1203,24 +1175,6 @@ const TMC = {
         if (buyButton && !isBlackout) buyButton.disabled = false;
         estimateEl.classList.remove('panel-warning');
         estimateEl.textContent = `Estimated cost: ${this.formatNumber(coinsNeeded)} coins (${this.formatNumber(starPrice)} each).`;
-    },
-
-    async purchaseVault(tier) {
-        const result = await this.api('purchase_vault', { tier });
-        if (result.error) {
-            this.toast(result.error, 'error');
-            return;
-        }
-        this.toast(`Purchased Tier ${tier} Sigil for ${result.cost_stars} stars!`, 'success', {
-            category: 'purchase_sigil',
-            payload: {
-                tier: Number(tier) || null,
-                cost_stars: Number(result.cost_stars) || 0,
-                season_id: Number(this.state.currentSeason) || null
-            }
-        });
-        await this.refreshGameState();
-        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
     getVisibleSigils(participation) {

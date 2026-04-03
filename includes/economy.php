@@ -606,25 +606,13 @@ class Economy {
      */
     public static function calculateTradeValue($season, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils) {
         $starPrice = (int)$season['current_star_price'];
-        $vaultConfig = json_decode($season['vault_config'], true);
-        $db = Database::getInstance();
-        
-        // Get vault costs for sigil valuation
-        $vaultCosts = [];
-        $vaultRows = $db->fetchAll(
-            "SELECT tier, current_cost_stars, last_published_cost_stars FROM season_vault WHERE season_id = ?",
-            [$season['season_id']]
-        );
-        foreach ($vaultRows as $row) {
-            $cost = $row['current_cost_stars'] > 0 ? $row['current_cost_stars'] : $row['last_published_cost_stars'];
-            $vaultCosts[$row['tier']] = $cost ?: 0;
-        }
+        $sigilReferenceCosts = SIGIL_REFERENCE_STARS_BY_TIER;
         
         // Calculate side A value
         $valueA = $sideACoins;
         for ($t = 1; $t <= SIGIL_MAX_TIER; $t++) {
             if (isset($sideASigils[$t - 1]) && $sideASigils[$t - 1] > 0) {
-                $sigilCostStars = $vaultCosts[$t] ?? 0;
+                $sigilCostStars = (int)($sigilReferenceCosts[$t] ?? 0);
                 $valueA += $sideASigils[$t - 1] * $sigilCostStars * $starPrice;
             }
         }
@@ -633,7 +621,7 @@ class Economy {
         $valueB = $sideBCoins;
         for ($t = 1; $t <= SIGIL_MAX_TIER; $t++) {
             if (isset($sideBSigils[$t - 1]) && $sideBSigils[$t - 1] > 0) {
-                $sigilCostStars = $vaultCosts[$t] ?? 0;
+                $sigilCostStars = (int)($sigilReferenceCosts[$t] ?? 0);
                 $valueB += $sideBSigils[$t - 1] * $sigilCostStars * $starPrice;
             }
         }

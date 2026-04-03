@@ -203,12 +203,6 @@ try {
             $result = gatedStarPurchase($player, $starsRequested, $confirmed);
             echo json_encode($result);
             break;
-            
-        case 'purchase_vault':
-            $player = Auth::requireAuth();
-            $tier = (int)($input['tier'] ?? 0);
-            echo json_encode(Actions::purchaseVaultSigil($player['player_id'], $tier));
-            break;
 
         case 'combine_sigil':
             $player = Auth::requireAuth();
@@ -475,7 +469,7 @@ try {
         default:
             echo json_encode(['error' => 'Unknown action', 'available_actions' => [
                 'register', 'login', 'logout', 'game_state', 'season_detail', 'leaderboard',
-                'global_leaderboard', 'season_join', 'purchase_stars', 'purchase_vault',
+                'global_leaderboard', 'season_join', 'purchase_stars',
                 'combine_sigil', 'freeze_player_ubi',
                 'lock_in', 'idle_ack', 'boost_catalog', 'purchase_boost', 'active_boosts',
                 'sigil_drops', 'trade_initiate', 'trade_accept', 'trade_decline',
@@ -606,58 +600,6 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
     ];
 }
 
-function getDefaultVaultRowsFromSeason($season) {
-    $defaults = [
-        ['tier' => 1, 'supply' => 500, 'cost' => 50],
-        ['tier' => 2, 'supply' => 250, 'cost' => 250],
-        ['tier' => 3, 'supply' => 125, 'cost' => 1000],
-    ];
-
-    $config = json_decode((string)($season['vault_config'] ?? ''), true);
-    if (is_array($config)) {
-        foreach ($config as $row) {
-            $tier = (int)($row['tier'] ?? 0);
-            if ($tier < 1 || $tier > 3) {
-                continue;
-            }
-            $supply = max(0, (int)($row['supply'] ?? 0));
-            $costTable = isset($row['cost_table']) && is_array($row['cost_table']) ? $row['cost_table'] : [];
-            $cost = 0;
-            if (!empty($costTable)) {
-                $cost = max(0, (int)($costTable[0]['cost'] ?? 0));
-            }
-            if ($supply > 0 && $cost > 0) {
-                $defaults[$tier - 1] = ['tier' => $tier, 'supply' => $supply, 'cost' => $cost];
-            }
-        }
-    }
-
-    $rows = [];
-    foreach ($defaults as $d) {
-        $rows[] = [
-            'season_id' => (int)$season['season_id'],
-            'tier' => (int)$d['tier'],
-            'initial_supply' => (int)$d['supply'],
-            'remaining_supply' => (int)$d['supply'],
-            'current_cost_stars' => (int)$d['cost'],
-            'last_published_cost_stars' => (int)$d['cost'],
-        ];
-    }
-
-    return $rows;
-}
-
-function getVaultRowsForViewer($season, $player) {
-    if (
-        $player
-        && (int)($player['participation_enabled'] ?? 0) === 1
-        && (int)($player['joined_season_id'] ?? 0) === (int)$season['season_id']
-    ) {
-        return Actions::getPlayerSeasonVaultRows((int)$player['player_id'], (int)$season['season_id']);
-    }
-    return getDefaultVaultRowsFromSeason($season);
-}
-
 function getGameState($player) {
     $db = Database::getInstance();
     $gameTime = GameTime::now();
@@ -681,9 +623,7 @@ function getGameState($player) {
         $blackoutTime = (int)$s['blackout_time'];
         $s['blackout_remaining'] = max(0, $blackoutTime - $gameTime);
         $s['is_blackout'] = ($gameTime >= $blackoutTime && $gameTime < $endTime);
-        
-        // Get vault info (player-scoped when viewing joined season).
-        $s['vault'] = getVaultRowsForViewer($s, $player);
+
         $s['sigil_drop_rates'] = getSigilDropRateMetadata();
         
         // Remove binary seed from response
@@ -836,9 +776,7 @@ function getSeasonDetail($player, $seasonId) {
     $gameTime = GameTime::now();
     $season['computed_status'] = GameTime::getSeasonStatus($season);
     applySeasonCountdownFields($season, $gameTime);
-    
-    // Vault
-    $season['vault'] = getVaultRowsForViewer($season, $player);
+
     $season['sigil_drop_rates'] = getSigilDropRateMetadata();
 
     if ($player && (int)$player['joined_season_id'] === (int)$seasonId && (int)$player['participation_enabled'] === 1) {

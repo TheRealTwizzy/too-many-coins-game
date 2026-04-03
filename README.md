@@ -4,7 +4,7 @@ A deterministic economic competition game where every coin tells a story of sacr
 
 ## Game Overview
 
-Too Many Coins is a season-based multiplayer economic strategy game. Players join 28-day competitive seasons, earn Coins through Universal Basic Income (UBI), convert them into Stars to climb the leaderboard, collect Sigils through random drops and vault purchases, activate Boosts to increase their income, and ultimately decide when to Lock-In and convert their Seasonal Stars to permanent Global Stars.
+Too Many Coins is a season-based multiplayer economic strategy game. Players join 28-day competitive seasons, earn Coins through Universal Basic Income (UBI), convert them into Stars to climb the leaderboard, collect Sigils through random drops, activate Boosts to increase their income, and ultimately decide when to Lock-In and convert their Seasonal Stars to permanent Global Stars.
 
 ## Features
 
@@ -12,7 +12,7 @@ Too Many Coins is a season-based multiplayer economic strategy game. Players joi
 |---------|-------------|
 | **Universal Basic Income** | Dynamic UBI system with activity bonuses, inflation curves, and hoarding penalties |
 | **Star Purchasing** | Convert Coins to Seasonal Stars at dynamic prices based on total coin supply |
-| **5-Tier Sigil System** | Random drops (1/50,000 per tick) with pity timer, plus vault purchases |
+| **5-Tier Sigil System** | Random drops (1/50,000 per tick) with pity timer |
 | **Boost Activation** | Consume Sigils to activate temporary UBI modifiers (self or season-wide) |
 | **Lock-In Mechanism** | Exit early to convert Seasonal Stars to Global Stars |
 | **Player Trading** | Trade Coins and Sigils with other season participants |
@@ -393,7 +393,6 @@ curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 | `season_join` | Join a season (season_id) |
 | `idle_ack` | Acknowledge idle status |
 | `purchase_stars` | Buy stars by quantity (stars_requested) |
-| `purchase_vault` | Buy sigil from vault (tier) |
 | `purchase_boost` | Activate a boost (boost_id) |
 | `lock_in` | Lock-in and exit season |
 | `create_trade` | Create a trade offer |
@@ -404,16 +403,6 @@ curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 | `boost_catalog` | Get available boosts |
 | `active_boosts` | Get active boosts |
 | `sigil_drops` | Get recent sigil drops |
-
-## Sigil Vault Tiers
-
-| Tier | Supply | Cost | Description |
-|------|--------|------|-------------|
-| I | 2,500 | 5 stars | Common |
-| II | 1,000 | 20 stars | Uncommon |
-| III | 500 | 50 stars | Rare |
-| IV | 250 | 100 stars | Epic |
-| V | 100 | 250 stars | Legendary |
 
 ## Season Lifecycle
 

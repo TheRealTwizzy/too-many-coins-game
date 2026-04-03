@@ -1,7 +1,7 @@
 <?php
 /**
  * Too Many Coins - Player Actions
- * Handles all player actions: join, purchase stars, vault, boost, trade, lock-in
+ * Handles all player actions: join, purchase stars, boost, trade, lock-in
  */
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
@@ -12,77 +12,6 @@ require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 
 class Actions {
-
-    private static function defaultVaultByTier() {
-        return [
-            1 => ['supply' => 500, 'cost' => 50],
-            2 => ['supply' => 250, 'cost' => 250],
-            3 => ['supply' => 125, 'cost' => 1000],
-        ];
-    }
-
-    private static function ensurePlayerSeasonVaultRows($db, $playerId, $seasonId) {
-        $existing = $db->fetchAll(
-            "SELECT tier FROM player_season_vault WHERE player_id = ? AND season_id = ?",
-            [(int)$playerId, (int)$seasonId]
-        );
-        if (count($existing) >= 3) {
-            return;
-        }
-
-        $season = $db->fetch("SELECT vault_config FROM seasons WHERE season_id = ?", [(int)$seasonId]);
-        $defaults = self::defaultVaultByTier();
-        if ($season && !empty($season['vault_config'])) {
-            $decoded = json_decode($season['vault_config'], true);
-            if (is_array($decoded)) {
-                foreach ($decoded as $row) {
-                    $tier = (int)($row['tier'] ?? 0);
-                    if ($tier < 1 || $tier > 3) {
-                        continue;
-                    }
-                    $supply = max(0, (int)($row['supply'] ?? 0));
-                    $costTable = isset($row['cost_table']) && is_array($row['cost_table']) ? $row['cost_table'] : [];
-                    $cost = 0;
-                    if (!empty($costTable)) {
-                        $cost = max(0, (int)($costTable[0]['cost'] ?? 0));
-                    }
-                    if ($supply > 0 && $cost > 0) {
-                        $defaults[$tier] = ['supply' => $supply, 'cost' => $cost];
-                    }
-                }
-            }
-        }
-
-        foreach ($defaults as $tier => $cfg) {
-            $db->query(
-                "INSERT INTO player_season_vault
-                 (player_id, season_id, tier, initial_supply, remaining_supply, current_cost_stars, last_published_cost_stars)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE player_id = player_id",
-                [
-                    (int)$playerId,
-                    (int)$seasonId,
-                    (int)$tier,
-                    (int)$cfg['supply'],
-                    (int)$cfg['supply'],
-                    (int)$cfg['cost'],
-                    (int)$cfg['cost'],
-                ]
-            );
-        }
-    }
-
-    public static function getPlayerSeasonVaultRows($playerId, $seasonId) {
-        $db = Database::getInstance();
-        self::ensurePlayerSeasonVaultRows($db, $playerId, $seasonId);
-        return $db->fetchAll(
-            "SELECT season_id, tier, initial_supply, remaining_supply, current_cost_stars, last_published_cost_stars
-             FROM player_season_vault
-             WHERE player_id = ? AND season_id = ?
-             ORDER BY tier",
-            [(int)$playerId, (int)$seasonId]
-        );
-    }
 
     private static function validateSigilInventoryCaps($participation) {
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
@@ -158,8 +87,6 @@ class Actions {
                     [$playerId, $seasonId, $gameTime]
                 );
             }
-
-            self::ensurePlayerSeasonVaultRows($db, $playerId, $seasonId);
             
             // Update player state
             $db->query(
@@ -263,103 +190,6 @@ class Actions {
     }
     
     /**
-     * Purchase a Sigil from the Vault
-     */
-    public static function purchaseVaultSigil($playerId, $tier) {
-        $db = Database::getInstance();
-        $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
-        
-        if (!$player['participation_enabled'] || !$player['joined_season_id']) {
-            return ['error' => 'Not participating in any season'];
-        }
-        if ($player['idle_modal_active']) {
-            return ['error' => 'Cannot perform actions while idle', 'reason_code' => 'idle_gated'];
-        }
-        
-        $seasonId = $player['joined_season_id'];
-        $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
-        
-        // Blackout check
-        $status = GameTime::getSeasonStatus($season);
-        if ($status === 'Blackout') {
-            return ['error' => 'Vault purchases are not available during blackout', 'reason_code' => 'blackout_disallows_action'];
-        }
-        
-        $tier = (int)$tier;
-        if ($tier < 1 || $tier > 3) return ['error' => 'Invalid tier'];
-
-        $db->beginTransaction();
-        try {
-            self::ensurePlayerSeasonVaultRows($db, $playerId, $seasonId);
-
-            $vault = $db->fetch(
-                "SELECT * FROM player_season_vault WHERE player_id = ? AND season_id = ? AND tier = ? FOR UPDATE",
-                [(int)$playerId, (int)$seasonId, (int)$tier]
-            );
-            if (!$vault || (int)$vault['remaining_supply'] <= 0) {
-                $db->rollback();
-                return ['error' => 'This tier is sold out'];
-            }
-
-            $costStars = max(0, (int)($vault['current_cost_stars'] ?? 0));
-            if ($costStars <= 0) {
-                $db->rollback();
-                return ['error' => 'Vault cost is unavailable'];
-            }
-
-            $participation = $db->fetch(
-                "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ? FOR UPDATE",
-                [(int)$playerId, (int)$seasonId]
-            );
-            if (!$participation) {
-                $db->rollback();
-                return ['error' => 'Not participating in any season'];
-            }
-            if ((int)$participation['seasonal_stars'] < $costStars) {
-                $db->rollback();
-                return ['error' => 'Insufficient Seasonal Stars'];
-            }
-            if (!Economy::canReceiveSigilTier($participation, $tier, 1)) {
-                $db->rollback();
-                return ['error' => 'Sigil inventory cap reached'];
-            }
-
-            // Burn stars, add sigil, decrement personal vault stock.
-            $sigilCol = "sigils_t{$tier}";
-            $db->query(
-                "UPDATE season_participation SET seasonal_stars = seasonal_stars - ?, {$sigilCol} = {$sigilCol} + 1
-                 WHERE player_id = ? AND season_id = ?",
-                [$costStars, $playerId, $seasonId]
-            );
-            
-            $db->query(
-                "UPDATE player_season_vault
-                 SET remaining_supply = remaining_supply - 1
-                 WHERE player_id = ? AND season_id = ? AND tier = ?",
-                [(int)$playerId, (int)$seasonId, (int)$tier]
-            );
-            
-            // Update activity
-            $db->query(
-                "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
-                [GameTime::now(), $playerId]
-            );
-            
-            $db->commit();
-            return [
-                'success' => true,
-                'tier' => $tier,
-                'cost_stars' => $costStars,
-                'remaining_supply' => max(0, (int)$vault['remaining_supply'] - 1),
-                'initial_supply' => (int)$vault['initial_supply'],
-            ];
-        } catch (Exception $e) {
-            $db->rollback();
-            return ['error' => 'Vault purchase failed'];
-        }
-    }
-    
-    /**
      * Lock-In: voluntarily exit season, convert SeasonalStars to GlobalStars
      */
     public static function lockIn($playerId) {
@@ -398,37 +228,13 @@ class Actions {
         $gameTime = GameTime::now();
         $seasonalStars = (int)$participation['seasonal_stars'];
 
-        // --- Step 1: Determine per-tier star refund values for T1–T5 sigils ---
-        // T1–T3: look up current vault cost from season_vault.
-        // T4–T5: derived from combine recipes (each higher tier costs N lower-tier sigils).
-        self::ensurePlayerSeasonVaultRows($db, $playerId, $seasonId);
-        $vaultRows = $db->fetchAll(
-            "SELECT tier, current_cost_stars
-             FROM player_season_vault
-             WHERE player_id = ? AND season_id = ? AND tier IN (1,2,3)",
-            [(int)$playerId, (int)$seasonId]
-        );
-        if (empty($vaultRows)) {
-            $vaultRows = $db->fetchAll(
-                "SELECT tier, current_cost_stars FROM season_vault WHERE season_id = ? AND tier IN (1,2,3)",
-                [(int)$seasonId]
-            );
-        }
-        $vaultCostByTier = [];
-        foreach ($vaultRows as $vr) {
-            $vaultCostByTier[(int)$vr['tier']] = (int)$vr['current_cost_stars'];
-        }
-        $t3Cost = $vaultCostByTier[3] ?? 0;
-        // T4 is crafted by combining SIGIL_COMBINE_RECIPES[3] (=3) T3 sigils, so its
-        // star value equals that many T3 costs.  T5 uses SIGIL_COMBINE_RECIPES[4] (=3) T4s.
-        $t4Cost = (int)(SIGIL_COMBINE_RECIPES[3] ?? 0) * $t3Cost;
-        $t5Cost = (int)(SIGIL_COMBINE_RECIPES[4] ?? 0) * $t4Cost;
+        // Use canonical sigil reference star values for lock-in payout.
         $tierCosts = [
-            $vaultCostByTier[1] ?? 0,
-            $vaultCostByTier[2] ?? 0,
-            $t3Cost,
-            $t4Cost,
-            $t5Cost,
+            (int)(SIGIL_REFERENCE_STARS_BY_TIER[1] ?? 0),
+            (int)(SIGIL_REFERENCE_STARS_BY_TIER[2] ?? 0),
+            (int)(SIGIL_REFERENCE_STARS_BY_TIER[3] ?? 0),
+            (int)(SIGIL_REFERENCE_STARS_BY_TIER[4] ?? 0),
+            (int)(SIGIL_REFERENCE_STARS_BY_TIER[5] ?? 0),
         ];
 
         // --- Step 2: Compute payout (sigil refund → seasonal → 65% floor → global) ---

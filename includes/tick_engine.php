@@ -285,9 +285,6 @@ class TickEngine {
                 [$newPrice, $seasonId]
             );
             
-            // Update vault costs
-            self::updateVaultCosts($seasonId);
-            
             // Expire old trades
             $db->query(
                 "UPDATE trades SET status = 'EXPIRED' 
@@ -709,32 +706,4 @@ class TickEngine {
         }
     }
     
-    /**
-     * Update vault costs based on remaining supply
-     */
-    private static function updateVaultCosts($seasonId) {
-        $db = Database::getInstance();
-        $season = $db->fetch("SELECT vault_config FROM seasons WHERE season_id = ?", [$seasonId]);
-        
-        $vaultItems = $db->fetchAll(
-            "SELECT * FROM season_vault WHERE season_id = ?",
-            [$seasonId]
-        );
-        
-        foreach ($vaultItems as $item) {
-            $newCost = Economy::calculateVaultCost(
-                $season['vault_config'],
-                $item['tier'],
-                $item['remaining_supply']
-            );
-            
-            if ($newCost !== null && $newCost != $item['current_cost_stars']) {
-                $db->query(
-                    "UPDATE season_vault SET current_cost_stars = ?, last_published_cost_stars = ?
-                     WHERE season_id = ? AND tier = ?",
-                    [$newCost, $newCost, $seasonId, $item['tier']]
-                );
-            }
-        }
-    }
 }

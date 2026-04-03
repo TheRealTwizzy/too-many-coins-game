@@ -231,6 +231,16 @@ define('SIGIL_COMBINE_RECIPES', [
     5 => 2,
 ]);
 
+// Canonical star valuation used for lock-in and trade calculations.
+define('SIGIL_REFERENCE_STARS_BY_TIER', [
+    1 => 50,
+    2 => 250,
+    3 => 1000,
+    4 => 3000,
+    5 => 9000,
+    6 => 0,
+]);
+
 // Tier-odds scaling by sigil power. Tier 6 is intentionally excluded from RNG drops.
 define('SIGIL_POWER_FULL_SHIFT', 40);
 define('SIGIL_TIER_ODDS_MAX_POWER', [
