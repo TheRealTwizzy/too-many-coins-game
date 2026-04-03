@@ -169,7 +169,8 @@ class Economy {
      * Fixed-point wrapper for guaranteedBoostFloorCoins().
      */
     public static function guaranteedBoostFloorFp($boostModFp, $capCoins = null) {
-        return self::toFixedPoint(self::guaranteedBoostFloorCoins($boostModFp, $capCoins));
+        $cadenceDivisor = self::ticksPerRealMinute();
+        return intdiv(self::toFixedPoint(self::guaranteedBoostFloorCoins($boostModFp, $capCoins)), $cadenceDivisor);
     }
 
     /**
@@ -243,7 +244,9 @@ class Economy {
      */
     public static function grossRateBonusFpFromBoostPct(float $boostPct): int
     {
-        return (int)floor(self::grossRateBonusFromBoostPct($boostPct) * FP_SCALE);
+        $cadenceDivisor = self::ticksPerRealMinute();
+        $legacyRateFp = (int)floor(self::grossRateBonusFromBoostPct($boostPct) * FP_SCALE);
+        return intdiv($legacyRateFp, $cadenceDivisor);
     }
 
     /**
@@ -321,6 +324,14 @@ class Economy {
     }
 
     /**
+     * Runtime ticks that elapse in one real minute.
+     * Economy coefficients were authored against a 1-minute baseline cadence.
+     */
+    public static function ticksPerRealMinute() {
+        return max(1, (int)ceil((60 * TIME_SCALE) / max(1, TICK_REAL_SECONDS)));
+    }
+
+    /**
      * Whether explicit hoarding sink is enabled for the season.
      */
     public static function hoardingSinkEnabled($season) {
@@ -331,33 +342,45 @@ class Economy {
      * Calculate UBI for a player on a given tick
      */
     public static function calculateUBI($season, $player, $participation, $isLockInTick = false) {
+        $ubiFp = self::calculateUBIFp($season, $player, $participation, $isLockInTick);
+        return intdiv($ubiFp, FP_SCALE);
+    }
+
+    /**
+     * Calculate UBI in fixed-point for cadence-safe per-tick valuation.
+     */
+    public static function calculateUBIFp($season, $player, $participation, $isLockInTick = false) {
         // Lock-In suppression
         if ($isLockInTick) return 0;
         
         // Not participating
         if (!$player['participation_enabled']) return 0;
+
+        $cadenceDivisor = self::ticksPerRealMinute();
         
         $baseActive = (int)$season['base_ubi_active_per_tick'];
         $idleFactorFp = (int)$season['base_ubi_idle_factor_fp'];
+        $baseActiveFp = intdiv(self::toFixedPoint($baseActive), $cadenceDivisor);
         
         // Branch selection based on activity state
         if ($player['activity_state'] === 'Active') {
-            $ubi = $baseActive;
+            $ubiFp = $baseActiveFp;
         } else {
-            $ubi = self::fpMultiply($baseActive, $idleFactorFp);
+            $ubiFp = intdiv($baseActiveFp * $idleFactorFp, FP_SCALE);
         }
         
         // Apply inflation dampening
         $totalSupply = (int)$season['total_coins_supply'];
         $inflationFp = self::inflationFactor($season, $totalSupply);
-        $ubi = self::fpMultiply($ubi, $inflationFp);
+        $ubiFp = intdiv($ubiFp * $inflationFp, FP_SCALE);
         
         // Apply minimum floor
         $minUbi = (int)$season['ubi_min_per_tick'];
-        $ubi = max($ubi, $minUbi);
+        $minUbiFp = intdiv(self::toFixedPoint($minUbi), $cadenceDivisor);
+        $ubiFp = max($ubiFp, $minUbiFp);
         
         // Ensure non-negative
-        return max(0, $ubi);
+        return max(0, (int)$ubiFp);
     }
 
     /**
@@ -365,8 +388,7 @@ class Economy {
      * and piecewise interpolated gross-rate bonus.
      */
     public static function calculateGrossRatePerTickFp($season, $player, $participation, $boostModFp, $isLockInTick = false) {
-        $baseUbi = self::calculateUBI($season, $player, $participation, $isLockInTick);
-        $ratePerTickFp = self::toFixedPoint($baseUbi);
+        $ratePerTickFp = self::calculateUBIFp($season, $player, $participation, $isLockInTick);
         $ratePerTickFp = self::applyBoostModifierFp($ratePerTickFp, (int)$boostModFp);
         $ratePerTickFp += self::guaranteedBoostFloorFp((int)$boostModFp);
         // Piecewise interpolated bonus: converts boostModFp to boost% (1% = FP_SCALE/100)
@@ -496,8 +518,9 @@ class Economy {
         // Apply per-tick velocity clamp relative to previous price.
         $prevPrice = (int)($season['current_star_price'] ?? 0);
         if ($prevPrice > 0) {
-            $maxUpstepFp   = (int)($season['starprice_max_upstep_fp']   ?? 2000);
-            $maxDownstepFp = (int)($season['starprice_max_downstep_fp'] ?? 10000);
+            $cadenceDivisor = self::ticksPerRealMinute();
+            $maxUpstepFp   = max(1, intdiv((int)($season['starprice_max_upstep_fp']   ?? 2000), $cadenceDivisor));
+            $maxDownstepFp = max(1, intdiv((int)($season['starprice_max_downstep_fp'] ?? 10000), $cadenceDivisor));
             // At least 1 coin of movement headroom in each direction.
             // Note: for very small prevPrice values (< 500), intdiv truncates to 0 and
             // max(1,...) ensures at least 1 coin of movement is always allowed; this

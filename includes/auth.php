@@ -6,6 +6,8 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
 
 class Auth {
+
+    private static $presenceTouchedInRequest = [];
     
     /**
      * Get current authenticated player from session token
@@ -19,14 +21,45 @@ class Auth {
             "SELECT * FROM players WHERE session_token = ? AND profile_deleted_at IS NULL",
             [$token]
         );
+
+        if (!$player && TMC_AUTH_TRACE) {
+            error_log('[auth] token_miss action=' . ($_REQUEST['action'] ?? 'unknown'));
+        }
         
         if ($player) {
-            // Update last seen
-            $db->query("UPDATE players SET last_seen_at = NOW(), online_current = 1 WHERE player_id = ?", 
-                [$player['player_id']]);
+            self::touchPresence($player['player_id']);
         }
         
         return $player;
+    }
+
+    /**
+     * Mark player as online with throttling to avoid request-path write contention.
+     */
+    public static function touchPresence($playerId) {
+        $playerId = (int)$playerId;
+        if ($playerId <= 0) {
+            return;
+        }
+
+        if (isset(self::$presenceTouchedInRequest[$playerId])) {
+            return;
+        }
+        self::$presenceTouchedInRequest[$playerId] = true;
+
+        $touchEverySeconds = max(5, (int)TMC_PRESENCE_TOUCH_SECONDS);
+        $db = Database::getInstance();
+        $db->query(
+            "UPDATE players
+             SET last_seen_at = NOW(), online_current = 1
+             WHERE player_id = ?
+               AND (
+                   online_current = 0
+                   OR last_seen_at IS NULL
+                   OR TIMESTAMPDIFF(SECOND, last_seen_at, NOW()) >= ?
+               )",
+            [$playerId, $touchEverySeconds]
+        );
     }
     
     /**
@@ -170,6 +203,9 @@ class Auth {
     public static function requireAuth() {
         $player = self::getCurrentPlayer();
         if (!$player) {
+            if (TMC_AUTH_TRACE) {
+                error_log('[auth] require_auth_401 action=' . ($_REQUEST['action'] ?? 'unknown'));
+            }
             http_response_code(401);
             echo json_encode(['error' => 'Authentication required']);
             exit;

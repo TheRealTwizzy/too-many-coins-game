@@ -332,6 +332,39 @@ Worker safety:
 
 - Uses MySQL advisory lock `GET_LOCK('tmc_tick_worker', 0)` to avoid concurrent tick execution if more than one worker replica is accidentally started.
 
+### 1 Tick/Second Cutover (Safe Procedure)
+
+When standardizing to 1 tick/second from legacy minute-scale data, use this sequence:
+
+1. Precheck current stored tick scale:
+
+```bash
+php tools/precheck_tick_cadence.php
+```
+
+1. Dry-run migration telemetry (no writes):
+
+- `TMC_TICK_REAL_SECONDS=1`
+- `TMC_TIME_SCALE=1`
+- `TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN=1`
+- `TMC_MINUTE_TO_SECOND_MIGRATION=0`
+
+1. Cutover run (single controlled startup):
+
+- `TMC_TICK_REAL_SECONDS=1`
+- `TMC_TIME_SCALE=1`
+- `TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN=0`
+- `TMC_MINUTE_TO_SECOND_MIGRATION=1`
+
+1. Immediately disable migration flag after successful conversion:
+
+- `TMC_MINUTE_TO_SECOND_MIGRATION=0`
+
+Notes:
+
+- The runtime migration path only executes when cadence is 1s/tick and minute-scale season duration is detected.
+- Keep `TMC_TICK_ON_REQUEST=false` during cutover; use worker or scheduler endpoint only.
+
 ### Scheduler Endpoint (Fallback)
 
 If you cannot run a worker service, use the dedicated scheduler endpoint:

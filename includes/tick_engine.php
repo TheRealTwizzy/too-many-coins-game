@@ -64,6 +64,7 @@ class TickEngine {
     private static function processSeasonTick($season, $gameTime) {
         $db = Database::getInstance();
         $seasonId = $season['season_id'];
+        $tickStart = microtime(true);
         $startTime = (int)$season['start_time'];
         $endTime = (int)$season['end_time'];
         $blackoutTime = (int)$season['blackout_time'];
@@ -112,6 +113,9 @@ class TickEngine {
         
         $isBlackout = ($gameTime >= $blackoutTime);
         $isLastValid = ($currentSeasonTick >= $seasonDurationTicks - 1);
+        $participantIds = array_map(static function ($row) {
+            return (int)$row['player_id'];
+        }, $participants);
         
         $db->beginTransaction();
         try {
@@ -121,6 +125,8 @@ class TickEngine {
             
             // Get active global boosts for UBI modifier calculation
             $globalBoosts = self::getActiveGlobalBoosts($seasonId, $gameTime);
+            $playerSelfBoosts = self::getActivePlayerBoostsByIds($participantIds, $seasonId, $gameTime);
+            $frozenPlayers = self::getFrozenPlayerSetByIds($participantIds, $seasonId, $gameTime);
             
             $totalNewCoins    = 0;
             $totalBurnedCoins = 0;
@@ -131,9 +137,9 @@ class TickEngine {
                 $playerId = $p['player_id'];
                 
                 // Compute boost modifier once per player; used for both sigil drops and UBI.
-                $selfBoosts = self::getActivePlayerBoosts($playerId, $seasonId, $gameTime);
+                $selfBoosts = $playerSelfBoosts[(int)$playerId] ?? [];
                 $boostModFp = self::calculateBoostModifier($selfBoosts, $globalBoosts);
-                $isFrozen = self::isPlayerFrozen($playerId, $seasonId, $gameTime);
+                $isFrozen = !empty($frozenPlayers[(int)$playerId]);
                 
                 // Phase 3: Sigil drop evaluation (not on last-valid or expiration)
                 if (!$isLastValid && !$isExpiration) {
@@ -293,6 +299,11 @@ class TickEngine {
         } catch (Exception $e) {
             $db->rollback();
             error_log("Tick processing error for season {$seasonId}: " . $e->getMessage());
+        } finally {
+            $durationMs = (int)round((microtime(true) - $tickStart) * 1000);
+            if ($durationMs >= (int)TMC_TICK_SLOW_MS) {
+                error_log("[tick] slow_season_tick season={$seasonId} duration_ms={$durationMs} ticks_to_process={$ticksToProcess} participants=" . count($participants));
+            }
         }
     }
     
@@ -465,6 +476,78 @@ class TickEngine {
              WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?",
             [$playerId, $seasonId, $gameTime]
         );
+    }
+
+    /**
+     * Prefetch active self boosts for a set of players in one query.
+     * Returns map: player_id => [boostRows...]
+     */
+    private static function getActivePlayerBoostsByIds(array $playerIds, $seasonId, $gameTime) {
+        if (empty($playerIds)) {
+            return [];
+        }
+
+        $db = Database::getInstance();
+        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
+        $params = $playerIds;
+        $params[] = $seasonId;
+        $params[] = $gameTime;
+
+        $rows = $db->fetchAll(
+            "SELECT ab.*, bc.name, bc.tier_required, bc.modifier_fp as catalog_modifier_fp
+             FROM active_boosts ab
+             JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
+             WHERE ab.player_id IN ({$placeholders})
+               AND ab.season_id = ?
+               AND ab.is_active = 1
+               AND ab.scope = 'SELF'
+               AND ab.expires_tick >= ?",
+            $params
+        );
+
+        $byPlayer = [];
+        foreach ($rows as $row) {
+            $pid = (int)$row['player_id'];
+            if (!isset($byPlayer[$pid])) {
+                $byPlayer[$pid] = [];
+            }
+            $byPlayer[$pid][] = $row;
+        }
+
+        return $byPlayer;
+    }
+
+    /**
+     * Prefetch active freeze state for a set of target players in one query.
+     * Returns set-like map: player_id => true
+     */
+    private static function getFrozenPlayerSetByIds(array $playerIds, $seasonId, $gameTime) {
+        if (empty($playerIds)) {
+            return [];
+        }
+
+        $db = Database::getInstance();
+        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
+        $params = $playerIds;
+        $params[] = $seasonId;
+        $params[] = $gameTime;
+
+        $rows = $db->fetchAll(
+            "SELECT DISTINCT target_player_id
+             FROM active_freezes
+             WHERE target_player_id IN ({$placeholders})
+               AND season_id = ?
+               AND is_active = 1
+               AND expires_tick >= ?",
+            $params
+        );
+
+        $set = [];
+        foreach ($rows as $row) {
+            $set[(int)$row['target_player_id']] = true;
+        }
+
+        return $set;
     }
     
     /**

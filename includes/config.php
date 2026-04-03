@@ -41,6 +41,9 @@ function get_timing_diagnostics(?int $workerIntervalSeconds = null) {
         'idle_timeout_ticks' => (int)IDLE_TIMEOUT_TICKS,
         'idle_timeout_real_seconds' => game_ticks_to_real_seconds((int)IDLE_TIMEOUT_TICKS),
         'tick_on_request' => (bool)TMC_TICK_ON_REQUEST,
+        'presence_touch_seconds' => (int)TMC_PRESENCE_TOUCH_SECONDS,
+        'minute_to_second_migration_enabled' => (bool)TMC_MINUTE_TO_SECOND_MIGRATION,
+        'minute_to_second_migration_dry_run' => (bool)TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN,
         'worker_interval_seconds' => $workerIntervalSeconds,
         'warnings' => $warnings,
     ];
@@ -62,13 +65,18 @@ define('BLACKOUT_DURATION', ticks_from_real_seconds(259200));  // 72 hours
 // Time scale multiplier applied after tick quantization. Keep at 1 in production.
 define('TIME_SCALE', max(1, (int)(getenv('TMC_TIME_SCALE') ?: 1)));
 
-// Real seconds represented by one base tick (Dokploy scheduler minimum is 60s).
+// Real seconds represented by one base tick. Set TMC_TICK_REAL_SECONDS=1 for 1s/tick runtime.
 define('TICK_REAL_SECONDS', max(1, (int)(getenv('TMC_TICK_REAL_SECONDS') ?: 60)));
 
 // Tick processing controls
-define('TMC_TICK_ON_REQUEST', filter_var(getenv('TMC_TICK_ON_REQUEST') ?: '1', FILTER_VALIDATE_BOOLEAN));
+define('TMC_TICK_ON_REQUEST', filter_var(getenv('TMC_TICK_ON_REQUEST') ?: '0', FILTER_VALIDATE_BOOLEAN));
 define('TMC_TICK_SECRET', env_first(['TMC_TICK_SECRET', 'TICK_SECRET'], ''));
 define('TMC_AUTO_SQL_MIGRATIONS', filter_var(env_first(['TMC_AUTO_SQL_MIGRATIONS', 'TMC_AUTO_SQL_HOTFIX'], '1'), FILTER_VALIDATE_BOOLEAN));
+define('TMC_PRESENCE_TOUCH_SECONDS', max(5, (int)(getenv('TMC_PRESENCE_TOUCH_SECONDS') ?: 30)));
+define('TMC_AUTH_TRACE', filter_var(getenv('TMC_AUTH_TRACE') ?: '0', FILTER_VALIDATE_BOOLEAN));
+define('TMC_TICK_SLOW_MS', max(50, (int)(getenv('TMC_TICK_SLOW_MS') ?: 500)));
+define('TMC_MINUTE_TO_SECOND_MIGRATION', filter_var(getenv('TMC_MINUTE_TO_SECOND_MIGRATION') ?: '0', FILTER_VALIDATE_BOOLEAN));
+define('TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN', filter_var(getenv('TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN') ?: '0', FILTER_VALIDATE_BOOLEAN));
 
 // Activity
 define('IDLE_TIMEOUT_TICKS', ticks_from_real_seconds(900));  // 15 real minutes

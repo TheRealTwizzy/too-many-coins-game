@@ -1617,7 +1617,9 @@ const TMC = {
 
     formatBoostDuration(durationTicks, style = 'short') {
         const ticks = Math.max(0, parseInt(durationTicks, 10) || 0);
-        const minutes = ticks;
+        const tickRealSeconds = Math.max(1, parseInt((this.state && this.state.timing && this.state.timing.tick_real_seconds) || 60, 10) || 60);
+        const totalSeconds = ticks * tickRealSeconds;
+        const minutes = Math.max(1, Math.floor(totalSeconds / 60));
 
         if (minutes >= 60 && minutes % 60 === 0) {
             const hours = minutes / 60;
@@ -1669,6 +1671,7 @@ const TMC = {
         const options = [];
         const sigils = participation && Array.isArray(participation.sigils) ? participation.sigils : [];
         const extensionByTier = this.getTimeExtensionMapByTier();
+        const tickRealSeconds = Math.max(1, parseInt((this.state && this.state.timing && this.state.timing.tick_real_seconds) || 60, 10) || 60);
 
         for (let tier = 1; tier <= 5; tier++) {
             const owned = parseInt(sigils[tier - 1] || 0, 10) || 0;
@@ -1676,7 +1679,7 @@ const TMC = {
 
             const tierExtension = extensionByTier[tier] || {};
             const extensionTicks = Math.max(1, parseInt(tierExtension.extensionTicks || 0, 10) || 0);
-            const extensionRealSeconds = Math.max(1, parseInt(tierExtension.extensionRealSeconds || 0, 10) || (extensionTicks * 60));
+            const extensionRealSeconds = Math.max(1, parseInt(tierExtension.extensionRealSeconds || 0, 10) || (extensionTicks * tickRealSeconds));
             const canApply = (currentRemainingTicks + extensionTicks) <= timeCapTicks;
 
             options.push({ tier, owned, extensionTicks, extensionRealSeconds, canApply });
@@ -1711,9 +1714,10 @@ const TMC = {
         const extensionByTier = this.getTimeExtensionMapByTier();
         const tierExt = extensionByTier[selectedTier] || null;
         if (!tierExt) return [];
+        const tickRealSeconds = Math.max(1, parseInt((this.state && this.state.timing && this.state.timing.tick_real_seconds) || 60, 10) || 60);
 
         const extendTicks = Math.max(1, parseInt(tierExt.extensionTicks || 0, 10) || 0);
-        const extendRealSeconds = Math.max(1, parseInt(tierExt.extensionRealSeconds || 0, 10) || (extendTicks * 60));
+        const extendRealSeconds = Math.max(1, parseInt(tierExt.extensionRealSeconds || 0, 10) || (extendTicks * tickRealSeconds));
 
         return activeSelfBoosts
             .map((activeBoost) => {

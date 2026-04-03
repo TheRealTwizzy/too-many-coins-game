@@ -15,6 +15,7 @@ class GameTime {
     
     private static $serverEpoch = null;
     private static $legacyScaleChecked = false;
+    private static $secondScaleChecked = false;
     
     /**
      * Get the real-world Unix timestamp when the server was first initialized
@@ -118,6 +119,7 @@ class GameTime {
     public static function ensureSeasons() {
         $db = Database::getInstance();
         self::maybeMigrateLegacyTickScale($db);
+        self::maybeMigrateMinuteTickScaleToSecond($db);
         self::rebalanceExistingSeasons($db);
         $gameTime = self::now();
         
@@ -207,6 +209,203 @@ class GameTime {
         
         // Update season statuses based on current game time
         self::updateSeasonStatuses();
+    }
+
+    /**
+     * One-time migration of minute-based tick storage to second-based storage.
+     *
+     * Trigger conditions:
+     * - Runtime cadence is 1 tick/second and TIME_SCALE=1.
+     * - Existing season duration still looks minute-based (< 200,000 ticks).
+     */
+    private static function maybeMigrateMinuteTickScaleToSecond($db) {
+        if (self::$secondScaleChecked) {
+            return;
+        }
+        self::$secondScaleChecked = true;
+
+        if (TICK_REAL_SECONDS !== 1 || TIME_SCALE !== 1) {
+            return;
+        }
+
+        if (!TMC_MINUTE_TO_SECOND_MIGRATION && !TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN) {
+            return;
+        }
+
+        $dur = $db->fetch("SELECT MAX(end_time - start_time) AS max_duration FROM seasons");
+        $maxDuration = (int)($dur['max_duration'] ?? 0);
+
+        // Minute-scale seasons are typically ~20,160 ticks for a 14-day season.
+        if ($maxDuration <= 0 || $maxDuration >= 200000) {
+            return;
+        }
+
+        if (TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN) {
+            error_log('[tick-migration] dry_run minute_to_second ' . json_encode(self::minuteToSecondMigrationSnapshot($db)));
+            return;
+        }
+
+        $db->beginTransaction();
+        try {
+            $db->query(
+                "UPDATE seasons SET
+                 start_time = start_time * 60,
+                 end_time = end_time * 60,
+                 blackout_time = blackout_time * 60,
+                 last_processed_tick = last_processed_tick * 60"
+            );
+
+            $db->query(
+                "UPDATE server_state SET
+                 global_tick_index = global_tick_index * 60"
+            );
+
+            $db->query(
+                "UPDATE yearly_state SET
+                 started_at = started_at * 60"
+            );
+
+            $db->query(
+                "UPDATE players SET
+                 idle_since_tick = CASE WHEN idle_since_tick IS NULL THEN NULL ELSE idle_since_tick * 60 END,
+                 last_activity_tick = CASE WHEN last_activity_tick IS NULL THEN NULL ELSE last_activity_tick * 60 END"
+            );
+
+            $db->query(
+                "UPDATE season_participation SET
+                 participation_time_total = participation_time_total * 60,
+                 participation_ticks_since_join = participation_ticks_since_join * 60,
+                 active_ticks_total = active_ticks_total * 60,
+                 first_joined_at = CASE WHEN first_joined_at IS NULL THEN NULL ELSE first_joined_at * 60 END,
+                 last_exit_at = CASE WHEN last_exit_at IS NULL THEN NULL ELSE last_exit_at * 60 END,
+                 lock_in_effect_tick = CASE WHEN lock_in_effect_tick IS NULL THEN NULL ELSE lock_in_effect_tick * 60 END,
+                 lock_in_snapshot_participation_time = CASE WHEN lock_in_snapshot_participation_time IS NULL THEN NULL ELSE lock_in_snapshot_participation_time * 60 END"
+            );
+
+            $hasEligibleTicks = $db->fetch(
+                "SELECT COUNT(*) AS cnt
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'season_participation'
+                   AND COLUMN_NAME = 'eligible_ticks_since_last_drop'"
+            );
+            if ((int)($hasEligibleTicks['cnt'] ?? 0) > 0) {
+                $db->query(
+                    "UPDATE season_participation
+                     SET eligible_ticks_since_last_drop = eligible_ticks_since_last_drop * 60"
+                );
+            }
+
+            $db->query(
+                "UPDATE trades SET
+                 created_tick = created_tick * 60,
+                 expires_tick = expires_tick * 60,
+                 resolved_tick = CASE WHEN resolved_tick IS NULL THEN NULL ELSE resolved_tick * 60 END"
+            );
+
+            try {
+                $db->query(
+                    "UPDATE active_boosts SET
+                     activated_tick = activated_tick * 60,
+                     expires_tick = expires_tick * 60"
+                );
+            } catch (Exception $e) {
+                // Optional migration table may not exist yet.
+            }
+
+            try {
+                $db->query(
+                    "UPDATE sigil_drop_tracking SET
+                     eligible_ticks_since_last_drop = eligible_ticks_since_last_drop * 60,
+                     last_drop_tick = CASE WHEN last_drop_tick IS NULL THEN NULL ELSE last_drop_tick * 60 END"
+                );
+                $db->query(
+                    "UPDATE sigil_drop_log SET
+                     drop_tick = drop_tick * 60"
+                );
+            } catch (Exception $e) {
+                // Optional migration tables may not exist yet.
+            }
+
+            $db->query(
+                "UPDATE pending_actions SET
+                 intake_tick = intake_tick * 60,
+                 resolution_tick = resolution_tick * 60,
+                 effect_tick = effect_tick * 60"
+            );
+
+            $db->query(
+                "UPDATE economy_ledger SET
+                 global_tick = global_tick * 60,
+                 season_tick = CASE WHEN season_tick IS NULL THEN NULL ELSE season_tick * 60 END"
+            );
+
+            // Keep real-world boost durations after cadence conversion.
+            try {
+                $db->query(
+                    "UPDATE boost_catalog SET duration_ticks = duration_ticks * 60
+                     WHERE duration_ticks <= 3000"
+                );
+            } catch (Exception $e) {
+                // Optional migration table may not exist yet.
+            }
+
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            error_log('Minute-to-second tick migration failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Snapshot useful for pre-cutover verification and post-cutover comparison.
+     */
+    private static function minuteToSecondMigrationSnapshot($db) {
+        $snapshot = [];
+
+        $snapshot['seasons'] = $db->fetch(
+            "SELECT
+                COUNT(*) AS count_all,
+                MAX(end_time - start_time) AS max_duration,
+                MIN(end_time - start_time) AS min_duration,
+                MAX(last_processed_tick) AS max_last_processed
+             FROM seasons"
+        );
+        $snapshot['server_state'] = $db->fetch(
+            "SELECT global_tick_index FROM server_state WHERE id = 1"
+        );
+
+        $tradeStats = $db->fetch(
+            "SELECT
+                MAX(created_tick) AS max_created_tick,
+                MAX(expires_tick) AS max_expires_tick,
+                MAX(resolved_tick) AS max_resolved_tick
+             FROM trades"
+        );
+        $snapshot['trades'] = $tradeStats ?: [];
+
+        $boostTableExists = $db->fetch(
+            "SELECT COUNT(*) AS c
+             FROM information_schema.tables
+             WHERE table_schema = DATABASE() AND table_name = 'active_boosts'"
+        );
+        if ((int)($boostTableExists['c'] ?? 0) > 0) {
+            $snapshot['active_boosts'] = $db->fetch(
+                "SELECT
+                    MAX(activated_tick) AS max_activated_tick,
+                    MAX(expires_tick) AS max_expires_tick
+                 FROM active_boosts"
+            );
+        }
+
+        $snapshot['flags'] = [
+            'tick_real_seconds' => (int)TICK_REAL_SECONDS,
+            'time_scale' => (int)TIME_SCALE,
+            'migration_enabled' => (bool)TMC_MINUTE_TO_SECOND_MIGRATION,
+            'dry_run' => (bool)TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN,
+        ];
+
+        return $snapshot;
     }
     
     /**
