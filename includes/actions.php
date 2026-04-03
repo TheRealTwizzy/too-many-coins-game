@@ -953,11 +953,11 @@ class Actions {
     }
     
     /**
-     * Purchase and activate a Boost by consuming a Sigil
-     * Per canon: player submits boost_id, server validates sigil tier requirement,
-     * destroys the sigil, and activates the boost for its duration.
+     * Spend one sigil to modify unified boost state.
+     * - If no boost is active: initialize power/duration from selected tier.
+     * - If active: apply +Power or +Time from selected tier.
      */
-    public static function purchaseBoost($playerId, $boostId, $purchaseKind = 'power', $timeSigilTier = null) {
+    public static function purchaseBoost($playerId, $sigilTier, $purchaseKind = 'power', $boostId = null) {
         $db = Database::getInstance();
         $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
         
@@ -980,41 +980,42 @@ class Actions {
             return ['error' => 'Season is not active'];
         }
         
-        // Get boost from catalog
-        $boost = $db->fetch("SELECT * FROM boost_catalog WHERE boost_id = ?", [$boostId]);
-        if (!$boost) return ['error' => 'Boost not found'];
-        
-        $boost = BoostCatalog::normalize($boost);
-        $tierRequired = (int)$boost['tier_required'];
-        $sigilCost = (int)$boost['sigil_cost'];
-        $scope = $boost['scope'];
-        $durationTicks = (int)$boost['duration_ticks'];
-        $timeExtensionTicks = (int)($boost['time_extension_ticks'] ?? 0);
-        $timeExtensionRealSeconds = (int)($boost['time_extension_real_seconds'] ?? 0);
-        $modifierFp = (int)$boost['modifier_fp'];
-        $baseModifierFp = (int)($boost['base_modifier_fp'] ?? $modifierFp);
-        $maxStack = (int)$boost['max_stack'];
-        $perProductPowerCapFp = (int)($boost['power_cap_fp'] ?? BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
-        $totalPowerCapFp = (int)($boost['total_power_cap_fp'] ?? BoostCatalog::TOTAL_POWER_CAP_FP);
-        $perProductTimeCapTicks = (int)($boost['time_cap_ticks'] ?? ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT));
-        
+        $purchaseKind = strtolower(trim((string)$purchaseKind));
+        $sigilTier = (int)$sigilTier;
+
+        if (!BoostCatalog::canSpendSigilTier($sigilTier)) {
+            if ($sigilTier === 6) {
+                return ['error' => 'Tier 6 sigils cannot be used for +Power/+Time'];
+            }
+            return ['error' => 'Invalid sigil tier'];
+        }
+
         $purchaseKind = strtolower(trim((string)$purchaseKind));
         if ($purchaseKind !== 'power' && $purchaseKind !== 'time') {
             return ['error' => 'Invalid boost purchase kind'];
         }
 
-        $sigilTierToConsume = $tierRequired;
-        $timeTierUsed = null;
-        if ($purchaseKind === 'time') {
-            $requestedTier = is_numeric($timeSigilTier) ? (int)$timeSigilTier : $tierRequired;
-            if (!BoostCatalog::hasTier($requestedTier)) {
-                return ['error' => 'Invalid time sigil tier'];
-            }
-            $sigilTierToConsume = $requestedTier;
-            $timeTierUsed = $requestedTier;
-            $timeExtensionTicks = max(1, BoostCatalog::getTimeExtensionTicksForTier($requestedTier));
-            $timeExtensionRealSeconds = max(1, BoostCatalog::getTimeExtensionRealSecondsForTier($requestedTier));
+        $sigilCost = 1;
+        $scope = 'SELF';
+        $totalPowerCapFp = BoostCatalog::TOTAL_POWER_CAP_FP;
+        $timeCapTicks = ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT);
+        $powerIncrementFp = max(1, BoostCatalog::getSpendPowerFpForTier($sigilTier));
+        $timeIncrementTicks = max(1, BoostCatalog::getSpendTimeTicksForTier($sigilTier));
+        $timeIncrementRealSeconds = max(1, BoostCatalog::getSpendTimeRealSecondsForTier($sigilTier));
+        $initialPowerFp = max(1, BoostCatalog::getInitialPowerFpForTier($sigilTier));
+        $initialDurationTicks = max(1, BoostCatalog::getInitialDurationTicksForTier($sigilTier));
+        $initialDurationRealSeconds = max(1, BoostCatalog::getInitialDurationRealSecondsForTier($sigilTier));
+
+        $catalogByTier = $db->fetch(
+            "SELECT * FROM boost_catalog WHERE tier_required = ? ORDER BY boost_id ASC LIMIT 1",
+            [$sigilTier]
+        );
+        if (!$catalogByTier) {
+            return ['error' => 'Boost catalog unavailable for selected sigil tier'];
         }
+        $catalogByTier = BoostCatalog::normalize($catalogByTier);
+        $resolvedBoostId = (int)$catalogByTier['boost_id'];
+        $resolvedBoostName = (string)($catalogByTier['name'] ?? ('Tier ' . $sigilTier . ' Boost'));
 
         // Get participation
         $participation = $db->fetch(
@@ -1023,18 +1024,18 @@ class Actions {
         );
 
         // Check sigil inventory for the selected spend tier.
-        $sigilCol = "sigils_t{$sigilTierToConsume}";
+        $sigilCol = "sigils_t{$sigilTier}";
         if ((int)$participation[$sigilCol] < $sigilCost) {
-            return ['error' => "Insufficient Tier {$sigilTierToConsume} Sigils. Need {$sigilCost}, have {$participation[$sigilCol]}"];
+            return ['error' => "Insufficient Tier {$sigilTier} Sigils. Need {$sigilCost}, have {$participation[$sigilCol]}"];
         }
 
-        // Load currently-active boost rows (legacy-safe; collapse multiple rows).
+        // Load currently-active SELF boost rows (legacy-safe; collapse to one canonical row).
         $gameTime = GameTime::now();
         $activeRows = $db->fetchAll(
             "SELECT * FROM active_boosts
-             WHERE player_id = ? AND season_id = ? AND boost_id = ? AND is_active = 1 AND expires_tick >= ?
+             WHERE player_id = ? AND season_id = ? AND scope = 'SELF' AND is_active = 1 AND expires_tick >= ?
              ORDER BY expires_tick DESC, id ASC",
-            [$playerId, $seasonId, $boostId, $gameTime]
+            [$playerId, $seasonId, $gameTime]
         );
 
         $active = count($activeRows) > 0 ? $activeRows[0] : null;
@@ -1054,72 +1055,69 @@ class Actions {
         );
         $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
 
-        $currentModifier = (int)($active['modifier_fp'] ?? 0);
-        $currentStacks = (int)ceil(max(0, $currentModifier) / max(1, $baseModifierFp));
-        $currentStacks = max(0, min($maxStack, $currentStacks));
+        $currentModifier = max(0, (int)($active['modifier_fp'] ?? 0));
+        $currentExpiresTick = max($gameTime, (int)($active['expires_tick'] ?? 0));
+        $maxExpiresTick = $gameTime + $timeCapTicks;
 
-        if ($purchaseKind === 'time' && !$active) {
-            return ['error' => 'Activate boost power first before purchasing additional time'];
+        if ($active && $purchaseKind === 'power') {
+            $projectedModifier = min($totalPowerCapFp, $currentModifier + $powerIncrementFp);
+            $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $projectedModifier;
+            if ($projectedCombinedFp > $totalPowerCapFp || $projectedModifier <= $currentModifier) {
+                return ['error' => 'Total boost cap reached (500% combined)'];
+            }
         }
-        if ($purchaseKind === 'power' && $currentModifier >= $perProductPowerCapFp) {
-            return ['error' => 'Maximum boost power reached for this product (100%)'];
-        }
-        if ($purchaseKind === 'time' && $active) {
-            $currentExpiresTick = max($gameTime, (int)$active['expires_tick']);
-            $maxExpiresTick = $gameTime + $perProductTimeCapTicks;
-            $extendTicks = max(1, $timeExtensionTicks);
-            if ($currentExpiresTick >= $maxExpiresTick || ($currentExpiresTick + $extendTicks) > $maxExpiresTick) {
-                return ['error' => 'Maximum boost time reached for this product (48h)'];
+        if ($active && $purchaseKind === 'time') {
+            if ($currentExpiresTick >= $maxExpiresTick) {
+                return ['error' => 'Maximum boost time reached (48h)'];
             }
         }
         
         $db->beginTransaction();
         try {
-            // Consume sigil cost for either power or time purchase.
+            // Consume sigil for this spend.
             $db->query(
                 "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - ? WHERE player_id = ? AND season_id = ?",
                 [$sigilCost, $playerId, $seasonId]
             );
 
-            if ($purchaseKind === 'power') {
-                $newModifier = min($perProductPowerCapFp, $currentModifier + $baseModifierFp);
+            if (!$active) {
+                $newModifier = $initialPowerFp;
+                $expiresTick = $gameTime + $initialDurationTicks;
                 $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $newModifier;
                 if ($projectedCombinedFp > $totalPowerCapFp) {
                     throw new Exception('Total boost cap reached (500% combined)');
                 }
 
-                if ($active) {
-                    $db->query(
-                        "UPDATE active_boosts
-                         SET modifier_fp = ?, activated_tick = ?, is_active = 1
-                         WHERE id = ?",
-                        [$newModifier, $gameTime, (int)$active['id']]
-                    );
-                    $expiresTick = (int)$active['expires_tick'];
-                } else {
-                    $expiresTick = $gameTime + $durationTicks;
-                    $db->query(
-                        "INSERT INTO active_boosts (player_id, season_id, boost_id, scope, modifier_fp, activated_tick, expires_tick, is_active)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
-                        [$playerId, $seasonId, $boostId, $scope, $baseModifierFp, $gameTime, $expiresTick]
-                    );
-                    $newModifier = $baseModifierFp;
-                }
+                $db->query(
+                    "INSERT INTO active_boosts (player_id, season_id, boost_id, scope, modifier_fp, activated_tick, expires_tick, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+                    [$playerId, $seasonId, $resolvedBoostId, $scope, $newModifier, $gameTime, $expiresTick]
+                );
             } else {
-                // Grant exactly the catalog-listed extension. Do NOT multiply by power stack —
-                // the player is purchasing the flat amount shown on the purchase button.
-                $extendTicks = max(1, $timeExtensionTicks);
-                $expiresTick = max((int)$active['expires_tick'], $gameTime) + $extendTicks;
-                $newModifier = (int)$active['modifier_fp'];
+                if ($purchaseKind === 'power') {
+                    $newModifier = min($totalPowerCapFp, $currentModifier + $powerIncrementFp);
+                    $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $newModifier;
+                    if ($projectedCombinedFp > $totalPowerCapFp || $newModifier <= $currentModifier) {
+                        throw new Exception('Total boost cap reached (500% combined)');
+                    }
+                    $expiresTick = $currentExpiresTick;
+                } else {
+                    $newModifier = $currentModifier;
+                    $expiresTick = min($maxExpiresTick, $currentExpiresTick + $timeIncrementTicks);
+                    if ($expiresTick <= $currentExpiresTick) {
+                        throw new Exception('Maximum boost time reached (48h)');
+                    }
+                }
+
                 $db->query(
                     "UPDATE active_boosts
-                     SET expires_tick = ?, activated_tick = ?, is_active = 1
+                     SET boost_id = ?, modifier_fp = ?, expires_tick = ?, activated_tick = ?, is_active = 1
                      WHERE id = ?",
-                    [$expiresTick, $gameTime, (int)$active['id']]
+                    [$resolvedBoostId, $newModifier, $expiresTick, $gameTime, (int)$active['id']]
                 );
             }
 
-            // Deactivate any legacy duplicates so each boost tier is unique per player.
+            // Deactivate legacy duplicate SELF rows.
             foreach ($extraRows as $row) {
                 $db->query("UPDATE active_boosts SET is_active = 0 WHERE id = ?", [(int)$row['id']]);
             }
@@ -1133,34 +1131,45 @@ class Actions {
             $db->commit();
             
             $scopeLabel = ($scope === 'GLOBAL') ? 'all players in the season' : 'you';
-            $newStacks = max(0, min($maxStack, (int)ceil(max(0, $newModifier) / max(1, $baseModifierFp))));
+            $modifierPercent = round($newModifier / 10000, 1);
+            $didInitialize = !$active;
             return [
                 'success' => true,
-                'boost_name' => $boost['name'],
+                'boost_name' => $resolvedBoostName,
+                'boost_id' => $resolvedBoostId,
                 'purchase_kind' => $purchaseKind,
                 'scope' => $scope,
-                'modifier_percent' => round($newModifier / 10000, 1),
-                'stack_count' => $newStacks,
-                'max_stack' => $maxStack,
-                'power_cap_fp' => $perProductPowerCapFp,
+                'sigil_tier' => $sigilTier,
+                'modifier_percent' => $modifierPercent,
+                'stack_count' => 0,
+                'max_stack' => 0,
+                'power_cap_fp' => $totalPowerCapFp,
                 'total_power_cap_fp' => $totalPowerCapFp,
-                'time_cap_ticks' => $perProductTimeCapTicks,
-                'duration_ticks' => $durationTicks,
-                'time_extension_ticks' => $timeExtensionTicks,
-                'time_extension_real_seconds' => $timeExtensionRealSeconds,
+                'time_cap_ticks' => $timeCapTicks,
+                'duration_ticks' => $didInitialize ? $initialDurationTicks : max(0, $expiresTick - $gameTime),
+                'time_extension_ticks' => $didInitialize ? $initialDurationTicks : ($purchaseKind === 'time' ? $timeIncrementTicks : 0),
+                'time_extension_real_seconds' => $didInitialize ? $initialDurationRealSeconds : ($purchaseKind === 'time' ? $timeIncrementRealSeconds : 0),
                 'expires_tick' => $expiresTick,
                 'sigils_consumed' => $sigilCost,
-                'tier_consumed' => $sigilTierToConsume,
-                'time_sigil_tier_used' => $timeTierUsed,
-                'message' => ($purchaseKind === 'power')
-                    ? "{$boost['name']} power purchased. Total UBI +" . round($newModifier / 10000, 1) . "% for {$scopeLabel}."
-                    : "{$boost['name']} timer extended using Tier {$sigilTierToConsume} sigil power."
+                'tier_consumed' => $sigilTier,
+                'time_sigil_tier_used' => ($purchaseKind === 'time') ? $sigilTier : null,
+                'initialized_from_inactive' => $didInitialize,
+                'message' => $didInitialize
+                    ? "Boost activated from Tier {$sigilTier}. Total UBI +{$modifierPercent}% for {$scopeLabel}."
+                    : (($purchaseKind === 'power')
+                        ? "Boost power increased by Tier {$sigilTier}. Total UBI +{$modifierPercent}% for {$scopeLabel}."
+                        : "Boost time extended by Tier {$sigilTier} sigil power.")
             ];
         } catch (Exception $e) {
             $db->rollback();
-            return ['error' => $e->getMessage() === 'Total boost cap reached (500% combined)'
-                ? 'Total boost cap reached (500% combined)'
-                : ('Boost activation failed: ' . $e->getMessage())];
+            $msg = $e->getMessage();
+            if ($msg === 'Total boost cap reached (500% combined)') {
+                return ['error' => 'Total boost cap reached (500% combined)'];
+            }
+            if ($msg === 'Maximum boost time reached (48h)') {
+                return ['error' => 'Maximum boost time reached (48h)'];
+            }
+            return ['error' => 'Boost activation failed: ' . $msg];
         }
     }
 

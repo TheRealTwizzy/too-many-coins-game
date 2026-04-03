@@ -13,6 +13,24 @@ class BoostCatalog
     public const TOTAL_POWER_CAP_FP = 5000000; // 500%
     public const TIME_CAP_SECONDS_PER_PRODUCT = 48 * 60 * 60; // 48 hours
 
+    // Unified sigil spend effects (active boost already exists).
+    private const SPEND_EFFECTS_BY_TIER = [
+        1 => ['power_fp' => 50000,   'time_seconds' => 30 * 60],
+        2 => ['power_fp' => 100000,  'time_seconds' => 60 * 60],
+        3 => ['power_fp' => 250000,  'time_seconds' => 3 * 60 * 60],
+        4 => ['power_fp' => 500000,  'time_seconds' => 6 * 60 * 60],
+        5 => ['power_fp' => 1000000, 'time_seconds' => 12 * 60 * 60],
+    ];
+
+    // Initial values when no boost is active.
+    private const INITIAL_EFFECTS_BY_TIER = [
+        1 => ['power_fp' => 50000,   'duration_seconds' => 24 * 60 * 60],
+        2 => ['power_fp' => 100000,  'duration_seconds' => 12 * 60 * 60],
+        3 => ['power_fp' => 250000,  'duration_seconds' => 6 * 60 * 60],
+        4 => ['power_fp' => 500000,  'duration_seconds' => 3 * 60 * 60],
+        5 => ['power_fp' => 1000000, 'duration_seconds' => 60 * 60],
+    ];
+
     /**
      * Canonical boost definitions keyed by tier.
      * Durations are expressed in real seconds, then converted to ticks via
@@ -93,6 +111,59 @@ class BoostCatalog
     public static function hasTier(int $tier): bool
     {
         return isset(self::DEFINITIONS[$tier]);
+    }
+
+    public static function canSpendSigilTier(int $tier): bool
+    {
+        return isset(self::SPEND_EFFECTS_BY_TIER[$tier]);
+    }
+
+    public static function getSpendPowerFpForTier(int $tier): int
+    {
+        if (!isset(self::SPEND_EFFECTS_BY_TIER[$tier])) {
+            return 0;
+        }
+        return (int)self::SPEND_EFFECTS_BY_TIER[$tier]['power_fp'];
+    }
+
+    public static function getSpendTimeTicksForTier(int $tier): int
+    {
+        if (!isset(self::SPEND_EFFECTS_BY_TIER[$tier])) {
+            return 0;
+        }
+        return ticks_from_real_seconds((int)self::SPEND_EFFECTS_BY_TIER[$tier]['time_seconds']);
+    }
+
+    public static function getSpendTimeRealSecondsForTier(int $tier): int
+    {
+        if (!isset(self::SPEND_EFFECTS_BY_TIER[$tier])) {
+            return 0;
+        }
+        return (int)self::SPEND_EFFECTS_BY_TIER[$tier]['time_seconds'];
+    }
+
+    public static function getInitialPowerFpForTier(int $tier): int
+    {
+        if (!isset(self::INITIAL_EFFECTS_BY_TIER[$tier])) {
+            return 0;
+        }
+        return (int)self::INITIAL_EFFECTS_BY_TIER[$tier]['power_fp'];
+    }
+
+    public static function getInitialDurationTicksForTier(int $tier): int
+    {
+        if (!isset(self::INITIAL_EFFECTS_BY_TIER[$tier])) {
+            return 0;
+        }
+        return ticks_from_real_seconds((int)self::INITIAL_EFFECTS_BY_TIER[$tier]['duration_seconds']);
+    }
+
+    public static function getInitialDurationRealSecondsForTier(int $tier): int
+    {
+        if (!isset(self::INITIAL_EFFECTS_BY_TIER[$tier])) {
+            return 0;
+        }
+        return (int)self::INITIAL_EFFECTS_BY_TIER[$tier]['duration_seconds'];
     }
 
     public static function getTimeExtensionTicksForTier(int $tier): int

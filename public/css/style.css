@@ -814,6 +814,16 @@ a:hover { text-decoration: underline; }
     background: var(--bg-tertiary);
 }
 
+.sigil-item.is-clickable {
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.sigil-item.is-clickable:hover {
+    border-color: var(--border-light);
+    transform: translateY(-1px);
+}
+
 .sigil-tier {
     font-size: 0.6rem;
     font-weight: 700;
@@ -836,6 +846,19 @@ a:hover { text-decoration: underline; }
     margin-top: 0.9rem;
     padding-top: 0.75rem;
     border-top: 1px solid rgba(42,53,80,0.8);
+}
+
+.sigil-action-picker {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(42,53,80,0.8);
+}
+
+.sigil-action-picker h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-blue-light);
+    margin-bottom: 0.25rem;
 }
 
 .sigil-vault-section h4 {
