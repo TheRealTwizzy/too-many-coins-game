@@ -220,7 +220,7 @@ define('SIGIL_COMBINE_RECIPES', [
     2 => 5,
     3 => 3,
     4 => 3,
-    5 => 3,
+    5 => 2,
 ]);
 
 // Tier-odds scaling by sigil power. Tier 6 is intentionally excluded from RNG drops.
