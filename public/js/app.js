@@ -912,7 +912,7 @@ const TMC = {
                                     </div>
                                 `).join('')}
                             </div>
-                            <div class="sigil-side-actions active">
+                            <div class="sigil-side-actions ${this._selectedSigilActionTier ? 'active' : 'inactive'}">
                                 <button class="btn btn-sm btn-primary"
                                     onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'power')"
                                     ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>+Power</button>
