@@ -803,6 +803,32 @@ a:hover { text-decoration: underline; }
     flex-wrap: wrap;
 }
 
+.sigil-inventory-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.55rem;
+}
+
+.sigil-inventory-row .sigil-display {
+    flex: 1;
+}
+
+.sigil-side-actions {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 88px;
+}
+
+.sigil-side-actions.active {
+    display: flex;
+}
+
+.sigil-side-actions .btn {
+    width: 100%;
+}
+
 .sigil-item {
     display: flex;
     flex-direction: column;
@@ -829,14 +855,44 @@ a:hover { text-decoration: underline; }
     box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
 }
 
-.sigil-card-actions {
-    margin-top: 0.35rem;
-    display: flex;
-    gap: 0.25rem;
-}
+@media (max-width: 760px) {
+    .sigil-inventory-row {
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
 
-.sigil-card-actions .btn {
-    padding: 0.2rem 0.45rem;
+    .sigil-inventory-row .sigil-display {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 0.25rem;
+    }
+
+    .sigil-side-actions {
+        min-width: 68px;
+        gap: 0.25rem;
+    }
+
+    .sigil-side-actions .btn {
+        font-size: 0.62rem;
+        padding: 0.22rem 0.3rem;
+    }
+
+    .sigil-item {
+        min-width: 40px;
+        padding: 0.35rem 0.35rem;
+    }
+
+    .sigil-tier {
+        font-size: 0.52rem;
+    }
+
+    .sigil-count {
+        font-size: 0.85rem;
+    }
+
+    .sigil-rate {
+        font-size: 0.5rem;
+    }
 }
 
 .sigil-tier {

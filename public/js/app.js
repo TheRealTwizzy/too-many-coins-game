@@ -901,21 +901,23 @@ const TMC = {
                         <h3>Sigils</h3>
                         <p class="panel-info">Drop chance per eligible tick: <strong>${this.truncatePercent(sigilBasePercent)}%</strong></p>
                         <p class="panel-info">Sigil cap: ${part.sigils_total}/${(part.sigil_caps && part.sigil_caps.total) ? part.sigil_caps.total : 25}</p>
-                        <div class="sigil-display">
-                            ${this.getVisibleSigils(part).map((sigil) => `
-                                <div class="sigil-item tier-${sigil.tier} ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? 'is-clickable' : ''} ${this._selectedSigilActionTier === sigil.tier ? 'is-selected' : ''}"
-                                    ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `onclick="TMC.openSigilActionPicker(${sigil.tier})"` : ''}>
-                                    <span class="sigil-tier">T${sigil.tier}</span>
-                                    <span class="sigil-count">${sigil.count}</span>
-                                    ${sigil.tier <= 5 ? `<span class="sigil-rate">${this.truncatePercent(sigilRateByTier[sigil.tier] || 0)}%</span>` : '<span class="sigil-rate">Crafted only</span>'}
-                                    ${this._selectedSigilActionTier === sigil.tier && sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `
-                                        <div class="sigil-card-actions">
-                                            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); TMC.spendSigilBoostGated(${sigil.tier}, 'power')">+Power</button>
-                                            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); TMC.spendSigilBoostGated(${sigil.tier}, 'time')">+Time</button>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            `).join('')}
+                        <div class="sigil-inventory-row">
+                            <div class="sigil-display">
+                                ${this.getVisibleSigils(part).map((sigil) => `
+                                    <div class="sigil-item tier-${sigil.tier} ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? 'is-clickable' : ''} ${this._selectedSigilActionTier === sigil.tier ? 'is-selected' : ''}"
+                                        ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `onclick="TMC.openSigilActionPicker(${sigil.tier})"` : ''}>
+                                        <span class="sigil-tier">T${sigil.tier}</span>
+                                        <span class="sigil-count">${sigil.count}</span>
+                                        ${sigil.tier <= 5 ? `<span class="sigil-rate">${this.truncatePercent(sigilRateByTier[sigil.tier] || 0)}%</span>` : '<span class="sigil-rate">Crafted only</span>'}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="sigil-side-actions ${this._selectedSigilActionTier && !isBlackout ? 'active' : ''}">
+                                ${this._selectedSigilActionTier && !isBlackout ? `
+                                    <button class="btn btn-sm btn-primary" onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier}, 'power')">+Power</button>
+                                    <button class="btn btn-sm btn-outline" onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier}, 'time')">+Time</button>
+                                ` : ''}
+                            </div>
                         </div>
                         <div class="sigil-combine-section">
                             <h4>Sigil Forge</h4>
