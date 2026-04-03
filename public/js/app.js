@@ -310,17 +310,22 @@ const TMC = {
         return boost.id !== undefined ? boost.id : boost.boost_id;
     },
 
+    _getPrimaryBoost() {
+        const boosts = this.state.player && this.state.player.active_boosts;
+        if (!boosts || !Array.isArray(boosts.self) || boosts.self.length === 0) return null;
+        return boosts.self[0] || null;
+    },
+
     syncBoostCountdowns() {
-        const p = this.state.player;
-        if (!p || !p.active_boosts) { this.state.boostCountdowns = {}; return; }
-        const allBoosts = [...(p.active_boosts.self || []), ...(p.active_boosts.global || [])];
-        allBoosts.forEach(b => {
-            const key = this._getBoostKey(b);
-            if (key === undefined || key === null) return;
-            this.state.boostCountdowns[key] = {
-                expiresAtReal: parseInt(b.expires_at_real) || 0
-            };
-        });
+        const activeBoost = this._getPrimaryBoost();
+        this.state.boostCountdowns = {};
+        if (!activeBoost) return;
+
+        const key = this._getBoostKey(activeBoost);
+        if (key === undefined || key === null) return;
+        this.state.boostCountdowns[key] = {
+            expiresAtReal: parseInt(activeBoost.expires_at_real) || 0
+        };
     },
 
     syncFreezeCountdown() {
@@ -382,15 +387,14 @@ const TMC = {
     // Called every second by the realtime interval to update boost remaining-
     // time labels without a full re-render.
     _tickBoostCountdowns() {
-        const p = this.state.player;
-        if (!p || !p.active_boosts) return;
-        const allBoosts = [...(p.active_boosts.self || []), ...(p.active_boosts.global || [])];
-        allBoosts.forEach(b => {
-            const key = this._getBoostKey(b);
-            const el = document.querySelector(`.active-boost-item[data-boost-id="${key}"] .ab-time`);
-            if (!el) return;
-            el.textContent = this._formatBoostTimeLeft(this.getLiveBoostRemainingSeconds(b));
-        });
+        const activeBoost = this._getPrimaryBoost();
+        if (!activeBoost) return;
+
+        const key = this._getBoostKey(activeBoost);
+        const el = document.querySelector(`.active-boost-item[data-boost-id="${key}"] .ab-time`);
+        if (el) {
+            el.textContent = this._formatBoostTimeLeft(this.getLiveBoostRemainingSeconds(activeBoost));
+        }
 
         this._tickTimePurchaseBoostSelector();
     },
@@ -545,7 +549,7 @@ const TMC = {
         }
 
         // Boost total modifier only
-        const boosts = p.active_boosts || { self: [], global: [], total_modifier_percent: 0 };
+        const boosts = p.active_boosts || { self: [], total_modifier_percent: 0 };
         const totalBoostPercent = Number(boosts.total_modifier_percent || 0);
         const boostEl = document.getElementById('hud-boosts');
         if (boostEl) {
@@ -950,6 +954,11 @@ const TMC = {
                         ` : ''}
                     </div>
 
+                    <div class="action-panel">
+                        <h3>Active Effects</h3>
+                        <div id="active-boosts-display"></div>
+                    </div>
+
                     <!-- Lock-In Panel -->
                     <div class="action-panel panel-lockin">
                         <h3>Lock-In</h3>
@@ -1335,11 +1344,9 @@ const TMC = {
         }
 
         const activeSelfBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.self)) ? p.active_boosts.self : [];
-        const activeGlobalBoosts = (p && p.active_boosts && Array.isArray(p.active_boosts.global)) ? p.active_boosts.global : [];
         const nowTick = parseInt((p && p.active_boosts && p.active_boosts.server_now) || 0, 10) || 0;
-        const totalActiveModifierFp = [...activeSelfBoosts, ...activeGlobalBoosts].reduce((sum, ab) => {
-            return sum + (parseInt(ab.modifier_fp, 10) || 0);
-        }, 0);
+        const activeBoost = activeSelfBoosts[0] || null;
+        const totalActiveModifierFp = activeBoost ? (parseInt(activeBoost.modifier_fp, 10) || 0) : 0;
         const tierIcons = ['', '&#9672;', '&#9670;', '&#9733;', '&#10038;', '&#9830;'];
 
         const purchaseCards = this._boostCatalog.map(b => {
@@ -1789,7 +1796,7 @@ const TMC = {
         const boosts = p ? p.active_boosts : null;
         const freeze = p && p.participation ? p.participation.freeze : null;
         const isFrozen = !!(freeze && freeze.is_frozen);
-        if (!boosts || (((boosts.self || []).length === 0 && (boosts.global || []).length === 0) && !isFrozen)) {
+        if (!boosts || ((boosts.self || []).length === 0 && !isFrozen)) {
             container.innerHTML = '<p class="empty-text">No active boosts.</p>';
             return;
         }
@@ -1809,52 +1816,22 @@ const TMC = {
             return fallbackTier >= 1 && fallbackTier <= 5 ? `tier-${fallbackTier}` : '';
         };
 
-        const sortBoostsByTier = (items) => {
-            const ranked = Array.isArray(items) ? [...items] : [];
-            const getTierRank = (boost) => {
-                const directTier = parseInt(boost.tier_required, 10) || 0;
-                if (directTier >= 1 && directTier <= 5) return directTier;
-                const boostId = parseInt(boost.boost_id, 10) || 0;
-                const catalogBoost = Array.isArray(this._boostCatalog)
-                    ? this._boostCatalog.find((cb) => (parseInt(cb.boost_id, 10) || 0) === boostId)
-                    : null;
-                const fallbackTier = catalogBoost ? (parseInt(catalogBoost.tier_required, 10) || 0) : 0;
-                return fallbackTier >= 1 && fallbackTier <= 5 ? fallbackTier : 99;
-            };
-
-            ranked.sort((a, b) => {
-                const aTier = getTierRank(a);
-                const bTier = getTierRank(b);
-                if (aTier !== bTier) return aTier - bTier;
-
-                const aName = this.getBoostDisplayName(a.name).toLowerCase();
-                const bName = this.getBoostDisplayName(b.name).toLowerCase();
-                return aName.localeCompare(bName);
-            });
-            return ranked;
-        };
-
-        const renderBoost = (b, type) => {
+        const renderBoost = (b) => {
             const remainingSeconds = this.getLiveBoostRemainingSeconds(b);
             const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
             const timeLeft = this._formatBoostTimeLeft(remainingSeconds);
             const displayName = this.getBoostDisplayName(b.name);
             const boostKey = this._getBoostKey(b);
             const tierClass = tierClassForBoost(b);
-            return `<div class="active-boost-item ${type} ${tierClass}" data-boost-id="${boostKey}">
+            return `<div class="active-boost-item self ${tierClass}" data-boost-id="${boostKey}">
                 <span class="ab-name">${this.escapeHtml(displayName)}</span>
                 <span class="ab-mod">+${modPercent}%</span>
                 <span class="ab-time">${timeLeft}</span>
-                ${type === 'global' ? `<span class="ab-by">by ${this.escapeHtml(b.activator_handle || '')}</span>` : ''}
             </div>`;
         };
 
         if (boosts.self.length > 0) {
-            const orderedSelf = sortBoostsByTier(boosts.self);
-            html += '<div class="ab-section"><h4>Your Boosts</h4>' + orderedSelf.map(b => renderBoost(b, 'self')).join('') + '</div>';
-        }
-        if (boosts.global.length > 0) {
-            html += '<div class="ab-section"><h4>Season-Wide Boosts</h4>' + boosts.global.map(b => renderBoost(b, 'global')).join('') + '</div>';
+            html += '<div class="ab-section"><h4>Active Boost</h4>' + renderBoost(boosts.self[0]) + '</div>';
         }
         if (isFrozen) {
             const freezeTime = this._formatFreezeTimeLeft(this.getLiveFreezeRemainingSeconds());

@@ -852,13 +852,13 @@ class Actions {
             $currentBoostTotalFp += max(0, (int)($row['modifier_fp'] ?? 0));
         }
 
-        $combinedRow = $db->fetch(
-            "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
-             FROM active_boosts
-             WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
-               AND ((scope = 'SELF' AND player_id = ?) OR scope = 'GLOBAL')",
-            [$seasonId, $gameTime, $playerId]
-        );
+            $combinedRow = $db->fetch(
+                "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
+                 FROM active_boosts
+                 WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
+                   AND scope = 'SELF' AND player_id = ?",
+                [$seasonId, $gameTime, $playerId]
+            );
         $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
 
         $currentModifier = max(0, (int)($active['modifier_fp'] ?? 0));

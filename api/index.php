@@ -879,16 +879,8 @@ function getLeaderboard($seasonId, int $limit = 0) {
                         COALESCE(sp.placement_bonus, 0) AS placement_bonus,
                         p.activity_state, p.online_current,
                         COALESCE(frz.is_frozen, 0) AS is_frozen,
-                        ROUND(
-                            LEAST(
-                                COALESCE(self_b.self_fp, 0) + glob_b.global_fp,
-                                4000000
-                            ) / 10000, 1
-                        ) AS boost_pct
-                        , LEAST(
-                            COALESCE(self_b.self_fp, 0) + glob_b.global_fp,
-                            4000000
-                        ) AS boost_mod_fp
+                        ROUND(LEAST(COALESCE(self_b.self_fp, 0), 4000000) / 10000, 1) AS boost_pct
+                        , LEAST(COALESCE(self_b.self_fp, 0), 4000000) AS boost_mod_fp
                  FROM players p
                  LEFT JOIN season_participation sp ON sp.player_id = p.player_id AND sp.season_id = ?
                  LEFT JOIN (
@@ -902,17 +894,12 @@ function getLeaderboard($seasonId, int $limit = 0) {
                      FROM active_freezes
                      WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
                      GROUP BY target_player_id
-                 ) frz ON frz.player_id = p.player_id
-                 CROSS JOIN (
-                     SELECT COALESCE(SUM(modifier_fp), 0) AS global_fp
-                     FROM active_boosts
-                     WHERE season_id = ? AND is_active = 1 AND scope = 'GLOBAL' AND expires_tick >= ?
-                  ) glob_b
+                                 ) frz ON frz.player_id = p.player_id
                   WHERE p.joined_season_id = ? AND p.participation_enabled = 1
                   ORDER BY COALESCE(sp.seasonal_stars, 0) DESC, p.player_id ASC{$limitClause}",
                 $limit > 0
-                    ? [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                    : [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
+                                        ? [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
+                                        : [$seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
             );
             if (empty($rows)) {
                 $rows = $db->fetchAll(
@@ -929,16 +916,8 @@ function getLeaderboard($seasonId, int $limit = 0) {
                             COALESCE(sp.placement_bonus, 0) AS placement_bonus,
                             p.activity_state, p.online_current,
                             COALESCE(frz.is_frozen, 0) AS is_frozen,
-                            ROUND(
-                                LEAST(
-                                    COALESCE(self_b.self_fp, 0) + glob_b.global_fp,
-                                    4000000
-                                ) / 10000, 1
-                            ) AS boost_pct
-                            , LEAST(
-                                COALESCE(self_b.self_fp, 0) + glob_b.global_fp,
-                                4000000
-                            ) AS boost_mod_fp
+                            ROUND(LEAST(COALESCE(self_b.self_fp, 0), 4000000) / 10000, 1) AS boost_pct
+                            , LEAST(COALESCE(self_b.self_fp, 0), 4000000) AS boost_mod_fp
                      FROM season_participation sp
                      JOIN players p ON p.player_id = sp.player_id
                      LEFT JOIN (
@@ -953,16 +932,11 @@ function getLeaderboard($seasonId, int $limit = 0) {
                          WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
                          GROUP BY target_player_id
                      ) frz ON frz.player_id = p.player_id
-                     CROSS JOIN (
-                         SELECT COALESCE(SUM(modifier_fp), 0) AS global_fp
-                         FROM active_boosts
-                         WHERE season_id = ? AND is_active = 1 AND scope = 'GLOBAL' AND expires_tick >= ?
-                     ) glob_b
                      WHERE sp.season_id = ?
                      ORDER BY COALESCE(sp.seasonal_stars, 0) DESC, sp.player_id ASC{$limitClause}",
                     $limit > 0
-                        ? [$seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                        : [$seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
+                        ? [$seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
+                        : [$seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
                 );
             }
         } elseif ($hasFreezeTable) {
@@ -1370,7 +1344,16 @@ function resolveBoostSigilTierFromInput(array $input, int $boostId = 0): int {
 
 function getActiveBoosts($player) {
     $db = Database::getInstance();
-    if (!$player['joined_season_id']) return ['self' => [], 'global' => []];
+    if (!$player['joined_season_id']) {
+        return [
+            'self' => [],
+            'global' => [],
+            'total_modifier_fp' => 0,
+            'total_modifier_percent' => 0,
+            'server_now' => GameTime::now(),
+            'server_real_now' => time(),
+        ];
+    }
     
     $gameTime = GameTime::now();
     $serverNowUnix = time();
@@ -1381,18 +1364,9 @@ function getActiveBoosts($player) {
          FROM active_boosts ab
          JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
          WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?
-         ORDER BY ab.expires_tick ASC",
+         ORDER BY ab.expires_tick DESC, ab.id ASC
+         LIMIT 1",
         [$player['player_id'], $seasonId, $gameTime]
-    );
-    
-    $globalBoosts = $db->fetchAll(
-        "SELECT ab.*, bc.name, bc.description, bc.tier_required, bc.icon, p.handle as activator_handle
-         FROM active_boosts ab
-         JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
-         JOIN players p ON p.player_id = ab.player_id
-         WHERE ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'GLOBAL' AND ab.expires_tick >= ?
-         ORDER BY ab.expires_tick ASC",
-        [$seasonId, $gameTime]
     );
     
     // Annotate each boost with wall-clock expiry data for client-side real-time countdown.
@@ -1409,23 +1383,16 @@ function getActiveBoosts($player) {
         $b['remaining_real_seconds'] = max(0, $expiresAtReal - $serverNowUnix);
     }
     unset($b);
-    foreach ($globalBoosts as &$b) {
-        $b = BoostCatalog::normalize($b);
-        $expiresAtReal = GameTime::tickStartRealUnix((int)$b['expires_tick'] + 1);
-        $b['expires_at_real'] = $expiresAtReal;
-        $b['remaining_real_seconds'] = max(0, $expiresAtReal - $serverNowUnix);
-    }
-    unset($b);
     
     // Calculate total modifier
     $totalModFp = 0;
     foreach ($selfBoosts as $b) $totalModFp += (int)$b['modifier_fp'];
-    foreach ($globalBoosts as $b) $totalModFp += (int)$b['modifier_fp'];
     $totalModFp = min($totalModFp, BoostCatalog::TOTAL_POWER_CAP_FP); // Cap at 500% bonus
     
     return [
         'self' => $selfBoosts,
-        'global' => $globalBoosts,
+        // Compatibility field retained, always empty under SELF-only boost rules.
+        'global' => [],
         'total_modifier_fp' => $totalModFp,
         'total_modifier_percent' => round($totalModFp / 10000, 1),
         'server_now' => $gameTime,
@@ -1898,7 +1865,7 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
         "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
          FROM active_boosts
          WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
-           AND ((scope = 'SELF' AND player_id = ?) OR scope = 'GLOBAL')",
+           AND scope = 'SELF' AND player_id = ?",
         [$seasonId, $gameTime, $playerId]
     );
     $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));

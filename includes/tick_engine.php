@@ -123,8 +123,6 @@ class TickEngine {
             self::expireBoosts($seasonId, $gameTime);
             self::expireFreezes($seasonId, $gameTime);
             
-            // Get active global boosts for UBI modifier calculation
-            $globalBoosts = self::getActiveGlobalBoosts($seasonId, $gameTime);
             $playerSelfBoosts = self::getActivePlayerBoostsByIds($participantIds, $seasonId, $gameTime);
             $frozenPlayers = self::getFrozenPlayerSetByIds($participantIds, $seasonId, $gameTime);
             
@@ -138,7 +136,7 @@ class TickEngine {
                 
                 // Compute boost modifier once per player; used for both sigil drops and UBI.
                 $selfBoosts = $playerSelfBoosts[(int)$playerId] ?? [];
-                $boostModFp = self::calculateBoostModifier($selfBoosts, $globalBoosts);
+                $boostModFp = self::calculateBoostModifier($selfBoosts);
                 $isFrozen = !empty($frozenPlayers[(int)$playerId]);
                 
                 // Phase 3: Sigil drop evaluation (not on last-valid or expiration)
@@ -448,20 +446,6 @@ class TickEngine {
     }
     
     /**
-     * Get active global boosts for a season
-     */
-    private static function getActiveGlobalBoosts($seasonId, $gameTime) {
-        $db = Database::getInstance();
-        return $db->fetchAll(
-            "SELECT ab.*, bc.name, bc.tier_required, bc.modifier_fp as catalog_modifier_fp
-             FROM active_boosts ab
-             JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
-             WHERE ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'GLOBAL' AND ab.expires_tick >= ?",
-            [$seasonId, $gameTime]
-        );
-    }
-    
-    /**
      * Get active self boosts for a specific player
      */
     private static function getActivePlayerBoosts($playerId, $seasonId, $gameTime) {
@@ -470,7 +454,9 @@ class TickEngine {
             "SELECT ab.*, bc.name, bc.tier_required, bc.modifier_fp as catalog_modifier_fp
              FROM active_boosts ab
              JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
-             WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?",
+             WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?
+             ORDER BY ab.expires_tick DESC, ab.id ASC
+             LIMIT 1",
             [$playerId, $seasonId, $gameTime]
         );
     }
@@ -498,17 +484,16 @@ class TickEngine {
                AND ab.season_id = ?
                AND ab.is_active = 1
                AND ab.scope = 'SELF'
-               AND ab.expires_tick >= ?",
+                             AND ab.expires_tick >= ?
+                         ORDER BY ab.player_id ASC, ab.expires_tick DESC, ab.id ASC",
             $params
         );
 
         $byPlayer = [];
         foreach ($rows as $row) {
             $pid = (int)$row['player_id'];
-            if (!isset($byPlayer[$pid])) {
-                $byPlayer[$pid] = [];
-            }
-            $byPlayer[$pid][] = $row;
+            if (isset($byPlayer[$pid])) continue;
+            $byPlayer[$pid] = [$row];
         }
 
         return $byPlayer;
@@ -551,14 +536,10 @@ class TickEngine {
      * Calculate total boost modifier (fixed-point) from active boosts
      * Returns the sum of all modifier_fp values (to be added to FP_SCALE for multiplier)
      */
-    private static function calculateBoostModifier($selfBoosts, $globalBoosts) {
+    private static function calculateBoostModifier($selfBoosts) {
         $totalMod = 0;
         
         foreach ($selfBoosts as $b) {
-            $b = BoostCatalog::normalize($b);
-            $totalMod += (int)$b['modifier_fp'];
-        }
-        foreach ($globalBoosts as $b) {
             $b = BoostCatalog::normalize($b);
             $totalMod += (int)$b['modifier_fp'];
         }
