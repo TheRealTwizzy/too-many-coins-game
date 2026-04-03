@@ -153,10 +153,10 @@ class GameTime {
                 
                 $starpriceTable = json_encode([
                     ['m' => 0, 'price' => 100],
-                    ['m' => 25000, 'price' => 300],
-                    ['m' => 100000, 'price' => 900],
-                    ['m' => 500000, 'price' => 3200],
-                    ['m' => 2000000, 'price' => 11000]
+                    ['m' => 25000, 'price' => 220],
+                    ['m' => 100000, 'price' => 520],
+                    ['m' => 500000, 'price' => 1600],
+                    ['m' => 2000000, 'price' => 4200]
                 ]);
                 
                 $tradeFeeTiers = json_encode([
@@ -186,7 +186,7 @@ class GameTime {
                      vault_config, current_star_price, last_processed_tick)
                      VALUES (?, ?, ?, ?, 'Scheduled', 30, 250000, 1, ?, ?, 18, 90000,
                      0, 12, 20000, 50000, 200000, 200, 500, 1000, 350000, 1250000,
-                     ?, 12000, 250000, 0, 2000, 10000,
+                     ?, 6000, 0, 1, 1000, 12000,
                      ?, 10, ?, 100, ?)",
                     [$startTime, $endTime, $blackoutTime, $seed,
                      $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable, $tradeFeeTiers, $vaultConfig, $startTime]
@@ -423,10 +423,10 @@ class GameTime {
 
         $starpriceTable = json_encode([
             ['m' => 0, 'price' => 100],
-            ['m' => 25000, 'price' => 300],
-            ['m' => 100000, 'price' => 900],
-            ['m' => 500000, 'price' => 3200],
-            ['m' => 2000000, 'price' => 11000]
+            ['m' => 25000, 'price' => 220],
+            ['m' => 100000, 'price' => 520],
+            ['m' => 500000, 'price' => 1600],
+            ['m' => 2000000, 'price' => 4200]
         ]);
 
         $db->query(
@@ -447,8 +447,8 @@ class GameTime {
                  hoarding_window_ticks = ?,
                  inflation_table = ?,
                  starprice_table = ?,
-                 star_price_cap = 12000,
-                 current_star_price = GREATEST(current_star_price, 100)
+                                 star_price_cap = 6000,
+                                 current_star_price = LEAST(6000, GREATEST(current_star_price, 100))
              WHERE base_ubi_active_per_tick = 100
                AND target_spend_rate_per_tick = 50",
             [HOARDING_WINDOW_TICKS, $inflationTable, $starpriceTable]
