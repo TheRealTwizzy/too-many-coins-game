@@ -912,11 +912,13 @@ const TMC = {
                                     </div>
                                 `).join('')}
                             </div>
-                            <div class="sigil-side-actions ${this._selectedSigilActionTier && !isBlackout ? 'active' : ''}">
-                                ${this._selectedSigilActionTier && !isBlackout ? `
-                                    <button class="btn btn-sm btn-primary" onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier}, 'power')">+Power</button>
-                                    <button class="btn btn-sm btn-outline" onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier}, 'time')">+Time</button>
-                                ` : ''}
+                            <div class="sigil-side-actions active">
+                                <button class="btn btn-sm btn-primary"
+                                    onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'power')"
+                                    ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>+Power</button>
+                                <button class="btn btn-sm btn-outline"
+                                    onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'time')"
+                                    ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>+Time</button>
                             </div>
                         </div>
                         <div class="sigil-combine-section">

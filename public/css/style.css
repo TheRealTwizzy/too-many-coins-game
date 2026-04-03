@@ -814,11 +814,12 @@ a:hover { text-decoration: underline; }
 }
 
 .sigil-side-actions {
-    display: none;
+    display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 0.35rem;
-    min-width: 88px;
+    width: 88px;
+    flex: 0 0 88px;
 }
 
 .sigil-side-actions.active {
@@ -868,7 +869,8 @@ a:hover { text-decoration: underline; }
     }
 
     .sigil-side-actions {
-        min-width: 68px;
+        width: 68px;
+        flex: 0 0 68px;
         gap: 0.25rem;
     }
 
