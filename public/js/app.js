@@ -37,6 +37,7 @@ const TMC = {
     _globalSeasonalLeaderboardExpanded: false,
     _globalSeasonalLeaderboardPage: 1,
     _globalLeaderboardPage: 1,
+    _historyBound: false,
 
     // ==================== API ====================
     async api(action, data = {}) {
@@ -88,6 +89,8 @@ const TMC = {
 
     // ==================== INIT ====================
     async init() {
+        this._bindHistoryNavigation();
+
         // Check for stored session
         const token = localStorage.getItem('tmc_token');
         if (token) {
@@ -97,14 +100,22 @@ const TMC = {
         await this.refreshGameState();
         this.renderUserArea();
 
-        // Restore the last-visited route on refresh; fall back to home if
-        // the player is not logged in or the saved screen was the auth page.
+        // Route priority on boot: existing history state -> URL -> saved local
+        // route (logged-in only) -> home. We replace the current entry so the
+        // active tab always has a valid in-site history anchor.
+        const stateRoute = this._routeFromHistoryState(window.history.state);
+        const urlRoute = this._parseRouteFromUrl();
         const savedRoute = this._loadRoute();
-        if (savedRoute && savedRoute.screen && savedRoute.screen !== 'auth' && this.state.player) {
-            this.navigate(savedRoute.screen, savedRoute.data !== undefined ? savedRoute.data : null);
-        } else {
-            this.navigate('home');
+
+        let initialRoute = stateRoute || urlRoute;
+        if (!initialRoute && savedRoute && savedRoute.screen && savedRoute.screen !== 'auth' && this.state.player) {
+            initialRoute = { screen: savedRoute.screen, data: savedRoute.data !== undefined ? savedRoute.data : null };
         }
+        if (!initialRoute) {
+            initialRoute = { screen: 'home', data: null };
+        }
+
+        this.navigate(initialRoute.screen, initialRoute.data, { history: 'replace', source: 'init' });
 
         // Start polling
         this.startPolling();
@@ -184,7 +195,7 @@ const TMC = {
         this.renderUserArea();
 
         if (this.state.currentScreen === 'auth' && this.state.player) {
-            this.navigate('home');
+            this.navigate('home', null, { history: 'replace', source: 'auth-refresh' });
         }
 
         this.updateHUD();
@@ -225,7 +236,7 @@ const TMC = {
         }
         this.renderUserArea();
         localStorage.removeItem('tmc_route');
-        this.navigate('home');
+        this.navigate('home', null, { history: 'replace', source: 'login' });
     },
 
     async register(e) {
@@ -254,7 +265,7 @@ const TMC = {
         }
         this.renderUserArea();
         localStorage.removeItem('tmc_route');
-        this.navigate('home');
+        this.navigate('home', null, { history: 'replace', source: 'register' });
     },
 
     async logout() {
@@ -269,7 +280,7 @@ const TMC = {
         this.state.notificationsOpen = false;
         this.renderUserArea();
         this.updateNotificationUI();
-        this.navigate('home');
+        this.navigate('home', null, { history: 'replace', source: 'logout' });
         this.toast('Logged out.', 'info');
     },
 
@@ -298,9 +309,16 @@ const TMC = {
     },
 
     // ==================== NAVIGATION ====================
-    navigate(screen, data) {
+    navigate(screen, data, options = {}) {
+        const route = this._normalizeRoute(screen, data);
+        const historyMode = options.history || 'push';
+
+        screen = route.screen;
+        data = route.data;
+
         this.state.currentScreen = screen;
         this._saveRoute(screen, data);
+        this._syncBrowserHistory(screen, data, historyMode);
 
         // Hide all screens
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -357,24 +375,159 @@ const TMC = {
         }
     },
 
+    _bindHistoryNavigation() {
+        if (this._historyBound) return;
+        window.addEventListener('popstate', (event) => {
+            const route = this._routeFromHistoryState(event.state) || this._parseRouteFromUrl() || { screen: 'home', data: null };
+            this.navigate(route.screen, route.data, { history: 'none', source: 'popstate' });
+        });
+        this._historyBound = true;
+    },
+
+    _syncBrowserHistory(screen, data, mode) {
+        if (!window.history || mode === 'none') return;
+
+        const route = this._normalizeRoute(screen, data);
+        const url = this._buildRouteUrl(route.screen, route.data);
+        const stateObj = { tmcRoute: route };
+        const currentRoute = this._routeFromHistoryState(window.history.state);
+
+        if (currentRoute && this._routesEqual(currentRoute, route)) {
+            if (window.location.pathname + window.location.search !== url) {
+                window.history.replaceState(stateObj, '', url);
+            }
+            return;
+        }
+
+        if (mode === 'replace') {
+            window.history.replaceState(stateObj, '', url);
+            return;
+        }
+
+        window.history.pushState(stateObj, '', url);
+    },
+
+    _normalizeRoute(screen, data) {
+        const allowed = ['home', 'auth', 'seasons', 'season-detail', 'global-lb', 'shop', 'chat', 'profile', 'trade'];
+        const safeScreen = allowed.includes(screen) ? screen : 'home';
+
+        if (safeScreen === 'season-detail') {
+            const seasonId = parseInt(data, 10);
+            return Number.isFinite(seasonId) && seasonId > 0
+                ? { screen: safeScreen, data: seasonId }
+                : { screen: 'home', data: null };
+        }
+
+        if (safeScreen === 'profile') {
+            const playerId = parseInt(data, 10);
+            return Number.isFinite(playerId) && playerId > 0
+                ? { screen: safeScreen, data: playerId }
+                : { screen: 'home', data: null };
+        }
+
+        if (safeScreen === 'global-lb') {
+            const tab = data && data.tab === 'seasonal' ? 'seasonal' : null;
+            return tab ? { screen: safeScreen, data: { tab } } : { screen: safeScreen, data: null };
+        }
+
+        if (safeScreen === 'trade') {
+            const seasonId = parseInt(data && data.seasonId, 10);
+            const targetPlayerId = parseInt(data && data.targetPlayerId, 10);
+            if (Number.isFinite(seasonId) && seasonId > 0 && Number.isFinite(targetPlayerId) && targetPlayerId > 0) {
+                return { screen: safeScreen, data: { seasonId, targetPlayerId } };
+            }
+            return { screen: 'home', data: null };
+        }
+
+        return { screen: safeScreen, data: null };
+    },
+
+    _buildRouteUrl(screen, data) {
+        const route = this._normalizeRoute(screen, data);
+        const params = new URLSearchParams();
+
+        if (route.screen !== 'home') {
+            params.set('screen', route.screen);
+        }
+
+        if (route.screen === 'season-detail') {
+            params.set('seasonId', String(route.data));
+        } else if (route.screen === 'profile') {
+            params.set('playerId', String(route.data));
+        } else if (route.screen === 'global-lb' && route.data && route.data.tab === 'seasonal') {
+            params.set('tab', 'seasonal');
+        } else if (route.screen === 'trade' && route.data) {
+            params.set('seasonId', String(route.data.seasonId));
+            params.set('targetPlayerId', String(route.data.targetPlayerId));
+        }
+
+        const query = params.toString();
+        return window.location.pathname + (query ? '?' + query : '');
+    },
+
+    _parseRouteFromUrl() {
+        const params = new URLSearchParams(window.location.search || '');
+        const screen = params.get('screen') || 'home';
+
+        if (screen === 'season-detail') {
+            return this._normalizeRoute(screen, params.get('seasonId'));
+        }
+
+        if (screen === 'profile') {
+            return this._normalizeRoute(screen, params.get('playerId'));
+        }
+
+        if (screen === 'global-lb') {
+            const tab = params.get('tab');
+            return this._normalizeRoute(screen, tab === 'seasonal' ? { tab: 'seasonal' } : null);
+        }
+
+        if (screen === 'trade') {
+            return this._normalizeRoute(screen, {
+                seasonId: params.get('seasonId'),
+                targetPlayerId: params.get('targetPlayerId')
+            });
+        }
+
+        return this._normalizeRoute(screen, null);
+    },
+
+    _routeFromHistoryState(state) {
+        if (!state || !state.tmcRoute) return null;
+        const route = state.tmcRoute;
+        if (!route || !route.screen) return null;
+        return this._normalizeRoute(route.screen, route.data);
+    },
+
+    _routesEqual(a, b) {
+        if (!a || !b) return false;
+        if (a.screen !== b.screen) return false;
+        return JSON.stringify(a.data !== undefined ? a.data : null) === JSON.stringify(b.data !== undefined ? b.data : null);
+    },
+
     // ==================== ROUTE PERSISTENCE ====================
     // Save the current route to localStorage so page refresh returns the
     // player to the same screen they were on.  The 'auth' screen is never
     // persisted – on refresh an unauthenticated visitor always sees home.
     _saveRoute(screen, data) {
-        if (screen === 'auth') {
+        const route = this._normalizeRoute(screen, data);
+
+        if (route.screen === 'auth') {
             try { localStorage.removeItem('tmc_route'); } catch (e) {}
             return;
         }
         try {
-            localStorage.setItem('tmc_route', JSON.stringify({ screen, data: data !== undefined ? data : null }));
+            localStorage.setItem('tmc_route', JSON.stringify({ screen: route.screen, data: route.data !== undefined ? route.data : null }));
         } catch (e) {}
     },
 
     _loadRoute() {
         try {
             const raw = localStorage.getItem('tmc_route');
-            return raw ? JSON.parse(raw) : null;
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || !parsed.screen) return null;
+            return this._normalizeRoute(parsed.screen, parsed.data !== undefined ? parsed.data : null);
         } catch (e) { return null; }
     },
 
