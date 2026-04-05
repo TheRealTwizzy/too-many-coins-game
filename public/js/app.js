@@ -342,6 +342,17 @@ const TMC = {
         const bottomBtn = document.querySelector(`.bottom-nav-btn[data-screen="${screen}"]`);
         if (bottomBtn) bottomBtn.classList.add('active');
 
+        const homeBottomBtn = document.querySelector('.bottom-nav-btn[data-screen="home"]');
+        if (homeBottomBtn) {
+            const activeSeason = this.getActiveJoinedSeason();
+            const onDefaultHome = screen === 'home';
+            const onActiveSeasonDetail =
+                screen === 'season-detail'
+                && !!activeSeason
+                && Number(data) === Number(activeSeason.season_id);
+            homeBottomBtn.classList.toggle('home-context-active', onDefaultHome || onActiveSeasonDetail);
+        }
+
         // Scroll to top on screen change
         window.scrollTo(0, 0);
 
