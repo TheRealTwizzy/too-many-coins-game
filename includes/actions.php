@@ -1057,6 +1057,71 @@ class Actions {
     }
 
     /**
+     * Combine all available sigils, including chain reactions across tiers.
+     */
+    public static function combineAllSigils($playerId) {
+        $maxOperations = 500;
+        $operations = [];
+        $totalConsumed = 0;
+        $totalProduced = 0;
+        $operationCount = 0;
+
+        // Re-scan all source tiers until we complete a full pass with no combines.
+        while ($operationCount < $maxOperations) {
+            $didCombineThisPass = false;
+
+            foreach (SIGIL_COMBINE_RECIPES as $fromTier => $required) {
+                while ($operationCount < $maxOperations) {
+                    $result = self::combineSigils($playerId, (int)$fromTier);
+                    if (!empty($result['error'])) {
+                        break;
+                    }
+
+                    $didCombineThisPass = true;
+                    $operationCount++;
+
+                    $consumed = (int)($result['consumed'] ?? 0);
+                    $produced = (int)($result['produced'] ?? 0);
+                    $toTier = (int)($result['to_tier'] ?? ((int)$fromTier + 1));
+
+                    $totalConsumed += $consumed;
+                    $totalProduced += $produced;
+                    $operations[] = [
+                        'from_tier' => (int)$fromTier,
+                        'to_tier' => $toTier,
+                        'consumed' => $consumed,
+                        'produced' => $produced,
+                    ];
+                }
+            }
+
+            if (!$didCombineThisPass) {
+                break;
+            }
+        }
+
+        if ($operationCount === 0) {
+            return ['error' => 'No sigil combinations currently available'];
+        }
+
+        $summary = "Combined {$totalConsumed} sigils into {$totalProduced} higher-tier sigils across {$operationCount} operation";
+        if ($operationCount !== 1) {
+            $summary .= 's';
+        }
+        $summary .= '.';
+
+        return [
+            'success' => true,
+            'total_operations' => $operationCount,
+            'total_consumed' => $totalConsumed,
+            'total_produced' => $totalProduced,
+            'operations' => $operations,
+            'hit_operation_limit' => $operationCount >= $maxOperations,
+            'message' => $summary,
+        ];
+    }
+
+    /**
      * Consume a Tier 6 sigil to freeze another player's UBI accrual to 0/tick.
      */
     public static function freezePlayerUbi($playerId, $targetPlayerId = null, $targetHandle = null) {

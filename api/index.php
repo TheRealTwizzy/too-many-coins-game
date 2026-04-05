@@ -394,6 +394,11 @@ try {
             echo json_encode(Actions::combineSigils($player['player_id'], $fromTier));
             break;
 
+        case 'combine_all_sigils':
+            $player = Auth::requireAuth();
+            echo json_encode(Actions::combineAllSigils($player['player_id']));
+            break;
+
         case 'freeze_player_ubi':
             $player = Auth::requireAuth();
             echo json_encode(Actions::freezePlayerUbi(

@@ -38,6 +38,7 @@ const TMC = {
     _globalSeasonalLeaderboardPage: 1,
     _globalLeaderboardPage: 1,
     _historyBound: false,
+    _combineAllPending: false,
 
     // ==================== API ====================
     async api(action, data = {}) {
@@ -1175,27 +1176,9 @@ const TMC = {
             lockInBtn.disabled = !p.can_lock_in || isBlackout;
         }
 
-        // Update forge combination buttons' disabled states and card visibility
+        // Keep forge in sync with live inventory changes, including adding/removing it.
         const combineRecipes = Array.isArray(p.participation.combine_recipes) ? p.participation.combine_recipes : [];
-        const forgeItems = document.querySelectorAll('.sigil-combine-section .vault-item');
-        let visibleForgeCount = 0;
-        forgeItems.forEach((item) => {
-            const btn = item.querySelector('button');
-            if (!btn) return;
-            const onclick = btn.getAttribute('onclick') || '';
-            const match = onclick.match(/combineSigil\((\d+)\)/);
-            if (!match) return;
-            const fromTier = parseInt(match[1], 10);
-            const recipe = combineRecipes.find(r => r.from_tier === fromTier);
-            const canCombine = !!(recipe && recipe.can_combine);
-            item.style.display = canCombine ? '' : 'none';
-            if (canCombine) {
-                btn.disabled = isBlackout;
-                visibleForgeCount++;
-            }
-        });
-        const forgeEmpty = document.querySelector('.sigil-combine-section .panel-info');
-        if (forgeEmpty) forgeEmpty.style.display = visibleForgeCount === 0 ? '' : 'none';
+        this.reconcileSigilForge(combineRecipes, isBlackout);
 
         // Re-render the active boosts panel with fresh data from the latest poll
         this.renderActiveBoosts();
@@ -1233,6 +1216,7 @@ const TMC = {
             ? p.participation.combine_recipes
             : [];
         const visibleCombineRecipes = combineRecipes.filter((recipe) => !!recipe.can_combine);
+        const sigilForgeHtml = this.renderSigilForgeSection(visibleCombineRecipes, isBlackout);
         const boosts = p ? p.active_boosts : null;
         const primaryBoost = boosts && Array.isArray(boosts.self) && boosts.self.length > 0 ? boosts.self[0] : null;
         const freeze = part ? part.freeze : null;
@@ -1315,23 +1299,7 @@ const TMC = {
                                     ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>+Time</button>
                             </div>
                         </div>
-                        <div class="sigil-combine-section">
-                            <h4>Sigil Forge</h4>
-                            <div class="vault-grid">
-                                ${visibleCombineRecipes.map((recipe) => `
-                                    <div class="vault-item tier-${recipe.from_tier}">
-                                        <span class="vault-tier">T${recipe.from_tier} x${recipe.required} to T${recipe.to_tier}</span>
-                                        <span class="vault-remaining">Owned: ${recipe.owned}</span>
-                                        <button class="btn btn-sm btn-primary"
-                                            onclick="TMC.combineSigil(${recipe.from_tier})"
-                                            ${!recipe.can_combine || isBlackout ? 'disabled' : ''}>
-                                            Combine
-                                        </button>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            ${visibleCombineRecipes.length === 0 ? '<p class="panel-info">No combinations currently available.</p>' : ''}
-                        </div>
+                        ${sigilForgeHtml}
                     </div>
 
                     <!-- Lock-In Panel -->
@@ -1573,6 +1541,70 @@ const TMC = {
         return visible;
     },
 
+    renderSigilForgeSection(visibleCombineRecipes, isBlackout) {
+        if (!Array.isArray(visibleCombineRecipes) || visibleCombineRecipes.length === 0) {
+            return '';
+        }
+
+        const combineAllDisabled = isBlackout || this._combineAllPending;
+        return `
+            <div class="sigil-combine-section">
+                <div class="action-row">
+                    <h4>Sigil Forge</h4>
+                    <button id="combine-all-btn" class="btn btn-sm btn-primary"
+                        onclick="TMC.combineAllSigils()"
+                        ${combineAllDisabled ? 'disabled' : ''}>
+                        Combine All
+                    </button>
+                </div>
+                <div class="vault-grid">
+                    ${visibleCombineRecipes.map((recipe) => `
+                        <div class="vault-item tier-${recipe.from_tier}">
+                            <span class="vault-tier">T${recipe.from_tier} x${recipe.required} to T${recipe.to_tier}</span>
+                            <span class="vault-remaining">Owned: ${recipe.owned}</span>
+                            <button class="btn btn-sm btn-primary"
+                                onclick="TMC.combineSigil(${recipe.from_tier})"
+                                ${isBlackout ? 'disabled' : ''}>
+                                Combine
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    reconcileSigilForge(combineRecipes, isBlackout) {
+        const visibleCombineRecipes = Array.isArray(combineRecipes)
+            ? combineRecipes.filter((recipe) => !!recipe.can_combine)
+            : [];
+
+        const sigilPanel = document.querySelector('.sigil-inventory-row')?.closest('.action-panel');
+        if (!sigilPanel) {
+            return;
+        }
+
+        const existingForge = sigilPanel.querySelector('.sigil-combine-section');
+        if (visibleCombineRecipes.length === 0) {
+            if (existingForge) {
+                existingForge.remove();
+            }
+            return;
+        }
+
+        const forgeHtml = this.renderSigilForgeSection(visibleCombineRecipes, isBlackout).trim();
+        if (!existingForge) {
+            const inventoryRow = sigilPanel.querySelector('.sigil-inventory-row');
+            if (!inventoryRow) {
+                return;
+            }
+            inventoryRow.insertAdjacentHTML('afterend', forgeHtml);
+            return;
+        }
+
+        existingForge.outerHTML = forgeHtml;
+    },
+
     async combineSigil(fromTier) {
         const result = await this.api('combine_sigil', { from_tier: fromTier });
         if (result.error) {
@@ -1590,6 +1622,42 @@ const TMC = {
         });
         await this.refreshGameState();
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async combineAllSigils() {
+        if (this._combineAllPending) {
+            return;
+        }
+
+        this._combineAllPending = true;
+        if (this.state.currentScreen === 'season-detail' && this.state.currentSeason) {
+            this.updateSeasonDetailLive();
+        }
+
+        try {
+            const result = await this.api('combine_all_sigils', {});
+            if (result.error) {
+                this.toast(result.error, 'error', { category: 'error_action' });
+                return;
+            }
+
+            const totalOperations = Number(result.total_operations || 0);
+            this.toast(result.message || `Combined sigils across ${totalOperations} operation${totalOperations === 1 ? '' : 's'}.`, 'success', {
+                category: 'sigil_combine',
+                payload: {
+                    total_operations: totalOperations,
+                    total_consumed: Number(result.total_consumed || 0),
+                    total_produced: Number(result.total_produced || 0)
+                }
+            });
+            await this.refreshGameState();
+            if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+        } finally {
+            this._combineAllPending = false;
+            if (this.state.currentScreen === 'season-detail' && this.state.currentSeason) {
+                this.updateSeasonDetailLive();
+            }
+        }
     },
 
     openSigilActionPicker(tier) {
