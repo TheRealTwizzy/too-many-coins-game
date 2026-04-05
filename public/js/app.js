@@ -104,10 +104,11 @@ const TMC = {
         // route (logged-in only) -> home. We replace the current entry so the
         // active tab always has a valid in-site history anchor.
         const stateRoute = this._routeFromHistoryState(window.history.state);
+        const hashRoute = this._parseRouteFromHash();
         const urlRoute = this._parseRouteFromUrl();
         const savedRoute = this._loadRoute();
 
-        let initialRoute = stateRoute || urlRoute;
+        let initialRoute = stateRoute || hashRoute || urlRoute;
         if (!initialRoute && savedRoute && savedRoute.screen && savedRoute.screen !== 'auth' && this.state.player) {
             initialRoute = { screen: savedRoute.screen, data: savedRoute.data !== undefined ? savedRoute.data : null };
         }
@@ -378,8 +379,17 @@ const TMC = {
     _bindHistoryNavigation() {
         if (this._historyBound) return;
         window.addEventListener('popstate', (event) => {
-            const route = this._routeFromHistoryState(event.state) || this._parseRouteFromUrl() || { screen: 'home', data: null };
+            const route = this._routeFromHistoryState(event.state) || this._parseRouteFromHash() || this._parseRouteFromUrl() || { screen: 'home', data: null };
             this.navigate(route.screen, route.data, { history: 'none', source: 'popstate' });
+        });
+        window.addEventListener('hashchange', () => {
+            const route = this._parseRouteFromHash();
+            if (!route) return;
+            const current = this._routeFromHistoryState(window.history.state)
+                || this._parseRouteFromUrl()
+                || this._normalizeRoute(this.state.currentScreen, null);
+            if (this._routesEqual(current, route)) return;
+            this.navigate(route.screen, route.data, { history: 'none', source: 'hashchange' });
         });
         this._historyBound = true;
     },
@@ -391,9 +401,10 @@ const TMC = {
         const url = this._buildRouteUrl(route.screen, route.data);
         const stateObj = { tmcRoute: route };
         const currentRoute = this._routeFromHistoryState(window.history.state);
+        const currentUrl = window.location.pathname + window.location.search + window.location.hash;
 
         if (currentRoute && this._routesEqual(currentRoute, route)) {
-            if (window.location.pathname + window.location.search !== url) {
+            if (currentUrl !== url) {
                 window.history.replaceState(stateObj, '', url);
             }
             return;
@@ -444,11 +455,83 @@ const TMC = {
 
     _buildRouteUrl(screen, data) {
         const route = this._normalizeRoute(screen, data);
-        const params = new URLSearchParams();
+        const baseParams = new URLSearchParams(window.location.search || '');
 
         if (route.screen !== 'home') {
-            params.set('screen', route.screen);
+            baseParams.set('screen', route.screen);
+        } else {
+            baseParams.delete('screen');
+            baseParams.delete('seasonId');
+            baseParams.delete('playerId');
+            baseParams.delete('tab');
+            baseParams.delete('targetPlayerId');
         }
+
+        if (route.screen === 'season-detail') {
+            baseParams.set('seasonId', String(route.data));
+            baseParams.delete('playerId');
+            baseParams.delete('tab');
+            baseParams.delete('targetPlayerId');
+        } else if (route.screen === 'profile') {
+            baseParams.set('playerId', String(route.data));
+            baseParams.delete('seasonId');
+            baseParams.delete('tab');
+            baseParams.delete('targetPlayerId');
+        } else if (route.screen === 'global-lb' && route.data && route.data.tab === 'seasonal') {
+            baseParams.set('tab', 'seasonal');
+            baseParams.delete('seasonId');
+            baseParams.delete('playerId');
+            baseParams.delete('targetPlayerId');
+        } else if (route.screen === 'trade' && route.data) {
+            baseParams.set('seasonId', String(route.data.seasonId));
+            baseParams.set('targetPlayerId', String(route.data.targetPlayerId));
+            baseParams.delete('playerId');
+            baseParams.delete('tab');
+        } else if (route.screen !== 'season-detail' && route.screen !== 'profile' && route.screen !== 'global-lb') {
+            baseParams.delete('seasonId');
+            baseParams.delete('playerId');
+            baseParams.delete('tab');
+            baseParams.delete('targetPlayerId');
+        }
+
+        const query = baseParams.toString();
+        const hash = this._buildRouteHash(route.screen, route.data);
+        return window.location.pathname + (query ? '?' + query : '') + hash;
+    },
+
+    _parseRouteFromUrl() {
+        const params = new URLSearchParams(window.location.search || '');
+        const screen = params.get('screen') || 'home';
+
+        if (screen === 'season-detail') {
+            return this._normalizeRoute(screen, params.get('seasonId'));
+        }
+
+        if (screen === 'profile') {
+            return this._normalizeRoute(screen, params.get('playerId'));
+        }
+
+        if (screen === 'global-lb') {
+            const tab = params.get('tab');
+            return this._normalizeRoute(screen, tab === 'seasonal' ? { tab: 'seasonal' } : null);
+        }
+
+        if (screen === 'trade') {
+            return this._normalizeRoute(screen, {
+                seasonId: params.get('seasonId'),
+                targetPlayerId: params.get('targetPlayerId')
+            });
+        }
+
+        return this._normalizeRoute(screen, null);
+    },
+
+    _buildRouteHash(screen, data) {
+        const route = this._normalizeRoute(screen, data);
+        if (route.screen === 'home') return '';
+
+        const params = new URLSearchParams();
+        params.set('screen', route.screen);
 
         if (route.screen === 'season-detail') {
             params.set('seasonId', String(route.data));
@@ -461,13 +544,20 @@ const TMC = {
             params.set('targetPlayerId', String(route.data.targetPlayerId));
         }
 
-        const query = params.toString();
-        return window.location.pathname + (query ? '?' + query : '');
+        const hashBody = params.toString();
+        return hashBody ? '#!' + hashBody : '';
     },
 
-    _parseRouteFromUrl() {
-        const params = new URLSearchParams(window.location.search || '');
-        const screen = params.get('screen') || 'home';
+    _parseRouteFromHash() {
+        const hash = window.location.hash || '';
+        if (!hash) return null;
+
+        const raw = hash.startsWith('#!') ? hash.slice(2) : hash.slice(1);
+        if (!raw) return null;
+
+        const params = new URLSearchParams(raw);
+        const screen = params.get('screen');
+        if (!screen) return null;
 
         if (screen === 'season-detail') {
             return this._normalizeRoute(screen, params.get('seasonId'));
