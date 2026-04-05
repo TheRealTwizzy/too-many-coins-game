@@ -2954,13 +2954,12 @@ const TMC = {
             boostId: profileActiveBoost ? profileActiveBoost.boost_id : null,
             freeze: profileFreeze
         });
-        const season = activeParticipation?.season_id
-            ? this.state.seasons.find((s) => s.season_id == activeParticipation.season_id)
-            : null;
-        const seasonStatus = season ? (season.computed_status || season.status) : null;
         const isOwnProfile = !!(this.state.player && this.state.player.player_id == profile.player_id);
         const viewerParticipation = this.state.player ? this.state.player.participation : null;
-        const viewerCanFreeze = !!(viewerParticipation && viewerParticipation.can_freeze);
+        const viewerT6Count = Array.isArray(viewerParticipation?.sigils)
+            ? Number(viewerParticipation.sigils[5] || 0)
+            : 0;
+        const viewerCanFreeze = !!(viewerParticipation && (viewerParticipation.can_freeze || viewerT6Count > 0));
         const ownFreeze = isOwnProfile
             ? (viewerParticipation && viewerParticipation.freeze ? viewerParticipation.freeze : profileFreeze)
             : profileFreeze;
@@ -2972,8 +2971,7 @@ const TMC = {
             !isOwnProfile &&
             this.state.player.joined_season_id &&
             activeParticipation &&
-            this.state.player.joined_season_id == activeParticipation.season_id &&
-            seasonStatus === 'Active'
+            this.state.player.joined_season_id == activeParticipation.season_id
         );
         const canFreezeFromProfile = !!(
             this.state.player &&
@@ -2981,8 +2979,7 @@ const TMC = {
             viewerCanFreeze &&
             activeParticipation &&
             this.state.player.joined_season_id &&
-            this.state.player.joined_season_id == activeParticipation.season_id &&
-            seasonStatus === 'Active'
+            this.state.player.joined_season_id == activeParticipation.season_id
         );
         const canMeltOwnFreeze = !!(
             isOwnProfile &&
