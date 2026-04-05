@@ -236,6 +236,13 @@ a:hover { text-decoration: underline; }
     color: var(--accent-gold);
 }
 
+.bottom-nav-btn[data-screen="home"],
+.bottom-nav-btn[data-screen="home"]:hover,
+.bottom-nav-btn[data-screen="home"]:focus-visible,
+.bottom-nav-btn[data-screen="home"].active {
+    color: var(--accent-gold);
+}
+
 .bottom-nav-btn:active {
     transform: scale(0.92);
 }

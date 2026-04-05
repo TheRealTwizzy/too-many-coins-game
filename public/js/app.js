@@ -317,6 +317,14 @@ const TMC = {
         screen = route.screen;
         data = route.data;
 
+        if (screen === 'home') {
+            const activeSeason = this.getActiveJoinedSeason();
+            if (activeSeason) {
+                screen = 'season-detail';
+                data = activeSeason.season_id;
+            }
+        }
+
         this.state.currentScreen = screen;
         this._saveRoute(screen, data);
         this._syncBrowserHistory(screen, data, historyMode);
