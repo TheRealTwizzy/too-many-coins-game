@@ -1471,6 +1471,11 @@ function getProfile($viewer, $targetId) {
                     [$targetId, $target['joined_season_id']]
                 );
                 if ($participation) {
+                    $profileBoosts = getActiveBoosts($target);
+                    $profilePrimaryBoost = (isset($profileBoosts['self'][0]) && is_array($profileBoosts['self'][0]))
+                        ? $profileBoosts['self'][0]
+                        : null;
+                    $profileFreeze = getFreezeStatusForPlayer((int)$targetId, (int)$target['joined_season_id']);
                     $target['active_participation'] = [
                         'season_id' => (int)$target['joined_season_id'],
                         'coins' => (int)$participation['coins'],
@@ -1481,7 +1486,15 @@ function getProfile($viewer, $targetId) {
                             (int)$participation['sigils_t4'],
                             (int)$participation['sigils_t5'],
                             (int)($participation['sigils_t6'] ?? 0)
-                        ]
+                        ],
+                        'active_boost' => [
+                            'is_active' => !!$profilePrimaryBoost,
+                            'boost_id' => $profilePrimaryBoost ? (int)($profilePrimaryBoost['boost_id'] ?? 0) : null,
+                            'total_modifier_percent' => (float)($profileBoosts['total_modifier_percent'] ?? 0),
+                            'expires_at_real' => $profilePrimaryBoost ? (int)($profilePrimaryBoost['expires_at_real'] ?? 0) : null,
+                            'remaining_real_seconds' => $profilePrimaryBoost ? (int)($profilePrimaryBoost['remaining_real_seconds'] ?? 0) : 0,
+                        ],
+                        'freeze' => $profileFreeze,
                     ];
                 }
             }

@@ -835,6 +835,66 @@ a:hover { text-decoration: underline; }
     width: 100%;
 }
 
+.ubi-timer-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    margin: 0.35rem 0 0.45rem;
+    padding: 0.44rem 0.58rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(59, 130, 246, 0.32);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(15, 23, 42, 0.3));
+}
+
+.ubi-indicator-left,
+.ubi-indicator-right {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.ubi-indicator-right {
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+.ubi-boost-percent {
+    color: var(--accent-green);
+    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: 0.83rem;
+    white-space: nowrap;
+}
+
+.ubi-frozen-label {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 999px;
+    padding: 0.08rem 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.ubi-timer {
+    font-family: var(--font-mono);
+    font-size: 0.73rem;
+    white-space: nowrap;
+}
+
+.ubi-boost-time {
+    color: var(--accent-blue-light);
+}
+
+.ubi-freeze-time {
+    color: #f87171;
+}
+
 .sigil-item {
     display: flex;
     flex-direction: column;
@@ -867,6 +927,29 @@ a:hover { text-decoration: underline; }
     .sigil-inventory-row {
         align-items: flex-start;
         gap: 0.35rem;
+    }
+
+    .ubi-timer-indicator {
+        gap: 0.3rem;
+        padding: 0.35rem 0.45rem;
+    }
+
+    .ubi-indicator-left,
+    .ubi-indicator-right {
+        gap: 0.25rem;
+    }
+
+    .ubi-boost-percent {
+        font-size: 0.75rem;
+    }
+
+    .ubi-timer {
+        font-size: 0.62rem;
+    }
+
+    .ubi-frozen-label {
+        font-size: 0.56rem;
+        padding: 0.06rem 0.28rem;
     }
 
     .sigil-inventory-row .sigil-display {
@@ -1508,6 +1591,10 @@ a:hover { text-decoration: underline; }
 
 .profile-sigil-display {
     margin-top: 0.4rem;
+}
+
+.profile-inventory .ubi-timer-indicator {
+    margin-top: 0.55rem;
 }
 
 .profile-actions {

@@ -447,6 +447,53 @@ const TMC = {
         return remainingSeconds > 0 ? this.formatBoostSecondsRemaining(remainingSeconds) : 'Expiring\u2026';
     },
 
+    _getCountdownExpiryUnix(rawValue, fallbackRemainingSeconds = 0) {
+        const parsed = parseInt(rawValue, 10) || 0;
+        if (parsed > 0) return parsed;
+        const remaining = Math.max(0, parseInt(fallbackRemainingSeconds, 10) || 0);
+        if (remaining <= 0) return 0;
+        return Math.floor(Date.now() / 1000) + remaining;
+    },
+
+    _renderUbiTimerIndicator(options = {}) {
+        const boostPercent = Number(options.boostPercent || 0);
+        const hasBoost = !!options.hasBoost;
+        const boostExpiresAtReal = parseInt(options.boostExpiresAtReal, 10) || 0;
+        const boostId = options.boostId;
+        const freeze = options.freeze || null;
+        const isFrozen = !!(freeze && freeze.is_frozen);
+        const freezeExpiresAtReal = this._getCountdownExpiryUnix(
+            freeze ? freeze.expires_at_real : 0,
+            freeze ? freeze.remaining_real_seconds : 0
+        );
+
+        if (!hasBoost && !isFrozen) return '';
+
+        const leftBits = [];
+        if (hasBoost) {
+            leftBits.push(`<span class="ubi-boost-percent">+${boostPercent.toFixed(1)}%</span>`);
+        }
+        if (isFrozen) {
+            leftBits.push('<span class="ubi-frozen-label">Frozen</span>');
+        }
+
+        const rightBits = [];
+        if (isFrozen && freezeExpiresAtReal > 0) {
+            const freezeRemaining = Math.max(0, freezeExpiresAtReal - Math.floor(Date.now() / 1000));
+            rightBits.push(`<span class="ubi-timer ubi-freeze-time js-freeze-time" data-expires-at-real="${freezeExpiresAtReal}">${this._formatFreezeTimeLeft(freezeRemaining)}</span>`);
+        }
+        if (hasBoost && boostExpiresAtReal > 0) {
+            const boostRemaining = Math.max(0, boostExpiresAtReal - Math.floor(Date.now() / 1000));
+            const boostAttr = (boostId !== undefined && boostId !== null) ? ` data-boost-id="${boostId}"` : '';
+            rightBits.push(`<span class="ubi-timer ubi-boost-time js-boost-time" data-expires-at-real="${boostExpiresAtReal}"${boostAttr}>${this._formatBoostTimeLeft(boostRemaining)}</span>`);
+        }
+
+        return `<div class="ubi-timer-indicator">
+            <div class="ubi-indicator-left">${leftBits.join('')}</div>
+            <div class="ubi-indicator-right">${rightBits.join('')}</div>
+        </div>`;
+    },
+
     formatBoostSecondsRemaining(seconds) {
         const total = Math.max(0, parseInt(seconds, 10) || 0);
         if (total <= 0) return 'Ended';
@@ -465,14 +512,13 @@ const TMC = {
     // Called every second by the realtime interval to update boost remaining-
     // time labels without a full re-render.
     _tickBoostCountdowns() {
-        const activeBoost = this._getPrimaryBoost();
-        if (!activeBoost) return;
-
-        const key = this._getBoostKey(activeBoost);
-        const el = document.querySelector(`.active-boost-item[data-boost-id="${key}"] .ab-time`);
-        if (el) {
-            el.textContent = this._formatBoostTimeLeft(this.getLiveBoostRemainingSeconds(activeBoost));
-        }
+        const nowUnix = Math.floor(Date.now() / 1000);
+        document.querySelectorAll('.js-boost-time[data-expires-at-real]').forEach((el) => {
+            const expiresAtReal = parseInt(el.getAttribute('data-expires-at-real'), 10) || 0;
+            if (expiresAtReal <= 0) return;
+            const remaining = Math.max(0, expiresAtReal - nowUnix);
+            el.textContent = this._formatBoostTimeLeft(remaining);
+        });
 
         this._tickTimePurchaseBoostSelector();
     },
@@ -523,6 +569,14 @@ const TMC = {
     },
 
     _tickFreezeCountdowns() {
+        const nowUnix = Math.floor(Date.now() / 1000);
+        document.querySelectorAll('.js-freeze-time[data-expires-at-real]').forEach((el) => {
+            const expiresAtReal = parseInt(el.getAttribute('data-expires-at-real'), 10) || 0;
+            if (expiresAtReal <= 0) return;
+            const remaining = Math.max(0, expiresAtReal - nowUnix);
+            el.textContent = this._formatFreezeTimeLeft(remaining);
+        });
+
         const p = this.state.player;
         const freeze = p && p.participation ? p.participation.freeze : null;
         if (!freeze || !freeze.is_frozen) return;
@@ -532,11 +586,6 @@ const TMC = {
         if (hudRateLabel) {
             hudRateLabel.textContent = `Rate Frozen (${freezeTimeText})`;
         }
-
-        const freezeTimeEls = document.querySelectorAll('.freeze-time');
-        freezeTimeEls.forEach((el) => {
-            el.textContent = freezeTimeText;
-        });
     },
 
     // ==================== RENDER: USER AREA ====================
@@ -659,9 +708,9 @@ const TMC = {
             if (season && timerValue) {
                 timerValue.textContent = this.getSeasonTimerText(season);
             }
-            this._tickBoostCountdowns();
         }
 
+        this._tickBoostCountdowns();
         this._tickFreezeCountdowns();
     },
 
@@ -918,18 +967,20 @@ const TMC = {
         const isBlackout = status === 'Blackout';
         const isExpired = status === 'Expired';
         const timerLabel = this.getSeasonDetailTimerLabel(detail);
-        const sigilRates = Array.isArray(detail?.sigil_drop_rates?.tiers) ? detail.sigil_drop_rates.tiers : [];
-        const sigilBasePercent = Number(detail?.sigil_drop_rates?.base_percent || 0);
-        const sigilRateByTier = {};
-        sigilRates.forEach((rateRow) => {
-            if (rateRow && rateRow.tier) {
-                sigilRateByTier[rateRow.tier] = Number(rateRow.chance_percent || 0);
-            }
-        });
         const combineRecipes = (p && p.participation && Array.isArray(p.participation.combine_recipes))
             ? p.participation.combine_recipes
             : [];
         const visibleCombineRecipes = combineRecipes.filter((recipe) => !!recipe.can_combine);
+        const boosts = p ? p.active_boosts : null;
+        const primaryBoost = boosts && Array.isArray(boosts.self) && boosts.self.length > 0 ? boosts.self[0] : null;
+        const freeze = part ? part.freeze : null;
+        const sigilsIndicatorHtml = this._renderUbiTimerIndicator({
+            hasBoost: !!primaryBoost,
+            boostPercent: Number(boosts?.total_modifier_percent || 0),
+            boostExpiresAtReal: primaryBoost ? this._getCountdownExpiryUnix(primaryBoost.expires_at_real, primaryBoost.remaining_real_seconds) : 0,
+            boostId: primaryBoost ? this._getBoostKey(primaryBoost) : null,
+            freeze
+        });
 
         let html = `
             <div class="season-header">
@@ -981,7 +1032,7 @@ const TMC = {
                     <!-- Sigils Panel -->
                     <div class="action-panel">
                         <h3>Sigils</h3>
-                        <p class="panel-info">Drop chance per eligible tick: <strong>${this.truncatePercent(sigilBasePercent)}%</strong></p>
+                        ${sigilsIndicatorHtml}
                         <p class="panel-info">Sigil cap: ${part.sigils_total}/${(part.sigil_caps && part.sigil_caps.total) ? part.sigil_caps.total : 25}</p>
                         <div class="sigil-inventory-row">
                             <div class="sigil-display">
@@ -990,7 +1041,6 @@ const TMC = {
                                         ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `onclick="TMC.openSigilActionPicker(${sigil.tier})"` : ''}>
                                         <span class="sigil-tier">T${sigil.tier}</span>
                                         <span class="sigil-count">${sigil.count}</span>
-                                        ${sigil.tier <= 5 ? `<span class="sigil-rate">${this.truncatePercent(sigilRateByTier[sigil.tier] || 0)}%</span>` : '<span class="sigil-rate">Crafted only</span>'}
                                     </div>
                                 `).join('')}
                             </div>
@@ -1030,11 +1080,6 @@ const TMC = {
                                 </div>
                             </div>
                         ` : ''}
-                    </div>
-
-                    <div class="action-panel">
-                        <h3>Active Effects</h3>
-                        <div id="active-boosts-display"></div>
                     </div>
 
                     <!-- Lock-In Panel -->
@@ -1097,7 +1142,6 @@ const TMC = {
         if (isParticipating && part) this.loadMyTrades();
 
         this.updatePurchaseEstimate();
-        this.renderActiveBoosts();
     },
 
     async loadSeasonLeaderboard(seasonId) {
@@ -1865,48 +1909,7 @@ const TMC = {
     renderActiveBoosts() {
         const container = document.getElementById('active-boosts-display');
         if (!container) return;
-
-        const p = this.state.player;
-        const boosts = p ? p.active_boosts : null;
-        const freeze = p && p.participation ? p.participation.freeze : null;
-        const isFrozen = !!(freeze && freeze.is_frozen);
-        if (!boosts || ((boosts.self || []).length === 0 && !isFrozen)) {
-            container.innerHTML = '<p class="empty-text">No active boosts.</p>';
-            return;
-        }
-
-        let html = `<div class="active-boosts-summary">
-            <span class="boost-total-mod">Total UBI Modifier: <strong>+${boosts.total_modifier_percent}%</strong></span>
-        </div>`;
-
-        const renderBoost = (b) => {
-            const remainingSeconds = this.getLiveBoostRemainingSeconds(b);
-            const modPercent = (parseInt(b.modifier_fp) / 10000).toFixed(1);
-            const timeLeft = this._formatBoostTimeLeft(remainingSeconds);
-            const displayName = 'Boost';
-            const boostKey = this._getBoostKey(b);
-            return `<div class="active-boost-item self" data-boost-id="${boostKey}">
-                <span class="ab-name">${this.escapeHtml(displayName)}</span>
-                <span class="ab-mod">+${modPercent}%</span>
-                <span class="ab-time">${timeLeft}</span>
-            </div>`;
-        };
-
-        if (boosts.self.length > 0) {
-            html += '<div class="ab-section"><h4>Active Boost</h4>' + renderBoost(boosts.self[0]) + '</div>';
-        }
-        if (isFrozen) {
-            const freezeTime = this._formatFreezeTimeLeft(this.getLiveFreezeRemainingSeconds());
-            html += `<div class="ab-section"><h4>Freeze Effects</h4>
-                <div class="active-boost-item freeze" data-freeze-active="1">
-                    <span class="ab-name">Tier 6 Freeze</span>
-                    <span class="ab-mod ab-mod-freeze">Rate Frozen</span>
-                    <span class="ab-time freeze-time">${freezeTime}</span>
-                </div>
-            </div>`;
-        }
-
-        container.innerHTML = html;
+        container.innerHTML = '';
     },
 
     async purchaseBoostPower(boostId) {
@@ -2684,6 +2687,18 @@ const TMC = {
         const visibleProfileSigils = activeSigils
             .map((count, idx) => ({ tier: idx + 1, count: Number(count || 0) }))
             .filter((row) => row.tier <= 5 || row.count > 0);
+        const profileActiveBoost = activeParticipation?.active_boost || null;
+        const profileFreeze = activeParticipation?.freeze || null;
+        const profileIndicatorHtml = this._renderUbiTimerIndicator({
+            hasBoost: !!(profileActiveBoost && profileActiveBoost.is_active),
+            boostPercent: Number(profileActiveBoost?.total_modifier_percent || 0),
+            boostExpiresAtReal: this._getCountdownExpiryUnix(
+                profileActiveBoost ? profileActiveBoost.expires_at_real : 0,
+                profileActiveBoost ? profileActiveBoost.remaining_real_seconds : 0
+            ),
+            boostId: profileActiveBoost ? profileActiveBoost.boost_id : null,
+            freeze: profileFreeze
+        });
         const season = activeParticipation?.season_id
             ? this.state.seasons.find((s) => s.season_id == activeParticipation.season_id)
             : null;
@@ -2718,6 +2733,7 @@ const TMC = {
                         </div>
                     `).join('')}
                 </div>
+                ${profileIndicatorHtml}
             </div>
         ` : `
             <div class="profile-inventory">
