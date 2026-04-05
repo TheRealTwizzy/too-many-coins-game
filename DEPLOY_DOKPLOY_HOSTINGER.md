@@ -77,6 +77,23 @@ Worker service env:
 - `TMC_WORKER_INTERVAL_SECONDS=5`
 - `TMC_WORKER_START_DELAY_SECONDS=2`
 
+Session-stability and rate-limit env (set on web service):
+
+- `TMC_RATE_LIMIT_WINDOW_SECONDS=60`
+- `TMC_RATE_LIMIT_ANON_PER_WINDOW=120`
+- `TMC_RATE_LIMIT_AUTH_PER_WINDOW=300`
+- `TMC_TRUST_PROXY_HEADERS=false`
+- `TMC_TRUSTED_PROXIES=<comma-separated proxy IPs>`
+- `TMC_RATE_LIMIT_DIAGNOSTICS=true`
+- `TMC_RATE_LIMIT_TRACE=true`
+- `TMC_RATE_LIMIT_TRACE_SAMPLE_PCT=10`
+
+If your proxy IPs are not known yet, you may temporarily set:
+
+- `TMC_TRUST_PROXY_HEADERS=true`
+
+Then replace it with explicit `TMC_TRUSTED_PROXIES` as soon as possible.
+
 Important timing safety:
 
 - Keep `TMC_TIME_SCALE=1` in test/live lanes.
@@ -201,7 +218,45 @@ Header: X-Tick-Secret: <TMC_TICK_SECRET>
   - This matters only for fallback HTTP scheduler mode.
   - Ensure `X-Tick-Secret` matches `TMC_TICK_SECRET`.
 
-## 10. Stack Clarification
+## 10. Rate-Limit Diagnostics and Rollout Checklist
+
+Protected diagnostics endpoint:
+
+```text
+GET https://your-domain/api/index.php?action=rate_limit_diagnostics&secret=YOUR_TMC_INIT_SECRET
+```
+
+Or with header:
+
+```bash
+curl "https://your-domain/api/index.php?action=rate_limit_diagnostics" \
+  -H "X-Init-Secret: $TMC_INIT_SECRET"
+```
+
+Staged rollout checklist:
+
+1. Deploy to test lane first with diagnostics enabled.
+
+1. Confirm response headers exist on API calls: `X-RateLimit-Tier`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Window`.
+
+1. Verify diagnostics output includes expected values for `client.proxy_trusted`, `client.resolved_ip`, and `rate_limit.identity_kind` (`session` for authenticated requests).
+
+1. Check logs for `[rate_limit]` JSON entries and confirm 429 events are isolated rather than synchronized across all users.
+
+1. Verify 401 auth failures are not spiking alongside 429 events.
+
+1. Validate client behavior under forced 429 conditions: users remain logged in and see a temporary busy/retry message instead of forced logout.
+
+1. Keep test running for 24 hours and compare 429 rate, player disconnect complaints, and online churn patterns.
+
+1. Promote to live only after stable metrics and no mass relogin patterns.
+
+Disable diagnostics and/or trace after stabilization:
+
+- `TMC_RATE_LIMIT_DIAGNOSTICS=false`
+- `TMC_RATE_LIMIT_TRACE=false`
+
+## 11. Stack Clarification
 
 This deployment uses:
 - Dockerfile

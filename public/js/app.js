@@ -25,6 +25,11 @@ const TMC = {
         notifications: [],
         notificationsUnread: 0,
         notificationsOpen: false,
+        pollBackoffMs: 0,
+        pollBackoffUntil: 0,
+        chatBackoffMs: 0,
+        chatBackoffUntil: 0,
+        lastRateLimitToastAt: 0,
     },
 
     API_BASE: '/api/index.php',
@@ -46,14 +51,38 @@ const TMC = {
                 },
                 body: body
             });
-            const json = await resp.json();
-            if (json.error && json.error.includes('Authentication required')) {
+
+            let json = {};
+            try {
+                json = await resp.json();
+            } catch (parseErr) {
+                json = {};
+            }
+
+            if (resp.status === 429) {
+                return {
+                    ...json,
+                    status: 429,
+                    error: json.error || 'Rate limit exceeded. Please slow down.'
+                };
+            }
+
+            if (resp.status === 401 || resp.status === 403 || (json.error && json.error.includes('Authentication required'))) {
                 this.handleLoggedOut();
             }
+
+            if (!resp.ok) {
+                return {
+                    ...json,
+                    status: resp.status,
+                    error: json.error || `Request failed (${resp.status})`
+                };
+            }
+
             return json;
         } catch (e) {
             console.error('API error:', e);
-            return { error: 'Network error. Please try again.' };
+            return { error: 'Network error. Please try again.', status: 0 };
         }
     },
 
@@ -93,9 +122,58 @@ const TMC = {
         this.state.realtimeInterval = setInterval(() => this.tickRealtimeViews(), 1000);
     },
 
+    _isBackoffActive(kind) {
+        const now = Date.now();
+        if (kind === 'chat') {
+            return now < (this.state.chatBackoffUntil || 0);
+        }
+        return now < (this.state.pollBackoffUntil || 0);
+    },
+
+    _applyBackoff(kind, baseMs) {
+        const keyMs = kind === 'chat' ? 'chatBackoffMs' : 'pollBackoffMs';
+        const keyUntil = kind === 'chat' ? 'chatBackoffUntil' : 'pollBackoffUntil';
+        const previous = Number(this.state[keyMs] || 0);
+        const next = previous > 0 ? Math.min(previous * 2, 30000) : Math.max(baseMs, 3000);
+        const jitter = Math.floor(Math.random() * 400);
+        this.state[keyMs] = next;
+        this.state[keyUntil] = Date.now() + next + jitter;
+        this._maybeShowRateLimitToast();
+    },
+
+    _resetBackoff(kind) {
+        if (kind === 'chat') {
+            this.state.chatBackoffMs = 0;
+            this.state.chatBackoffUntil = 0;
+            return;
+        }
+        this.state.pollBackoffMs = 0;
+        this.state.pollBackoffUntil = 0;
+    },
+
+    _maybeShowRateLimitToast() {
+        const now = Date.now();
+        const cooldownMs = 30000;
+        if (now - (this.state.lastRateLimitToastAt || 0) < cooldownMs) {
+            return;
+        }
+        this.state.lastRateLimitToastAt = now;
+        this.toast('Server is busy. Staying connected and retrying shortly.', 'info');
+    },
+
     async refreshGameState() {
+        if (this._isBackoffActive('poll')) return;
+
         const gs = await this.api('game_state');
+
+        if (gs && (gs.status === 429 || gs.status >= 500 || gs.status === 0)) {
+            this._applyBackoff('poll', 3000);
+            return;
+        }
+
         if (gs.error) return;
+
+        this._resetBackoff('poll');
         this.state.gameState = gs;
         this.state.seasons = gs.seasons || [];
         this.syncSeasonCountdowns(this.state.seasons);
@@ -2507,11 +2585,21 @@ const TMC = {
     },
 
     async loadChat() {
+        if (this._isBackoffActive('chat')) return;
+
         const params = { channel: this.state.currentChat };
         if (this.state.currentChat === 'SEASON' && this.state.player) {
             params.season_id = this.state.player.joined_season_id;
         }
         const messages = await this.api('chat_messages', params);
+
+        if (messages && (messages.status === 429 || messages.status >= 500 || messages.status === 0)) {
+            this._applyBackoff('chat', 5000);
+            return;
+        }
+
+        this._resetBackoff('chat');
+
         const container = document.getElementById('chat-messages');
 
         if (!messages || messages.error || messages.length === 0) {

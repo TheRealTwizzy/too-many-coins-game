@@ -20,27 +20,171 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Rate limiting (simple file-based, per-IP)
+require_once __DIR__ . '/../includes/config.php';
+
+function tmc_is_valid_ip(?string $value): bool {
+    if (!is_string($value) || $value === '') {
+        return false;
+    }
+    return filter_var($value, FILTER_VALIDATE_IP) !== false;
+}
+
+function tmc_is_private_or_reserved_ip(?string $value): bool {
+    if (!tmc_is_valid_ip($value)) {
+        return false;
+    }
+    return filter_var(
+        $value,
+        FILTER_VALIDATE_IP,
+        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+    ) === false;
+}
+
+function tmc_extract_first_valid_ip(?string $headerValue): ?string {
+    if (!is_string($headerValue) || trim($headerValue) === '') {
+        return null;
+    }
+    $parts = explode(',', $headerValue);
+    foreach ($parts as $part) {
+        $candidate = trim($part);
+        if (tmc_is_valid_ip($candidate)) {
+            return $candidate;
+        }
+    }
+    return null;
+}
+
+function tmc_proxy_is_trusted(?string $remoteAddr): bool {
+    if (TMC_TRUST_PROXY_HEADERS) {
+        return true;
+    }
+
+    $trusted = array_filter(array_map('trim', explode(',', (string)TMC_TRUSTED_PROXIES)));
+    if (!empty($trusted) && is_string($remoteAddr) && $remoteAddr !== '') {
+        foreach ($trusted as $trustedIp) {
+            if ($trustedIp === $remoteAddr) {
+                return true;
+            }
+        }
+    }
+
+    // Most reverse proxies sit on private/reserved addresses from the app's perspective.
+    return tmc_is_private_or_reserved_ip($remoteAddr);
+}
+
+function tmc_resolve_client_ip(): string {
+    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+    if (!tmc_proxy_is_trusted($remoteAddr)) {
+        return tmc_is_valid_ip($remoteAddr) ? $remoteAddr : 'unknown';
+    }
+
+    $cfIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null;
+    if (tmc_is_valid_ip($cfIp)) {
+        return $cfIp;
+    }
+
+    $realIp = $_SERVER['HTTP_X_REAL_IP'] ?? null;
+    if (tmc_is_valid_ip($realIp)) {
+        return $realIp;
+    }
+
+    $forwardedFor = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null;
+    $xffIp = tmc_extract_first_valid_ip($forwardedFor);
+    if ($xffIp !== null) {
+        return $xffIp;
+    }
+
+    return tmc_is_valid_ip($remoteAddr) ? $remoteAddr : 'unknown';
+}
+
+function tmc_rate_limit_log(string $phase, string $tier, string $identity, int $count, int $limit, int $window, string $action): void {
+    if (!TMC_RATE_LIMIT_TRACE) {
+        return;
+    }
+
+    $samplePct = (int)TMC_RATE_LIMIT_TRACE_SAMPLE_PCT;
+    if ($samplePct < 100 && random_int(1, 100) > max(0, $samplePct)) {
+        return;
+    }
+
+    $payload = [
+        'event' => 'rate_limit',
+        'phase' => $phase,
+        'tier' => $tier,
+        'identity_hash' => hash('sha256', $identity),
+        'count' => $count,
+        'limit' => $limit,
+        'window_seconds' => $window,
+        'action' => $action,
+        'status' => ($phase === 'blocked' ? 429 : 200),
+    ];
+
+    error_log('[rate_limit] ' . json_encode($payload));
+}
+
+function tmc_rate_limit_diagnostics_authorized(array $input): bool {
+    $diagEnabled = (bool)TMC_RATE_LIMIT_DIAGNOSTICS;
+    $initSecret = trim((string)(getenv('TMC_INIT_SECRET') ?: ''));
+
+    if (!$diagEnabled || $initSecret === '') {
+        return false;
+    }
+
+    $provided = $input['secret'] ?? ($_SERVER['HTTP_X_INIT_SECRET'] ?? '');
+    $provided = trim((string)$provided);
+    if ($provided === '') {
+        return false;
+    }
+
+    return hash_equals($initSecret, $provided);
+}
+
+// Rate limiting (file-based) keyed by session identity when available.
 $rateLimitDir = sys_get_temp_dir() . '/tmc_ratelimit';
-if (!is_dir($rateLimitDir)) @mkdir($rateLimitDir, 0755, true);
-$clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-$rateLimitFile = $rateLimitDir . '/' . md5($clientIp) . '.json';
-$rateLimit = 120; // requests per minute
-$rateWindow = 60;
+if (!is_dir($rateLimitDir)) {
+    @mkdir($rateLimitDir, 0755, true);
+}
+
+$sessionToken = $_COOKIE['tmc_session'] ?? ($_SERVER['HTTP_X_SESSION_TOKEN'] ?? '');
+$sessionToken = is_string($sessionToken) ? trim($sessionToken) : '';
+$hasSessionIdentity = preg_match('/^[a-f0-9]{64}$/i', $sessionToken) === 1;
+
+if ($hasSessionIdentity) {
+    $rateIdentity = 'session:' . hash('sha256', $sessionToken);
+    $rateTier = 'auth';
+    $rateLimit = (int)TMC_RATE_LIMIT_AUTH_PER_WINDOW;
+} else {
+    $clientIp = tmc_resolve_client_ip();
+    $rateIdentity = 'ip:' . $clientIp;
+    $rateTier = 'anon';
+    $rateLimit = (int)TMC_RATE_LIMIT_ANON_PER_WINDOW;
+}
+
+$rateLimitFile = $rateLimitDir . '/' . md5($rateIdentity) . '.json';
+$rateWindow = (int)TMC_RATE_LIMIT_WINDOW_SECONDS;
 $now = time();
+$rateAction = $_GET['action'] ?? ($_POST['action'] ?? 'unknown');
 $rateData = file_exists($rateLimitFile) ? json_decode(file_get_contents($rateLimitFile), true) : null;
-if (!$rateData || ($now - $rateData['window_start']) >= $rateWindow) {
+if (!is_array($rateData) || !isset($rateData['window_start']) || ($now - (int)$rateData['window_start']) >= $rateWindow) {
     $rateData = ['window_start' => $now, 'count' => 0];
 }
-$rateData['count']++;
+$rateData['count'] = (int)($rateData['count'] ?? 0) + 1;
 file_put_contents($rateLimitFile, json_encode($rateData));
+
+header('X-RateLimit-Tier: ' . $rateTier);
+header('X-RateLimit-Limit: ' . (int)$rateLimit);
+header('X-RateLimit-Remaining: ' . max(0, (int)$rateLimit - (int)$rateData['count']));
+header('X-RateLimit-Window: ' . (int)$rateWindow);
+
 if ($rateData['count'] > $rateLimit) {
+    tmc_rate_limit_log('blocked', $rateTier, $rateIdentity, (int)$rateData['count'], (int)$rateLimit, (int)$rateWindow, (string)$rateAction);
     http_response_code(429);
     echo json_encode(['error' => 'Rate limit exceeded. Please slow down.']);
     exit;
 }
 
-require_once __DIR__ . '/../includes/config.php';
+tmc_rate_limit_log('pass', $rateTier, $rateIdentity, (int)$rateData['count'], (int)$rateLimit, (int)$rateWindow, (string)$rateAction);
+
 require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../includes/game_time.php';
 require_once __DIR__ . '/../includes/boost_catalog.php';
@@ -160,6 +304,46 @@ try {
             
         case 'logout':
             echo json_encode(Auth::logout());
+            break;
+
+        case 'rate_limit_diagnostics':
+            if (!tmc_rate_limit_diagnostics_authorized($input)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden']);
+                break;
+            }
+
+            echo json_encode([
+                'ok' => true,
+                'server_now' => GameTime::now(),
+                'action' => $rateAction,
+                'rate_limit' => [
+                    'tier' => $rateTier,
+                    'window_seconds' => (int)$rateWindow,
+                    'limit' => (int)$rateLimit,
+                    'count' => (int)$rateData['count'],
+                    'remaining' => max(0, (int)$rateLimit - (int)$rateData['count']),
+                    'identity_hash' => hash('sha256', $rateIdentity),
+                    'identity_kind' => $hasSessionIdentity ? 'session' : 'ip',
+                ],
+                'client' => [
+                    'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'resolved_ip' => tmc_resolve_client_ip(),
+                    'xff_present' => isset($_SERVER['HTTP_X_FORWARDED_FOR']),
+                    'xri_present' => isset($_SERVER['HTTP_X_REAL_IP']),
+                    'cfci_present' => isset($_SERVER['HTTP_CF_CONNECTING_IP']),
+                    'proxy_trusted' => tmc_proxy_is_trusted($_SERVER['REMOTE_ADDR'] ?? ''),
+                ],
+                'config' => [
+                    'trace_enabled' => (bool)TMC_RATE_LIMIT_TRACE,
+                    'trace_sample_pct' => (int)TMC_RATE_LIMIT_TRACE_SAMPLE_PCT,
+                    'diagnostics_enabled' => (bool)TMC_RATE_LIMIT_DIAGNOSTICS,
+                    'trust_proxy_headers' => (bool)TMC_TRUST_PROXY_HEADERS,
+                    'trusted_proxies' => TMC_TRUSTED_PROXIES,
+                    'anon_limit_per_window' => (int)TMC_RATE_LIMIT_ANON_PER_WINDOW,
+                    'auth_limit_per_window' => (int)TMC_RATE_LIMIT_AUTH_PER_WINDOW,
+                ],
+            ]);
             break;
             
         // ==================== GAME STATE ====================
@@ -478,7 +662,8 @@ try {
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
                 'profile', 'my_badges', 'season_history', 'tick',
-                'star_purchase_preview', 'trade_preview', 'boost_activate_preview'
+                'star_purchase_preview', 'trade_preview', 'boost_activate_preview',
+                'rate_limit_diagnostics'
             ]]);
     }
 } catch (Throwable $e) {

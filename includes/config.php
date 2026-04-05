@@ -78,6 +78,16 @@ define('TMC_TICK_SLOW_MS', max(50, (int)(getenv('TMC_TICK_SLOW_MS') ?: 500)));
 define('TMC_MINUTE_TO_SECOND_MIGRATION', filter_var(getenv('TMC_MINUTE_TO_SECOND_MIGRATION') ?: '0', FILTER_VALIDATE_BOOLEAN));
 define('TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN', filter_var(getenv('TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN') ?: '0', FILTER_VALIDATE_BOOLEAN));
 
+// Request limiting and proxy trust controls.
+define('TMC_RATE_LIMIT_WINDOW_SECONDS', max(1, (int)(getenv('TMC_RATE_LIMIT_WINDOW_SECONDS') ?: 60)));
+define('TMC_RATE_LIMIT_ANON_PER_WINDOW', max(10, (int)(getenv('TMC_RATE_LIMIT_ANON_PER_WINDOW') ?: 120)));
+define('TMC_RATE_LIMIT_AUTH_PER_WINDOW', max((int)TMC_RATE_LIMIT_ANON_PER_WINDOW, (int)(getenv('TMC_RATE_LIMIT_AUTH_PER_WINDOW') ?: 300)));
+define('TMC_RATE_LIMIT_TRACE', filter_var(getenv('TMC_RATE_LIMIT_TRACE') ?: '0', FILTER_VALIDATE_BOOLEAN));
+define('TMC_RATE_LIMIT_TRACE_SAMPLE_PCT', max(0, min(100, (int)(getenv('TMC_RATE_LIMIT_TRACE_SAMPLE_PCT') ?: 10))));
+define('TMC_TRUST_PROXY_HEADERS', filter_var(getenv('TMC_TRUST_PROXY_HEADERS') ?: '0', FILTER_VALIDATE_BOOLEAN));
+define('TMC_TRUSTED_PROXIES', trim((string)(getenv('TMC_TRUSTED_PROXIES') ?: '')));
+define('TMC_RATE_LIMIT_DIAGNOSTICS', filter_var(getenv('TMC_RATE_LIMIT_DIAGNOSTICS') ?: '0', FILTER_VALIDATE_BOOLEAN));
+
 // Activity
 define('IDLE_TIMEOUT_TICKS', ticks_from_real_seconds(900));  // 15 real minutes
 
