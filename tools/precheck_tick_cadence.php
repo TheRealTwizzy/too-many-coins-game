@@ -27,13 +27,22 @@ $seasons = $db->fetch(
 
 $serverState = $db->fetch("SELECT global_tick_index, last_tick_processed_at FROM server_state WHERE id = 1");
 
-$tradeStats = $db->fetch(
-    "SELECT
-        MAX(created_tick) AS max_created_tick,
-        MAX(expires_tick) AS max_expires_tick,
-        MAX(resolved_tick) AS max_resolved_tick
-     FROM trades"
+$hasTheftAttempts = $db->fetch(
+    "SELECT COUNT(*) AS c
+     FROM information_schema.tables
+     WHERE table_schema = DATABASE() AND table_name = 'sigil_theft_attempts'"
 );
+
+$theftStats = null;
+if ((int)($hasTheftAttempts['c'] ?? 0) > 0) {
+    $theftStats = $db->fetch(
+        "SELECT
+            MAX(created_tick) AS max_created_tick,
+            MAX(cooldown_expires_tick) AS max_cooldown_expires_tick,
+            MAX(protection_expires_tick) AS max_protection_expires_tick
+         FROM sigil_theft_attempts"
+    );
+}
 
 $hasActiveBoosts = $db->fetch(
     "SELECT COUNT(*) AS c
@@ -71,7 +80,7 @@ $report = [
     ],
     'seasons' => $seasons,
     'server_state' => $serverState,
-    'trades' => $tradeStats,
+    'sigil_theft_attempts' => $theftStats,
     'active_boosts' => $activeBoostStats,
     'next_step' => $looksMinuteScale
         ? 'Set TMC_TICK_REAL_SECONDS=1 and run with TMC_MINUTE_TO_SECOND_MIGRATION_DRY_RUN=1 first, then TMC_MINUTE_TO_SECOND_MIGRATION=1 for cutover.'

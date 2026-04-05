@@ -293,6 +293,24 @@ class MigrationGuardTest extends TestCase
         }
     }
 
+    public function testNoTradeTheftLaunchMigrationUsesInformationSchemaGuards(): void
+    {
+        $repoRoot = dirname(__DIR__);
+        $filename = 'migration_20260405_sigil_theft_no_trade_launch.sql';
+        $path = $repoRoot . DIRECTORY_SEPARATOR . $filename;
+
+        $this->assertFileExists($path, 'Expected no-trade/theft launch migration to exist.');
+        $sql = strtolower(file_get_contents($path));
+
+        $this->assertStringContainsString('information_schema', $sql, 'Migration must use information_schema guards for column drops.');
+        $this->assertStringContainsString('prepare _tmc_stmt from', $sql, 'Migration must use PREPARE for guarded ALTER statements.');
+        $this->assertStringContainsString('execute _tmc_stmt', $sql, 'Migration must use EXECUTE for guarded ALTER statements.');
+        $this->assertStringContainsString('deallocate prepare _tmc_stmt', $sql, 'Migration must deallocate prepared statements.');
+        $this->assertStringContainsString('drop table if exists trades', $sql, 'Migration must drop the legacy trades table.');
+        $this->assertStringContainsString('create table if not exists sigil_theft_attempts', $sql, 'Migration must create the sigil theft attempt table.');
+        $this->assertStringNotContainsString('drop column if exists', $sql, 'Migration must avoid DROP COLUMN IF EXISTS for compatibility.');
+    }
+
     // ── schema_migrations status column ───────────────────────────────────
 
     public function testSchemaForNewDeploymentsIncludesStatusColumn(): void

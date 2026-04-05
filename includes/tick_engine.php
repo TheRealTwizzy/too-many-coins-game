@@ -283,13 +283,6 @@ class TickEngine {
                 [$newPrice, $seasonId]
             );
             
-            // Expire old trades
-            $db->query(
-                "UPDATE trades SET status = 'EXPIRED' 
-                 WHERE season_id = ? AND status = 'OPEN' AND expires_tick <= ?",
-                [$seasonId, $gameTime]
-            );
-            
             $db->commit();
         } catch (Exception $e) {
             $db->rollback();
@@ -570,13 +563,7 @@ class TickEngine {
                 [$seasonId]
             );
             
-            // 3. Cancel all open trades
-            $db->query(
-                "UPDATE trades SET status = 'EXPIRED' WHERE season_id = ? AND status = 'OPEN'",
-                [$seasonId]
-            );
-            
-            // 4. Get end-finishers
+            // 3. Get end-finishers
             $endFinishers = $db->fetchAll(
                 "SELECT p.player_id, sp.* FROM players p
                  JOIN season_participation sp ON p.player_id = sp.player_id

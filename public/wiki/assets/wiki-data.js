@@ -75,7 +75,7 @@ Re-entry is allowed if you previously left, but season-bound resources are reset
             title: "Idle State and Action Gating",
             content: `If you go Idle long enough, the game gates economy actions until you acknowledge idle.
 
-By default, idle timeout is **15 real minutes**. While idle modal is active, actions like star purchase, Lock-In, boosts, and trades are blocked until **idle acknowledgement**.`
+By default, idle timeout is **15 real minutes**. While idle modal is active, actions like star purchase, Lock-In, boosts, and sigil theft attempts are blocked until **idle acknowledgement**.`
           },
           {
             id: "what-carries-over",
@@ -113,7 +113,7 @@ Persistent account-level progression includes:
 - Buy stars
 - Buy vault sigils
 - Activate boosts
-- Trade
+- Attempt sigil theft
 - Lock-In`
           },
           {
@@ -123,7 +123,7 @@ Persistent account-level progression includes:
 - Lock-In
 - Vault purchases
 - Boost activation
-- Trade initiation
+- Sigil theft attempts
 
 You can still hold your position and continue through the final stretch to expiration.`
           },
@@ -263,41 +263,39 @@ Global and self boosts stack additively in fixed-point logic and are capped by a
       {
         id: "trading-guide",
         number: 6,
-        title: "Trading Rules",
+        title: "Sigil Theft",
         icon: "ArrowLeftRight",
-        description: "Escrow model, valuation, fees, and blackout restrictions.",
+        description: "Spend-gated theft attempts, value pressure, and cooldown windows.",
         sections: [
           {
-            id: "trade-constraints",
-            title: "What Trades Are Allowed",
-            content: `Trade system constraints:
-- Both sides must contribute value.
-- Coins-for-coins-only trades are blocked.
-- Both players must be in the same season.
-- Trade initiation is disabled in Blackout.`
+            id: "theft-constraints",
+            title: "What Theft Attempts Are Allowed",
+            content: `Sigil theft constraints:
+- Attacker and target must be in the same season.
+- Only Tier 4 and Tier 5 sigils can be spent to initiate theft.
+- Requested loot can target any visible sigil tier, including Tier 6.
+- Theft attempts are disabled in Blackout.
+- Idle targets can still be selected.`
           },
           {
             id: "escrow-and-timeout",
-            title: "Escrow and Timeout",
-            content: `On initiate, initiator assets and fee are escrowed.
+            title: "Resolution and Protection Windows",
+            content: `Sigil theft resolves immediately when submitted.
 
-Default timeout is **1 real hour**. Open trades expire automatically at timeout.`
+Spent sigils are burned whether the attempt succeeds or fails. After an attempt:
+- The attacker gets a **15 minute cooldown** before attempting theft again.
+- The defender gets **15 minutes of protection** from additional theft attempts.`
           },
           {
-            id: "trade-fees",
-            title: "Trade Fee Model",
-            content: `Fee is based on declared trade value with tiered rates:
+            id: "theft-success-chance",
+            title: "Success Chance",
+            content: `Theft chance is based on the server-side utility value of the sigils you spend versus the sigils you request.
 
-| Threshold | Rate |
-|---|---|
-| 0+ | 5% |
-| 100,000+ | 8% |
-| 1,000,000+ | 12% |
-| 10,000,000+ | 18% |
+- Equal-value pressure starts at **25%** success chance.
+- Overpaying improves success chance.
+- Final success chance is capped at **60%**.
 
-Minimum fee is **25 coins**.
-
-On accepted trades, fees from both parties are burned from season coin supply.`
+Because spend is consumed on failure, theft is a tactical pressure tool rather than a guaranteed transfer mechanic.`
           }
         ]
       }
@@ -353,8 +351,7 @@ Entries include active participants, lock-in snapshots, and end-finishers.`
 - Saves lock-in snapshot
 - Converts Seasonal Stars to Global Stars at 1:1
 - Destroys season-bound resources (coins, seasonal stars, sigils, active boosts)
-- Exits player from season
-- Cancels open trades for that player`
+- Exits player from season`
           }
         ]
       },
@@ -459,7 +456,7 @@ Deleted profiles return as removed placeholders.`
 
 **How it works:**
 
-1. When you click Buy Stars, Send Trade, or Activate Boost, the client requests a preview from the server.
+1. When you click Buy Stars, Attempt Theft, or Activate Boost, the client requests a preview from the server.
 2. The server computes:
    - Estimated total cost
    - Fee included (if applicable)
@@ -477,9 +474,9 @@ The server enforces gating: if \`confirm_economic_impact=1\` is not sent with a 
 **Post-action receipts:**
 
 After any gated action completes successfully, a receipt modal shows:
-- Actual cost / sigils consumed
-- Fee burned
+- Actual cost or sigils spent
 - Post-action balance
+- Transfer or outcome details when applicable
 - Other relevant execution details
 
 This system ensures you always know the economic consequence of high-impact decisions before committing.`
@@ -487,7 +484,7 @@ This system ensures you always know the economic consequence of high-impact deci
           {
             id: "deterministic-surfaces",
             title: "Deterministic Economy Surfaces",
-            content: `Drop RNG, UBI math, star pricing, and fee logic are defined server-side so economy outcomes do not depend on client-side trust.`
+            content: `Drop RNG, UBI math, star pricing, and theft success logic are defined server-side so economy outcomes do not depend on client-side trust.`
           }
         ]
       }
@@ -507,7 +504,7 @@ This system ensures you always know the economic consequence of high-impact deci
           {
             id: "blackout-planning",
             title: "Plan Around Blackout",
-            content: `Because Lock-In, vault purchases, boost activation, and trade initiation are blocked in Blackout, front-load your critical actions during Active state.`
+            content: `Because Lock-In, vault purchases, boost activation, and sigil theft attempts are blocked in Blackout, front-load your critical actions during Active state.`
           },
           {
             id: "stars-vs-power",
@@ -515,11 +512,11 @@ This system ensures you always know the economic consequence of high-impact deci
             content: `Spending Seasonal Stars on vault sigils can improve short-term UBI through boosts, but it can reduce immediate leaderboard rank. Decide based on your timing and season status.`
           },
           {
-            id: "trade-discipline",
-            title: "Trade Discipline",
-            content: `Always account for fee burn and timeout risk.
+            id: "theft-discipline",
+            title: "Theft Discipline",
+            content: `Always account for failure risk, cooldown, and defender protection.
 
-A trade that looks neutral before fees can become negative after both-side fee constraints and missed expiration windows.`
+A theft attempt that looks fair on utility value can still be a losing move if the requested sigils are critical for your own freeze, melt, or boost plans.`
           },
           {
             id: "stay-active",
@@ -557,7 +554,7 @@ If you are idle-gated, acknowledge promptly to restore full action access.`
 
 **Vault**: Tiered sigil inventory with dynamic star costs based on remaining supply.
 
-**Declared Trade Value**: Combined valuation used to compute trade fees.
+**Theft Utility Value**: Server-side sigil utility valuation used to gate requested loot and calculate theft success chance.
 
 **Participation Bonus**: Expiration-time bonus based on active ticks, capped at 56 by default.`
           },

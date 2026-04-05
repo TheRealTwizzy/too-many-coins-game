@@ -21,7 +21,7 @@ const TMC = {
         boostCountdowns: {},
         freezeCountdown: null,
         leaderboardTab: 'global',
-        pendingTradeTargetId: null,
+        pendingTheftTargetId: null,
         notifications: [],
         notificationsUnread: 0,
         notificationsOpen: false,
@@ -390,8 +390,8 @@ const TMC = {
             case 'profile':
                 this.loadProfile(data);
                 break;
-            case 'trade':
-                this.renderTradeScreen(data);
+            case 'theft':
+                this.renderTheftScreen(data);
                 break;
         }
     },
@@ -439,7 +439,7 @@ const TMC = {
     },
 
     _normalizeRoute(screen, data) {
-        const allowed = ['home', 'auth', 'seasons', 'season-detail', 'global-lb', 'shop', 'chat', 'profile', 'trade'];
+        const allowed = ['home', 'auth', 'seasons', 'season-detail', 'global-lb', 'shop', 'chat', 'profile', 'theft'];
         const safeScreen = allowed.includes(screen) ? screen : 'home';
 
         if (safeScreen === 'season-detail') {
@@ -461,7 +461,7 @@ const TMC = {
             return tab ? { screen: safeScreen, data: { tab } } : { screen: safeScreen, data: null };
         }
 
-        if (safeScreen === 'trade') {
+        if (safeScreen === 'theft') {
             const seasonId = parseInt(data && data.seasonId, 10);
             const targetPlayerId = parseInt(data && data.targetPlayerId, 10);
             if (Number.isFinite(seasonId) && seasonId > 0 && Number.isFinite(targetPlayerId) && targetPlayerId > 0) {
@@ -502,7 +502,7 @@ const TMC = {
             baseParams.delete('seasonId');
             baseParams.delete('playerId');
             baseParams.delete('targetPlayerId');
-        } else if (route.screen === 'trade' && route.data) {
+        } else if (route.screen === 'theft' && route.data) {
             baseParams.set('seasonId', String(route.data.seasonId));
             baseParams.set('targetPlayerId', String(route.data.targetPlayerId));
             baseParams.delete('playerId');
@@ -536,7 +536,7 @@ const TMC = {
             return this._normalizeRoute(screen, tab === 'seasonal' ? { tab: 'seasonal' } : null);
         }
 
-        if (screen === 'trade') {
+        if (screen === 'theft') {
             return this._normalizeRoute(screen, {
                 seasonId: params.get('seasonId'),
                 targetPlayerId: params.get('targetPlayerId')
@@ -559,7 +559,7 @@ const TMC = {
             params.set('playerId', String(route.data));
         } else if (route.screen === 'global-lb' && route.data && route.data.tab === 'seasonal') {
             params.set('tab', 'seasonal');
-        } else if (route.screen === 'trade' && route.data) {
+        } else if (route.screen === 'theft' && route.data) {
             params.set('seasonId', String(route.data.seasonId));
             params.set('targetPlayerId', String(route.data.targetPlayerId));
         }
@@ -592,7 +592,7 @@ const TMC = {
             return this._normalizeRoute(screen, tab === 'seasonal' ? { tab: 'seasonal' } : null);
         }
 
-        if (screen === 'trade') {
+        if (screen === 'theft') {
             return this._normalizeRoute(screen, {
                 seasonId: params.get('seasonId'),
                 targetPlayerId: params.get('targetPlayerId')
@@ -1357,9 +1357,6 @@ const TMC = {
         // Load leaderboard
         this.loadSeasonLeaderboard(seasonId);
 
-        // Load trades if participating
-        if (isParticipating && part) this.loadMyTrades();
-
         this.updatePurchaseEstimate();
     },
 
@@ -1728,8 +1725,14 @@ const TMC = {
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
-    async selfMeltFreeze() {
-        const result = await this.api('self_melt_freeze', {});
+    async selfMeltFreeze(requestedTier = null) {
+        let meltTier = parseInt(requestedTier, 10) || 0;
+        if (!meltTier) {
+            const select = document.getElementById('profile-melt-tier');
+            meltTier = parseInt(select ? select.value : '0', 10) || 0;
+        }
+
+        const result = await this.api('self_melt_freeze', meltTier ? { requested_tier: meltTier } : {});
         if (result.error) {
             this.toast(result.error, 'error', { category: 'error_action' });
             return;
@@ -1737,6 +1740,7 @@ const TMC = {
         this.toast(result.message || 'Melt applied.', 'success', {
             category: 'freeze_melt',
             payload: {
+                consumed_tier: Number(result.consumed_tier) || meltTier || null,
                 reduction_ticks: Number(result.reduction_ticks) || 0,
                 new_remaining_ticks: Number(result.new_remaining_ticks) || 0,
                 expires_tick: Number(result.expires_tick) || null
@@ -2687,216 +2691,88 @@ const TMC = {
         this.loadShop();
     },
 
-    // ==================== TRADE ====================
-    async renderTradeScreen(seasonContext) {
-        const content = document.getElementById('trade-content');
-        if (!this.state.player || !this.state.player.joined_season_id) {
-            content.innerHTML = '<div class="error-state"><p>You must be in a season to trade.</p></div>';
+    // ==================== SIGIL THEFT ====================
+    async renderTheftScreen(seasonContext) {
+        const content = document.getElementById('theft-content');
+        if (!content) return;
+
+        if (!this.state.player || !this.state.player.joined_season_id || !this.state.player.participation) {
+            content.innerHTML = '<div class="error-state"><p>You must be in an active season to attempt sigil theft.</p></div>';
             return;
         }
 
         const seasonId = typeof seasonContext === 'object' && seasonContext !== null
             ? (seasonContext.seasonId || this.state.player.joined_season_id)
             : (seasonContext || this.state.player.joined_season_id);
-        const prefillTargetId = typeof seasonContext === 'object' && seasonContext !== null
+        const targetPlayerId = typeof seasonContext === 'object' && seasonContext !== null
             ? (seasonContext.targetPlayerId || null)
-            : (this.state.pendingTradeTargetId || null);
+            : (this.state.pendingTheftTargetId || null);
 
-        // Get players in season
-        const players = await this.api('season_players', { season_id: seasonId });
-        const otherPlayers = (players || []).filter(p => p.player_id != this.state.player.player_id);
-
-        const part = this.state.player.participation;
-        const tradeTiers = [1, 2, 3, 4, 5];
-        if (Number((part.sigils || [])[5] || 0) > 0) {
-            tradeTiers.push(6);
+        if (!targetPlayerId) {
+            content.innerHTML = '<div class="error-state"><p>Select a target profile to open the sigil theft screen.</p></div>';
+            return;
         }
 
-        content.innerHTML = `
-            <h2>Trade Center</h2>
-            <button class="btn btn-outline btn-sm" onclick="TMC.navigate('season-detail', ${seasonId})">Back to Season</button>
+        const profile = await this.api('profile', { player_id: targetPlayerId });
+        if (!profile || profile.error || !profile.active_participation) {
+            content.innerHTML = '<div class="error-state"><p>This player is no longer available for sigil theft.</p></div>';
+            return;
+        }
 
-            <div class="trade-form-container">
-                <h3>Create New Trade</h3>
-                <div class="trade-form">
-                    <div class="trade-side">
-                        <h4>You Offer</h4>
-                        <div class="form-group">
-                            <label>Coins (you have ${this.formatNumber(part.coins)})</label>
-                            <input type="number" id="trade-a-coins" min="0" max="${part.coins}" value="0" class="input-field">
-                        </div>
-                        ${tradeTiers.map((tier) => {
-                            const count = Number((part.sigils || [])[tier - 1] || 0);
+        const viewerPart = this.state.player.participation;
+        const targetPart = profile.active_participation;
+        const targetTheft = targetPart.theft || {};
+        const viewerTheft = viewerPart.theft || {};
+        const spendTiers = [4, 5];
+        const lootTiers = [1, 2, 3, 4, 5, 6];
+        const targetActivityState = targetPart.activity_state || profile.activity_state || 'Active';
+        const canSubmit = !viewerTheft.is_on_cooldown && !targetTheft.is_protected;
+        const buttonLabel = viewerTheft.is_on_cooldown
+            ? 'Theft Cooldown Active'
+            : (targetTheft.is_protected ? 'Target Protected' : 'Attempt Theft');
+
+        content.innerHTML = `
+            <h2>Sigil Theft</h2>
+            <button class="btn btn-outline btn-sm" onclick="TMC.navigate('profile', ${targetPlayerId})">Back to Profile</button>
+
+            <div class="theft-form-container">
+                <h3>Target: ${this.escapeHtml(profile.handle)}</h3>
+                <p class="panel-info">Spend Tier 4 and Tier 5 sigils for a chance-based theft. Spent sigils are always lost, even on failure. Idle targets are valid.</p>
+                <p class="panel-info">Target status: <strong>${this.escapeHtml(String(targetActivityState))}</strong></p>
+                ${viewerTheft.is_on_cooldown ? `<p class="panel-warning">Your theft cooldown: ${this.formatDurationFromSeconds(Number(viewerTheft.cooldown_remaining_real_seconds || 0), 'short')}</p>` : ''}
+                ${targetTheft.is_protected ? `<p class="panel-warning">Target protection: ${this.formatDurationFromSeconds(Number(targetTheft.protection_remaining_real_seconds || 0), 'short')}</p>` : ''}
+                <div class="theft-form">
+                    <div class="theft-side">
+                        <h4>You Spend</h4>
+                        ${spendTiers.map((tier) => {
+                            const count = Number((viewerPart.sigils || [])[tier - 1] || 0);
                             return `
-                            <div class="form-group">
-                                <label>Tier ${tier} Sigils (you have ${count})</label>
-                                <input type="number" id="trade-a-sigil-${tier - 1}" min="0" max="${count}" value="0" class="input-field input-sm">
-                            </div>
-                        `;
+                                <div class="form-group">
+                                    <label>Tier ${tier} Sigils (you have ${count})</label>
+                                    <input type="number" id="theft-spend-sigil-${tier - 1}" min="0" max="${count}" value="0" class="input-field input-sm">
+                                </div>
+                            `;
                         }).join('')}
                     </div>
-                    <div class="trade-arrow">&#8644;</div>
-                    <div class="trade-side">
-                        <h4>You Request</h4>
-                        <div class="form-group">
-                            <label>Coins</label>
-                            <input type="number" id="trade-b-coins" min="0" value="0" class="input-field">
-                        </div>
-                        ${tradeTiers.map(t => `
-                            <div class="form-group">
-                                <label>Tier ${t} Sigils</label>
-                                <input type="number" id="trade-b-sigil-${t-1}" min="0" value="0" class="input-field input-sm">
-                            </div>
-                        `).join('')}
+                    <div class="theft-arrow">&#8594;</div>
+                    <div class="theft-side">
+                        <h4>You Attempt to Steal</h4>
+                        ${lootTiers.map((tier) => {
+                            const count = Number((targetPart.sigils || [])[tier - 1] || 0);
+                            return `
+                                <div class="form-group">
+                                    <label>Tier ${tier} Sigils (target has ${count})</label>
+                                    <input type="number" id="theft-request-sigil-${tier - 1}" min="0" max="${count}" value="0" class="input-field input-sm" ${count <= 0 ? 'disabled' : ''}>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Send To</label>
-                    <select id="trade-target" class="input-field">
-                        <option value="">Select a player...</option>
-                        ${otherPlayers.map(p => `<option value="${p.player_id}">${this.escapeHtml(p.handle)} ${p.online_current ? '(online)' : ''}</option>`).join('')}
-                    </select>
-                </div>
-                <button class="btn btn-primary btn-lg" onclick="TMC.submitTradeGated()">Send Trade Offer</button>
-            </div>
-
-            <div class="my-trades-section">
-                <h3>Your Trades</h3>
-                <div id="trade-list"></div>
+                <button class="btn btn-primary btn-lg" onclick="TMC.submitSigilTheftGated(${Number(targetPlayerId) || 0})" ${canSubmit ? '' : 'disabled'}>${buttonLabel}</button>
             </div>
         `;
 
-        const targetSelect = document.getElementById('trade-target');
-        if (targetSelect && prefillTargetId) {
-            const targetOption = Array.from(targetSelect.options).find((opt) => String(opt.value) === String(prefillTargetId));
-            if (targetOption) {
-                targetSelect.value = String(prefillTargetId);
-            }
-        }
-        this.state.pendingTradeTargetId = null;
-
-        this.loadMyTrades();
-    },
-
-    async submitTrade() {
-        const targetId = document.getElementById('trade-target').value;
-        if (!targetId) {
-            this.toast('Select a player to trade with.', 'error');
-            return;
-        }
-
-        const sideACoins = parseInt(document.getElementById('trade-a-coins').value) || 0;
-        const sideASigils = [0,1,2,3,4,5].map(i => {
-            const el = document.getElementById(`trade-a-sigil-${i}`);
-            return el ? (parseInt(el.value) || 0) : 0;
-        });
-        const sideBCoins = parseInt(document.getElementById('trade-b-coins').value) || 0;
-        const sideBSigils = [0,1,2,3,4,5].map(i => {
-            const el = document.getElementById(`trade-b-sigil-${i}`);
-            return el ? (parseInt(el.value) || 0) : 0;
-        });
-
-        const result = await this.api('trade_initiate', {
-            acceptor_id: parseInt(targetId),
-            side_a_coins: sideACoins,
-            side_a_sigils: sideASigils,
-            side_b_coins: sideBCoins,
-            side_b_sigils: sideBSigils
-        });
-
-        if (result.error) {
-            this.toast(result.error, 'error');
-            return;
-        }
-        this.toast(`Trade offer sent! Fee: ${this.formatNumber(result.fee)} coins.`, 'success', {
-            category: 'trade_offer_sent',
-            payload: {
-                target_player_id: Number(targetId) || null,
-                fee: Number(result.fee) || 0
-            }
-        });
-        await this.refreshGameState();
-        this.loadMyTrades();
-    },
-
-    async loadMyTrades() {
-        const trades = await this.api('my_trades');
-        const container = document.getElementById('trade-list') || document.getElementById('my-trades-list');
-        if (!container || !trades || trades.error) return;
-
-        if (trades.length === 0) {
-            container.innerHTML = '<p class="empty-text">No trades yet.</p>';
-            return;
-        }
-
-        container.innerHTML = trades.map(t => {
-            const isInitiator = t.initiator_id == this.state.player.player_id;
-            const otherHandle = isInitiator ? t.acceptor_handle : t.initiator_handle;
-            const sideASigils = JSON.parse(t.side_a_sigils || '[]');
-            const sideBSigils = JSON.parse(t.side_b_sigils || '[]');
-
-            let actions = '';
-            if (t.status === 'OPEN') {
-                if (isInitiator) {
-                    actions = `<button class="btn btn-sm btn-danger" onclick="TMC.cancelTrade(${t.trade_id})">Cancel</button>`;
-                } else {
-                    actions = `
-                        <button class="btn btn-sm btn-primary" onclick="TMC.acceptTrade(${t.trade_id})">Accept</button>
-                        <button class="btn btn-sm btn-danger" onclick="TMC.declineTrade(${t.trade_id})">Decline</button>
-                    `;
-                }
-            }
-
-            return `
-                <div class="trade-item trade-${t.status.toLowerCase()}">
-                    <div class="trade-item-header">
-                        <span class="trade-with">${isInitiator ? 'To' : 'From'}: ${this.escapeHtml(otherHandle)}</span>
-                        <span class="badge badge-${t.status.toLowerCase()}">${t.status}</span>
-                    </div>
-                    <div class="trade-item-body">
-                        <div class="trade-offer">
-                            <span class="trade-label">Offer:</span>
-                            ${t.side_a_coins > 0 ? `<span>${this.formatNumber(t.side_a_coins)} coins</span>` : ''}
-                            ${sideASigils.some(s => s > 0) ? `<span>Sigils: [${sideASigils.join(',')}]</span>` : ''}
-                        </div>
-                        <div class="trade-request">
-                            <span class="trade-label">Request:</span>
-                            ${t.side_b_coins > 0 ? `<span>${this.formatNumber(t.side_b_coins)} coins</span>` : ''}
-                            ${sideBSigils.some(s => s > 0) ? `<span>Sigils: [${sideBSigils.join(',')}]</span>` : ''}
-                        </div>
-                        <div class="trade-fee">Fee: ${this.formatNumber(t.locked_fee_coins)} coins</div>
-                    </div>
-                    <div class="trade-item-actions">${actions}</div>
-                </div>
-            `;
-        }).join('');
-    },
-
-    async acceptTrade(tradeId) {
-        const result = await this.api('trade_accept', { trade_id: tradeId });
-        if (result.error) { this.toast(result.error, 'error'); return; }
-        this.toast('Trade completed!', 'success', {
-            category: 'trade_completed',
-            payload: { trade_id: Number(tradeId) || null }
-        });
-        await this.refreshGameState();
-        this.loadMyTrades();
-    },
-
-    async cancelTrade(tradeId) {
-        const result = await this.api('trade_cancel', { trade_id: tradeId });
-        if (result.error) { this.toast(result.error, 'error'); return; }
-        this.toast('Trade canceled.', 'info');
-        await this.refreshGameState();
-        this.loadMyTrades();
-    },
-
-    async declineTrade(tradeId) {
-        const result = await this.api('trade_decline', { trade_id: tradeId });
-        if (result.error) { this.toast(result.error, 'error'); return; }
-        this.toast('Trade declined.', 'info');
-        await this.refreshGameState();
-        this.loadMyTrades();
+        this.state.pendingTheftTargetId = null;
     },
 
     // ==================== CHAT ====================
@@ -3043,17 +2919,34 @@ const TMC = {
         });
         const isOwnProfile = !!(this.state.player && this.state.player.player_id == profile.player_id);
         const viewerParticipation = this.state.player ? this.state.player.participation : null;
+        const viewerTheftState = viewerParticipation?.theft || null;
+        const targetTheftState = activeParticipation?.theft || null;
+        const viewerT4Count = Array.isArray(viewerParticipation?.sigils)
+            ? Number(viewerParticipation.sigils[3] || 0)
+            : 0;
+        const viewerT5Count = Array.isArray(viewerParticipation?.sigils)
+            ? Number(viewerParticipation.sigils[4] || 0)
+            : 0;
         const viewerT6Count = Array.isArray(viewerParticipation?.sigils)
             ? Number(viewerParticipation.sigils[5] || 0)
             : 0;
         const viewerCanFreeze = !!(viewerParticipation && (viewerParticipation.can_freeze || viewerT6Count > 0));
+        const viewerCanSteal = !!(
+            viewerParticipation && (
+                viewerParticipation.can_steal
+                || ((!viewerTheftState?.is_on_cooldown) && (viewerT4Count > 0 || viewerT5Count > 0))
+            )
+        );
         const ownFreeze = isOwnProfile
             ? (viewerParticipation && viewerParticipation.freeze ? viewerParticipation.freeze : profileFreeze)
             : profileFreeze;
+        const ownT5Count = isOwnProfile && Array.isArray(viewerParticipation?.sigils)
+            ? Number(viewerParticipation.sigils[4] || 0)
+            : Number((activeSigils[4] || 0));
         const ownT6Count = isOwnProfile && Array.isArray(viewerParticipation?.sigils)
             ? Number(viewerParticipation.sigils[5] || 0)
             : Number((activeSigils[5] || 0));
-        const canOpenTrade = !!(
+        const canOpenTheft = !!(
             this.state.player &&
             !isOwnProfile &&
             this.state.player.joined_season_id &&
@@ -3073,12 +2966,28 @@ const TMC = {
             ownFreeze &&
             ownFreeze.is_frozen &&
             Number(ownFreeze.remaining_real_seconds || 0) > 0 &&
-            ownT6Count > 0
+            (ownT5Count > 0 || ownT6Count > 0)
         );
+        const meltTierOptions = [
+            ownT5Count > 0 ? { tier: 5, count: ownT5Count, label: 'Tier 5 (-15m max)' } : null,
+            ownT6Count > 0 ? { tier: 6, count: ownT6Count, label: 'Tier 6 (-30m max)' } : null,
+        ].filter(Boolean);
+        const theftButtonLabel = targetTheftState?.is_protected
+            ? 'Theft Protected'
+            : (viewerTheftState?.is_on_cooldown
+                ? 'Theft Cooldown Active'
+                : ((viewerT4Count > 0 || viewerT5Count > 0) ? 'Attempt Theft' : 'Need T4/T5 Sigils'));
         const actionButtons = [
-            canOpenTrade ? `<button class="btn btn-primary" onclick="TMC.openTradeRequest(${profile.player_id}, ${activeParticipation.season_id})">Open Trade Request</button>` : '',
+            canOpenTheft ? `<button class="btn btn-primary" onclick="TMC.openTheftRequest(${profile.player_id}, ${activeParticipation.season_id})" ${(viewerCanSteal && !targetTheftState?.is_protected) ? '' : 'disabled'}>${theftButtonLabel}</button>` : '',
             canFreezeFromProfile ? `<button class="btn btn-danger" onclick="TMC.freezeByPlayerId(${profile.player_id}, ${profile.player_id})">Freeze Player</button>` : '',
-            canMeltOwnFreeze ? `<button class="btn btn-warning" onclick="TMC.selfMeltFreeze()">Melt Freeze (-15m max)</button>` : ''
+            canMeltOwnFreeze ? `
+                <div class="profile-inline-action">
+                    <select id="profile-melt-tier" class="input-field input-sm">
+                        ${meltTierOptions.map((option) => `<option value="${option.tier}">${option.label} (${option.count} owned)</option>`).join('')}
+                    </select>
+                    <button class="btn btn-warning" onclick="TMC.selfMeltFreeze()">Melt Freeze</button>
+                </div>
+            ` : ''
         ].filter(Boolean).join('');
 
         const inventoryHtml = activeParticipation ? `
@@ -3143,13 +3052,13 @@ const TMC = {
         `;
     },
 
-    openTradeRequest(targetPlayerId, seasonId) {
+    openTheftRequest(targetPlayerId, seasonId) {
         if (!this.state.player || !this.state.player.joined_season_id) {
-            this.toast('You must be in an active season to trade.', 'error');
+            this.toast('You must be in an active season to attempt sigil theft.', 'error');
             return;
         }
-        this.state.pendingTradeTargetId = targetPlayerId;
-        this.navigate('trade', { seasonId, targetPlayerId });
+        this.state.pendingTheftTargetId = targetPlayerId;
+        this.navigate('theft', { seasonId, targetPlayerId });
     },
 
     // ==================== NOTIFICATIONS ====================
@@ -3459,11 +3368,14 @@ const TMC = {
             purchase_sigil: { label: 'Sigils', icon: 'Diamond', tone: 'purchase' },
             purchase_cosmetic: { label: 'Cosmetic', icon: 'Palette', tone: 'purchase' },
             boost_activate: { label: 'Boost', icon: 'Bolt', tone: 'boost' },
-            trade_offer_sent: { label: 'Trade', icon: 'Swap', tone: 'trade' },
-            trade_completed: { label: 'Trade', icon: 'Check', tone: 'trade' },
+            sigil_theft_success: { label: 'Theft', icon: 'Zap', tone: 'warning' },
+            sigil_theft_failed: { label: 'Theft', icon: 'X', tone: 'warning' },
+            sigil_theft_taken: { label: 'Theft', icon: 'Alert', tone: 'warning' },
+            sigil_theft_defended: { label: 'Theft', icon: 'Shield', tone: 'status' },
             sigil_drop: { label: 'Sigil Drop', icon: 'Gift', tone: 'drop' },
             sigil_combine: { label: 'Sigil Forge', icon: 'Anvil', tone: 'progress' },
             freeze_apply: { label: 'Freeze', icon: 'Snow', tone: 'warning' },
+            freeze_melt: { label: 'Melt', icon: 'Thermometer', tone: 'warning' },
             error_auth: { label: 'Auth Error', icon: 'Alert', tone: 'error' },
             error_action: { label: 'Action Failed', icon: 'X', tone: 'error' },
             error_validation: { label: 'Validation', icon: 'Info', tone: 'error' },
@@ -3486,6 +3398,15 @@ const TMC = {
     formatNumber(n) {
         if (n === null || n === undefined) return '0';
         return Number(n).toLocaleString();
+    },
+
+    formatSigilVectorSummary(counts) {
+        if (!Array.isArray(counts)) return 'None';
+        const parts = counts
+            .map((count, idx) => ({ tier: idx + 1, count: Number(count || 0) }))
+            .filter((entry) => entry.count > 0)
+            .map((entry) => `${this.formatNumber(entry.count)}xT${entry.tier}`);
+        return parts.length ? parts.join(', ') : 'None';
     },
 
     formatPercentCompact(value) {
@@ -3610,7 +3531,15 @@ const TMC = {
         const balLabel = isSigil ? `Tier ${balType.replace('sigils_t','')} Sigils` : 'Coins';
 
         let rows = '';
-        if (!isSigil) {
+        if (preview.preview_type === 'sigil_theft') {
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Target</span><span class="econ-impact-value">${this.escapeHtml(preview.target_handle || 'Unknown')}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Spend</span><span class="econ-impact-value">${this.formatSigilVectorSummary(preview.spent_sigils)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Attempted loot</span><span class="econ-impact-value">${this.formatSigilVectorSummary(preview.requested_sigils)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Success chance</span><span class="econ-impact-value">${Number(preview.success_chance_pct || 0).toFixed(2)}%</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Spend value</span><span class="econ-impact-value">${fmt(preview.spend_value || 0)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Loot value</span><span class="econ-impact-value">${fmt(preview.requested_value || 0)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Remaining T4/T5 after spend</span><span class="econ-impact-value ${sev === 'high' ? 'danger' : sev === 'medium' ? 'warn' : ''}">${fmt(preview.post_balance_estimate || 0)}</span></div>`;
+        } else if (!isSigil) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Total cost</span><span class="econ-impact-value">${fmt(preview.estimated_total_cost)} coins</span></div>`;
             if (preview.estimated_fee > 0) {
                 rows += `<div class="econ-impact-row"><span class="econ-impact-label">Fee included</span><span class="econ-impact-value">${fmt(preview.estimated_fee)} coins</span></div>`;
@@ -3682,22 +3611,36 @@ const TMC = {
 
         const fmt = (n) => this.formatNumber(n);
         let rows = '';
-        if (receipt.stars_purchased != null) {
+        if (receipt.preview_type === 'sigil_theft') {
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Target</span><span class="econ-impact-value">${this.escapeHtml(receipt.target_handle || 'Unknown')}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Spent sigils</span><span class="econ-impact-value">${this.formatSigilVectorSummary(receipt.spent_sigils)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Attempted loot</span><span class="econ-impact-value">${this.formatSigilVectorSummary(receipt.requested_sigils)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Success chance</span><span class="econ-impact-value">${Number(receipt.success_chance_pct || 0).toFixed(2)}%</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Outcome</span><span class="econ-impact-value">${receipt.theft_success ? 'Success' : 'Failed'}</span></div>`;
+            if (receipt.theft_success) {
+                rows += `<div class="econ-impact-row"><span class="econ-impact-label">Transferred</span><span class="econ-impact-value">${this.formatSigilVectorSummary(receipt.transferred_sigils)}</span></div>`;
+            }
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Spend value</span><span class="econ-impact-value">${fmt(receipt.spend_value || 0)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Loot value</span><span class="econ-impact-value">${fmt(receipt.requested_value || 0)}</span></div>`;
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Remaining T4/T5 after spend</span><span class="econ-impact-value">${fmt(receipt.post_balance_estimate || 0)}</span></div>`;
+        } else if (receipt.stars_purchased != null) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Stars purchased</span><span class="econ-impact-value">${fmt(receipt.stars_purchased)}</span></div>`;
         }
-        if (receipt.executed_total_cost != null) {
+        if (receipt.preview_type !== 'sigil_theft' && receipt.executed_total_cost != null) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Total spent</span><span class="econ-impact-value">${fmt(receipt.executed_total_cost)}</span></div>`;
         }
-        if (receipt.executed_fee > 0) {
+        if (receipt.preview_type !== 'sigil_theft' && receipt.executed_fee > 0) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Fee burned</span><span class="econ-impact-value">${fmt(receipt.executed_fee)}</span></div>`;
         }
-        if (receipt.declared_value != null) {
-            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Trade value</span><span class="econ-impact-value">${fmt(receipt.declared_value)}</span></div>`;
+        if (receipt.preview_type !== 'sigil_theft' && receipt.declared_value != null) {
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Declared value</span><span class="econ-impact-value">${fmt(receipt.declared_value)}</span></div>`;
         }
-        if (receipt.sigils_consumed != null) {
+        if (receipt.preview_type !== 'sigil_theft' && receipt.sigils_consumed != null) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Sigils consumed</span><span class="econ-impact-value">${fmt(receipt.sigils_consumed)} T${receipt.tier_consumed || '?'}</span></div>`;
         }
-        rows += `<div class="econ-impact-row"><span class="econ-impact-label">Balance after</span><span class="econ-impact-value">${fmt(receipt.post_balance_estimate)}</span></div>`;
+        if (receipt.preview_type !== 'sigil_theft') {
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Balance after</span><span class="econ-impact-value">${fmt(receipt.post_balance_estimate)}</span></div>`;
+        }
 
         detailsEl.innerHTML = `<div class="econ-impact-details">${rows}</div>`;
 
@@ -3851,38 +3794,34 @@ const TMC = {
     },
 
     /**
-     * Wrap submitTrade to use the preview/confirm/receipt flow.
+     * Wrap sigil theft to use the preview/confirm/receipt flow.
      */
-    async submitTradeGated() {
-        const targetId = document.getElementById('trade-target').value;
+    async submitSigilTheftGated(targetPlayerId) {
+        const targetId = parseInt(targetPlayerId, 10) || 0;
         if (!targetId) {
-            this.toast('Select a player to trade with.', 'error');
+            this.toast('Choose a target profile before attempting sigil theft.', 'error');
             return;
         }
 
-        const sideACoins = parseInt(document.getElementById('trade-a-coins').value) || 0;
-        const sideASigils = [0,1,2,3,4,5].map(i => {
-            const el = document.getElementById(`trade-a-sigil-${i}`);
-            return el ? (parseInt(el.value) || 0) : 0;
+        const spentSigils = [0, 1, 2, 3, 4, 5].map((index) => {
+            const el = document.getElementById(`theft-spend-sigil-${index}`);
+            return el ? (parseInt(el.value, 10) || 0) : 0;
         });
-        const sideBCoins = parseInt(document.getElementById('trade-b-coins').value) || 0;
-        const sideBSigils = [0,1,2,3,4,5].map(i => {
-            const el = document.getElementById(`trade-b-sigil-${i}`);
-            return el ? (parseInt(el.value) || 0) : 0;
+        const requestedSigils = [0, 1, 2, 3, 4, 5].map((index) => {
+            const el = document.getElementById(`theft-request-sigil-${index}`);
+            return el ? (parseInt(el.value, 10) || 0) : 0;
         });
 
-        const tradeParams = {
-            acceptor_id: parseInt(targetId),
-            side_a_coins: sideACoins,
-            side_a_sigils: sideASigils,
-            side_b_coins: sideBCoins,
-            side_b_sigils: sideBSigils
+        const theftParams = {
+            target_player_id: targetId,
+            spent_sigils: spentSigils,
+            requested_sigils: requestedSigils,
         };
 
         const result = await this.runWithEconGate(
-            () => this.api('trade_preview', tradeParams),
-            (confirm) => this.api('trade_initiate', { ...tradeParams, confirm_economic_impact: confirm ? 1 : 0 }),
-            'Confirm Trade Offer'
+            () => this.api('sigil_theft_preview', theftParams),
+            (confirm) => this.api('sigil_theft_attempt', { ...theftParams, confirm_economic_impact: confirm ? 1 : 0 }),
+            'Confirm Sigil Theft'
         );
 
         if (!result) return;
@@ -3891,16 +3830,17 @@ const TMC = {
             return;
         }
         if (result.success) {
-            this.toast(`Trade offer sent! Fee: ${this.formatNumber(result.fee)} coins.`, 'success', {
-                category: 'trade_offer_sent',
+            this.toast(result.message || 'Theft resolved.', result.theft_success ? 'success' : 'warning', {
+                category: result.theft_success ? 'sigil_theft_success' : 'sigil_theft_failed',
                 payload: {
-                    target_player_id: Number(targetId) || null,
-                    fee: Number(result.fee) || 0
+                    target_player_id: Number(result.target_player_id) || targetId,
+                    theft_success: !!result.theft_success,
+                    theft_id: Number(result.theft_id) || null,
                 }
             });
-            if (result.receipt) this.showEconReceipt(result.receipt, 'Trade Offer Sent');
+            if (result.receipt) this.showEconReceipt(result.receipt, 'Sigil Theft Resolved');
             await this.refreshGameState();
-            this.loadMyTrades();
+            this.renderTheftScreen({ seasonId: Number(this.state.player?.joined_season_id || 0), targetPlayerId: targetId });
         }
     },
 

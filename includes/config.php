@@ -91,9 +91,6 @@ define('TMC_RATE_LIMIT_DIAGNOSTICS', filter_var(getenv('TMC_RATE_LIMIT_DIAGNOSTI
 // Activity
 define('IDLE_TIMEOUT_TICKS', ticks_from_real_seconds(900));  // 15 real minutes
 
-// Trade
-define('TRADE_TIMEOUT_TICKS', ticks_from_real_seconds(3600));  // 1 real hour
-
 // Economy tuning windows
 define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hours
 
@@ -241,7 +238,7 @@ define('SIGIL_COMBINE_RECIPES', [
     5 => 2,
 ]);
 
-// Canonical star valuation used for lock-in and trade calculations.
+// Canonical star valuation used for lock-in calculations.
 define('SIGIL_REFERENCE_STARS_BY_TIER', [
     1 => 50,
     2 => 250,
@@ -250,6 +247,39 @@ define('SIGIL_REFERENCE_STARS_BY_TIER', [
     5 => 9000,
     6 => 0,
 ]);
+
+// Utility valuation is separate from lock-in reference values.
+// It is used for tactical ability and theft calculations, where Tier 6 must
+// carry explicit value instead of inheriting the lock-in-only zero.
+define('SIGIL_UTILITY_VALUE_BY_TIER', [
+    1 => 50,
+    2 => 250,
+    3 => 1000,
+    4 => 3000,
+    5 => 9000,
+    6 => 18000,
+]);
+
+// Shared tactical timing unit (15 real minutes).
+define('ABILITY_UNIT_DURATION_TICKS', ticks_from_real_seconds(900));
+
+// Ability tier gates.
+define('SIGIL_FREEZE_SPEND_TIERS', [6]);
+define('SIGIL_MELT_SPEND_TIERS', [5, 6]);
+define('SIGIL_THEFT_SPEND_TIERS', [4, 5]);
+define('SIGIL_THEFT_TARGET_TIERS', [1, 2, 3, 4, 5, 6]);
+
+// Melt reductions by consumed tier.
+define('SIGIL_MELT_REDUCTION_TICKS_BY_TIER', [
+    5 => ABILITY_UNIT_DURATION_TICKS,
+    6 => ABILITY_UNIT_DURATION_TICKS * 2,
+]);
+
+// Sigil theft tuning.
+define('SIGIL_THEFT_SUCCESS_CAP_FP', 600000); // 60% hard cap
+define('SIGIL_THEFT_VALUE_PRESSURE_MULTIPLIER', 3);
+define('SIGIL_THEFT_COOLDOWN_TICKS', ABILITY_UNIT_DURATION_TICKS);
+define('SIGIL_THEFT_PROTECTION_TICKS', ABILITY_UNIT_DURATION_TICKS);
 
 // Tier-odds scaling by sigil power. Tier 6 is intentionally excluded from RNG drops.
 define('SIGIL_POWER_FULL_SHIFT', 40);
@@ -262,8 +292,8 @@ define('SIGIL_TIER_ODDS_MAX_POWER', [
 ]);
 
 // Freeze mechanics (Tier 6 sigil action)
-define('FREEZE_BASE_DURATION_TICKS', ticks_from_real_seconds(900)); // 15 minutes
-define('FREEZE_STACK_EXTENSION_TICKS', ticks_from_real_seconds(900)); // +15 minutes per additional freeze
+define('FREEZE_BASE_DURATION_TICKS', ABILITY_UNIT_DURATION_TICKS * 2); // 30 minutes
+define('FREEZE_STACK_EXTENSION_TICKS', ABILITY_UNIT_DURATION_TICKS); // +15 minutes per additional freeze
 
 // Guaranteed boost floor: +1 whole coin per tick for each 10% effective boost.
 // Set cap to 0 for no cap.

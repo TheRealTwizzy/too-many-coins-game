@@ -95,8 +95,6 @@ CREATE TABLE IF NOT EXISTS seasons (
     starprice_active_only TINYINT(1) NOT NULL DEFAULT 0,   -- 1: ignore idle coins entirely for pricing
     starprice_max_upstep_fp INT NOT NULL DEFAULT 2000,     -- ~0.2%/tick max upward price movement
     starprice_max_downstep_fp INT NOT NULL DEFAULT 10000,  -- ~1.0%/tick max downward price movement
-    trade_fee_tiers JSON NOT NULL,
-    trade_min_fee_coins BIGINT NOT NULL DEFAULT 10,
     -- Vault config
     vault_config JSON NOT NULL,  -- Per-tier: initial_supply, cost table
     -- Published surfaces
@@ -214,37 +212,32 @@ CREATE TABLE IF NOT EXISTS active_freezes (
     FOREIGN KEY (season_id) REFERENCES seasons(season_id)
 ) ENGINE=InnoDB;
 
--- ============================================================
--- TRADES
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS trades (
-    trade_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+-- Sigil theft attempts are the only player-to-player sigil transfer path.
+CREATE TABLE IF NOT EXISTS sigil_theft_attempts (
+    theft_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     season_id BIGINT UNSIGNED NOT NULL,
-    initiator_id BIGINT UNSIGNED NOT NULL,
-    acceptor_id BIGINT UNSIGNED NOT NULL,
-    status ENUM('OPEN', 'ACCEPTED', 'DECLINED', 'CANCELED', 'EXPIRED', 'INVALIDATED') NOT NULL DEFAULT 'OPEN',
-    -- Side A (initiator offers)
-    side_a_coins BIGINT NOT NULL DEFAULT 0,
-    side_a_sigils JSON NOT NULL,  -- [t1, t2, t3, t4, t5, t6]
-    -- Side B (acceptor offers)
-    side_b_coins BIGINT NOT NULL DEFAULT 0,
-    side_b_sigils JSON NOT NULL,
-    -- Locked values
-    surface_version_used BIGINT NOT NULL,
-    declared_value_coins BIGINT NOT NULL DEFAULT 0,
-    locked_fee_coins BIGINT NOT NULL DEFAULT 0,
-    -- Timing
+    attacker_player_id BIGINT UNSIGNED NOT NULL,
+    target_player_id BIGINT UNSIGNED NOT NULL,
+    spent_sigils JSON NOT NULL,
+    requested_sigils JSON NOT NULL,
+    transferred_sigils JSON NOT NULL,
+    spend_value BIGINT NOT NULL DEFAULT 0,
+    requested_value BIGINT NOT NULL DEFAULT 0,
+    success_chance_fp INT NOT NULL DEFAULT 0,
+    rng_roll_fp INT NOT NULL DEFAULT 0,
+    result ENUM('SUCCESS', 'FAILED') NOT NULL,
+    cooldown_expires_tick BIGINT NOT NULL,
+    protection_expires_tick BIGINT NOT NULL,
     created_tick BIGINT NOT NULL,
-    expires_tick BIGINT NOT NULL,  -- created_tick + 3600
     resolved_tick BIGINT DEFAULT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_season_status (season_id, status),
-    INDEX idx_initiator (initiator_id, status),
-    INDEX idx_acceptor (acceptor_id, status),
+    INDEX idx_theft_attacker (attacker_player_id, season_id, created_tick),
+    INDEX idx_theft_target (target_player_id, season_id, created_tick),
+    INDEX idx_theft_cooldown (season_id, attacker_player_id, cooldown_expires_tick),
+    INDEX idx_theft_protection (season_id, target_player_id, protection_expires_tick),
     FOREIGN KEY (season_id) REFERENCES seasons(season_id),
-    FOREIGN KEY (initiator_id) REFERENCES players(player_id),
-    FOREIGN KEY (acceptor_id) REFERENCES players(player_id)
+    FOREIGN KEY (attacker_player_id) REFERENCES players(player_id),
+    FOREIGN KEY (target_player_id) REFERENCES players(player_id)
 ) ENGINE=InnoDB;
 
 -- ============================================================

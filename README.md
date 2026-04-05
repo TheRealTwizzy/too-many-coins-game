@@ -15,7 +15,7 @@ Too Many Coins is a season-based multiplayer economic strategy game. Players joi
 | **5-Tier Sigil System** | Random drops (1/50,000 per tick) with pity timer |
 | **Boost Activation** | Consume Sigils to activate temporary UBI modifiers (self or season-wide) |
 | **Lock-In Mechanism** | Exit early to convert Seasonal Stars to Global Stars |
-| **Player Trading** | Trade Coins and Sigils with other season participants |
+| **Sigil Theft** | Spend Tier 4/5 Sigils for a chance to steal Sigils from other season participants |
 | **Season Leaderboard** | Ranked by Seasonal Stars with placement bonuses |
 | **Global Leaderboard** | Ranked by Global Stars earned across all seasons |
 | **Cosmetics Shop** | 24 cosmetic items across 5 categories, purchasable with Global Stars |
@@ -153,7 +153,7 @@ What this reset preserves:
 
 What this reset clears/rebuilds:
 
-- season-bound runtime tables (`seasons`, `season_participation`, vault/trade/ledger/action tables)
+- season-bound runtime tables (`seasons`, `season_participation`, vault/theft/ledger/action tables)
 - season pointers/participation flags on `players`
 - `server_state`/`yearly_state` bootstrap timing rows
 
@@ -395,9 +395,9 @@ curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 | `purchase_stars` | Buy stars by quantity (stars_requested) |
 | `purchase_boost` | Activate a boost (boost_id) |
 | `lock_in` | Lock-in and exit season |
-| `create_trade` | Create a trade offer |
-| `accept_trade` | Accept a trade (trade_id) |
-| `cancel_trade` | Cancel your trade (trade_id) |
+| `self_melt_freeze` | Spend Tier 5 or Tier 6 to reduce your active Freeze |
+| `sigil_theft_preview` | Preview a sigil theft attempt |
+| `sigil_theft_attempt` | Execute a sigil theft attempt |
 | `chat_send` | Send message (channel, content, season_id) |
 | `buy_cosmetic` | Purchase cosmetic (cosmetic_id) |
 | `boost_catalog` | Get available boosts |
@@ -407,7 +407,7 @@ curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 ## Season Lifecycle
 
 1. **Scheduled**: Season created, waiting for start time
-2. **Active**: Players can join, earn UBI, buy stars, trade, collect sigils, activate boosts
+2. **Active**: Players can join, earn UBI, buy stars, attempt sigil theft, collect sigils, activate boosts
 3. **Blackout**: Final period, no new joins, star price frozen, last chance to Lock-In
 4. **Expired**: Season ended, final standings calculated, Global Stars awarded
 

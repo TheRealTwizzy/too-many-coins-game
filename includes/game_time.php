@@ -161,12 +161,6 @@ class GameTime {
                     ['m' => 2000000, 'price' => 4200]
                 ]);
                 
-                $tradeFeeTiers = json_encode([
-                    ['threshold' => 0, 'rate_fp' => 50000],
-                    ['threshold' => 10000, 'rate_fp' => 30000],
-                    ['threshold' => 100000, 'rate_fp' => 20000]
-                ]);
-                
                 $vaultConfig = json_encode([
                     ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
                     ['tier' => 2, 'supply' => 250, 'cost_table' => [['remaining' => 1, 'cost' => 250]]],
@@ -184,14 +178,13 @@ class GameTime {
                      starprice_table, star_price_cap,
                      starprice_idle_weight_fp, starprice_active_only,
                      starprice_max_upstep_fp, starprice_max_downstep_fp,
-                     trade_fee_tiers, trade_min_fee_coins,
                      vault_config, current_star_price, last_processed_tick)
                      VALUES (?, ?, ?, ?, 'Scheduled', 30, 250000, 1, ?, ?, 18, 90000,
                      0, 12, 20000, 50000, 200000, 200, 500, 1000, 350000, 1250000,
                      ?, 6000, 0, 1, 1000, 12000,
-                     ?, 10, ?, 100, ?)",
+                     ?, 100, ?)",
                     [$startTime, $endTime, $blackoutTime, $seed,
-                     $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable, $tradeFeeTiers, $vaultConfig, $startTime]
+                     $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable, $vaultConfig, $startTime]
                 );
             }
         }
@@ -285,12 +278,17 @@ class GameTime {
                 );
             }
 
-            $db->query(
-                "UPDATE trades SET
-                 created_tick = created_tick * 60,
-                 expires_tick = expires_tick * 60,
-                 resolved_tick = CASE WHEN resolved_tick IS NULL THEN NULL ELSE resolved_tick * 60 END"
-            );
+            try {
+                $db->query(
+                    "UPDATE sigil_theft_attempts SET
+                     cooldown_expires_tick = cooldown_expires_tick * 60,
+                     protection_expires_tick = protection_expires_tick * 60,
+                     created_tick = created_tick * 60,
+                     resolved_tick = CASE WHEN resolved_tick IS NULL THEN NULL ELSE resolved_tick * 60 END"
+                );
+            } catch (Exception $e) {
+                // Optional migration table may not exist yet.
+            }
 
             try {
                 $db->query(
@@ -364,14 +362,21 @@ class GameTime {
             "SELECT global_tick_index FROM server_state WHERE id = 1"
         );
 
-        $tradeStats = $db->fetch(
-            "SELECT
-                MAX(created_tick) AS max_created_tick,
-                MAX(expires_tick) AS max_expires_tick,
-                MAX(resolved_tick) AS max_resolved_tick
-             FROM trades"
+        $theftTableExists = $db->fetch(
+            "SELECT COUNT(*) AS c
+             FROM information_schema.tables
+             WHERE table_schema = DATABASE() AND table_name = 'sigil_theft_attempts'"
         );
-        $snapshot['trades'] = $tradeStats ?: [];
+        if ((int)($theftTableExists['c'] ?? 0) > 0) {
+            $snapshot['sigil_theft_attempts'] = $db->fetch(
+                "SELECT
+                    MAX(created_tick) AS max_created_tick,
+                    MAX(resolved_tick) AS max_resolved_tick,
+                    MAX(cooldown_expires_tick) AS max_cooldown_expires_tick,
+                    MAX(protection_expires_tick) AS max_protection_expires_tick
+                 FROM sigil_theft_attempts"
+            ) ?: [];
+        }
 
         $boostTableExists = $db->fetch(
             "SELECT COUNT(*) AS c
@@ -536,12 +541,17 @@ class GameTime {
                 );
             }
 
-            $db->query(
-                "UPDATE trades SET
-                 created_tick = CEIL(created_tick / 60),
-                 expires_tick = CEIL(expires_tick / 60),
-                 resolved_tick = CASE WHEN resolved_tick IS NULL THEN NULL ELSE CEIL(resolved_tick / 60) END"
-            );
+            try {
+                $db->query(
+                    "UPDATE sigil_theft_attempts SET
+                     cooldown_expires_tick = CEIL(cooldown_expires_tick / 60),
+                     protection_expires_tick = CEIL(protection_expires_tick / 60),
+                     created_tick = CEIL(created_tick / 60),
+                     resolved_tick = CASE WHEN resolved_tick IS NULL THEN NULL ELSE CEIL(resolved_tick / 60) END"
+                );
+            } catch (Exception $e) {
+                // Optional migration table may not exist yet.
+            }
 
             try {
                 $db->query(

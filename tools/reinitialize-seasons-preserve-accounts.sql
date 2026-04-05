@@ -122,6 +122,16 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+SET @has_sigil_theft_attempts := (
+    SELECT COUNT(*)
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'sigil_theft_attempts'
+);
+SET @sql := IF(@has_sigil_theft_attempts > 0, 'TRUNCATE TABLE `sigil_theft_attempts`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SET @has_economy_ledger := (
     SELECT COUNT(*)
     FROM information_schema.tables

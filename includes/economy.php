@@ -1,7 +1,7 @@
 <?php
 /**
  * Too Many Coins - Economy Engine
- * Handles UBI calculation, star pricing, trade valuation, and all economy math
+ * Handles UBI calculation, star pricing, and general economy math
  * Uses int64 arithmetic with floor-after-each-step as per canon
  */
 require_once __DIR__ . '/config.php';
@@ -601,53 +601,6 @@ class Economy {
         
         // Fallback to last entry
         return end($costTable)['cost'];
-    }
-    
-    /**
-     * Calculate trade value in coins
-     */
-    public static function calculateTradeValue($season, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils) {
-        $starPrice = (int)$season['current_star_price'];
-        $sigilReferenceCosts = SIGIL_REFERENCE_STARS_BY_TIER;
-        
-        // Calculate side A value
-        $valueA = $sideACoins;
-        for ($t = 1; $t <= SIGIL_MAX_TIER; $t++) {
-            if (isset($sideASigils[$t - 1]) && $sideASigils[$t - 1] > 0) {
-                $sigilCostStars = (int)($sigilReferenceCosts[$t] ?? 0);
-                $valueA += $sideASigils[$t - 1] * $sigilCostStars * $starPrice;
-            }
-        }
-        
-        // Calculate side B value
-        $valueB = $sideBCoins;
-        for ($t = 1; $t <= SIGIL_MAX_TIER; $t++) {
-            if (isset($sideBSigils[$t - 1]) && $sideBSigils[$t - 1] > 0) {
-                $sigilCostStars = (int)($sigilReferenceCosts[$t] ?? 0);
-                $valueB += $sideBSigils[$t - 1] * $sigilCostStars * $starPrice;
-            }
-        }
-        
-        return $valueA + $valueB;
-    }
-    
-    /**
-     * Calculate trade fee
-     */
-    public static function calculateTradeFee($season, $declaredValue) {
-        $tiers = json_decode($season['trade_fee_tiers'], true);
-        $minFee = (int)$season['trade_min_fee_coins'];
-        
-        // Find applicable tier
-        $rateFp = $tiers[0]['rate_fp'];
-        foreach ($tiers as $tier) {
-            if ($declaredValue >= $tier['threshold']) {
-                $rateFp = $tier['rate_fp'];
-            }
-        }
-        
-        $feeRaw = self::fpMultiply($declaredValue, $rateFp);
-        return max($minFee, $feeRaw);
     }
     
     /**

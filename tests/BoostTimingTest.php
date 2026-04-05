@@ -321,8 +321,8 @@ class FreezeAccrualLogic
 /**
  * Simulates the freeze-purchase timing logic (T6 sigil action).
  *
- * Freeze rules (as of the 15-min / +15-min requirement):
- *  - Initial freeze: 15 minutes = 15 ticks at 1 tick/minute.
+ * Freeze rules for the no-trade freeze/melt launch:
+ *  - Initial freeze: 30 minutes = 30 ticks at 1 tick/minute.
  *  - Additional freeze on same target while already frozen: adds 15 minutes
  *    (15 ticks) to the CURRENT expiry tick rather than resetting from now.
  *    This preserves existing duration and extends predictably.
@@ -332,11 +332,10 @@ class FreezeAccrualLogic
 class FreezePurchaseLogic
 {
     /**
-     * Ticks for the initial 15-minute base freeze.
-     * Mirrors FREEZE_BASE_DURATION_TICKS = ticks_from_real_seconds(900).
-     * ticks_from_real_seconds uses TICK_REAL_SECONDS (default 60): ceil(900/60) = 15.
+    * Ticks for the initial 30-minute base freeze.
+    * Mirrors FREEZE_BASE_DURATION_TICKS = ABILITY_UNIT_DURATION_TICKS * 2.
      */
-    public const BASE_DURATION_TICKS = 15;
+    public const BASE_DURATION_TICKS = 30;
 
     /**
      * Ticks added per additional freeze on the same target (+15 minutes flat).
@@ -373,14 +372,21 @@ class FreezePurchaseLogic
  */
 class FreezeMeltLogic
 {
-    public static function computeReductionTicks(int $remainingTicks): int
+    public const TIER_FIVE_REDUCTION_TICKS = 15;
+    public const TIER_SIX_REDUCTION_TICKS = 30;
+
+    public static function computeReductionTicks(int $remainingTicks, int $tier): int
     {
-        return min(FreezePurchaseLogic::STACK_EXTENSION_TICKS, max(0, $remainingTicks));
+        $maxReduction = ($tier === 6)
+            ? self::TIER_SIX_REDUCTION_TICKS
+            : self::TIER_FIVE_REDUCTION_TICKS;
+
+        return min($maxReduction, max(0, $remainingTicks));
     }
 
-    public static function computePostMeltRemainingTicks(int $remainingTicks): int
+    public static function computePostMeltRemainingTicks(int $remainingTicks, int $tier): int
     {
-        return max(0, $remainingTicks - self::computeReductionTicks($remainingTicks));
+        return max(0, $remainingTicks - self::computeReductionTicks($remainingTicks, $tier));
     }
 }
 
@@ -1240,9 +1246,9 @@ class BoostTimingTest extends TestCase
     // -----------------------------------------------------------------------
 
     /**
-     * Initial freeze duration must be exactly 15 minutes (15 ticks at 1 tick/min).
+     * Initial freeze duration must be exactly 30 minutes (30 ticks at 1 tick/min).
      */
-    public function testFreezeInitialDurationIs15Minutes(): void
+    public function testFreezeInitialDurationIs30Minutes(): void
     {
         $gameTime = 1000;
         $expires  = FreezePurchaseLogic::computeInitialExpiresTick($gameTime);
@@ -1250,12 +1256,12 @@ class BoostTimingTest extends TestCase
         $this->assertSame(
             $gameTime + FreezePurchaseLogic::BASE_DURATION_TICKS,
             $expires,
-            'Initial freeze must expire exactly 15 ticks (15 minutes) after purchase.'
+            'Initial freeze must expire exactly 30 ticks (30 minutes) after purchase.'
         );
         $this->assertSame(
-            15,
+            30,
             FreezePurchaseLogic::BASE_DURATION_TICKS,
-            'BASE_DURATION_TICKS must be 15 (15 minutes at 1 tick/minute).'
+            'BASE_DURATION_TICKS must be 30 (30 minutes at 1 tick/minute).'
         );
     }
 
@@ -1317,9 +1323,9 @@ class BoostTimingTest extends TestCase
         // Second stack
         $expires3 = FreezePurchaseLogic::computeStackedExpiresTick($expires2, $gameTime); // 245
 
-        $this->assertSame($gameTime + 15, $expires1, 'Initial: 15 ticks.');
-        $this->assertSame($gameTime + 30, $expires2, 'After 1 stack: 15 + 15 = 30 ticks.');
-        $this->assertSame($gameTime + 45, $expires3, 'After 2 stacks: 15 + 15 + 15 = 45 ticks.');
+        $this->assertSame($gameTime + 30, $expires1, 'Initial: 30 ticks.');
+        $this->assertSame($gameTime + 45, $expires2, 'After 1 stack: 30 + 15 = 45 ticks.');
+        $this->assertSame($gameTime + 60, $expires3, 'After 2 stacks: 30 + 15 + 15 = 60 ticks.');
     }
 
     /**
@@ -1342,21 +1348,33 @@ class BoostTimingTest extends TestCase
         );
     }
 
-    public function testFreezeMeltReducesAtMostFifteenTicks(): void
+    public function testTierFiveMeltReducesAtMostFifteenTicks(): void
     {
-        $this->assertSame(15, FreezeMeltLogic::computeReductionTicks(40));
-        $this->assertSame(25, FreezeMeltLogic::computePostMeltRemainingTicks(40));
+        $this->assertSame(15, FreezeMeltLogic::computeReductionTicks(40, 5));
+        $this->assertSame(25, FreezeMeltLogic::computePostMeltRemainingTicks(40, 5));
     }
 
-    public function testFreezeMeltClearsWhenRemainingUnderFifteenTicks(): void
+    public function testTierFiveMeltClearsWhenRemainingUnderFifteenTicks(): void
     {
-        $this->assertSame(9, FreezeMeltLogic::computeReductionTicks(9));
-        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(9));
+        $this->assertSame(9, FreezeMeltLogic::computeReductionTicks(9, 5));
+        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(9, 5));
+    }
+
+    public function testTierSixMeltReducesAtMostThirtyTicks(): void
+    {
+        $this->assertSame(30, FreezeMeltLogic::computeReductionTicks(40, 6));
+        $this->assertSame(10, FreezeMeltLogic::computePostMeltRemainingTicks(40, 6));
+    }
+
+    public function testTierSixMeltClearsWhenRemainingUnderThirtyTicks(): void
+    {
+        $this->assertSame(22, FreezeMeltLogic::computeReductionTicks(22, 6));
+        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(22, 6));
     }
 
     public function testFreezeMeltNoEffectWhenRemainingAlreadyZero(): void
     {
-        $this->assertSame(0, FreezeMeltLogic::computeReductionTicks(0));
-        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(0));
+        $this->assertSame(0, FreezeMeltLogic::computeReductionTicks(0, 5));
+        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(0, 6));
     }
 }

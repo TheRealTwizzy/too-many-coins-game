@@ -410,7 +410,33 @@ try {
 
         case 'self_melt_freeze':
             $player = Auth::requireAuth();
-            echo json_encode(Actions::selfMeltFreeze($player['player_id']));
+            echo json_encode(Actions::selfMeltFreeze(
+                $player['player_id'],
+                isset($input['requested_tier']) ? (int)$input['requested_tier'] : null
+            ));
+            break;
+
+        case 'sigil_theft_preview':
+            $player = Auth::requireAuth();
+            echo json_encode(previewSigilTheft(
+                $player,
+                (int)($input['target_player_id'] ?? 0),
+                normalizeSigilCounts($input['spent_sigils'] ?? [0,0,0,0,0,0]),
+                normalizeSigilCounts($input['requested_sigils'] ?? [0,0,0,0,0,0])
+            ));
+            break;
+
+        case 'sigil_theft_attempt':
+            $player = Auth::requireAuth();
+            $confirmed = !empty($input['confirm_economic_impact']);
+            $result = gatedSigilTheftAttempt(
+                $player,
+                (int)($input['target_player_id'] ?? 0),
+                normalizeSigilCounts($input['spent_sigils'] ?? [0,0,0,0,0,0]),
+                normalizeSigilCounts($input['requested_sigils'] ?? [0,0,0,0,0,0]),
+                $confirmed
+            );
+            echo json_encode($result);
             break;
             
         case 'lock_in':
@@ -537,74 +563,6 @@ try {
             ]);
             break;
             
-        // ==================== TRADING ====================
-        case 'trade_preview':
-            $player = Auth::requireAuth();
-            $sideASigils = normalizeSigilCounts($input['side_a_sigils'] ?? [0,0,0,0,0,0]);
-            $sideBSigils = normalizeSigilCounts($input['side_b_sigils'] ?? [0,0,0,0,0,0]);
-            echo json_encode(previewTrade(
-                $player,
-                (int)($input['acceptor_id'] ?? 0),
-                (int)($input['side_a_coins'] ?? 0),
-                $sideASigils,
-                (int)($input['side_b_coins'] ?? 0),
-                $sideBSigils
-            ));
-            break;
-
-        case 'trade_initiate':
-            $player = Auth::requireAuth();
-            $confirmed = !empty($input['confirm_economic_impact']);
-            $sideASigils = normalizeSigilCounts($input['side_a_sigils'] ?? [0,0,0,0,0,0]);
-            $sideBSigils = normalizeSigilCounts($input['side_b_sigils'] ?? [0,0,0,0,0,0]);
-            $result = gatedTradeInitiate(
-                $player,
-                (int)($input['acceptor_id'] ?? 0),
-                (int)($input['side_a_coins'] ?? 0),
-                $sideASigils,
-                (int)($input['side_b_coins'] ?? 0),
-                $sideBSigils,
-                $confirmed
-            );
-            echo json_encode($result);
-            break;
-            
-        case 'trade_accept':
-            $player = Auth::requireAuth();
-            echo json_encode(Actions::tradeAccept(
-                $player['player_id'],
-                (int)($input['trade_id'] ?? 0)
-            ));
-            break;
-            
-        case 'trade_decline':
-            $player = Auth::requireAuth();
-            echo json_encode(Actions::tradeCancel(
-                $player['player_id'],
-                (int)($input['trade_id'] ?? 0),
-                'DECLINED'
-            ));
-            break;
-            
-        case 'trade_cancel':
-            $player = Auth::requireAuth();
-            echo json_encode(Actions::tradeCancel(
-                $player['player_id'],
-                (int)($input['trade_id'] ?? 0),
-                'CANCELED'
-            ));
-            break;
-            
-        case 'my_trades':
-            $player = Auth::requireAuth();
-            echo json_encode(getMyTrades($player));
-            break;
-            
-        case 'season_players':
-            $seasonId = (int)($input['season_id'] ?? 0);
-            echo json_encode(getSeasonPlayers($seasonId));
-            break;
-            
         // ==================== COSMETICS ====================
         case 'cosmetic_catalog':
             echo json_encode(getCosmeticCatalog());
@@ -664,15 +622,15 @@ try {
             echo json_encode(['error' => 'Unknown action', 'available_actions' => [
                 'register', 'login', 'logout', 'game_state', 'season_detail', 'leaderboard',
                 'global_leaderboard', 'season_join', 'purchase_stars',
-                'combine_sigil', 'freeze_player_ubi', 'self_melt_freeze',
+                'combine_sigil', 'combine_all_sigils', 'freeze_player_ubi', 'self_melt_freeze',
+                'sigil_theft_preview', 'sigil_theft_attempt',
                 'lock_in', 'idle_ack', 'boost_catalog', 'purchase_boost', 'active_boosts',
-                'sigil_drops', 'trade_initiate', 'trade_accept', 'trade_decline',
-                'trade_cancel', 'my_trades', 'season_players', 'cosmetic_catalog',
+                'sigil_drops', 'cosmetic_catalog',
                 'purchase_cosmetic', 'equip_cosmetic', 'my_cosmetics', 'chat_send',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
                 'profile', 'my_badges', 'season_history', 'tick',
-                'star_purchase_preview', 'trade_preview', 'boost_activate_preview',
+                'star_purchase_preview', 'boost_activate_preview',
                 'rate_limit_diagnostics'
             ]]);
     }
@@ -871,6 +829,9 @@ function getGameState($player) {
 
         $activeBoosts = getActiveBoosts($player);
         $rateMetrics = calculatePlayerRatePerTick($joinedSeason, $player, $participation, $activeBoosts);
+        $joinedSeasonStatus = $joinedSeason ? GameTime::getSeasonStatus($joinedSeason, $gameTime) : null;
+        $freezeStatus = getFreezeStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id']);
+        $theftStatus = getTheftStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id']);
         
         $state['player'] = [
             'player_id' => $player['player_id'],
@@ -912,7 +873,13 @@ function getGameState($player) {
                 'combine_recipes' => getCombineRecipesForParticipation($participation),
                 'tier6_visible' => shouldRevealTier6($participation),
                 'can_freeze' => ((int)($participation['sigils_t6'] ?? 0) > 0),
-                'freeze' => getFreezeStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id']),
+                'can_melt' => ($freezeStatus['is_frozen'] ?? false)
+                    && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
+                'can_steal' => $joinedSeasonStatus === 'Active'
+                    && !($theftStatus['is_on_cooldown'] ?? false)
+                    && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
+                'freeze' => $freezeStatus,
+                'theft' => $theftStatus,
                 'rate_per_tick' => (float)$rateMetrics['rate_per_tick'],
                 'gross_rate_per_tick' => (float)$rateMetrics['gross_rate_per_tick'],
                 'hoarding_sink_per_tick' => (int)$rateMetrics['hoarding_sink_per_tick'],
@@ -925,7 +892,6 @@ function getGameState($player) {
             'notifications_unread_count' => Notifications::unreadCount($player['player_id']),
             'can_lock_in' => canLockIn($player, $participation),
             'can_purchase_stars' => canPurchaseStars($player),
-            'can_trade' => canTrade($player),
         ];
     }
     
@@ -982,14 +948,65 @@ function canPurchaseStars($player) {
     return true;
 }
 
-function canTrade($player) {
-    if (!$player['participation_enabled'] || !$player['joined_season_id']) return false;
-    if ($player['idle_modal_active']) return false;
-    
+function getEmptyTheftStatus() {
+    return [
+        'is_on_cooldown' => false,
+        'cooldown_expires_tick' => null,
+        'cooldown_remaining_ticks' => 0,
+        'cooldown_expires_at_real' => null,
+        'cooldown_remaining_real_seconds' => 0,
+        'is_protected' => false,
+        'protection_expires_tick' => null,
+        'protection_remaining_ticks' => 0,
+        'protection_expires_at_real' => null,
+        'protection_remaining_real_seconds' => 0,
+    ];
+}
+
+function getTheftStatusForPlayer($playerId, $seasonId) {
+    if (!$seasonId) {
+        return getEmptyTheftStatus();
+    }
+
     $db = Database::getInstance();
-    $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$player['joined_season_id']]);
-    $status = GameTime::getSeasonStatus($season);
-    return ($status === 'Active');
+    if (!tableExists($db, 'sigil_theft_attempts')) {
+        return getEmptyTheftStatus();
+    }
+
+    $gameTime = GameTime::now();
+    $serverNowUnix = time();
+    $row = $db->fetch(
+        "SELECT
+            MAX(CASE WHEN attacker_player_id = ? THEN cooldown_expires_tick ELSE NULL END) AS cooldown_expires_tick,
+            MAX(CASE WHEN target_player_id = ? THEN protection_expires_tick ELSE NULL END) AS protection_expires_tick
+         FROM sigil_theft_attempts
+         WHERE season_id = ? AND (attacker_player_id = ? OR target_player_id = ?)",
+        [(int)$playerId, (int)$playerId, (int)$seasonId, (int)$playerId, (int)$playerId]
+    );
+
+    $cooldownTick = max(0, (int)($row['cooldown_expires_tick'] ?? 0));
+    $protectionTick = max(0, (int)($row['protection_expires_tick'] ?? 0));
+    $cooldownActive = $cooldownTick >= $gameTime;
+    $protectionActive = $protectionTick >= $gameTime;
+    $cooldownExpiresAtReal = $cooldownActive ? GameTime::tickStartRealUnix($cooldownTick + 1) : null;
+    $protectionExpiresAtReal = $protectionActive ? GameTime::tickStartRealUnix($protectionTick + 1) : null;
+
+    return [
+        'is_on_cooldown' => $cooldownActive,
+        'cooldown_expires_tick' => $cooldownActive ? $cooldownTick : null,
+        'cooldown_remaining_ticks' => $cooldownActive ? max(0, $cooldownTick - $gameTime) : 0,
+        'cooldown_expires_at_real' => $cooldownExpiresAtReal,
+        'cooldown_remaining_real_seconds' => $cooldownActive && $cooldownExpiresAtReal !== null
+            ? max(0, $cooldownExpiresAtReal - $serverNowUnix)
+            : 0,
+        'is_protected' => $protectionActive,
+        'protection_expires_tick' => $protectionActive ? $protectionTick : null,
+        'protection_remaining_ticks' => $protectionActive ? max(0, $protectionTick - $gameTime) : 0,
+        'protection_expires_at_real' => $protectionExpiresAtReal,
+        'protection_remaining_real_seconds' => $protectionActive && $protectionExpiresAtReal !== null
+            ? max(0, $protectionExpiresAtReal - $serverNowUnix)
+            : 0,
+    ];
 }
 
 function getSeasonDetail($player, $seasonId) {
@@ -1013,8 +1030,15 @@ function getSeasonDetail($player, $seasonId) {
             $season['sigil_drop_rates'] = getSigilDropRateMetadataFromConfig($dropConfig);
             $season['player_combine_recipes'] = getCombineRecipesForParticipation($participation);
             $season['player_tier6_visible'] = shouldRevealTier6($participation);
+            $playerFreeze = getFreezeStatusForPlayer((int)$player['player_id'], (int)$seasonId);
+            $playerTheft = getTheftStatusForPlayer((int)$player['player_id'], (int)$seasonId);
             $season['player_can_freeze'] = ((int)($participation['sigils_t6'] ?? 0) > 0);
-            $season['player_freeze'] = getFreezeStatusForPlayer((int)$player['player_id'], (int)$seasonId);
+            $season['player_can_melt'] = ($playerFreeze['is_frozen'] ?? false)
+                && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0));
+            $season['player_can_steal'] = !($playerTheft['is_on_cooldown'] ?? false)
+                && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0));
+            $season['player_freeze'] = $playerFreeze;
+            $season['player_theft'] = $playerTheft;
         }
     }
     
@@ -1316,6 +1340,30 @@ function normalizeSigilCounts($value): array {
     return $normalized;
 }
 
+function sumSigilCounts(array $counts, ?array $tiers = null): int {
+    if ($tiers === null) {
+        return array_sum($counts);
+    }
+
+    $total = 0;
+    foreach ($tiers as $tier) {
+        $index = (int)$tier - 1;
+        if ($index >= 0 && $index < 6) {
+            $total += max(0, (int)($counts[$index] ?? 0));
+        }
+    }
+
+    return $total;
+}
+
+function calculateSigilCountsValue(array $counts, array $valueTable): int {
+    $total = 0;
+    for ($tier = 1; $tier <= 6; $tier++) {
+        $total += max(0, (int)($counts[$tier - 1] ?? 0)) * max(0, (int)($valueTable[$tier] ?? 0));
+    }
+    return $total;
+}
+
 function getGlobalLeaderboard() {
     $db = Database::getInstance();
     return $db->fetchAll(
@@ -1323,34 +1371,6 @@ function getGlobalLeaderboard() {
          FROM players 
          WHERE global_stars > 0 AND profile_deleted_at IS NULL
          ORDER BY global_stars DESC, player_id ASC"
-    );
-}
-
-function getMyTrades($player) {
-    $db = Database::getInstance();
-    if (!$player['joined_season_id']) return [];
-    
-    return $db->fetchAll(
-        "SELECT t.*, 
-                pi.handle as initiator_handle,
-                pa.handle as acceptor_handle
-         FROM trades t
-         JOIN players pi ON pi.player_id = t.initiator_id
-         JOIN players pa ON pa.player_id = t.acceptor_id
-         WHERE t.season_id = ? AND (t.initiator_id = ? OR t.acceptor_id = ?)
-         ORDER BY t.created_at DESC LIMIT 20",
-        [$player['joined_season_id'], $player['player_id'], $player['player_id']]
-    );
-}
-
-function getSeasonPlayers($seasonId) {
-    $db = Database::getInstance();
-    return $db->fetchAll(
-        "SELECT p.player_id, p.handle, p.activity_state, p.online_current
-         FROM players p
-         WHERE p.joined_season_id = ? AND p.participation_enabled = 1
-         ORDER BY p.handle ASC",
-        [$seasonId]
     );
 }
 
@@ -1437,7 +1457,7 @@ function getProfile($viewer, $targetId) {
     $db = Database::getInstance();
     $target = $db->fetch(
         "SELECT player_id, handle, role, global_stars, profile_visibility, created_at, profile_deleted_at,
-                joined_season_id, participation_enabled
+            joined_season_id, participation_enabled, activity_state, online_current
          FROM players WHERE player_id = ?",
         [$targetId]
     );
@@ -1486,8 +1506,10 @@ function getProfile($viewer, $targetId) {
                         ? $profileBoosts['self'][0]
                         : null;
                     $profileFreeze = getFreezeStatusForPlayer((int)$targetId, (int)$target['joined_season_id']);
+                    $profileTheft = getTheftStatusForPlayer((int)$targetId, (int)$target['joined_season_id']);
                     $target['active_participation'] = [
                         'season_id' => (int)$target['joined_season_id'],
+                        'activity_state' => (string)($target['activity_state'] ?? 'Active'),
                         'coins' => (int)$participation['coins'],
                         'sigils' => [
                             (int)$participation['sigils_t1'],
@@ -1505,6 +1527,12 @@ function getProfile($viewer, $targetId) {
                             'remaining_real_seconds' => $profilePrimaryBoost ? (int)($profilePrimaryBoost['remaining_real_seconds'] ?? 0) : 0,
                         ],
                         'freeze' => $profileFreeze,
+                        'theft' => $profileTheft,
+                        'can_freeze' => ((int)($participation['sigils_t6'] ?? 0) > 0),
+                        'can_melt' => ($profileFreeze['is_frozen'] ?? false)
+                            && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
+                        'can_steal' => !($profileTheft['is_on_cooldown'] ?? false)
+                            && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
                     ];
                 }
             }
@@ -1884,15 +1912,13 @@ function gatedStarPurchase(array $player, int $starsRequested, bool $confirmed):
 }
 
 /**
- * Preview a trade without executing it.
+ * Preview a sigil theft attempt without executing it.
  */
-function previewTrade(
+function previewSigilTheft(
     array $player,
-    int $acceptorId,
-    int $sideACoins,
-    array $sideASigils,
-    int $sideBCoins,
-    array $sideBSigils
+    int $targetPlayerId,
+    array $spentSigils,
+    array $requestedSigils
 ): array {
     $db = Database::getInstance();
     $playerId = (int)$player['player_id'];
@@ -1902,114 +1928,214 @@ function previewTrade(
         return ['error' => 'Not participating in any season'];
     }
     if ($fullPlayer['idle_modal_active']) {
-        return ['error' => 'Cannot trade while idle', 'reason_code' => 'idle_gated'];
+        return ['error' => 'Cannot perform actions while idle', 'reason_code' => 'idle_gated'];
+    }
+    if (!tableExists($db, 'sigil_theft_attempts')) {
+        return ['error' => 'Sigil theft is unavailable until migrations are applied'];
     }
 
     $seasonId = (int)$fullPlayer['joined_season_id'];
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     $status = GameTime::getSeasonStatus($season);
-    if ($status === 'Blackout') {
-        return ['error' => 'Trading is not available during blackout', 'reason_code' => 'blackout_disallows_action'];
+    if ($status !== 'Active') {
+        return ['error' => 'Sigil theft is only available during active season', 'reason_code' => 'blackout_disallows_action'];
+    }
+
+    $targetPlayerId = (int)$targetPlayerId;
+    if ($targetPlayerId <= 0 || $targetPlayerId === $playerId) {
+        return ['error' => 'Choose another player in your season'];
+    }
+
+    $target = $db->fetch(
+        "SELECT player_id, handle FROM players WHERE player_id = ? AND joined_season_id = ? AND participation_enabled = 1",
+        [$targetPlayerId, $seasonId]
+    );
+    if (!$target) {
+        return ['error' => 'Target player not found in this active season'];
     }
 
     $participation = $db->fetch(
         "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
         [$playerId, $seasonId]
     );
+    $targetParticipation = $db->fetch(
+        "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
+        [$targetPlayerId, $seasonId]
+    );
+    if (!$participation || !$targetParticipation) {
+        return ['error' => 'Both players must be active season participants'];
+    }
 
-    $aCoins = max(0, (int)$sideACoins);
-    $bCoins = max(0, (int)$sideBCoins);
-    $aSigils = normalizeSigilCounts($sideASigils);
-    $bSigils = normalizeSigilCounts($sideBSigils);
-    $declaredValue = Economy::calculateTradeValue($season, $aCoins, $aSigils, $bCoins, $bSigils);
-    $fee = Economy::calculateTradeFee($season, $declaredValue);
-    $totalCost = $aCoins + $fee;
-    // Both initiator and acceptor pay the same locked fee on accept.
-    $estimatedBurn = $fee * 2;
+    $spentSigils = normalizeSigilCounts($spentSigils);
+    $requestedSigils = normalizeSigilCounts($requestedSigils);
 
-    $coins = (int)$participation['coins'];
-    $totalSupply = max(1, (int)$season['total_coins_supply']);
-    $priceImpactBp = (int)round(($estimatedBurn / $totalSupply) * 10000);
+    $spentCount = sumSigilCounts($spentSigils, SIGIL_THEFT_SPEND_TIERS);
+    if ($spentCount <= 0) {
+        return ['error' => 'Select at least one Tier 4 or Tier 5 sigil to spend'];
+    }
+    for ($tier = 1; $tier <= 6; $tier++) {
+        if (!in_array($tier, SIGIL_THEFT_SPEND_TIERS, true) && (int)($spentSigils[$tier - 1] ?? 0) > 0) {
+            return ['error' => 'Only Tier 4 and Tier 5 sigils can be spent on theft'];
+        }
+    }
 
-    $spendFraction = $coins > 0 ? min(1.0, $totalCost / $coins) : 1.0;
-    $extraFlags = [];
-    if ($fee > 0) $extraFlags[] = 'fee_applies';
-    $risk = computeEconomicRisk($spendFraction, $extraFlags);
+    $requestedCount = sumSigilCounts($requestedSigils, SIGIL_THEFT_TARGET_TIERS);
+    if ($requestedCount <= 0) {
+        return ['error' => 'Select at least one sigil to attempt to steal'];
+    }
+
+    $attackerTheft = getTheftStatusForPlayer($playerId, $seasonId);
+    if ($attackerTheft['is_on_cooldown'] ?? false) {
+        return ['error' => 'Your theft cooldown is active'];
+    }
+
+    $targetTheft = getTheftStatusForPlayer($targetPlayerId, $seasonId);
+    if ($targetTheft['is_protected'] ?? false) {
+        return ['error' => 'Target theft protection is active'];
+    }
+
+    foreach (SIGIL_THEFT_SPEND_TIERS as $tier) {
+        $amount = max(0, (int)($spentSigils[$tier - 1] ?? 0));
+        if ($amount > (int)($participation['sigils_t' . $tier] ?? 0)) {
+            return ['error' => 'Insufficient Tier ' . $tier . ' Sigils'];
+        }
+    }
+
+    foreach (SIGIL_THEFT_TARGET_TIERS as $tier) {
+        $amount = max(0, (int)($requestedSigils[$tier - 1] ?? 0));
+        if ($amount > (int)($targetParticipation['sigils_t' . $tier] ?? 0)) {
+            return ['error' => 'Requested sigils exceed target inventory'];
+        }
+    }
+
+    $spendValue = calculateSigilCountsValue($spentSigils, SIGIL_UTILITY_VALUE_BY_TIER);
+    $requestedValue = calculateSigilCountsValue($requestedSigils, SIGIL_UTILITY_VALUE_BY_TIER);
+    if ($requestedValue > $spendValue) {
+        return ['error' => 'Requested loot value exceeds your theft spend value'];
+    }
+
+    $projectedAttacker = $participation;
+    foreach (SIGIL_THEFT_SPEND_TIERS as $tier) {
+        $col = 'sigils_t' . $tier;
+        $projectedAttacker[$col] = max(0, (int)$projectedAttacker[$col] - (int)($spentSigils[$tier - 1] ?? 0));
+    }
+    foreach (SIGIL_THEFT_TARGET_TIERS as $tier) {
+        $col = 'sigils_t' . $tier;
+        $projectedAttacker[$col] = max(0, (int)$projectedAttacker[$col] + (int)($requestedSigils[$tier - 1] ?? 0));
+    }
+
+    $capError = Actions::validateSigilInventoryCaps($projectedAttacker);
+    if ($capError !== null) {
+        return ['error' => $capError];
+    }
+
+    $availableSpendValue = calculateSigilCountsValue(
+        [0, 0, 0, (int)($participation['sigils_t4'] ?? 0), (int)($participation['sigils_t5'] ?? 0), 0],
+        SIGIL_UTILITY_VALUE_BY_TIER
+    );
+    $availableSpendCount = max(0, (int)($participation['sigils_t4'] ?? 0)) + max(0, (int)($participation['sigils_t5'] ?? 0));
+    $spendFraction = $availableSpendValue > 0 ? min(1.0, $spendValue / $availableSpendValue) : 1.0;
+    $risk = computeEconomicRisk($spendFraction);
+    if (($risk['severity'] ?? 'low') === 'low') {
+        $risk['severity'] = 'medium';
+    }
+    $risk['explain'] = trim('Spent sigils are always consumed, even when the theft fails. ' . ($risk['explain'] ?? ''));
+
+    $successChanceFp = min(
+        (int)SIGIL_THEFT_SUCCESS_CAP_FP,
+        intdiv($spendValue * FP_SCALE, max(1, $spendValue + ((int)SIGIL_THEFT_VALUE_PRESSURE_MULTIPLIER * $requestedValue)))
+    );
 
     $payload = buildPreviewPayload(
-        $totalCost,
-        $fee,
-        $priceImpactBp,
-        $coins - $totalCost,
-        $risk
+        $spentCount,
+        0,
+        0,
+        max(0, $availableSpendCount - $spentCount),
+        $risk,
+        'sigils_mixed'
     );
-    $payload['declared_value'] = $declaredValue;
-    $payload['side_a_coins'] = $aCoins;
-    $payload['side_b_coins'] = $bCoins;
-    $payload['estimated_burn_on_accept'] = $estimatedBurn;
-    $payload['coins_escrowed'] = $aCoins;
-    $payload['coins_available'] = $coins;
+    $payload['requires_explicit_confirm'] = true;
+    $payload['target_player_id'] = (int)$target['player_id'];
+    $payload['target_handle'] = (string)$target['handle'];
+    $payload['spent_sigils'] = $spentSigils;
+    $payload['requested_sigils'] = $requestedSigils;
+    $payload['spend_value'] = $spendValue;
+    $payload['requested_value'] = $requestedValue;
+    $payload['success_chance_fp'] = $successChanceFp;
+    $payload['success_chance_pct'] = round($successChanceFp / 10000, 2);
+    $payload['available_spend_sigils'] = $availableSpendCount;
+    $payload['theft_cooldown_state'] = $attackerTheft;
+    $payload['theft_protection_state'] = $targetTheft;
 
-    return array_merge(['success' => true, 'preview_type' => 'trade'], $payload);
+    return array_merge(['success' => true, 'preview_type' => 'sigil_theft'], $payload);
 }
 
 /**
- * Gated trade initiate: runs preview first; blocks medium/high risk without confirm flag.
+ * Gated sigil theft attempt: runs preview first and requires explicit confirmation.
  */
-function gatedTradeInitiate(
+function gatedSigilTheftAttempt(
     array $player,
-    int $acceptorId,
-    int $sideACoins,
-    array $sideASigils,
-    int $sideBCoins,
-    array $sideBSigils,
+    int $targetPlayerId,
+    array $spentSigils,
+    array $requestedSigils,
     bool $confirmed
 ): array {
-    $preview = previewTrade($player, $acceptorId, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils);
+    $preview = previewSigilTheft($player, $targetPlayerId, $spentSigils, $requestedSigils);
     if (!empty($preview['error'])) return $preview;
 
     if ($preview['requires_explicit_confirm'] && !$confirmed) {
         return [
             'error' => 'confirmation_required',
             'reason_code' => 'confirmation_required',
-            'message' => 'This trade has medium or high economic impact. Send confirm_economic_impact=1 to proceed.',
+            'message' => 'This theft attempt is chance-based and requires confirmation. Send confirm_economic_impact=1 to proceed.',
             'preview' => $preview,
         ];
     }
 
-    $result = Actions::tradeInitiate($player['player_id'], $acceptorId, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils);
+    $result = Actions::attemptSigilTheft($player['player_id'], $targetPlayerId, $spentSigils, $requestedSigils);
     if (!empty($result['error']) && !empty($confirmed)) {
-        $insufficientErrors = [
-            'Insufficient coins',
-            'Insufficient coins to cover trade fee',
-            'Insufficient Tier 1 Sigils',
-            'Insufficient Tier 2 Sigils',
-            'Insufficient Tier 3 Sigils',
+        $dynamicErrors = [
             'Insufficient Tier 4 Sigils',
             'Insufficient Tier 5 Sigils',
-            'Insufficient Tier 6 Sigils',
+            'Requested sigils exceed target inventory',
+            'Target theft protection is active',
+            'Your theft cooldown is active',
+            'Sigil inventory cap reached for Tier 1',
+            'Sigil inventory cap reached for Tier 2',
+            'Sigil inventory cap reached for Tier 3',
+            'Sigil inventory cap reached for Tier 4',
+            'Sigil inventory cap reached for Tier 5',
+            'Sigil inventory cap reached for Tier 6',
+            'Sigil inventory total cap reached',
         ];
-        if (in_array((string)$result['error'], $insufficientErrors, true)) {
-            $latestPreview = previewTrade($player, $acceptorId, $sideACoins, $sideASigils, $sideBCoins, $sideBSigils);
+        if (in_array((string)$result['error'], $dynamicErrors, true)) {
+            $latestPreview = previewSigilTheft($player, $targetPlayerId, $spentSigils, $requestedSigils);
             return [
                 'error' => 'balance_changed',
                 'reason_code' => 'balance_changed',
-                'message' => 'Your balance or inventory changed since confirmation. Please review and confirm again.',
+                'message' => 'Player state changed since confirmation. Please review the theft preview again.',
                 'preview' => $latestPreview,
                 'prior_error' => $result['error'],
             ];
         }
     }
+
     if (!empty($result['success'])) {
         $result['receipt'] = [
-            'executed_total_cost'      => (int)($sideACoins) + (int)($result['fee'] ?? 0),
-            'executed_fee'             => (int)($result['fee'] ?? 0),
-            'executed_price_impact_bp' => $preview['estimated_price_impact_bp'],
-            'executed_price_impact_pct' => $preview['estimated_price_impact_pct'],
-            'post_balance_estimate'    => max(0, $preview['coins_available'] - (int)$sideACoins - (int)($result['fee'] ?? 0)),
-            'declared_value'           => (int)($result['declared_value'] ?? 0),
+            'preview_type' => 'sigil_theft',
+            'executed_total_cost' => sumSigilCounts($spentSigils, SIGIL_THEFT_SPEND_TIERS),
+            'post_balance_estimate' => (int)($preview['post_balance_estimate'] ?? 0),
+            'spent_sigils' => $spentSigils,
+            'requested_sigils' => $requestedSigils,
+            'transferred_sigils' => $result['transferred_sigils'] ?? [0, 0, 0, 0, 0, 0],
+            'success_chance_pct' => (float)($preview['success_chance_pct'] ?? 0),
+            'spend_value' => (int)($preview['spend_value'] ?? 0),
+            'requested_value' => (int)($preview['requested_value'] ?? 0),
+            'theft_success' => !empty($result['theft_success']),
+            'target_handle' => (string)($result['target_handle'] ?? ($preview['target_handle'] ?? '')),
         ];
     }
+
     return $result;
 }
 
