@@ -402,6 +402,11 @@ try {
                 isset($input['target_handle']) ? (string)$input['target_handle'] : null
             ));
             break;
+
+        case 'self_melt_freeze':
+            $player = Auth::requireAuth();
+            echo json_encode(Actions::selfMeltFreeze($player['player_id']));
+            break;
             
         case 'lock_in':
             $player = Auth::requireAuth();
@@ -654,7 +659,7 @@ try {
             echo json_encode(['error' => 'Unknown action', 'available_actions' => [
                 'register', 'login', 'logout', 'game_state', 'season_detail', 'leaderboard',
                 'global_leaderboard', 'season_join', 'purchase_stars',
-                'combine_sigil', 'freeze_player_ubi',
+                'combine_sigil', 'freeze_player_ubi', 'self_melt_freeze',
                 'lock_in', 'idle_ack', 'boost_catalog', 'purchase_boost', 'active_boosts',
                 'sigil_drops', 'trade_initiate', 'trade_accept', 'trade_decline',
                 'trade_cancel', 'my_trades', 'season_players', 'cosmetic_catalog',

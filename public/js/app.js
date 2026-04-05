@@ -1313,16 +1313,6 @@ const TMC = {
                             </div>
                             ${visibleCombineRecipes.length === 0 ? '<p class="panel-info">No combinations currently available.</p>' : ''}
                         </div>
-                        ${part.can_freeze ? `
-                            <div class="sigil-freeze-section">
-                                <h4>Tier 6 Freeze</h4>
-                                <p class="panel-info">Consume 1 Tier 6 sigil to nullify a target's boost percentage while boosts continue to count down.</p>
-                                <div class="action-row">
-                                    <input type="text" id="freeze-target-handle" class="input-field" placeholder="Target handle">
-                                    <button class="btn btn-danger" onclick="TMC.freezeByHandle()" ${isBlackout ? 'disabled' : ''}>Freeze by Handle</button>
-                                </div>
-                            </div>
-                        ` : ''}
                     </div>
 
                     <!-- Lock-In Panel -->
@@ -1361,7 +1351,6 @@ const TMC = {
                             <th>Boost</th>
                             <th>Coins</th>
                             <th>Status</th>
-                            ${isParticipating && part && part.can_freeze ? '<th>Action</th>' : ''}
                         </tr>
                     </thead>
                     <tbody id="season-lb-body">
@@ -1403,10 +1392,9 @@ const TMC = {
         }
         if (empty) empty.style.display = 'none';
 
-        const includeActions = !!(this.state.currentScreen === 'season-detail' && this.state.player && this.state.player.participation && this.state.player.participation.can_freeze);
         const capped = lb.slice(0, 20);
         const rows = this._seasonDetailLeaderboardExpanded ? capped : capped.slice(0, 3);
-        body.innerHTML = this.renderSeasonLeaderboardRows(rows, includeActions, { firstCol: 'rate', showRateColumn: false });
+        body.innerHTML = this.renderSeasonLeaderboardRows(rows, false, { firstCol: 'rate', showRateColumn: false });
 
         if (toggleWrap && toggleBtn) {
             if (lb.length > 3) {
@@ -1604,7 +1592,7 @@ const TMC = {
         this.loadSeasonDetail(this.state.currentSeason);
     },
 
-    async freezeByPlayerId(targetPlayerId) {
+    async freezeByPlayerId(targetPlayerId, refreshProfileId = null) {
         const result = await this.api('freeze_player_ubi', { target_player_id: targetPlayerId });
         if (result.error) {
             this.toast(result.error, 'error', { category: 'error_action' });
@@ -1619,6 +1607,10 @@ const TMC = {
             }
         });
         await this.refreshGameState();
+        if (this.state.currentScreen === 'profile' && refreshProfileId) {
+            this.loadProfile(refreshProfileId);
+            return;
+        }
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
@@ -1646,6 +1638,28 @@ const TMC = {
         });
         if (input) input.value = '';
         await this.refreshGameState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async selfMeltFreeze() {
+        const result = await this.api('self_melt_freeze', {});
+        if (result.error) {
+            this.toast(result.error, 'error', { category: 'error_action' });
+            return;
+        }
+        this.toast(result.message || 'Melt applied.', 'success', {
+            category: 'freeze_melt',
+            payload: {
+                reduction_ticks: Number(result.reduction_ticks) || 0,
+                new_remaining_ticks: Number(result.new_remaining_ticks) || 0,
+                expires_tick: Number(result.expires_tick) || null
+            }
+        });
+        await this.refreshGameState();
+        if (this.state.currentScreen === 'profile' && this.state.player) {
+            this.loadProfile(this.state.player.player_id);
+            return;
+        }
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
@@ -2310,7 +2324,6 @@ const TMC = {
     },
 
     renderSeasonLeaderboardRows(entries, includeActions = false, options = {}) {
-        const canFreeze = includeActions && !!(this.state.player && this.state.player.participation && this.state.player.participation.can_freeze);
         const firstCol = options.firstCol === 'rate' ? 'rate' : 'rank';
         const showRateColumn = options.showRateColumn !== false;
         return entries.map((entry, i) => {
@@ -2346,7 +2359,6 @@ const TMC = {
                     <td class="stars-cell">${coinsCell}</td>
                     ${showRateColumn ? `<td class="rate-cell">${rateCell}</td>` : ''}
                     <td class="status-cell">${statusBadge}</td>
-                    ${canFreeze ? `<td class="status-cell">${(!isMe && entry.activity_state === 'Active') ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); TMC.freezeByPlayerId(${entry.player_id})">Freeze</button>` : ''}</td>` : ''}
                 </tr>
             `;
         }).join('');
@@ -2946,14 +2958,44 @@ const TMC = {
             ? this.state.seasons.find((s) => s.season_id == activeParticipation.season_id)
             : null;
         const seasonStatus = season ? (season.computed_status || season.status) : null;
+        const isOwnProfile = !!(this.state.player && this.state.player.player_id == profile.player_id);
+        const viewerParticipation = this.state.player ? this.state.player.participation : null;
+        const viewerCanFreeze = !!(viewerParticipation && viewerParticipation.can_freeze);
+        const ownFreeze = isOwnProfile
+            ? (viewerParticipation && viewerParticipation.freeze ? viewerParticipation.freeze : profileFreeze)
+            : profileFreeze;
+        const ownT6Count = isOwnProfile && Array.isArray(viewerParticipation?.sigils)
+            ? Number(viewerParticipation.sigils[5] || 0)
+            : Number((activeSigils[5] || 0));
         const canOpenTrade = !!(
             this.state.player &&
-            this.state.player.player_id != profile.player_id &&
+            !isOwnProfile &&
             this.state.player.joined_season_id &&
             activeParticipation &&
             this.state.player.joined_season_id == activeParticipation.season_id &&
             seasonStatus === 'Active'
         );
+        const canFreezeFromProfile = !!(
+            this.state.player &&
+            !isOwnProfile &&
+            viewerCanFreeze &&
+            activeParticipation &&
+            this.state.player.joined_season_id &&
+            this.state.player.joined_season_id == activeParticipation.season_id &&
+            seasonStatus === 'Active'
+        );
+        const canMeltOwnFreeze = !!(
+            isOwnProfile &&
+            ownFreeze &&
+            ownFreeze.is_frozen &&
+            Number(ownFreeze.remaining_real_seconds || 0) > 0 &&
+            ownT6Count > 0
+        );
+        const actionButtons = [
+            canOpenTrade ? `<button class="btn btn-primary" onclick="TMC.openTradeRequest(${profile.player_id}, ${activeParticipation.season_id})">Open Trade Request</button>` : '',
+            canFreezeFromProfile ? `<button class="btn btn-danger" onclick="TMC.freezeByPlayerId(${profile.player_id}, ${profile.player_id})">Freeze Player</button>` : '',
+            canMeltOwnFreeze ? `<button class="btn btn-warning" onclick="TMC.selfMeltFreeze()">Melt Freeze (-15m max)</button>` : ''
+        ].filter(Boolean).join('');
 
         const inventoryHtml = activeParticipation ? `
             <div class="profile-inventory">
@@ -3002,7 +3044,7 @@ const TMC = {
                     </div>
                 </div>
                 ${inventoryHtml}
-                ${canOpenTrade ? `<div class="profile-actions"><button class="btn btn-primary" onclick="TMC.openTradeRequest(${profile.player_id}, ${activeParticipation.season_id})">Open Trade Request</button></div>` : ''}
+                ${actionButtons ? `<div class="profile-actions">${actionButtons}</div>` : ''}
                 ${badges ? `<div class="profile-badges"><h3>Badges</h3><div class="badges-row">${badges}</div></div>` : ''}
                 ${history ? `
                     <div class="profile-history">

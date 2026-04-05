@@ -321,8 +321,8 @@ class FreezeAccrualLogic
 /**
  * Simulates the freeze-purchase timing logic (T6 sigil action).
  *
- * Freeze rules (as of the 30-min / +15-min requirement):
- *  - Initial freeze: 30 minutes = 30 ticks at 1 tick/minute.
+ * Freeze rules (as of the 15-min / +15-min requirement):
+ *  - Initial freeze: 15 minutes = 15 ticks at 1 tick/minute.
  *  - Additional freeze on same target while already frozen: adds 15 minutes
  *    (15 ticks) to the CURRENT expiry tick rather than resetting from now.
  *    This preserves existing duration and extends predictably.
@@ -332,11 +332,11 @@ class FreezeAccrualLogic
 class FreezePurchaseLogic
 {
     /**
-     * Ticks for the initial 30-minute base freeze.
-     * Mirrors FREEZE_BASE_DURATION_TICKS = ticks_from_real_seconds(1800).
-     * ticks_from_real_seconds uses TICK_REAL_SECONDS (default 60): ceil(1800/60) = 30.
+     * Ticks for the initial 15-minute base freeze.
+     * Mirrors FREEZE_BASE_DURATION_TICKS = ticks_from_real_seconds(900).
+     * ticks_from_real_seconds uses TICK_REAL_SECONDS (default 60): ceil(900/60) = 15.
      */
-    public const BASE_DURATION_TICKS = 30;
+    public const BASE_DURATION_TICKS = 15;
 
     /**
      * Ticks added per additional freeze on the same target (+15 minutes flat).
@@ -365,6 +365,22 @@ class FreezePurchaseLogic
     {
         // max() guard: if the recorded expiry is somehow behind now, extend from now.
         return max($existingExpiresTick, $gameTime) + self::STACK_EXTENSION_TICKS;
+    }
+}
+
+/**
+ * Simulates freeze self-melt behavior for T6 consumption.
+ */
+class FreezeMeltLogic
+{
+    public static function computeReductionTicks(int $remainingTicks): int
+    {
+        return min(FreezePurchaseLogic::STACK_EXTENSION_TICKS, max(0, $remainingTicks));
+    }
+
+    public static function computePostMeltRemainingTicks(int $remainingTicks): int
+    {
+        return max(0, $remainingTicks - self::computeReductionTicks($remainingTicks));
     }
 }
 
@@ -1224,9 +1240,9 @@ class BoostTimingTest extends TestCase
     // -----------------------------------------------------------------------
 
     /**
-     * Initial freeze duration must be exactly 30 minutes (30 ticks at 1 tick/min).
+     * Initial freeze duration must be exactly 15 minutes (15 ticks at 1 tick/min).
      */
-    public function testFreezeInitialDurationIs30Minutes(): void
+    public function testFreezeInitialDurationIs15Minutes(): void
     {
         $gameTime = 1000;
         $expires  = FreezePurchaseLogic::computeInitialExpiresTick($gameTime);
@@ -1234,12 +1250,12 @@ class BoostTimingTest extends TestCase
         $this->assertSame(
             $gameTime + FreezePurchaseLogic::BASE_DURATION_TICKS,
             $expires,
-            'Initial freeze must expire exactly 30 ticks (30 minutes) after purchase.'
+            'Initial freeze must expire exactly 15 ticks (15 minutes) after purchase.'
         );
         $this->assertSame(
-            30,
+            15,
             FreezePurchaseLogic::BASE_DURATION_TICKS,
-            'BASE_DURATION_TICKS must be 30 (30 minutes at 1 tick/minute).'
+            'BASE_DURATION_TICKS must be 15 (15 minutes at 1 tick/minute).'
         );
     }
 
@@ -1293,17 +1309,17 @@ class BoostTimingTest extends TestCase
     {
         $gameTime = 200;
         // Start: initial freeze
-        $expires1 = FreezePurchaseLogic::computeInitialExpiresTick($gameTime); // 230
+        $expires1 = FreezePurchaseLogic::computeInitialExpiresTick($gameTime); // 215
 
         // First stack (gameTime still 200, imagine it's the same tick)
-        $expires2 = FreezePurchaseLogic::computeStackedExpiresTick($expires1, $gameTime); // 245
+        $expires2 = FreezePurchaseLogic::computeStackedExpiresTick($expires1, $gameTime); // 230
 
         // Second stack
-        $expires3 = FreezePurchaseLogic::computeStackedExpiresTick($expires2, $gameTime); // 260
+        $expires3 = FreezePurchaseLogic::computeStackedExpiresTick($expires2, $gameTime); // 245
 
-        $this->assertSame($gameTime + 30, $expires1, 'Initial: 30 ticks.');
-        $this->assertSame($gameTime + 45, $expires2, 'After 1 stack: 30 + 15 = 45 ticks.');
-        $this->assertSame($gameTime + 60, $expires3, 'After 2 stacks: 30 + 15 + 15 = 60 ticks.');
+        $this->assertSame($gameTime + 15, $expires1, 'Initial: 15 ticks.');
+        $this->assertSame($gameTime + 30, $expires2, 'After 1 stack: 15 + 15 = 30 ticks.');
+        $this->assertSame($gameTime + 45, $expires3, 'After 2 stacks: 15 + 15 + 15 = 45 ticks.');
     }
 
     /**
@@ -1324,5 +1340,23 @@ class BoostTimingTest extends TestCase
             $newExpiry,
             'When existing expiry is in the past, extension must be applied from gameTime (max guard).'
         );
+    }
+
+    public function testFreezeMeltReducesAtMostFifteenTicks(): void
+    {
+        $this->assertSame(15, FreezeMeltLogic::computeReductionTicks(40));
+        $this->assertSame(25, FreezeMeltLogic::computePostMeltRemainingTicks(40));
+    }
+
+    public function testFreezeMeltClearsWhenRemainingUnderFifteenTicks(): void
+    {
+        $this->assertSame(9, FreezeMeltLogic::computeReductionTicks(9));
+        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(9));
+    }
+
+    public function testFreezeMeltNoEffectWhenRemainingAlreadyZero(): void
+    {
+        $this->assertSame(0, FreezeMeltLogic::computeReductionTicks(0));
+        $this->assertSame(0, FreezeMeltLogic::computePostMeltRemainingTicks(0));
     }
 }

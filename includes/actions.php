@@ -1169,4 +1169,81 @@ class Actions {
             return ['error' => 'Freeze action failed'];
         }
     }
+
+    /**
+     * Consume a Tier 6 sigil to melt your own active freeze by up to 15 minutes.
+     */
+    public static function selfMeltFreeze($playerId) {
+        $db = Database::getInstance();
+        $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
+
+        if (!$player['participation_enabled'] || !$player['joined_season_id']) {
+            return ['error' => 'Not participating in any season'];
+        }
+
+        $seasonId = (int)$player['joined_season_id'];
+        $participation = $db->fetch(
+            "SELECT sigils_t6 FROM season_participation WHERE player_id = ? AND season_id = ?",
+            [$playerId, $seasonId]
+        );
+        if ((int)($participation['sigils_t6'] ?? 0) < 1) {
+            return ['error' => 'You need at least 1 Tier 6 sigil'];
+        }
+
+        $nowTick = GameTime::now();
+        $existing = $db->fetch(
+            "SELECT freeze_id, expires_tick FROM active_freezes
+             WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?
+             ORDER BY expires_tick DESC LIMIT 1",
+            [$seasonId, (int)$playerId, $nowTick]
+        );
+        if (!$existing) {
+            return ['error' => 'You are not currently frozen'];
+        }
+
+        $currentExpires = (int)$existing['expires_tick'];
+        $remainingTicks = max(0, $currentExpires - $nowTick);
+        if ($remainingTicks < 1) {
+            return ['error' => 'You are not currently frozen'];
+        }
+
+        $reductionTicks = min((int)FREEZE_STACK_EXTENSION_TICKS, $remainingTicks);
+        $newExpires = max($nowTick, $currentExpires - $reductionTicks);
+        $newRemaining = max(0, $newExpires - $nowTick);
+
+        $db->beginTransaction();
+        try {
+            $db->query(
+                "UPDATE season_participation SET sigils_t6 = sigils_t6 - 1 WHERE player_id = ? AND season_id = ?",
+                [$playerId, $seasonId]
+            );
+
+            $db->query(
+                "UPDATE active_freezes
+                 SET expires_tick = ?, is_active = CASE WHEN ? <= ? THEN 0 ELSE 1 END
+                 WHERE freeze_id = ?",
+                [$newExpires, $newExpires, $nowTick, (int)$existing['freeze_id']]
+            );
+
+            $db->query(
+                "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
+                [$nowTick, $playerId]
+            );
+
+            $db->commit();
+
+            return [
+                'success' => true,
+                'reduction_ticks' => $reductionTicks,
+                'new_remaining_ticks' => $newRemaining,
+                'expires_tick' => $newExpires,
+                'message' => $newRemaining > 0
+                    ? ('Melt applied. Freeze reduced by ' . $reductionTicks . ' ticks.')
+                    : 'Melt applied. Freeze removed.'
+            ];
+        } catch (Exception $e) {
+            $db->rollback();
+            return ['error' => 'Freeze melt failed'];
+        }
+    }
 }
