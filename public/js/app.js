@@ -1686,14 +1686,29 @@ const TMC = {
         this.syncSeasonDetailSigilActionState();
     },
 
+    getDefaultSigilActionTier() {
+        const sigils = this.state.player && this.state.player.participation && Array.isArray(this.state.player.participation.sigils)
+            ? this.state.player.participation.sigils
+            : [];
+
+        for (let tier = 1; tier <= 5; tier++) {
+            if ((parseInt(sigils[tier - 1], 10) || 0) > 0) {
+                return tier;
+            }
+        }
+
+        return 1;
+    },
+
     syncSeasonDetailSigilActionState() {
         if (this.state.currentScreen !== 'season-detail') return;
 
         const season = this.state.seasons.find((entry) => entry.season_id == this.state.currentSeason) || null;
         const isBlackout = !!season && (season.computed_status || season.status) === 'Blackout';
         const selectedTier = parseInt(this._selectedSigilActionTier, 10) || 0;
-        const powerLabel = this.getSigilActionLabel(selectedTier, 'power');
-        const timeLabel = this.getSigilActionLabel(selectedTier, 'time');
+        const displayTier = selectedTier >= 1 && selectedTier <= 5 ? selectedTier : this.getDefaultSigilActionTier();
+        const powerLabel = this.getSigilActionLabel(displayTier, 'power');
+        const timeLabel = this.getSigilActionLabel(displayTier, 'time');
         const hasSelection = selectedTier >= 1 && selectedTier <= 5 && !isBlackout;
 
         document.querySelectorAll('.sigil-item[data-sigil-tier]').forEach((item) => {
