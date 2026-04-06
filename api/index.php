@@ -2161,7 +2161,7 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
     }
     if (!BoostCatalog::canSpendSigilTier($sigilTier)) {
         if ($sigilTier === 6) {
-            return ['error' => 'Tier 6 sigils cannot be used for +Power/+Time'];
+            return ['error' => 'Tier 6 sigils cannot be used for power boosts or time extensions'];
         }
         return ['error' => 'Invalid sigil tier'];
     }

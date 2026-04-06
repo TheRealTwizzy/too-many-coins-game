@@ -818,7 +818,7 @@ class Actions {
     /**
      * Spend one sigil to modify unified boost state.
      * - If no boost is active: initialize power/duration from selected tier.
-     * - If active: apply +Power or +Time from selected tier.
+        * - If active: apply a power boost or time extension from the selected tier.
      */
     public static function purchaseBoost($playerId, $sigilTier, $purchaseKind = 'power', $boostId = null) {
         $db = Database::getInstance();
@@ -848,7 +848,7 @@ class Actions {
 
         if (!BoostCatalog::canSpendSigilTier($sigilTier)) {
             if ($sigilTier === 6) {
-                return ['error' => 'Tier 6 sigils cannot be used for +Power/+Time'];
+                return ['error' => 'Tier 6 sigils cannot be used for power boosts or time extensions'];
             }
             return ['error' => 'Invalid sigil tier'];
         }

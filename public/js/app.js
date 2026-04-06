@@ -827,7 +827,9 @@ const TMC = {
         const applyBtn = document.getElementById('time-apply-btn');
         if (applyBtn) {
             applyBtn.disabled = candidates.length === 0;
-            applyBtn.title = candidates.length === 0 ? 'No active boosts eligible for this +Time action' : '';
+            applyBtn.title = candidates.length === 0
+                ? `No active boosts eligible for this ${this.getSigilActionDescriptor(selectedTier, 'time')}`
+                : '';
         }
     },
 
@@ -1227,6 +1229,9 @@ const TMC = {
             boostId: primaryBoost ? this._getBoostKey(primaryBoost) : null,
             freeze
         });
+        const selectedSigilActionTier = parseInt(this._selectedSigilActionTier, 10) || 0;
+        const selectedPowerActionLabel = this.getSigilActionLabel(selectedSigilActionTier, 'power');
+        const selectedTimeActionLabel = this.getSigilActionLabel(selectedSigilActionTier, 'time');
 
         let html = `
             <div class="season-header">
@@ -1293,10 +1298,10 @@ const TMC = {
                             <div class="sigil-side-actions ${this._selectedSigilActionTier ? 'active' : 'inactive'}">
                                 <button class="btn btn-sm btn-primary"
                                     onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'power')"
-                                    ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>+Power</button>
+                                    ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>${this.escapeHtml(selectedPowerActionLabel)}</button>
                                 <button class="btn btn-sm btn-outline"
                                     onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'time')"
-                                    ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>+Time</button>
+                                    ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>${this.escapeHtml(selectedTimeActionLabel)}</button>
                             </div>
                         </div>
                         ${sigilForgeHtml}
@@ -1764,6 +1769,13 @@ const TMC = {
     _timeTierPickerOpen: false,
     _timeBoostPickerOpen: false,
     _selectedSigilActionTier: null,
+    _sigilActionFallbackValuesByTier: {
+        1: { powerFp: 50000, timeExtensionRealSeconds: 30 * 60 },
+        2: { powerFp: 100000, timeExtensionRealSeconds: 60 * 60 },
+        3: { powerFp: 250000, timeExtensionRealSeconds: 3 * 60 * 60 },
+        4: { powerFp: 500000, timeExtensionRealSeconds: 6 * 60 * 60 },
+        5: { powerFp: 1000000, timeExtensionRealSeconds: 12 * 60 * 60 },
+    },
 
     async loadBoostCatalog() {
         const catalog = await this.api('boost_catalog');
@@ -1887,6 +1899,8 @@ const TMC = {
         this._selectedTimeBoostId = selectedBoostId;
 
         const selectedTierOption = spendableTiers.find((o) => o.tier === selectedTier) || null;
+        const selectedTimeActionLabel = this.getSigilActionLabel(selectedTier, 'time');
+        const selectedTimeActionDescriptor = this.getSigilActionDescriptor(selectedTier, 'time');
         const tierPickerLabel = selectedTierOption
             ? `Tier ${selectedTierOption.tier} (${selectedTierOption.owned}) +${this.formatDurationFromSeconds(selectedTierOption.extensionRealSeconds, 'short')}`
             : 'No sigils';
@@ -1930,11 +1944,11 @@ const TMC = {
                             <div id="time-boost-picker-menu" class="time-boost-picker-menu ${this._timeBoostPickerOpen ? 'open' : ''}">${boostMenuItemsHtml}</div>
                         </div>
                     ` : ''}
-                    ${this._timePurchaseStep >= 2 ? `<button id="time-apply-btn" class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : 'disabled title="No active boosts eligible for this +Time action"'}>Apply +Time</button>` : ''}
+                    ${this._timePurchaseStep >= 2 ? `<button id="time-apply-btn" class="btn btn-primary btn-sm" onclick="TMC.purchaseBoostTimeFlowGated()" ${timeCandidates.length > 0 ? '' : `disabled title="${this.escapeHtml(`No active boosts eligible for this ${selectedTimeActionDescriptor}`)}"`}>Apply ${this.escapeHtml(selectedTimeActionLabel)}</button>` : ''}
                     <button class="btn btn-outline btn-sm" onclick="TMC.cancelTimePurchaseFlow()">Cancel</button>
                 </div>
             `
-            : `<button class="btn btn-primary btn-sm" onclick="TMC.startTimePurchaseFlow()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>+Time</button>`;
+            : `<button class="btn btn-primary btn-sm" onclick="TMC.startTimePurchaseFlow()" ${hasTimeSigils ? '' : 'disabled title="No sigils available"'}>${this.escapeHtml(selectedTimeActionLabel)}</button>`;
 
         grid.innerHTML = `
             <div class="boost-catalog-header">
@@ -2080,6 +2094,52 @@ const TMC = {
             : `${mins} min`;
     },
 
+    getSigilActionValuesForTier(tier) {
+        const parsedTier = parseInt(tier, 10) || 0;
+        if (parsedTier < 1 || parsedTier > 5) return null;
+
+        const catalog = Array.isArray(this._boostCatalog) ? this._boostCatalog : [];
+        const catalogBoost = catalog.find((b) => (parseInt(b.tier_required, 10) || 0) === parsedTier) || null;
+        const fallback = this._sigilActionFallbackValuesByTier[parsedTier] || null;
+        const powerFp = Math.max(0, parseInt(catalogBoost ? (catalogBoost.base_modifier_fp || catalogBoost.modifier_fp || 0) : 0, 10) || 0)
+            || Math.max(0, parseInt(fallback ? fallback.powerFp : 0, 10) || 0);
+        const timeExtensionRealSeconds = Math.max(0, parseInt(catalogBoost ? (catalogBoost.time_extension_real_seconds || 0) : 0, 10) || 0)
+            || Math.max(0, parseInt(fallback ? fallback.timeExtensionRealSeconds : 0, 10) || 0);
+
+        if (powerFp <= 0 && timeExtensionRealSeconds <= 0) return null;
+
+        return {
+            powerFp,
+            timeExtensionRealSeconds
+        };
+    },
+
+    getSigilActionLabel(tier, kind) {
+        const values = this.getSigilActionValuesForTier(tier);
+        if (kind === 'power') {
+            if (!values || values.powerFp <= 0) return 'Power Boost';
+            return `+${this.formatPercentCompact(values.powerFp / 10000)}% Boost`;
+        }
+        if (kind === 'time') {
+            if (!values || values.timeExtensionRealSeconds <= 0) return 'Time Extension';
+            return `+${this.formatDurationFromSeconds(values.timeExtensionRealSeconds, 'short')}`;
+        }
+        return 'Boost Action';
+    },
+
+    getSigilActionDescriptor(tier, kind) {
+        const values = this.getSigilActionValuesForTier(tier);
+        if (kind === 'power') {
+            if (!values || values.powerFp <= 0) return 'power boost';
+            return `+${this.formatPercentCompact(values.powerFp / 10000)}% boost`;
+        }
+        if (kind === 'time') {
+            if (!values || values.timeExtensionRealSeconds <= 0) return 'time extension';
+            return `+${this.formatDurationFromSeconds(values.timeExtensionRealSeconds, 'short')} extension`;
+        }
+        return 'boost action';
+    },
+
     getTimeExtensionMapByTier() {
         const map = {};
         const catalog = Array.isArray(this._boostCatalog) ? this._boostCatalog : [];
@@ -2181,7 +2241,7 @@ const TMC = {
         const selectedBoostId = this._selectedTimeBoostId;
 
         if (!selectedTier || selectedTier < 1 || selectedTier > 5) {
-            this.toast('Select a sigil tier for +Time', 'error');
+            this.toast('Select a sigil tier for time extension', 'error');
             return;
         }
         if (!selectedBoostId) {
@@ -3851,7 +3911,7 @@ const TMC = {
         const boost = this._boostCatalog ? this._boostCatalog.find(b => b.boost_id == boostId) : null;
         const tier = boost ? (parseInt(boost.tier_required, 10) || 0) : 0;
         if (tier < 1 || tier > 5) {
-            this.toast('Unable to resolve sigil tier for +Power action.', 'error');
+            this.toast('Unable to resolve sigil tier for power boost action.', 'error');
             return;
         }
         await this.spendSigilBoostGated(tier, 'power', boostId);
@@ -3880,7 +3940,7 @@ const TMC = {
             return;
         }
 
-        const title = `Confirm: Tier ${tier} ${kind === 'power' ? '+Power' : '+Time'}`;
+        const title = `Confirm: Tier ${tier} ${this.getSigilActionLabel(tier, kind)}`;
         const payload = {
             sigil_tier: tier,
             purchase_kind: kind,
