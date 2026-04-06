@@ -919,6 +919,7 @@ a:hover { text-decoration: underline; }
     background: var(--bg-tertiary);
     -webkit-user-select: none;
     user-select: none;
+    position: relative;
 }
 
 .sigil-item.is-clickable {
@@ -933,8 +934,15 @@ a:hover { text-decoration: underline; }
 
 .sigil-item.is-selected {
     border-color: var(--accent-gold-light);
-    background: linear-gradient(135deg, rgba(240, 180, 41, 0.18), rgba(240, 180, 41, 0.08));
-    box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.35), 0 10px 24px rgba(240, 180, 41, 0.14);
+    background: linear-gradient(135deg, rgba(252, 211, 77, 0.22), rgba(240, 180, 41, 0.1));
+    box-shadow: 0 8px 18px rgba(240, 180, 41, 0.16);
+    transform: translateY(-1px);
+    z-index: 1;
+}
+
+.sigil-item.is-selected:hover {
+    border-color: var(--accent-gold-light);
+    box-shadow: 0 8px 18px rgba(240, 180, 41, 0.16);
     transform: translateY(-1px);
 }
 
