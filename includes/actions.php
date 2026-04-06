@@ -996,6 +996,12 @@ class Actions {
             $scopeLabel = ($scope === 'GLOBAL') ? 'all players in the season' : 'you';
             $modifierPercent = round($newModifier / 10000, 1);
             $didInitialize = !$active;
+            $purchasedPowerPercent = ($purchaseKind === 'power')
+                ? round((($didInitialize ? $initialPowerFp : $powerIncrementFp) / 10000), 1)
+                : 0;
+            $purchasedTimeRealSeconds = ($purchaseKind === 'time')
+                ? ($didInitialize ? $initialDurationRealSeconds : $timeIncrementRealSeconds)
+                : 0;
             return [
                 'success' => true,
                 'boost_name' => $resolvedBoostName,
@@ -1004,6 +1010,8 @@ class Actions {
                 'scope' => $scope,
                 'sigil_tier' => $sigilTier,
                 'modifier_percent' => $modifierPercent,
+                'purchased_power_percent' => $purchasedPowerPercent,
+                'purchased_time_real_seconds' => $purchasedTimeRealSeconds,
                 'stack_count' => 0,
                 'max_stack' => 0,
                 'power_cap_fp' => $totalPowerCapFp,

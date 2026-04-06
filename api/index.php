@@ -2300,13 +2300,21 @@ function gatedBoostActivate(array $player, int $sigilTier, string $purchaseKind,
     $result = Actions::purchaseBoost($player['player_id'], $sigilTier, $purchaseKind, $boostId);
     if (!empty($result['success'])) {
         $result['receipt'] = [
+            'preview_type'            => 'boost_activate',
             'executed_total_cost'      => (int)($result['sigils_consumed'] ?? 0),
             'executed_fee'             => 0,
             'executed_price_impact_bp' => 0,
             'executed_price_impact_pct' => 0.0,
             'post_balance_estimate'    => (int)$preview['post_balance_estimate'],
+            'purchase_kind'            => (string)($result['purchase_kind'] ?? ''),
+            'sigil_tier'               => (int)($result['sigil_tier'] ?? 0),
             'tier_consumed'            => (int)($result['tier_consumed'] ?? 0),
             'sigils_consumed'          => (int)($result['sigils_consumed'] ?? 0),
+            'initialized_from_inactive' => !empty($result['initialized_from_inactive']),
+            'purchased_power_percent'  => (float)($result['purchased_power_percent'] ?? 0),
+            'purchased_time_real_seconds' => (int)($result['purchased_time_real_seconds'] ?? 0),
+            'modifier_percent'         => (float)($result['modifier_percent'] ?? 0),
+            'time_extension_real_seconds' => (int)($result['time_extension_real_seconds'] ?? 0),
         ];
     }
     return $result;

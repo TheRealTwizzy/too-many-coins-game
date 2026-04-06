@@ -2339,6 +2339,7 @@ const TMC = {
                 season_id: Number(this.state.currentSeason) || null
             }
         });
+        if (result.receipt) this.showEconReceipt(result.receipt, 'Boost Updated');
         await this.refreshGameState();
         this.loadBoostCatalog();
     },
@@ -2363,6 +2364,7 @@ const TMC = {
                 purchase_kind: 'time'
             }
         });
+        if (result.receipt) this.showEconReceipt(result.receipt, 'Boost Updated');
         await this.refreshGameState();
         this.loadBoostCatalog();
     },
@@ -3662,6 +3664,31 @@ const TMC = {
         if (cb) await cb();
     },
 
+    getBoostReceiptPurchasedValueLabel(receipt) {
+        if (!receipt || receipt.preview_type !== 'boost_activate') return '';
+
+        const kind = String(receipt.purchase_kind || '').toLowerCase();
+        if (kind === 'power') {
+            const purchasedPercent = Number(receipt.purchased_power_percent || 0);
+            if (purchasedPercent > 0) {
+                return `+${this.formatPercentCompact(purchasedPercent)}% Boost`;
+            }
+            const tier = Number(receipt.sigil_tier || receipt.tier_consumed || 0);
+            return this.getSigilActionLabel(tier, 'power');
+        }
+
+        if (kind === 'time') {
+            const purchasedSeconds = Number(receipt.purchased_time_real_seconds || receipt.time_extension_real_seconds || 0);
+            if (purchasedSeconds > 0) {
+                return `+${this.formatDurationFromSeconds(purchasedSeconds, 'short')}`;
+            }
+            const tier = Number(receipt.sigil_tier || receipt.tier_consumed || 0);
+            return this.getSigilActionLabel(tier, 'time');
+        }
+
+        return '';
+    },
+
     /**
      * Show a post-action receipt modal.
      */
@@ -3670,6 +3697,7 @@ const TMC = {
         if (!detailsEl) return;
 
         const fmt = (n) => this.formatNumber(n);
+        const purchasedValueLabel = this.getBoostReceiptPurchasedValueLabel(receipt);
         let rows = '';
         if (receipt.preview_type === 'sigil_theft') {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Target</span><span class="econ-impact-value">${this.escapeHtml(receipt.target_handle || 'Unknown')}</span></div>`;
@@ -3685,6 +3713,9 @@ const TMC = {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Remaining T4/T5 after spend</span><span class="econ-impact-value">${fmt(receipt.post_balance_estimate || 0)}</span></div>`;
         } else if (receipt.stars_purchased != null) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Stars purchased</span><span class="econ-impact-value">${fmt(receipt.stars_purchased)}</span></div>`;
+        }
+        if (purchasedValueLabel) {
+            rows += `<div class="econ-impact-row"><span class="econ-impact-label">Purchased value</span><span class="econ-impact-value">${this.escapeHtml(purchasedValueLabel)}</span></div>`;
         }
         if (receipt.preview_type !== 'sigil_theft' && receipt.executed_total_cost != null) {
             rows += `<div class="econ-impact-row"><span class="econ-impact-label">Total spent</span><span class="econ-impact-value">${fmt(receipt.executed_total_cost)}</span></div>`;
