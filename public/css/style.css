@@ -932,8 +932,15 @@ a:hover { text-decoration: underline; }
 }
 
 .sigil-item.is-selected {
-    border-color: var(--accent-gold);
-    box-shadow: 0 0 0 1px rgba(240, 180, 41, 0.35);
+    border-color: var(--accent-gold-light);
+    background: linear-gradient(135deg, rgba(240, 180, 41, 0.18), rgba(240, 180, 41, 0.08));
+    box-shadow: 0 0 0 2px rgba(240, 180, 41, 0.35), 0 10px 24px rgba(240, 180, 41, 0.14);
+    transform: translateY(-1px);
+}
+
+.sigil-item.is-selected .sigil-tier,
+.sigil-item.is-selected .sigil-count {
+    color: var(--accent-gold-light);
 }
 
 @media (max-width: 760px) {

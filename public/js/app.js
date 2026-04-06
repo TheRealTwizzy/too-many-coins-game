@@ -1231,9 +1231,9 @@ const TMC = {
             boostId: primaryBoost ? this._getBoostKey(primaryBoost) : null,
             freeze
         });
-        const selectedSigilActionTier = parseInt(this._selectedSigilActionTier, 10) || 0;
-        const selectedPowerActionLabel = this.getSigilActionLabel(selectedSigilActionTier, 'power');
-        const selectedTimeActionLabel = this.getSigilActionLabel(selectedSigilActionTier, 'time');
+        const displayedSigilActionTier = this.getDisplayedSigilActionTier();
+        const selectedPowerActionLabel = this.getSigilActionLabel(displayedSigilActionTier, 'power');
+        const selectedTimeActionLabel = this.getSigilActionLabel(displayedSigilActionTier, 'time');
 
         let html = `
             <div class="season-header">
@@ -1678,6 +1678,7 @@ const TMC = {
             return;
         }
         this._selectedSigilActionTier = parsedTier;
+        this._lastSigilActionTier = parsedTier;
         this.syncSeasonDetailSigilActionState();
     },
 
@@ -1700,13 +1701,35 @@ const TMC = {
         return 1;
     },
 
+    getDisplayedSigilActionTier() {
+        const selectedTier = parseInt(this._selectedSigilActionTier, 10) || 0;
+        if (selectedTier >= 1 && selectedTier <= 5) return selectedTier;
+
+        const lastTier = parseInt(this._lastSigilActionTier, 10) || 0;
+        if (lastTier >= 1 && lastTier <= 5) return lastTier;
+
+        return this.getDefaultSigilActionTier();
+    },
+
     syncSeasonDetailSigilActionState() {
         if (this.state.currentScreen !== 'season-detail') return;
 
         const season = this.state.seasons.find((entry) => entry.season_id == this.state.currentSeason) || null;
         const isBlackout = !!season && (season.computed_status || season.status) === 'Blackout';
-        const selectedTier = parseInt(this._selectedSigilActionTier, 10) || 0;
-        const displayTier = selectedTier >= 1 && selectedTier <= 5 ? selectedTier : this.getDefaultSigilActionTier();
+        const sigils = this.state.player && this.state.player.participation && Array.isArray(this.state.player.participation.sigils)
+            ? this.state.player.participation.sigils
+            : [];
+        let selectedTier = parseInt(this._selectedSigilActionTier, 10) || 0;
+        const isSelectableTier = selectedTier >= 1
+            && selectedTier <= 5
+            && !isBlackout
+            && ((parseInt(sigils[selectedTier - 1], 10) || 0) > 0);
+        if (selectedTier && !isSelectableTier) {
+            selectedTier = 0;
+            this._selectedSigilActionTier = null;
+        }
+
+        const displayTier = this.getDisplayedSigilActionTier();
         const powerLabel = this.getSigilActionLabel(displayTier, 'power');
         const timeLabel = this.getSigilActionLabel(displayTier, 'time');
         const hasSelection = selectedTier >= 1 && selectedTier <= 5 && !isBlackout;
@@ -1828,6 +1851,7 @@ const TMC = {
     _timeTierPickerOpen: false,
     _timeBoostPickerOpen: false,
     _selectedSigilActionTier: null,
+    _lastSigilActionTier: null,
     _sigilActionFallbackValuesByTier: {
         1: { powerFp: 50000, timeExtensionRealSeconds: 30 * 60 },
         2: { powerFp: 100000, timeExtensionRealSeconds: 60 * 60 },
