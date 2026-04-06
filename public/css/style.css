@@ -814,12 +814,16 @@ a:hover { text-decoration: underline; }
     display: flex;
     gap: 0.4rem;
     flex-wrap: wrap;
+    padding-top: 0.45rem;
+    margin-top: -0.45rem;
+    overflow: visible;
 }
 
 .sigil-inventory-row {
     display: flex;
     align-items: stretch;
     gap: 0.55rem;
+    overflow: visible;
 }
 
 .sigil-inventory-row .sigil-display {
@@ -935,15 +939,15 @@ a:hover { text-decoration: underline; }
 .sigil-item.is-selected {
     border-color: var(--accent-gold-light);
     background: linear-gradient(135deg, rgba(252, 211, 77, 0.22), rgba(240, 180, 41, 0.1));
-    box-shadow: 0 8px 18px rgba(240, 180, 41, 0.16);
-    transform: translateY(-1px);
+    box-shadow: 0 0 14px rgba(252, 211, 77, 0.28), 0 8px 18px rgba(240, 180, 41, 0.16);
+    transform: translateY(-2px);
     z-index: 1;
 }
 
 .sigil-item.is-selected:hover {
     border-color: var(--accent-gold-light);
-    box-shadow: 0 8px 18px rgba(240, 180, 41, 0.16);
-    transform: translateY(-1px);
+    box-shadow: 0 0 14px rgba(252, 211, 77, 0.28), 0 8px 18px rgba(240, 180, 41, 0.16);
+    transform: translateY(-2px);
 }
 
 .sigil-item.is-selected .sigil-tier,
@@ -984,6 +988,8 @@ a:hover { text-decoration: underline; }
         flex-wrap: nowrap;
         overflow-x: auto;
         gap: 0.25rem;
+        padding-top: 0.45rem;
+        margin-top: -0.45rem;
     }
 
     .sigil-side-actions {
