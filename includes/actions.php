@@ -42,6 +42,52 @@ class Actions {
         return ((int)($row['c'] ?? 0)) > 0;
     }
 
+    private static function clearSeasonRunAuxiliaryState($db, $playerId, $seasonId) {
+        if (self::doesTableExist($db, 'active_boosts')) {
+            $db->query(
+                "DELETE FROM active_boosts WHERE player_id = ? AND season_id = ?",
+                [(int)$playerId, (int)$seasonId]
+            );
+        }
+
+        if (self::doesTableExist($db, 'active_freezes')) {
+            $db->query(
+                "DELETE FROM active_freezes
+                 WHERE season_id = ? AND (source_player_id = ? OR target_player_id = ?)",
+                [(int)$seasonId, (int)$playerId, (int)$playerId]
+            );
+        }
+
+        if (self::doesTableExist($db, 'player_season_vault')) {
+            $db->query(
+                "DELETE FROM player_season_vault WHERE player_id = ? AND season_id = ?",
+                [(int)$playerId, (int)$seasonId]
+            );
+        }
+    }
+
+    private static function resetSeasonParticipationForFreshStart($db, $playerId, $seasonId, $gameTime) {
+        $db->query(
+            "UPDATE season_participation SET
+             coins = 0, coins_fractional_fp = 0, seasonal_stars = 0,
+             sigils_t1 = 0, sigils_t2 = 0, sigils_t3 = 0, sigils_t4 = 0, sigils_t5 = 0, sigils_t6 = 0,
+             sigil_drops_total = 0, eligible_ticks_since_last_drop = 0,
+             pending_rng_sigil_drops = 0, pending_pity_sigil_drops = 0, sigil_next_delivery_tick = 0,
+             participation_time_total = 0, participation_ticks_since_join = 0, active_ticks_total = 0,
+             first_joined_at = ?, last_exit_at = NULL,
+             spend_window_total = 0, hoarding_sink_total = 0,
+             reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
+             lock_in_effect_tick = NULL, lock_in_snapshot_seasonal_stars = NULL,
+             lock_in_snapshot_participation_time = NULL,
+             end_membership = 0, final_rank = NULL, final_seasonal_stars = NULL,
+             global_stars_earned = 0, participation_bonus = 0, placement_bonus = 0,
+             badge_awarded = NULL,
+             active_boosts = NULL
+             WHERE player_id = ? AND season_id = ?",
+            [(int)$gameTime, (int)$playerId, (int)$seasonId]
+        );
+    }
+
     private static function normalizeSigilVector($value) {
         $counts = array_fill(0, SIGIL_MAX_TIER, 0);
         if (!is_array($value)) {
@@ -194,17 +240,8 @@ class Actions {
             );
             
             if ($existing) {
-                // Re-entry: reset season-bound state, keep participation_time_total
-                $db->query(
-                    "UPDATE season_participation SET 
-                     coins = 0, coins_fractional_fp = 0, seasonal_stars = 0,
-                     sigils_t1 = 0, sigils_t2 = 0, sigils_t3 = 0, sigils_t4 = 0, sigils_t5 = 0, sigils_t6 = 0,
-                     participation_ticks_since_join = 0, spend_window_total = 0,
-                     reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
-                     active_boosts = NULL
-                     WHERE player_id = ? AND season_id = ?",
-                    [$playerId, $seasonId]
-                );
+                self::resetSeasonParticipationForFreshStart($db, $playerId, $seasonId, $gameTime);
+                self::clearSeasonRunAuxiliaryState($db, $playerId, $seasonId);
             } else {
                 $db->query(
                     "INSERT INTO season_participation (player_id, season_id, first_joined_at)
@@ -385,9 +422,10 @@ class Actions {
                 "UPDATE season_participation SET 
                  lock_in_effect_tick = ?,
                  lock_in_snapshot_seasonal_stars = ?,
-                 lock_in_snapshot_participation_time = participation_time_total
+                 lock_in_snapshot_participation_time = participation_time_total,
+                 last_exit_at = ?
                  WHERE player_id = ? AND season_id = ?",
-                [$gameTime, $totalSeasonalStars, $playerId, $seasonId]
+                [$gameTime, $totalSeasonalStars, $gameTime, $playerId, $seasonId]
             );
             
             // 2. Convert total seasonal stars → global stars at 65% while preserving carry
@@ -406,6 +444,8 @@ class Actions {
                  WHERE player_id = ? AND season_id = ?",
                 [$playerId, $seasonId]
             );
+
+            self::clearSeasonRunAuxiliaryState($db, $playerId, $seasonId);
             
             // 4. Exit season
             $db->query(

@@ -726,7 +726,7 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
             'hoarding_sink_active' => false,
         ];
     }
-    if (isPlayerFrozen((int)$player['player_id'], (int)$season['season_id'])) {
+    if (isPlayerFrozen((int)$player['player_id'], (int)$season['season_id'], $participation)) {
         return [
             'rate_per_tick' => 0,
             'gross_rate_per_tick' => 0,
@@ -827,11 +827,11 @@ function getGameState($player) {
             );
         }
 
-        $activeBoosts = getActiveBoosts($player);
+        $activeBoosts = getActiveBoosts($player, $participation);
         $rateMetrics = calculatePlayerRatePerTick($joinedSeason, $player, $participation, $activeBoosts);
         $joinedSeasonStatus = $joinedSeason ? GameTime::getSeasonStatus($joinedSeason, $gameTime) : null;
-        $freezeStatus = getFreezeStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id']);
-        $theftStatus = getTheftStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id']);
+        $freezeStatus = getFreezeStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id'], $participation);
+        $theftStatus = getTheftStatusForPlayer((int)$player['player_id'], (int)$player['joined_season_id'], $participation);
         
         $state['player'] = [
             'player_id' => $player['player_id'],
@@ -889,7 +889,7 @@ function getGameState($player) {
             ] : null,
             'active_boosts' => $activeBoosts,
             'equipped_cosmetics' => getEquippedCosmeticsForPlayerIds([(int)$player['player_id']])[(int)$player['player_id']] ?? getEmptyEquippedCosmeticsPayload(),
-            'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player) : [],
+            'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player, $participation) : [],
             'notifications' => Notifications::listForPlayer($player['player_id'], 50),
             'notifications_unread_count' => Notifications::unreadCount($player['player_id']),
             'can_lock_in' => canLockIn($player, $participation),
@@ -950,6 +950,26 @@ function canPurchaseStars($player) {
     return true;
 }
 
+function getSeasonRunStartTick($playerId, $seasonId, $participation = null) {
+    if (!$seasonId) {
+        return 0;
+    }
+
+    if (is_array($participation)) {
+        return max(0, (int)($participation['first_joined_at'] ?? 0));
+    }
+
+    $db = Database::getInstance();
+    $row = $db->fetch(
+        "SELECT first_joined_at
+         FROM season_participation
+         WHERE player_id = ? AND season_id = ?",
+        [(int)$playerId, (int)$seasonId]
+    );
+
+    return max(0, (int)($row['first_joined_at'] ?? 0));
+}
+
 function getEmptyTheftStatus() {
     return [
         'is_on_cooldown' => false,
@@ -965,7 +985,7 @@ function getEmptyTheftStatus() {
     ];
 }
 
-function getTheftStatusForPlayer($playerId, $seasonId) {
+function getTheftStatusForPlayer($playerId, $seasonId, $participation = null) {
     if (!$seasonId) {
         return getEmptyTheftStatus();
     }
@@ -977,13 +997,14 @@ function getTheftStatusForPlayer($playerId, $seasonId) {
 
     $gameTime = GameTime::now();
     $serverNowUnix = time();
+    $runStartTick = getSeasonRunStartTick($playerId, $seasonId, $participation);
     $row = $db->fetch(
         "SELECT
             MAX(CASE WHEN attacker_player_id = ? THEN cooldown_expires_tick ELSE NULL END) AS cooldown_expires_tick,
             MAX(CASE WHEN target_player_id = ? THEN protection_expires_tick ELSE NULL END) AS protection_expires_tick
          FROM sigil_theft_attempts
-         WHERE season_id = ? AND (attacker_player_id = ? OR target_player_id = ?)",
-        [(int)$playerId, (int)$playerId, (int)$seasonId, (int)$playerId, (int)$playerId]
+         WHERE season_id = ? AND (attacker_player_id = ? OR target_player_id = ?) AND created_tick >= ?",
+        [(int)$playerId, (int)$playerId, (int)$seasonId, (int)$playerId, (int)$playerId, (int)$runStartTick]
     );
 
     $cooldownTick = max(0, (int)($row['cooldown_expires_tick'] ?? 0));
@@ -1032,8 +1053,8 @@ function getSeasonDetail($player, $seasonId) {
             $season['sigil_drop_rates'] = getSigilDropRateMetadataFromConfig($dropConfig);
             $season['player_combine_recipes'] = getCombineRecipesForParticipation($participation);
             $season['player_tier6_visible'] = shouldRevealTier6($participation);
-            $playerFreeze = getFreezeStatusForPlayer((int)$player['player_id'], (int)$seasonId);
-            $playerTheft = getTheftStatusForPlayer((int)$player['player_id'], (int)$seasonId);
+            $playerFreeze = getFreezeStatusForPlayer((int)$player['player_id'], (int)$seasonId, $participation);
+            $playerTheft = getTheftStatusForPlayer((int)$player['player_id'], (int)$seasonId, $participation);
             $season['player_can_freeze'] = ((int)($participation['sigils_t6'] ?? 0) > 0);
             $season['player_can_melt'] = ($playerFreeze['is_frozen'] ?? false)
                 && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0));
@@ -1582,18 +1603,18 @@ function getProfile($viewer, $targetId) {
             $status = GameTime::getSeasonStatus($season);
             if ($status === 'Active') {
                 $participation = $db->fetch(
-                    "SELECT coins, sigils_t1, sigils_t2, sigils_t3, sigils_t4, sigils_t5, sigils_t6
+                    "SELECT coins, sigils_t1, sigils_t2, sigils_t3, sigils_t4, sigils_t5, sigils_t6, first_joined_at
                      FROM season_participation
                      WHERE player_id = ? AND season_id = ?",
                     [$targetId, $target['joined_season_id']]
                 );
                 if ($participation) {
-                    $profileBoosts = getActiveBoosts($target);
+                    $profileBoosts = getActiveBoosts($target, $participation);
                     $profilePrimaryBoost = (isset($profileBoosts['self'][0]) && is_array($profileBoosts['self'][0]))
                         ? $profileBoosts['self'][0]
                         : null;
-                    $profileFreeze = getFreezeStatusForPlayer((int)$targetId, (int)$target['joined_season_id']);
-                    $profileTheft = getTheftStatusForPlayer((int)$targetId, (int)$target['joined_season_id']);
+                    $profileFreeze = getFreezeStatusForPlayer((int)$targetId, (int)$target['joined_season_id'], $participation);
+                    $profileTheft = getTheftStatusForPlayer((int)$targetId, (int)$target['joined_season_id'], $participation);
                     $target['active_participation'] = [
                         'season_id' => (int)$target['joined_season_id'],
                         'activity_state' => (string)($target['activity_state'] ?? 'Active'),
@@ -1680,7 +1701,7 @@ function resolveBoostSigilTierFromInput(array $input, int $boostId = 0): int {
     return 0;
 }
 
-function getActiveBoosts($player) {
+function getActiveBoosts($player, $participation = null) {
     $db = Database::getInstance();
     if (!$player['joined_season_id']) {
         return [
@@ -1696,15 +1717,17 @@ function getActiveBoosts($player) {
     $gameTime = GameTime::now();
     $serverNowUnix = time();
     $seasonId = $player['joined_season_id'];
+    $runStartTick = getSeasonRunStartTick((int)$player['player_id'], (int)$seasonId, $participation);
     
     $selfBoosts = $db->fetchAll(
         "SELECT ab.*, bc.name, bc.description, bc.tier_required, bc.icon
          FROM active_boosts ab
          JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
          WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?
+           AND ab.activated_tick >= ?
          ORDER BY ab.expires_tick DESC, ab.id ASC
          LIMIT 1",
-        [$player['player_id'], $seasonId, $gameTime]
+        [$player['player_id'], $seasonId, $gameTime, $runStartTick]
     );
     
     // Annotate each boost with wall-clock expiry data for client-side real-time countdown.
@@ -1738,11 +1761,12 @@ function getActiveBoosts($player) {
     ];
 }
 
-function getRecentSigilDrops($player) {
+function getRecentSigilDrops($player, $participation = null) {
     $db = Database::getInstance();
     if (!$player['joined_season_id']) return [];
     
     $seasonId = $player['joined_season_id'];
+    $runStartTick = getSeasonRunStartTick((int)$player['player_id'], (int)$seasonId, $participation);
     
     $drops = $db->fetchAll(
         "SELECT sdl.tier, sdl.source, sdl.drop_tick, sdl.created_at, pn.payload_json,
@@ -1752,9 +1776,9 @@ function getRecentSigilDrops($player) {
          LEFT JOIN player_notifications pn
            ON pn.player_id = sdl.player_id
           AND pn.event_key = CONCAT('sigil_drop:', sdl.season_id, ':', sdl.drop_tick, ':', sdl.tier, ':', LOWER(sdl.source))
-         WHERE sdl.player_id = ? AND sdl.season_id = ?
+                 WHERE sdl.player_id = ? AND sdl.season_id = ? AND sdl.drop_tick >= ?
          ORDER BY drop_tick DESC LIMIT 20",
-        [$player['player_id'], $seasonId]
+                [$player['player_id'], $seasonId, $runStartTick]
     );
 
     foreach ($drops as &$d) {
@@ -1796,17 +1820,20 @@ function shouldRevealTier6($participation) {
     return $ownedT6 > 0;
 }
 
-function isPlayerFrozen($playerId, $seasonId) {
+function isPlayerFrozen($playerId, $seasonId, $participation = null) {
     $db = Database::getInstance();
     $gameTime = GameTime::now();
+    $runStartTick = getSeasonRunStartTick($playerId, $seasonId, $participation);
     $row = $db->fetch(
-        "SELECT COUNT(*) AS cnt FROM active_freezes WHERE target_player_id = ? AND season_id = ? AND is_active = 1 AND expires_tick >= ?",
-        [(int)$playerId, (int)$seasonId, (int)$gameTime]
+        "SELECT COUNT(*) AS cnt
+         FROM active_freezes
+         WHERE target_player_id = ? AND season_id = ? AND is_active = 1 AND expires_tick >= ? AND activated_tick >= ?",
+        [(int)$playerId, (int)$seasonId, (int)$gameTime, (int)$runStartTick]
     );
     return ((int)($row['cnt'] ?? 0)) > 0;
 }
 
-function getFreezeStatusForPlayer($playerId, $seasonId) {
+function getFreezeStatusForPlayer($playerId, $seasonId, $participation = null) {
     if (!$seasonId) {
         return [
             'is_frozen' => false,
@@ -1819,11 +1846,12 @@ function getFreezeStatusForPlayer($playerId, $seasonId) {
     $db = Database::getInstance();
     $gameTime = GameTime::now();
     $serverNowUnix = time();
+    $runStartTick = getSeasonRunStartTick($playerId, $seasonId, $participation);
     $row = $db->fetch(
         "SELECT expires_tick FROM active_freezes
-         WHERE target_player_id = ? AND season_id = ? AND is_active = 1 AND expires_tick >= ?
+         WHERE target_player_id = ? AND season_id = ? AND is_active = 1 AND expires_tick >= ? AND activated_tick >= ?
          ORDER BY expires_tick DESC LIMIT 1",
-        [(int)$playerId, (int)$seasonId, (int)$gameTime]
+        [(int)$playerId, (int)$seasonId, (int)$gameTime, (int)$runStartTick]
     );
     if (!$row) {
         return [
@@ -2071,12 +2099,12 @@ function previewSigilTheft(
         return ['error' => 'Select at least one sigil to attempt to steal'];
     }
 
-    $attackerTheft = getTheftStatusForPlayer($playerId, $seasonId);
+    $attackerTheft = getTheftStatusForPlayer($playerId, $seasonId, $participation);
     if ($attackerTheft['is_on_cooldown'] ?? false) {
         return ['error' => 'Your theft cooldown is active'];
     }
 
-    $targetTheft = getTheftStatusForPlayer($targetPlayerId, $seasonId);
+    $targetTheft = getTheftStatusForPlayer($targetPlayerId, $seasonId, $targetParticipation);
     if ($targetTheft['is_protected'] ?? false) {
         return ['error' => 'Target theft protection is active'];
     }
