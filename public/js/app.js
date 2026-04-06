@@ -2161,8 +2161,8 @@ const TMC = {
     getSigilActionLabel(tier, kind) {
         const values = this.getSigilActionValuesForTier(tier);
         if (kind === 'power') {
-            if (!values || values.powerFp <= 0) return 'Power Boost';
-            return `+${this.formatPercentCompact(values.powerFp / 10000)}% Boost`;
+            if (!values || values.powerFp <= 0) return 'Power';
+            return `+${this.formatPercentCompact(values.powerFp / 10000)}%`;
         }
         if (kind === 'time') {
             if (!values || values.timeExtensionRealSeconds <= 0) return 'Time Extension';
