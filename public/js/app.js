@@ -1178,6 +1178,8 @@ const TMC = {
             lockInBtn.disabled = !p.can_lock_in || isBlackout;
         }
 
+        this.syncSeasonDetailSigilActionState();
+
         // Keep forge in sync with live inventory changes, including adding/removing it.
         const combineRecipes = Array.isArray(p.participation.combine_recipes) ? p.participation.combine_recipes : [];
         this.reconcileSigilForge(combineRecipes, isBlackout);
@@ -1289,6 +1291,7 @@ const TMC = {
                             <div class="sigil-display">
                                 ${this.getVisibleSigils(part).map((sigil) => `
                                     <div class="sigil-item tier-${sigil.tier} ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? 'is-clickable' : ''} ${this._selectedSigilActionTier === sigil.tier ? 'is-selected' : ''}"
+                                        data-sigil-tier="${sigil.tier}"
                                         ${sigil.tier <= 5 && sigil.count > 0 && !isBlackout ? `onclick="TMC.openSigilActionPicker(${sigil.tier})"` : ''}>
                                         <span class="sigil-tier">T${sigil.tier}</span>
                                         <span class="sigil-count">${sigil.count}</span>
@@ -1296,11 +1299,11 @@ const TMC = {
                                 `).join('')}
                             </div>
                             <div class="sigil-side-actions ${this._selectedSigilActionTier ? 'active' : 'inactive'}">
-                                <button class="btn btn-sm btn-primary"
-                                    onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'power')"
+                                <button id="sigil-action-power-btn" class="btn btn-sm btn-primary"
+                                    onclick="TMC.spendSelectedSigilBoostGated('power')"
                                     ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>${this.escapeHtml(selectedPowerActionLabel)}</button>
-                                <button class="btn btn-sm btn-outline"
-                                    onclick="TMC.spendSigilBoostGated(${this._selectedSigilActionTier || 0}, 'time')"
+                                <button id="sigil-action-time-btn" class="btn btn-sm btn-outline"
+                                    onclick="TMC.spendSelectedSigilBoostGated('time')"
                                     ${this._selectedSigilActionTier && !isBlackout ? '' : 'disabled'}>${this.escapeHtml(selectedTimeActionLabel)}</button>
                             </div>
                         </div>
@@ -1358,6 +1361,8 @@ const TMC = {
         `;
 
         document.getElementById('season-detail-content').innerHTML = html;
+
+        this.syncSeasonDetailSigilActionState();
 
         // Load leaderboard
         this.loadSeasonLeaderboard(seasonId);
@@ -1669,16 +1674,55 @@ const TMC = {
         }
         if (this._selectedSigilActionTier === parsedTier) {
             this._selectedSigilActionTier = null;
-            this.loadSeasonDetail(this.state.currentSeason);
+            this.syncSeasonDetailSigilActionState();
             return;
         }
         this._selectedSigilActionTier = parsedTier;
-        this.loadSeasonDetail(this.state.currentSeason);
+        this.syncSeasonDetailSigilActionState();
     },
 
     clearSigilActionPicker() {
         this._selectedSigilActionTier = null;
-        this.loadSeasonDetail(this.state.currentSeason);
+        this.syncSeasonDetailSigilActionState();
+    },
+
+    syncSeasonDetailSigilActionState() {
+        if (this.state.currentScreen !== 'season-detail') return;
+
+        const season = this.state.seasons.find((entry) => entry.season_id == this.state.currentSeason) || null;
+        const isBlackout = !!season && (season.computed_status || season.status) === 'Blackout';
+        const selectedTier = parseInt(this._selectedSigilActionTier, 10) || 0;
+        const powerLabel = this.getSigilActionLabel(selectedTier, 'power');
+        const timeLabel = this.getSigilActionLabel(selectedTier, 'time');
+        const hasSelection = selectedTier >= 1 && selectedTier <= 5 && !isBlackout;
+
+        document.querySelectorAll('.sigil-item[data-sigil-tier]').forEach((item) => {
+            const itemTier = parseInt(item.getAttribute('data-sigil-tier'), 10) || 0;
+            item.classList.toggle('is-selected', itemTier === selectedTier);
+        });
+
+        const actionsWrap = document.querySelector('.sigil-side-actions');
+        if (actionsWrap) {
+            actionsWrap.classList.toggle('active', selectedTier >= 1 && selectedTier <= 5);
+            actionsWrap.classList.toggle('inactive', !(selectedTier >= 1 && selectedTier <= 5));
+        }
+
+        const powerBtn = document.getElementById('sigil-action-power-btn');
+        if (powerBtn) {
+            powerBtn.textContent = powerLabel;
+            powerBtn.disabled = !hasSelection;
+        }
+
+        const timeBtn = document.getElementById('sigil-action-time-btn');
+        if (timeBtn) {
+            timeBtn.textContent = timeLabel;
+            timeBtn.disabled = !hasSelection;
+        }
+    },
+
+    spendSelectedSigilBoostGated(purchaseKind) {
+        const selectedTier = parseInt(this._selectedSigilActionTier, 10) || 0;
+        return this.spendSigilBoostGated(selectedTier, purchaseKind);
     },
 
     async freezeByPlayerId(targetPlayerId, refreshProfileId = null) {
@@ -2321,52 +2365,11 @@ const TMC = {
     },
 
     async purchaseBoostPower(boostId) {
-        const boost = this._boostCatalog ? this._boostCatalog.find(b => b.boost_id == boostId) : null;
-        const name = boost ? this.getBoostDisplayName(boost.name) : `Boost #${boostId}`;
-        if (!confirm(`Purchase ${name} power?\n\nThis will consume ${boost ? boost.sigil_cost : 1} Tier ${boost ? boost.tier_required : '?'} Sigil(s).`)) {
-            return;
-        }
-
-        const result = await this.api('purchase_boost', { boost_id: boostId, purchase_kind: 'power' });
-        if (result.error) {
-            this.toast(result.error, 'error');
-            return;
-        }
-        this.toast(result.message, 'success', {
-            category: 'boost_activate',
-            payload: {
-                boost_id: Number(boostId) || null,
-                season_id: Number(this.state.currentSeason) || null
-            }
-        });
-        if (result.receipt) this.showEconReceipt(result.receipt, 'Boost Updated');
-        await this.refreshGameState();
-        this.loadBoostCatalog();
+        return this.purchaseBoostPowerGated(boostId);
     },
 
     async purchaseBoostTime(boostId) {
-        const boost = this._boostCatalog ? this._boostCatalog.find(b => b.boost_id == boostId) : null;
-        const name = boost ? this.getBoostDisplayName(boost.name) : `Boost #${boostId}`;
-        if (!confirm(`Purchase ${name} time extension?\n\nThis will consume ${boost ? boost.sigil_cost : 1} Tier ${boost ? boost.tier_required : '?'} Sigil(s).`)) {
-            return;
-        }
-
-        const result = await this.api('purchase_boost', { boost_id: boostId, purchase_kind: 'time' });
-        if (result.error) {
-            this.toast(result.error, 'error');
-            return;
-        }
-        this.toast(result.message, 'success', {
-            category: 'boost_activate',
-            payload: {
-                boost_id: Number(boostId) || null,
-                season_id: Number(this.state.currentSeason) || null,
-                purchase_kind: 'time'
-            }
-        });
-        if (result.receipt) this.showEconReceipt(result.receipt, 'Boost Updated');
-        await this.refreshGameState();
-        this.loadBoostCatalog();
+        return this.purchaseBoostTimeGated(boostId);
     },
 
     confirmLockIn() {
@@ -3664,6 +3667,73 @@ const TMC = {
         if (cb) await cb();
     },
 
+    _sigilConfirmResolver: null,
+
+    closeSigilConfirm(accepted = false) {
+        const modal = document.getElementById('sigil-confirm-modal');
+        if (modal) modal.style.display = 'none';
+        if (typeof this._sigilConfirmResolver === 'function') {
+            const resolver = this._sigilConfirmResolver;
+            this._sigilConfirmResolver = null;
+            resolver(accepted);
+        }
+    },
+
+    showSigilConfirm(title, bodyHtml, fallbackMessage = '') {
+        const modal = document.getElementById('sigil-confirm-modal');
+        const titleEl = document.getElementById('sigil-confirm-title');
+        const detailsEl = document.getElementById('sigil-confirm-details');
+        if (!modal || !titleEl || !detailsEl) {
+            return Promise.resolve(window.confirm(fallbackMessage || title || 'Use this sigil?'));
+        }
+
+        if (typeof this._sigilConfirmResolver === 'function') {
+            const staleResolver = this._sigilConfirmResolver;
+            this._sigilConfirmResolver = null;
+            staleResolver(false);
+        }
+
+        titleEl.textContent = title || 'Use Sigil?';
+        detailsEl.innerHTML = bodyHtml || '';
+        modal.style.display = 'flex';
+
+        return new Promise((resolve) => {
+            this._sigilConfirmResolver = resolve;
+        });
+    },
+
+    buildSigilSpendConfirmation(preview) {
+        const tier = Number(preview?.sigil_tier || preview?.tier_required || 0);
+        const kind = String(preview?.purchase_kind || '').toLowerCase();
+        const tierLabel = `Tier ${tier} Sigil`;
+        const powerLabel = this.getSigilActionLabel(tier, 'power');
+        const activeTimeLabel = this.getSigilActionLabel(tier, 'time');
+        const initialDurationLabel = preview && Number(preview.time_extension_real_seconds || 0) > 0
+            ? `+${this.formatDurationFromSeconds(Number(preview.time_extension_real_seconds || 0), 'short')}`
+            : activeTimeLabel;
+
+        if (preview && preview.initialized_from_inactive) {
+            const title = `Use ${tierLabel}?`;
+            const bodyHtml = `
+                <p>Spend 1 ${this.escapeHtml(tierLabel)} to activate a new boost?</p>
+                <div class="econ-impact-row"><span class="econ-impact-label">You receive</span><span class="econ-impact-value">${this.escapeHtml(powerLabel)}</span></div>
+                <div class="econ-impact-row"><span class="econ-impact-label">Duration</span><span class="econ-impact-value">${this.escapeHtml(initialDurationLabel)}</span></div>
+            `;
+            const fallbackMessage = `Use ${tierLabel}?\n\nThis will activate a new boost and give you ${powerLabel} for ${initialDurationLabel.replace(/^\+/, '')}.`;
+            return { title, bodyHtml, fallbackMessage };
+        }
+
+        const purchasedLabel = kind === 'time' ? activeTimeLabel : powerLabel;
+        const effectLabel = kind === 'time' ? 'You receive' : 'You receive';
+        const title = `Use ${tierLabel}?`;
+        const bodyHtml = `
+            <p>Spend 1 ${this.escapeHtml(tierLabel)} on your active boost?</p>
+            <div class="econ-impact-row"><span class="econ-impact-label">${effectLabel}</span><span class="econ-impact-value">${this.escapeHtml(purchasedLabel)}</span></div>
+        `;
+        const fallbackMessage = `Use ${tierLabel}?\n\nThis will give you ${purchasedLabel}.`;
+        return { title, bodyHtml, fallbackMessage };
+    },
+
     getBoostReceiptPurchasedValueLabel(receipt) {
         if (!receipt || receipt.preview_type !== 'boost_activate') return '';
 
@@ -3971,18 +4041,27 @@ const TMC = {
             return;
         }
 
-        const title = `Confirm: Tier ${tier} ${this.getSigilActionLabel(tier, kind)}`;
         const payload = {
             sigil_tier: tier,
             purchase_kind: kind,
             boost_id: legacyBoostId ? Number(legacyBoostId) : undefined,
         };
 
-        const result = await this.runWithEconGate(
-            () => this.api('boost_activate_preview', payload),
-            (confirm) => this.api('purchase_boost', { ...payload, confirm_economic_impact: confirm ? 1 : 0 }),
-            title
-        );
+        const preview = await this.api('boost_activate_preview', payload);
+        if (!preview) {
+            this.toast('Preview failed', 'error');
+            return;
+        }
+        if (preview.error) {
+            this.toast(preview.error, 'error');
+            return;
+        }
+
+        const confirmation = this.buildSigilSpendConfirmation(preview);
+        const accepted = await this.showSigilConfirm(confirmation.title, confirmation.bodyHtml, confirmation.fallbackMessage);
+        if (!accepted) return;
+
+        const result = await this.api('purchase_boost', { ...payload, confirm_economic_impact: 1 });
 
         if (!result) return;
         if (result.error) {
