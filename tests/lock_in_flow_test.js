@@ -49,11 +49,11 @@ function simulateConfirmLockIn(t6Count, confirmResponses) {
         `Are you sure you want to Lock-In?\n\n` +
         `This will:\n` +
         `- Refund T1–T5 Sigils back to Seasonal Stars\n` +
-        `- Convert all Seasonal Stars to Global Stars at 65% (rounded down)\n` +
+        `- Convert the total to Global Stars at 65%, banking any partial progress toward the next star\n` +
         `- Destroy ALL your Coins, T6 Sigils, and Boosts\n` +
         `- Remove you from this season\n\n` +
-        `Current Seasonal Stars: ${formatNumber(stars)} ` +
-        `(final Global Stars payout will be floor(total × 0.65))\n\n` +
+        `Current Seasonal Stars: ${formatNumber(stars)}\n` +
+        `T1–T5 sigil refunds are added before conversion, and leftover value is banked instead of lost.\n\n` +
         `This action is IRREVERSIBLE.`
     );
     if (!proceed2) return { confirmCalls, proceeded: false };

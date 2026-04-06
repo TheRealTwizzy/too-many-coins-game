@@ -873,6 +873,107 @@ const TMC = {
         }
     },
 
+    getEmptyEquippedCosmetics() {
+        return {
+            avatar_frame: null,
+            name_color: null,
+            profile_bg: null,
+            title: null,
+            effect: null,
+        };
+    },
+
+    normalizeEquippedCosmetics(cosmetics) {
+        const normalized = this.getEmptyEquippedCosmetics();
+        if (!cosmetics) {
+            return normalized;
+        }
+
+        if (Array.isArray(cosmetics)) {
+            cosmetics.forEach((item) => {
+                if (!item || !item.category || !Number(item.equipped)) {
+                    return;
+                }
+                if (Object.prototype.hasOwnProperty.call(normalized, item.category)) {
+                    normalized[item.category] = item;
+                }
+            });
+            return normalized;
+        }
+
+        Object.keys(normalized).forEach((category) => {
+            if (cosmetics[category]) {
+                normalized[category] = cosmetics[category];
+            }
+        });
+        return normalized;
+    },
+
+    getOwnedEquippedCosmetics() {
+        return this.normalizeEquippedCosmetics(this.state.myCosmetics || []);
+    },
+
+    getCosmeticShellClassList(equipped, extra = []) {
+        const normalized = this.normalizeEquippedCosmetics(equipped);
+        const classes = ['player-showcase'];
+        if (Array.isArray(extra)) {
+            extra.filter(Boolean).forEach((cls) => classes.push(cls));
+        }
+        if (normalized.profile_bg && normalized.profile_bg.css_class) {
+            classes.push(normalized.profile_bg.css_class);
+        }
+        if (normalized.effect && normalized.effect.css_class) {
+            classes.push(normalized.effect.css_class);
+        }
+        return classes;
+    },
+
+    renderPlayerShowcase(player, options = {}) {
+        const handle = options.handle || player?.handle || 'Preview';
+        const playerId = options.playerId ?? player?.player_id ?? null;
+        const equipped = this.normalizeEquippedCosmetics(options.equippedCosmetics || player?.equipped_cosmetics || null);
+        const shellClasses = this.getCosmeticShellClassList(equipped, [
+            options.compact ? 'player-showcase-compact' : '',
+            options.context ? `player-showcase-${options.context}` : '',
+        ]).join(' ');
+        const crestClasses = ['player-crest'];
+        const nameClasses = ['player-showcase-name'];
+        if (equipped.avatar_frame?.css_class) crestClasses.push(equipped.avatar_frame.css_class);
+        if (equipped.name_color?.css_class) nameClasses.push(equipped.name_color.css_class);
+
+        const handleHtml = this.escapeHtml(handle);
+        const crestText = this.escapeHtml((handle || '?').slice(0, 1).toUpperCase());
+        const titleHtml = equipped.title
+            ? `<span class="player-showcase-title ${this.escapeHtml(equipped.title.css_class || '')}">${this.escapeHtml(equipped.title.name || '')}</span>`
+            : '';
+        const nameHtml = playerId && options.clickable !== false
+            ? `<span class="${nameClasses.join(' ')} player-link" onclick="TMC.navigate('profile', ${playerId})">${handleHtml}</span>`
+            : `<span class="${nameClasses.join(' ')}">${handleHtml}</span>`;
+
+        return `
+            <div class="${shellClasses}">
+                <div class="player-crest-wrap">
+                    <span class="${crestClasses.join(' ')}">${crestText}</span>
+                </div>
+                <div class="player-showcase-meta">
+                    ${nameHtml}
+                    ${titleHtml}
+                </div>
+            </div>
+        `;
+    },
+
+    buildShopPreviewCosmetics(item) {
+        const equipped = this.getOwnedEquippedCosmetics();
+        const preview = { ...equipped };
+        preview[item.category] = item;
+        return preview;
+    },
+
+    getCosmeticCategoryLabel(category) {
+        return String(category || '').replace('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+    },
+
     // ==================== RENDER: HOME ====================
     renderHome() {
         const cta = document.getElementById('hero-cta');
@@ -2435,11 +2536,11 @@ const TMC = {
             `Are you sure you want to Lock-In?\n\n` +
             `This will:\n` +
             `- Refund T1–T5 Sigils back to Seasonal Stars\n` +
-            `- Convert all Seasonal Stars to Global Stars at 65% (rounded down)\n` +
+            `- Convert the total to Global Stars at 65%, banking any partial progress toward the next star\n` +
             `- Destroy ALL your Coins, T6 Sigils, and Boosts\n` +
             `- Remove you from this season\n\n` +
-            `Current Seasonal Stars: ${this.formatNumber(stars)} ` +
-            `(final Global Stars payout will be floor(total × 0.65))\n\n` +
+            `Current Seasonal Stars: ${this.formatNumber(stars)}\n` +
+            `T1–T5 sigil refunds are added before conversion, and leftover value is banked instead of lost.\n\n` +
             `This action is IRREVERSIBLE.`
         )) {
             return;
@@ -2544,13 +2645,12 @@ const TMC = {
                 : `#${rank}`;
             const coinsCell = this.formatNumber(entry.coins || 0);
             const rateCell = `${this.formatPercentCompact(ratePerTick)}`;
+            const playerMarkup = this.renderPlayerShowcase(entry, { context: 'leaderboard', compact: true });
 
             return `
                 <tr class="${isMe ? 'my-row' : ''} ${rank <= 3 ? 'top-three' : ''}">
                     <td class="${firstCol === 'rate' ? 'rate-cell' : 'rank-cell'}">${firstColValue}</td>
-                    <td class="player-cell">
-                        <span class="player-link" onclick="TMC.navigate('profile', ${entry.player_id})">${this.escapeHtml(entry.handle)}</span>
-                    </td>
+                    <td class="player-cell">${playerMarkup}</td>
                     <td class="stars-cell">${this.formatNumber(entry.seasonal_stars)}</td>
                     <td class="boost-cell">${entry.boost_pct != null ? entry.boost_pct + '%' : '0%'}</td>
                     <td class="stars-cell">${coinsCell}</td>
@@ -2668,12 +2768,11 @@ const TMC = {
         body.innerHTML = visibleRows.map((entry, i) => {
             const rank = start + i + 1;
             const isMe = this.state.player && entry.player_id == this.state.player.player_id;
+            const playerMarkup = this.renderPlayerShowcase(entry, { context: 'leaderboard', compact: true });
             return `
                 <tr class="${isMe ? 'my-row' : ''} ${rank <= 3 ? 'top-three' : ''}">
                     <td class="rank-cell">${rank <= 3 ? ['&#129351;', '&#129352;', '&#129353;'][rank-1] : rank}</td>
-                    <td class="player-cell">
-                        <span class="player-link" onclick="TMC.navigate('profile', ${entry.player_id})">${this.escapeHtml(entry.handle)}</span>
-                    </td>
+                    <td class="player-cell">${playerMarkup}</td>
                     <td class="stars-cell">${this.formatNumber(entry.global_stars)}</td>
                     <td class="status-cell">${this.renderPlayerStatusBadge(entry)}</td>
                 </tr>
@@ -2728,6 +2827,7 @@ const TMC = {
         const catalog = await this.api('cosmetic_catalog');
         if (catalog.error) return;
         this.state.cosmetics = catalog;
+        this.state.myCosmetics = [];
 
         if (this.state.player) {
             const mine = await this.api('my_cosmetics');
@@ -2737,38 +2837,63 @@ const TMC = {
         this.renderShop();
     },
 
-    filterShop(category) {
+    filterShop(category, evt = null) {
         this.state.shopFilter = category;
         document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
+        if (evt && evt.target) {
+            evt.target.classList.add('active');
+        }
         this.renderShop();
     },
 
     renderShop() {
         const grid = document.getElementById('shop-grid');
-        let items = this.state.cosmetics;
+        let items = [...this.state.cosmetics];
         if (this.state.shopFilter !== 'all') {
             items = items.filter(c => c.category === this.state.shopFilter);
         }
 
         const ownedIds = new Set(this.state.myCosmetics.map(c => c.cosmetic_id));
+        const equippedIds = new Set(this.state.myCosmetics.filter(c => Number(c.equipped)).map(c => c.cosmetic_id));
+
+        items.sort((left, right) => {
+            const leftRank = equippedIds.has(left.cosmetic_id) ? 2 : (ownedIds.has(left.cosmetic_id) ? 1 : 0);
+            const rightRank = equippedIds.has(right.cosmetic_id) ? 2 : (ownedIds.has(right.cosmetic_id) ? 1 : 0);
+            if (leftRank !== rightRank) return rightRank - leftRank;
+            if (left.price_global_stars !== right.price_global_stars) return left.price_global_stars - right.price_global_stars;
+            return left.name.localeCompare(right.name);
+        });
 
         grid.innerHTML = items.map(c => {
             const owned = ownedIds.has(c.cosmetic_id);
+            const equipped = equippedIds.has(c.cosmetic_id);
             const canAfford = this.state.player && this.state.player.global_stars >= c.price_global_stars;
-            const categoryLabel = c.category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const categoryLabel = this.getCosmeticCategoryLabel(c.category);
+            const preview = this.renderPlayerShowcase(null, {
+                handle: 'Preview',
+                equippedCosmetics: this.buildShopPreviewCosmetics(c),
+                context: 'shop',
+                compact: true,
+                clickable: false,
+            });
 
             return `
-                <div class="shop-item ${owned ? 'owned' : ''} ${c.css_class || ''}">
+                <div class="shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}">
                     <div class="shop-item-header">
                         <span class="shop-item-name">${this.escapeHtml(c.name)}</span>
                         <span class="shop-item-category">${categoryLabel}</span>
+                    </div>
+                    <div class="shop-item-preview">
+                        ${preview}
                     </div>
                     <p class="shop-item-desc">${this.escapeHtml(c.description || '')}</p>
                     <div class="shop-item-footer">
                         <span class="shop-item-price">&#11088; ${c.price_global_stars}</span>
                         ${owned ? 
-                            '<span class="badge badge-owned">Owned</span>' :
+                            `<div class="shop-item-actions">
+                                <span class="badge ${equipped ? 'badge-active' : 'badge-owned'}">${equipped ? 'Equipped' : 'Owned'}</span>
+                                <button class="btn btn-sm ${equipped ? 'btn-outline' : 'btn-primary'}" onclick="TMC.setCosmeticEquip(${c.cosmetic_id}, ${equipped ? 'false' : 'true'})">${equipped ? 'Unequip' : 'Equip'}</button>
+                            </div>` :
                             (this.state.player ? 
                                 `<button class="btn btn-sm btn-primary" onclick="TMC.buyCosmetic(${c.cosmetic_id})" ${!canAfford ? 'disabled title="Not enough Global Stars"' : ''}>Buy</button>` :
                                 '<span class="shop-item-login">Login to purchase</span>'
@@ -2794,7 +2919,18 @@ const TMC = {
             payload: { cosmetic_id: Number(cosmeticId) || null }
         });
         await this.refreshGameState();
-        this.loadShop();
+        await this.loadShop();
+    },
+
+    async setCosmeticEquip(cosmeticId, equip) {
+        const result = await this.api('equip_cosmetic', { cosmetic_id: cosmeticId, equip: !!equip });
+        if (result.error) {
+            this.toast(result.error, 'error');
+            return;
+        }
+        this.toast(equip ? 'Cosmetic equipped.' : 'Cosmetic unequipped.', 'success');
+        await this.refreshGameState();
+        await this.loadShop();
     },
 
     // ==================== SIGIL THEFT ====================
@@ -2995,6 +3131,12 @@ const TMC = {
             };
             return `<span class="profile-badge" title="${b.badge_type}">${icons[b.badge_type] || '&#127775;'}</span>`;
         }).join('');
+        const profileCosmetics = this.normalizeEquippedCosmetics(profile.equipped_cosmetics);
+        const profileCardClasses = ['profile-card'];
+        if (profileCosmetics.profile_bg?.css_class) profileCardClasses.push(profileCosmetics.profile_bg.css_class);
+        if (profileCosmetics.effect?.css_class) profileCardClasses.push(profileCosmetics.effect.css_class);
+        const profileShowcase = this.renderPlayerShowcase(profile, { context: 'profile', clickable: false });
+        const starProgress = Number(profile.global_stars_progress?.progress_percent || 0);
 
         const history = (profile.season_history || []).map(h => `
             <tr>
@@ -3127,9 +3269,9 @@ const TMC = {
         `;
 
         content.innerHTML = `
-            <div class="profile-card">
+            <div class="${profileCardClasses.join(' ')}">
                 <div class="profile-header">
-                    <h2>${this.escapeHtml(profile.handle)}</h2>
+                    ${profileShowcase}
                     ${profile.role !== 'Player' ? `<span class="badge badge-staff">${profile.role}</span>` : ''}
                 </div>
                 <div class="profile-stats">
@@ -3137,6 +3279,12 @@ const TMC = {
                         <span class="stat-label">Global Stars</span>
                         <span class="stat-value">&#11088; ${this.formatNumber(profile.global_stars)}</span>
                     </div>
+                    ${starProgress > 0 ? `
+                        <div class="profile-stat">
+                            <span class="stat-label">Next Star Progress</span>
+                            <span class="stat-value">${starProgress}%</span>
+                        </div>
+                    ` : ''}
                     <div class="profile-stat">
                         <span class="stat-label">Member Since</span>
                         <span class="stat-value">${new Date(profile.created_at).toLocaleDateString()}</span>

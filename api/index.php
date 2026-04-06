@@ -838,6 +838,7 @@ function getGameState($player) {
             'handle' => $player['handle'],
             'role' => $player['role'],
             'global_stars' => (int)$player['global_stars'],
+            'global_stars_progress' => getGlobalStarsProgressPayload($player['global_stars_fractional_fp'] ?? 0),
             'joined_season_id' => $player['joined_season_id'],
             'participation_enabled' => (bool)$player['participation_enabled'],
             'idle_modal_active' => (bool)$player['idle_modal_active'],
@@ -887,6 +888,7 @@ function getGameState($player) {
                 'hoarding_sink_active' => (bool)$rateMetrics['hoarding_sink_active'],
             ] : null,
             'active_boosts' => $activeBoosts,
+            'equipped_cosmetics' => getEquippedCosmeticsForPlayerIds([(int)$player['player_id']])[(int)$player['player_id']] ?? getEmptyEquippedCosmeticsPayload(),
             'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player) : [],
             'notifications' => Notifications::listForPlayer($player['player_id'], 50),
             'notifications_unread_count' => Notifications::unreadCount($player['player_id']),
@@ -1301,6 +1303,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                 );
             }
         }
+        $rows = attachEquippedCosmeticsToRows($rows);
         foreach ($rows as &$row) {
             $metrics = calculateLeaderboardRowMetrics($season, $row);
             $row['rate_per_tick'] = (float)$metrics['rate_per_tick'];
@@ -1324,6 +1327,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
          ORDER BY sp.seasonal_stars DESC, sp.player_id ASC{$limitClause}",
         $limit > 0 ? [$seasonId, $limit] : [$seasonId]
     );
+    $rows = attachEquippedCosmeticsToRows($rows);
     foreach ($rows as &$row) {
         $row['rate_per_tick'] = 0;
     }
@@ -1364,14 +1368,95 @@ function calculateSigilCountsValue(array $counts, array $valueTable): int {
     return $total;
 }
 
+function getGlobalStarsProgressPayload($fractionalFp): array {
+    $carryFp = max(0, (int)$fractionalFp);
+    return [
+        'fractional_fp' => $carryFp,
+        'progress_percent' => round(($carryFp / FP_SCALE) * 100, 1),
+    ];
+}
+
+function getEmptyEquippedCosmeticsPayload(): array {
+    return [
+        'avatar_frame' => null,
+        'name_color' => null,
+        'profile_bg' => null,
+        'title' => null,
+        'effect' => null,
+    ];
+}
+
+function normalizeEquippedCosmeticRow(array $row): array {
+    return [
+        'cosmetic_id' => (int)$row['cosmetic_id'],
+        'name' => (string)$row['name'],
+        'category' => (string)$row['category'],
+        'css_class' => (string)($row['css_class'] ?? ''),
+        'description' => (string)($row['description'] ?? ''),
+        'price_global_stars' => (int)($row['price_global_stars'] ?? 0),
+    ];
+}
+
+function getEquippedCosmeticsForPlayerIds(array $playerIds): array {
+    $ids = array_values(array_unique(array_map('intval', $playerIds)));
+    if (empty($ids)) {
+        return [];
+    }
+
+    $db = Database::getInstance();
+    $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+    $rows = $db->fetchAll(
+        "SELECT pc.player_id, c.cosmetic_id, c.name, c.description, c.category, c.price_global_stars, c.css_class
+         FROM player_cosmetics pc
+         JOIN cosmetic_catalog c ON c.cosmetic_id = pc.cosmetic_id
+         WHERE pc.equipped = 1 AND pc.player_id IN ({$placeholders})",
+        $ids
+    );
+
+    $payload = [];
+    foreach ($ids as $playerId) {
+        $payload[$playerId] = getEmptyEquippedCosmeticsPayload();
+    }
+
+    foreach ($rows as $row) {
+        $playerId = (int)$row['player_id'];
+        $category = (string)$row['category'];
+        if (!isset($payload[$playerId])) {
+            $payload[$playerId] = getEmptyEquippedCosmeticsPayload();
+        }
+        if (array_key_exists($category, $payload[$playerId])) {
+            $payload[$playerId][$category] = normalizeEquippedCosmeticRow($row);
+        }
+    }
+
+    return $payload;
+}
+
+function attachEquippedCosmeticsToRows(array $rows): array {
+    $playerIds = [];
+    foreach ($rows as $row) {
+        $playerIds[] = (int)($row['player_id'] ?? 0);
+    }
+
+    $equippedByPlayer = getEquippedCosmeticsForPlayerIds($playerIds);
+    foreach ($rows as &$row) {
+        $playerId = (int)($row['player_id'] ?? 0);
+        $row['equipped_cosmetics'] = $equippedByPlayer[$playerId] ?? getEmptyEquippedCosmeticsPayload();
+    }
+    unset($row);
+
+    return $rows;
+}
+
 function getGlobalLeaderboard() {
     $db = Database::getInstance();
-    return $db->fetchAll(
+    $rows = $db->fetchAll(
         "SELECT player_id, handle, global_stars, activity_state, online_current
          FROM players 
          WHERE global_stars > 0 AND profile_deleted_at IS NULL
          ORDER BY global_stars DESC, player_id ASC"
     );
+    return attachEquippedCosmeticsToRows($rows);
 }
 
 function getCosmeticCatalog() {
@@ -1386,7 +1471,7 @@ function getMyCosmetics($player) {
          FROM player_cosmetics pc
          JOIN cosmetic_catalog c ON c.cosmetic_id = pc.cosmetic_id
          WHERE pc.player_id = ?
-         ORDER BY pc.purchased_at DESC",
+         ORDER BY pc.equipped DESC, pc.purchased_at DESC",
         [$player['player_id']]
     );
 }
@@ -1456,7 +1541,7 @@ function getChatMessages($player, $input) {
 function getProfile($viewer, $targetId) {
     $db = Database::getInstance();
     $target = $db->fetch(
-        "SELECT player_id, handle, role, global_stars, profile_visibility, created_at, profile_deleted_at,
+        "SELECT player_id, handle, role, global_stars, global_stars_fractional_fp, profile_visibility, created_at, profile_deleted_at,
             joined_season_id, participation_enabled, activity_state, online_current
          FROM players WHERE player_id = ?",
         [$targetId]
@@ -1486,6 +1571,8 @@ function getProfile($viewer, $targetId) {
     $target['badges'] = $badges;
     $target['season_history'] = $history;
     $target['active_participation'] = null;
+    $target['global_stars_progress'] = getGlobalStarsProgressPayload($target['global_stars_fractional_fp'] ?? 0);
+    $target['equipped_cosmetics'] = getEquippedCosmeticsForPlayerIds([(int)$targetId])[(int)$targetId] ?? getEmptyEquippedCosmeticsPayload();
     // Normalise DATETIME to ISO 8601 UTC so JS Date() parses it unambiguously.
     $target['created_at'] = iso_utc_datetime($target['created_at'] ?? null);
 

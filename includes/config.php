@@ -328,7 +328,7 @@ define('PARTICIPATION_BONUS_CAP', 56);
 define('PLACEMENT_BONUS', [1 => 100, 2 => 60, 3 => 40]);
 
 // Cosmetic price tiers
-define('COSMETIC_PRICE_TIERS', [10, 25, 60, 150, 400]);
+define('COSMETIC_PRICE_TIERS', [25, 80, 250, 800, 2400]);
 
 // Handle rules
 define('HANDLE_MIN_LENGTH', 3);

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS players (
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('Player', 'Moderator', 'Admin') NOT NULL DEFAULT 'Player',
     global_stars BIGINT NOT NULL DEFAULT 0,
+    global_stars_fractional_fp BIGINT NOT NULL DEFAULT 0,
     profile_visibility ENUM('PUBLIC', 'FRIENDS_ONLY', 'HIDDEN') NOT NULL DEFAULT 'PUBLIC',
     profile_deleted_at DATETIME DEFAULT NULL,
     handle_changed_at DATETIME DEFAULT NULL,

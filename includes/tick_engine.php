@@ -580,7 +580,7 @@ class TickEngine {
             
             // 3. Get end-finishers
             $endFinishers = $db->fetchAll(
-                "SELECT p.player_id, sp.* FROM players p
+                "SELECT p.player_id, p.global_stars_fractional_fp, sp.* FROM players p
                  JOIN season_participation sp ON p.player_id = sp.player_id
                  WHERE p.joined_season_id = ? AND p.participation_enabled = 1 AND sp.season_id = ?",
                 [$seasonId, $seasonId]
@@ -624,6 +624,7 @@ class TickEngine {
             foreach ($endFinishers as $ef) {
                 $endRank++;
                 $globalStarsEarned = 0;
+                $playerCarryFp = max(0, (int)($ef['global_stars_fractional_fp'] ?? 0));
                 
                 // Participation bonus
                 $activeTicks = (int)$ef['active_ticks_total'];
@@ -640,11 +641,12 @@ class TickEngine {
                 // Natural-end conversion: SeasonalStars -> GlobalStars 1:1
                 $seasonalStars = (int)$ef['seasonal_stars'];
                 $globalStarsEarned += $seasonalStars;
+                $globalStarGrant = Economy::applyGlobalStarsGrantWithCarry($globalStarsEarned, $playerCarryFp);
 
                 // Apply to player
                 $db->query(
-                    "UPDATE players SET global_stars = global_stars + ? WHERE player_id = ?",
-                    [$globalStarsEarned, $ef['player_id']]
+                    "UPDATE players SET global_stars = global_stars + ?, global_stars_fractional_fp = ? WHERE player_id = ?",
+                    [$globalStarGrant['global_stars_gained'], $globalStarGrant['global_stars_fractional_fp'], $ef['player_id']]
                 );
                 
                 // Record in participation
@@ -655,7 +657,7 @@ class TickEngine {
                      sigils_t1 = 0, sigils_t2 = 0, sigils_t3 = 0, sigils_t4 = 0, sigils_t5 = 0, sigils_t6 = 0,
                      active_boosts = NULL
                      WHERE player_id = ? AND season_id = ?",
-                    [$globalStarsEarned, $participationBonus, $placementBonus, $ef['player_id'], $seasonId]
+                    [$globalStarGrant['global_stars_gained'], $participationBonus, $placementBonus, $ef['player_id'], $seasonId]
                 );
                 
                 // Award badges

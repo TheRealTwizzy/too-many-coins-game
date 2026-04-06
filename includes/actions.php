@@ -372,7 +372,11 @@ class Actions {
         $payout = Economy::computeEarlyLockInPayout($seasonalStars, $sigilCounts, $tierCosts);
         $totalSeasonalStars = $payout['total_seasonal_stars'];
         $sigilRefundStars   = $payout['sigil_refund_stars'];
-        $globalStarsGained  = $payout['global_stars_gained'];
+        $existingGlobalStarsCarryFp = max(0, (int)($player['global_stars_fractional_fp'] ?? 0));
+        $globalStarGrant = Economy::applyGlobalStarsGrantWithCarry($totalSeasonalStars, $existingGlobalStarsCarryFp, 65, 100);
+        $globalStarsGained  = $globalStarGrant['global_stars_gained'];
+        $globalStarsCarryFp = $globalStarGrant['global_stars_fractional_fp'];
+        $globalStarsProgressPercent = $globalStarGrant['global_stars_progress_percent'];
 
         $db->beginTransaction();
         try {
@@ -386,10 +390,10 @@ class Actions {
                 [$gameTime, $totalSeasonalStars, $playerId, $seasonId]
             );
             
-            // 2. Convert total seasonal stars → global stars at 65% floor
+            // 2. Convert total seasonal stars → global stars at 65% while preserving carry
             $db->query(
-                "UPDATE players SET global_stars = global_stars + ? WHERE player_id = ?",
-                [$globalStarsGained, $playerId]
+                "UPDATE players SET global_stars = global_stars + ?, global_stars_fractional_fp = ? WHERE player_id = ?",
+                [$globalStarsGained, $globalStarsCarryFp, $playerId]
             );
             
             // 3. Destroy all season-bound resources
@@ -424,12 +428,15 @@ class Actions {
             $db->commit();
 
             $msg = "Locked in! Converted {$totalSeasonalStars} Seasonal Stars (including "
-                 . "{$sigilRefundStars} refunded from sigils) to {$globalStarsGained} Global Stars (65% floor).";
+                 . "{$sigilRefundStars} refunded from sigils) into {$globalStarsGained} Global Stars, plus "
+                 . "{$globalStarsProgressPercent}% banked toward the next Global Star.";
             return [
                 'success' => true,
                 'sigil_refund_stars'     => $sigilRefundStars,
                 'seasonal_stars_converted' => $totalSeasonalStars,
                 'global_stars_gained'    => $globalStarsGained,
+                'global_stars_fractional_fp' => $globalStarsCarryFp,
+                'global_stars_progress_percent' => $globalStarsProgressPercent,
                 'message' => $msg,
             ];
         } catch (Exception $e) {

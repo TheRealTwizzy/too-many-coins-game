@@ -444,39 +444,44 @@ class EconomyPrecisionTest extends TestCase
 
     public function testEarlyLockInPayoutNoSigils(): void
     {
-        // No sigils: payout = floor(0.65 * seasonalStars)
+        // No sigils: payout = 65% of seasonal stars, with any partial star banked.
         $result = Economy::computeEarlyLockInPayout(100, [0,0,0,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(0,   $result['sigil_refund_stars']);
         $this->assertSame(100, $result['total_seasonal_stars']);
-        $this->assertSame(65,  $result['global_stars_gained']); // floor(100 * 0.65) = 65
+        $this->assertSame(65,  $result['global_stars_gained']);
+        $this->assertSame(0,   $result['global_stars_fractional_fp']);
     }
 
     public function testEarlyLockInPayoutFloorRoundsDown(): void
     {
-        // 10 seasonal stars → floor(10 * 0.65) = floor(6.5) = 6
+        // 10 seasonal stars -> 6 Global Stars plus 50% banked toward the next star.
         $result = Economy::computeEarlyLockInPayout(10, [0,0,0,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(0,  $result['sigil_refund_stars']);
         $this->assertSame(10, $result['total_seasonal_stars']);
         $this->assertSame(6,  $result['global_stars_gained']);
+        $this->assertSame(500000, $result['global_stars_fractional_fp']);
+        $this->assertSame(50.0, $result['global_stars_progress_percent']);
     }
 
     public function testEarlyLockInPayoutSigilRefundAddedBeforeConversion(): void
     {
-        // 1 T1 sigil (50 stars) + 0 seasonal stars → total 50 → floor(50 * 0.65) = 32
+        // 1 T1 sigil (50 stars) + 0 seasonal stars -> total 50 -> 32 Global Stars plus 50% banked.
         $result = Economy::computeEarlyLockInPayout(0, [1,0,0,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(50, $result['sigil_refund_stars']);
         $this->assertSame(50, $result['total_seasonal_stars']);
         $this->assertSame(32, $result['global_stars_gained']);
+        $this->assertSame(500000, $result['global_stars_fractional_fp']);
     }
 
     public function testEarlyLockInPayoutMixedSigilsAndStars(): void
     {
-        // 2 T1 (100), 1 T2 (250), 1 T3 (1000) = 1350 sigil stars + 40 seasonal = 1390 total
-        // floor(1390 * 0.65) = 903
+        // 2 T1 (100), 1 T2 (250), 1 T3 (1000) = 1350 sigil stars + 40 seasonal = 1390 total.
+        // 1390 * 0.65 = 903.5, so half a star remains banked.
         $result = Economy::computeEarlyLockInPayout(40, [2,1,1,0,0], [50,250,1000,3000,9000]);
         $this->assertSame(1350, $result['sigil_refund_stars']);
         $this->assertSame(1390, $result['total_seasonal_stars']);
         $this->assertSame(903, $result['global_stars_gained']);
+        $this->assertSame(500000, $result['global_stars_fractional_fp']);
     }
 
     public function testEarlyLockInPayoutT4AndT5DerivedCosts(): void
@@ -485,7 +490,8 @@ class EconomyPrecisionTest extends TestCase
         $result = Economy::computeEarlyLockInPayout(0, [0,0,0,1,1], [50,250,1000,3000,9000]);
         $this->assertSame(12000, $result['sigil_refund_stars']);
         $this->assertSame(12000, $result['total_seasonal_stars']);
-        $this->assertSame(7800,  $result['global_stars_gained']); // floor(12000*0.65)=7800
+        $this->assertSame(7800,  $result['global_stars_gained']);
+        $this->assertSame(0,     $result['global_stars_fractional_fp']);
     }
 
     public function testEarlyLockInPayoutZeroStarsAndNoSigils(): void
@@ -494,6 +500,16 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(0, $result['sigil_refund_stars']);
         $this->assertSame(0, $result['total_seasonal_stars']);
         $this->assertSame(0, $result['global_stars_gained']);
+        $this->assertSame(0, $result['global_stars_fractional_fp']);
+    }
+
+    public function testGlobalStarGrantCarryRollsIntoWholeStars(): void
+    {
+        $grant = Economy::applyGlobalStarsGrantWithCarry(1, 500000, 65, 100);
+
+        $this->assertSame(1, $grant['global_stars_gained']);
+        $this->assertSame(150000, $grant['global_stars_fractional_fp']);
+        $this->assertSame(15.0, $grant['global_stars_progress_percent']);
     }
 
     public function testLowerTierSigilsDropMoreFrequentlyThanHigherTiers(): void

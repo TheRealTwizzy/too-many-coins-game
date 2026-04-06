@@ -261,6 +261,50 @@ class Economy {
             $value % FP_SCALE,
         ];
     }
+
+    /**
+     * Convert whole seasonal-star input into fixed-point global-star value.
+     */
+    public static function convertWholeStarsToGlobalStarsFp(int $wholeStars, int $numerator = 100, int $denominator = 100): int {
+        $stars = max(0, (int)$wholeStars);
+        $safeNumerator = max(0, (int)$numerator);
+        $safeDenominator = max(1, (int)$denominator);
+        if ($stars <= 0 || $safeNumerator <= 0) {
+            return 0;
+        }
+
+        return intdiv($stars * FP_SCALE * $safeNumerator, $safeDenominator);
+    }
+
+    /**
+     * Apply a global-star grant while preserving fractional carry between awards.
+     *
+     * @return array{
+     *     source_stars: int,
+     *     grant_fp: int,
+     *     carry_in_fp: int,
+     *     total_fp: int,
+     *     global_stars_gained: int,
+     *     global_stars_fractional_fp: int,
+     *     global_stars_progress_percent: float
+     * }
+     */
+    public static function applyGlobalStarsGrantWithCarry(int $sourceStars, int $carryFp = 0, int $numerator = 100, int $denominator = 100): array {
+        $carryInFp = max(0, (int)$carryFp);
+        $grantFp = self::convertWholeStarsToGlobalStarsFp($sourceStars, $numerator, $denominator);
+        $totalFp = $carryInFp + $grantFp;
+        [$wholeStars, $remainderFp] = self::splitFixedPoint($totalFp);
+
+        return [
+            'source_stars' => max(0, (int)$sourceStars),
+            'grant_fp' => $grantFp,
+            'carry_in_fp' => $carryInFp,
+            'total_fp' => $totalFp,
+            'global_stars_gained' => $wholeStars,
+            'global_stars_fractional_fp' => $remainderFp,
+            'global_stars_progress_percent' => round(($remainderFp / FP_SCALE) * 100, 1),
+        ];
+    }
     
     /**
      * Clamp value between min and max
@@ -637,11 +681,14 @@ class Economy {
             $sigilRefundStars += $count * $cost;
         }
         $totalSeasonalStars = $seasonalStars + $sigilRefundStars;
-        $globalStarsGained  = (int)floor($totalSeasonalStars * 0.65);
+        $grant = self::applyGlobalStarsGrantWithCarry($totalSeasonalStars, 0, 65, 100);
         return [
             'sigil_refund_stars'   => $sigilRefundStars,
             'total_seasonal_stars' => $totalSeasonalStars,
-            'global_stars_gained'  => $globalStarsGained,
+            'global_stars_gained'  => $grant['global_stars_gained'],
+            'global_stars_grant_fp' => $grant['grant_fp'],
+            'global_stars_fractional_fp' => $grant['global_stars_fractional_fp'],
+            'global_stars_progress_percent' => $grant['global_stars_progress_percent'],
         ];
     }
 
