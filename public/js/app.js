@@ -39,6 +39,7 @@ const TMC = {
     _globalLeaderboardPage: 1,
     _historyBound: false,
     _combineAllPending: false,
+    _sigilSelectionOutsideHandler: null,
 
     // ==================== API ====================
     async api(action, data = {}) {
@@ -123,6 +124,7 @@ const TMC = {
         this.startPolling();
         this.startRealtimeClock();
         this.setupNotificationCenter();
+        this.setupSigilSelectionOutsideHandler();
     },
 
     startPolling() {
@@ -3163,6 +3165,26 @@ const TMC = {
         }
         this.state.pendingTheftTargetId = targetPlayerId;
         this.navigate('theft', { seasonId, targetPlayerId });
+    },
+
+    setupSigilSelectionOutsideHandler() {
+        if (this._sigilSelectionOutsideHandler) return;
+
+        this._sigilSelectionOutsideHandler = (event) => {
+            if (this.state.currentScreen !== 'season-detail') return;
+            if (!this._selectedSigilActionTier) return;
+
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+
+            if (target.closest('.sigil-item.is-clickable')) return;
+            if (target.closest('.sigil-side-actions')) return;
+            if (target.closest('#sigil-confirm-modal')) return;
+
+            this.clearSigilActionPicker();
+        };
+
+        document.addEventListener('click', this._sigilSelectionOutsideHandler);
     },
 
     // ==================== NOTIFICATIONS ====================
