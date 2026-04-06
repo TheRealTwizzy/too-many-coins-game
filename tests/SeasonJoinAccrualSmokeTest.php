@@ -107,4 +107,10 @@ class SeasonJoinAccrualSmokeTest extends TestCase
         $this->assertGreaterThan(0, $coinsMinted, 'First processed tick should mint at least one whole coin for an active player.');
         $this->assertGreaterThanOrEqual(0, $carryFp);
     }
+
+    public function testDefaultReactivationWindowConstantIsPositive(): void
+    {
+        $this->assertGreaterThan(0, STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT);
+        $this->assertGreaterThan(IDLE_TIMEOUT_TICKS, STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT);
+    }
 }

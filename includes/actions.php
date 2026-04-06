@@ -200,6 +200,7 @@ class Actions {
                      coins = 0, coins_fractional_fp = 0, seasonal_stars = 0,
                      sigils_t1 = 0, sigils_t2 = 0, sigils_t3 = 0, sigils_t4 = 0, sigils_t5 = 0, sigils_t6 = 0,
                      participation_ticks_since_join = 0, spend_window_total = 0,
+                     reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
                      active_boosts = NULL
                      WHERE player_id = ? AND season_id = ?",
                     [$playerId, $seasonId]
@@ -217,7 +218,7 @@ class Actions {
                 "UPDATE players SET 
                  joined_season_id = ?, participation_enabled = 1,
                  idle_modal_active = 0, activity_state = 'Active',
-                 last_activity_tick = ?
+                 last_activity_tick = ?, online_current = 1, last_seen_at = NOW()
                  WHERE player_id = ?",
                 [$seasonId, $gameTime, $playerId]
             );
@@ -283,13 +284,19 @@ class Actions {
             
             // Update season supply
             $db->query(
-                "UPDATE seasons SET total_coins_supply = total_coins_supply - ? WHERE season_id = ?",
-                [$coinsNeeded, $seasonId]
+                "UPDATE seasons
+                 SET total_coins_supply = total_coins_supply - ?,
+                     pending_star_burn_coins = pending_star_burn_coins + ?
+                 WHERE season_id = ?",
+                [$coinsNeeded, $coinsNeeded, $seasonId]
             );
             
             // Update activity
             $db->query(
-                "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
+                "UPDATE players
+                 SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0,
+                     online_current = 1, last_seen_at = NOW()
+                 WHERE player_id = ?",
                 [GameTime::now(), $playerId]
             );
             
@@ -390,6 +397,7 @@ class Actions {
                 "UPDATE season_participation SET 
                  coins = 0, coins_fractional_fp = 0, seasonal_stars = 0,
                  sigils_t1 = 0, sigils_t2 = 0, sigils_t3 = 0, sigils_t4 = 0, sigils_t5 = 0, sigils_t6 = 0,
+                 reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
                  active_boosts = NULL
                  WHERE player_id = ? AND season_id = ?",
                 [$playerId, $seasonId]
@@ -399,7 +407,7 @@ class Actions {
             $db->query(
                 "UPDATE players SET 
                  joined_season_id = NULL, participation_enabled = 0,
-                 idle_modal_active = 0, activity_state = 'Active'
+                 idle_modal_active = 0, activity_state = 'Active', online_current = 1, last_seen_at = NOW()
                  WHERE player_id = ?",
                 [$playerId]
             );
@@ -718,10 +726,27 @@ class Actions {
         }
         
         $gameTime = GameTime::now();
+        $joinedSeasonId = isset($player['joined_season_id']) ? (int)$player['joined_season_id'] : 0;
+
+        if ($joinedSeasonId > 0) {
+            $participation = $db->fetch(
+                "SELECT coins FROM season_participation WHERE player_id = ? AND season_id = ?",
+                [$playerId, $joinedSeasonId]
+            );
+            if ($participation) {
+                $db->query(
+                    "UPDATE season_participation
+                     SET reactivation_balance_snapshot = ?, reactivation_start_tick = ?
+                     WHERE player_id = ? AND season_id = ?",
+                    [max(0, (int)($participation['coins'] ?? 0)), $gameTime, $playerId, $joinedSeasonId]
+                );
+            }
+        }
+
         $db->query(
             "UPDATE players SET 
              idle_modal_active = 0, activity_state = 'Active',
-             idle_since_tick = NULL, last_activity_tick = ?
+             idle_since_tick = NULL, last_activity_tick = ?, online_current = 1, last_seen_at = NOW()
              WHERE player_id = ?",
             [$gameTime, $playerId]
         );

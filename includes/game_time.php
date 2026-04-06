@@ -160,6 +160,13 @@ class GameTime {
                     ['m' => 500000, 'price' => 1600],
                     ['m' => 2000000, 'price' => 4200]
                 ]);
+
+                $starpriceDemandTable = json_encode([
+                    ['ratio_fp' => 850000, 'multiplier_fp' => 900000],
+                    ['ratio_fp' => 1000000, 'multiplier_fp' => 1000000],
+                    ['ratio_fp' => 1150000, 'multiplier_fp' => 1080000],
+                    ['ratio_fp' => 1300000, 'multiplier_fp' => 1120000]
+                ]);
                 
                 $vaultConfig = json_encode([
                     ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
@@ -178,13 +185,23 @@ class GameTime {
                      starprice_table, star_price_cap,
                      starprice_idle_weight_fp, starprice_active_only,
                      starprice_max_upstep_fp, starprice_max_downstep_fp,
+                     starprice_model_version, starprice_reactivation_window_ticks, starprice_demand_table,
+                     market_affordability_bias_fp, market_anchor_price,
+                     pending_star_burn_coins, star_burn_ema_fp, net_mint_ema_fp, market_pressure_fp,
+                     coins_offline_total,
                      vault_config, current_star_price, last_processed_tick)
                      VALUES (?, ?, ?, ?, 'Scheduled', 30, 250000, 1, ?, ?, 18, 90000,
                      0, 12, 20000, 50000, 200000, 200, 500, 1000, 350000, 1250000,
                      ?, 6000, 0, 1, 1000, 12000,
+                     ?, ?, ?,
+                     1000000, 100,
+                     0, 0, 0, 1000000,
+                     0,
                      ?, 100, ?)",
                     [$startTime, $endTime, $blackoutTime, $seed,
-                     $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable, $vaultConfig, $startTime]
+                     $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable,
+                     STARPRICE_MODEL_VERSION_DEFAULT, STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT, $starpriceDemandTable,
+                     $vaultConfig, $startTime]
                 );
             }
         }
@@ -645,11 +662,33 @@ class GameTime {
                  hoarding_window_ticks = ?,
                  inflation_table = ?,
                  starprice_table = ?,
+                 starprice_model_version = COALESCE(NULLIF(starprice_model_version, 0), ?),
+                 starprice_reactivation_window_ticks = GREATEST(1, COALESCE(starprice_reactivation_window_ticks, ?)),
+                 starprice_demand_table = COALESCE(starprice_demand_table, ?),
+                 market_affordability_bias_fp = COALESCE(NULLIF(market_affordability_bias_fp, 0), 1000000),
+                 market_anchor_price = GREATEST(100, LEAST(COALESCE(NULLIF(market_anchor_price, 0), current_star_price), 6000)),
+                 pending_star_burn_coins = COALESCE(pending_star_burn_coins, 0),
+                 star_burn_ema_fp = COALESCE(star_burn_ema_fp, 0),
+                 net_mint_ema_fp = COALESCE(net_mint_ema_fp, 0),
+                 market_pressure_fp = COALESCE(NULLIF(market_pressure_fp, 0), 1000000),
+                 coins_offline_total = COALESCE(coins_offline_total, 0),
                                  star_price_cap = 6000,
                                  current_star_price = LEAST(6000, GREATEST(current_star_price, 100))
              WHERE base_ubi_active_per_tick = 100
                AND target_spend_rate_per_tick = 50",
-            [HOARDING_WINDOW_TICKS, $inflationTable, $starpriceTable]
+            [
+                HOARDING_WINDOW_TICKS,
+                $inflationTable,
+                $starpriceTable,
+                STARPRICE_MODEL_VERSION_DEFAULT,
+                STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT,
+                json_encode([
+                    ['ratio_fp' => 850000, 'multiplier_fp' => 900000],
+                    ['ratio_fp' => 1000000, 'multiplier_fp' => 1000000],
+                    ['ratio_fp' => 1150000, 'multiplier_fp' => 1080000],
+                    ['ratio_fp' => 1300000, 'multiplier_fp' => 1120000]
+                ])
+            ]
         );
     }
 }

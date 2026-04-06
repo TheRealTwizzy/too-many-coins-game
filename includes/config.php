@@ -40,6 +40,9 @@ function get_timing_diagnostics(?int $workerIntervalSeconds = null) {
         'tick_real_seconds' => (int)TICK_REAL_SECONDS,
         'idle_timeout_ticks' => (int)IDLE_TIMEOUT_TICKS,
         'idle_timeout_real_seconds' => game_ticks_to_real_seconds((int)IDLE_TIMEOUT_TICKS),
+        'forced_offline_idle_hold_ticks' => (int)FORCED_OFFLINE_IDLE_HOLD_TICKS,
+        'forced_offline_idle_hold_real_seconds' => game_ticks_to_real_seconds((int)FORCED_OFFLINE_IDLE_HOLD_TICKS),
+        'presence_stale_offline_seconds' => (int)TMC_PRESENCE_STALE_OFFLINE_SECONDS,
         'tick_on_request' => (bool)TMC_TICK_ON_REQUEST,
         'presence_touch_seconds' => (int)TMC_PRESENCE_TOUCH_SECONDS,
         'minute_to_second_migration_enabled' => (bool)TMC_MINUTE_TO_SECOND_MIGRATION,
@@ -90,6 +93,12 @@ define('TMC_RATE_LIMIT_DIAGNOSTICS', filter_var(getenv('TMC_RATE_LIMIT_DIAGNOSTI
 
 // Activity
 define('IDLE_TIMEOUT_TICKS', ticks_from_real_seconds(900));  // 15 real minutes
+define('FORCED_OFFLINE_IDLE_HOLD_TICKS', ticks_from_real_seconds(2700)); // 45 real minutes after Idle
+define('TMC_PRESENCE_STALE_OFFLINE_SECONDS', max((int)TMC_PRESENCE_TOUCH_SECONDS, (int)(getenv('TMC_PRESENCE_STALE_OFFLINE_SECONDS') ?: 120)));
+
+// Economy v2 scaffolding
+define('STARPRICE_MODEL_VERSION_DEFAULT', max(1, (int)(getenv('TMC_STARPRICE_MODEL_VERSION_DEFAULT') ?: 1)));
+define('STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT', ticks_from_real_seconds(4500)); // 75 real minutes
 
 // Economy tuning windows
 define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hours

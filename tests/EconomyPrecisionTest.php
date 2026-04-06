@@ -271,6 +271,73 @@ class EconomyPrecisionTest extends TestCase
         }
     }
 
+    public function testResolveEconomicPresenceStateBecomesOfflineAfterIdleHoldWhenPresenceIsStale(): void
+    {
+        $season = [
+            'blackout_time' => 1000,
+        ];
+        $player = [
+            'activity_state' => 'Idle',
+            'idle_since_tick' => 100,
+            'online_current' => 1,
+            'last_seen_at' => date('Y-m-d H:i:s', time() - (TMC_PRESENCE_STALE_OFFLINE_SECONDS + 5)),
+        ];
+
+        $state = Economy::resolveEconomicPresenceState($player, $season, 100 + FORCED_OFFLINE_IDLE_HOLD_TICKS);
+
+        $this->assertSame('Offline', $state);
+    }
+
+    public function testResolveEconomicPresenceStateStaysIdleDuringBlackout(): void
+    {
+        $season = [
+            'blackout_time' => 500,
+        ];
+        $player = [
+            'activity_state' => 'Idle',
+            'idle_since_tick' => 100,
+            'online_current' => 1,
+            'last_seen_at' => date('Y-m-d H:i:s', time() - (TMC_PRESENCE_STALE_OFFLINE_SECONDS + 5)),
+        ];
+
+        $state = Economy::resolveEconomicPresenceState($player, $season, 500 + FORCED_OFFLINE_IDLE_HOLD_TICKS);
+
+        $this->assertSame('Idle', $state);
+    }
+
+    public function testCalculateUBIFpIsZeroWhenEconomicPresenceIsOffline(): void
+    {
+        $season = [
+            'base_ubi_active_per_tick' => 30,
+            'base_ubi_idle_factor_fp' => 250000,
+            'ubi_min_per_tick' => 1,
+            'total_coins_supply' => 0,
+            'inflation_table' => json_encode([
+                ['x' => 0, 'factor_fp' => 1000000],
+                ['x' => 1000000, 'factor_fp' => 1000000],
+            ]),
+            'hoarding_min_factor_fp' => 90000,
+        ];
+        $player = [
+            'participation_enabled' => 1,
+            'activity_state' => 'Idle',
+            'economic_presence_state' => 'Offline',
+        ];
+
+        $this->assertSame(0, Economy::calculateUBIFp($season, $player, []));
+    }
+
+    public function testResolveSigilDropActivityStateHonorsEconomicPresenceStateOverride(): void
+    {
+        $player = [
+            'online_current' => 1,
+            'activity_state' => 'Active',
+            'economic_presence_state' => 'Offline',
+        ];
+
+        $this->assertSame('Offline', Economy::resolveSigilDropActivityState($player));
+    }
+
     public function testSigilSeasonPhaseAvailabilityAcrossBoundaries(): void
     {
         $season = [

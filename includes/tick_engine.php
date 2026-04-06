@@ -130,9 +130,21 @@ class TickEngine {
             $totalBurnedCoins = 0;
             $coinsActiveTotal = 0;
             $coinsIdleTotal   = 0;
+            $coinsOfflineTotal = 0;
             
             foreach ($participants as $p) {
                 $playerId = $p['player_id'];
+                $p['current_game_time'] = $gameTime;
+                $p['economic_presence_state'] = Economy::resolveEconomicPresenceState($p, $season, $gameTime);
+                $presenceState = (string)$p['economic_presence_state'];
+
+                if ($presenceState === 'Offline' && !empty($p['online_current'])) {
+                    $db->query(
+                        "UPDATE players SET online_current = 0 WHERE player_id = ? AND online_current <> 0",
+                        [$playerId]
+                    );
+                    $p['online_current'] = 0;
+                }
                 
                 // Compute boost modifier once per player; used for both sigil drops and UBI.
                 $selfBoosts = $playerSelfBoosts[(int)$playerId] ?? [];
@@ -181,14 +193,16 @@ class TickEngine {
 
                 // Accumulate active/idle coin totals (post-UBI balance) for pricing telemetry.
                 $postTickCoins = max(0, ((int)($p['coins'] ?? 0)) + $netCoins);
-                if (($p['activity_state'] ?? 'Idle') === 'Active') {
+                if ($presenceState === 'Active') {
                     $coinsActiveTotal += $postTickCoins;
+                } elseif ($presenceState === 'Offline') {
+                    $coinsOfflineTotal += $postTickCoins;
                 } else {
                     $coinsIdleTotal += $postTickCoins;
                 }
                 
                 // Update participation tracking
-                $activeTicks = ($p['activity_state'] === 'Active') ? $ticksToProcess : 0;
+                $activeTicks = ($presenceState === 'Active') ? $ticksToProcess : 0;
                 $db->query(
                     "UPDATE season_participation SET 
                      participation_time_total = participation_time_total + ?,
@@ -268,10 +282,11 @@ class TickEngine {
                  total_coins_supply = GREATEST(0, total_coins_supply + ?),
                  coins_active_total = ?,
                  coins_idle_total = ?,
+                 coins_offline_total = ?,
                  effective_price_supply = ?,
                  last_processed_tick = ?
                  WHERE season_id = ?",
-                [$netCoinsDelta, $netCoinsDelta, $coinsActiveTotal, $coinsIdleTotal, $effectivePriceSupply, $gameTime, $seasonId]
+                [$netCoinsDelta, $netCoinsDelta, $coinsActiveTotal, $coinsIdleTotal, $coinsOfflineTotal, $effectivePriceSupply, $gameTime, $seasonId]
             );
             
             // Recalculate star price using updated season data (includes effective_price_supply

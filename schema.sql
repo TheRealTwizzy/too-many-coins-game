@@ -95,15 +95,28 @@ CREATE TABLE IF NOT EXISTS seasons (
     starprice_active_only TINYINT(1) NOT NULL DEFAULT 0,   -- 1: ignore idle coins entirely for pricing
     starprice_max_upstep_fp INT NOT NULL DEFAULT 2000,     -- ~0.2%/tick max upward price movement
     starprice_max_downstep_fp INT NOT NULL DEFAULT 10000,  -- ~1.0%/tick max downward price movement
+    -- Market v2 scaffolding
+    starprice_model_version TINYINT NOT NULL DEFAULT 1,
+    starprice_reactivation_window_ticks INT NOT NULL DEFAULT 75,
+    starprice_demand_table JSON DEFAULT NULL,
+    market_affordability_bias_fp INT NOT NULL DEFAULT 1000000,
     -- Vault config
     vault_config JSON NOT NULL,  -- Per-tier: initial_supply, cost table
     -- Published surfaces
     current_star_price BIGINT NOT NULL DEFAULT 100,
+    market_anchor_price BIGINT NOT NULL DEFAULT 100,
+    blackout_star_price_snapshot BIGINT DEFAULT NULL,
+    blackout_started_tick BIGINT DEFAULT NULL,
+    pending_star_burn_coins BIGINT NOT NULL DEFAULT 0,
+    star_burn_ema_fp BIGINT NOT NULL DEFAULT 0,
+    net_mint_ema_fp BIGINT NOT NULL DEFAULT 0,
+    market_pressure_fp INT NOT NULL DEFAULT 1000000,
     total_coins_supply BIGINT NOT NULL DEFAULT 0,
     total_coins_supply_end_of_tick BIGINT NOT NULL DEFAULT 0,
     -- Pricing telemetry (updated each tick before star-price recalculation)
     coins_active_total BIGINT NOT NULL DEFAULT 0,          -- sum of coins held by Active players
     coins_idle_total BIGINT NOT NULL DEFAULT 0,            -- sum of coins held by Idle players
+    coins_offline_total BIGINT NOT NULL DEFAULT 0,         -- sum of coins held by Offline players
     effective_price_supply BIGINT NOT NULL DEFAULT 0,      -- supply used for star-price calculation
     -- Tick tracking
     last_processed_tick BIGINT NOT NULL DEFAULT 0,
@@ -174,6 +187,8 @@ CREATE TABLE IF NOT EXISTS season_participation (
     -- Spend tracking for hoarding suppression
     spend_window_total BIGINT NOT NULL DEFAULT 0,
     hoarding_sink_total BIGINT NOT NULL DEFAULT 0,
+    reactivation_balance_snapshot BIGINT NOT NULL DEFAULT 0,
+    reactivation_start_tick BIGINT DEFAULT NULL,
     -- Lock-In snapshot
     lock_in_effect_tick BIGINT DEFAULT NULL,
     lock_in_snapshot_seasonal_stars BIGINT DEFAULT NULL,

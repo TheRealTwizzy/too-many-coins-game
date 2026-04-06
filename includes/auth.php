@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/economy.php';
 
 class Auth {
 
@@ -27,7 +28,7 @@ class Auth {
         }
         
         if ($player) {
-            self::touchPresence($player['player_id']);
+            self::touchPresence($player['player_id'], $player);
         }
         
         return $player;
@@ -36,7 +37,7 @@ class Auth {
     /**
      * Mark player as online with throttling to avoid request-path write contention.
      */
-    public static function touchPresence($playerId) {
+    public static function touchPresence($playerId, $player = null) {
         $playerId = (int)$playerId;
         if ($playerId <= 0) {
             return;
@@ -46,6 +47,10 @@ class Auth {
             return;
         }
         self::$presenceTouchedInRequest[$playerId] = true;
+
+        if (self::shouldDeferPresenceRefresh($player)) {
+            return;
+        }
 
         $touchEverySeconds = max(5, (int)TMC_PRESENCE_TOUCH_SECONDS);
         $db = Database::getInstance();
@@ -60,6 +65,34 @@ class Auth {
                )",
             [$playerId, $touchEverySeconds]
         );
+    }
+
+    private static function currentActionName() {
+        return strtolower(trim((string)($_REQUEST['action'] ?? '')));
+    }
+
+    private static function actionAllowsPresenceRecovery($action) {
+        return in_array((string)$action, ['idle_ack'], true);
+    }
+
+    private static function shouldDeferPresenceRefresh($player) {
+        if (!is_array($player)) {
+            return false;
+        }
+
+        if (!empty($player['online_current'])) {
+            return false;
+        }
+
+        if (empty($player['idle_modal_active'])) {
+            return false;
+        }
+
+        if (!Economy::presenceIsStale($player)) {
+            return false;
+        }
+
+        return !self::actionAllowsPresenceRecovery(self::currentActionName());
     }
     
     /**

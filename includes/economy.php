@@ -339,6 +339,67 @@ class Economy {
     public static function hoardingSinkEnabled($season) {
         return ((int)($season['hoarding_sink_enabled'] ?? 0)) === 1;
     }
+
+    /**
+     * Whether a player's presence is stale enough to be treated as absent.
+     */
+    public static function presenceIsStale($player, $staleAfterSeconds = null) {
+        if (!is_array($player)) {
+            return true;
+        }
+
+        if (empty($player['online_current'])) {
+            return true;
+        }
+
+        $threshold = max(1, ($staleAfterSeconds === null)
+            ? (int)TMC_PRESENCE_STALE_OFFLINE_SECONDS
+            : (int)$staleAfterSeconds);
+
+        $lastSeenAt = $player['last_seen_at'] ?? null;
+        if (!$lastSeenAt) {
+            return true;
+        }
+
+        $lastSeenTs = strtotime((string)$lastSeenAt);
+        if ($lastSeenTs === false) {
+            return true;
+        }
+
+        return (time() - $lastSeenTs) >= $threshold;
+    }
+
+    /**
+     * Resolve the player's economic presence state used by UBI and liquidity math.
+     */
+    public static function resolveEconomicPresenceState($player, $season = null, $gameTime = null) {
+        $explicitState = (string)($player['economic_presence_state'] ?? '');
+        if (in_array($explicitState, ['Active', 'Idle', 'Offline'], true)) {
+            return $explicitState;
+        }
+
+        $activityState = (string)($player['activity_state'] ?? 'Idle');
+        if ($activityState === 'Active') {
+            return 'Active';
+        }
+
+        if ($season !== null && $gameTime !== null) {
+            $blackoutTime = (int)($season['blackout_time'] ?? 0);
+            if ($blackoutTime > 0 && (int)$gameTime >= $blackoutTime) {
+                return 'Idle';
+            }
+
+            $idleSinceTick = isset($player['idle_since_tick']) ? (int)$player['idle_since_tick'] : null;
+            if ($idleSinceTick !== null) {
+                $idleHeldTicks = max(0, (int)$gameTime - $idleSinceTick);
+                if ($idleHeldTicks >= (int)FORCED_OFFLINE_IDLE_HOLD_TICKS && self::presenceIsStale($player)) {
+                    return 'Offline';
+                }
+            }
+        }
+
+        return 'Idle';
+    }
     
     /**
      * Calculate UBI for a player on a given tick
@@ -358,6 +419,11 @@ class Economy {
         // Not participating
         if (!$player['participation_enabled']) return 0;
 
+        $presenceState = self::resolveEconomicPresenceState($player, $season, $player['current_game_time'] ?? null);
+        if ($presenceState === 'Offline') {
+            return 0;
+        }
+
         $cadenceDivisor = self::ticksPerRealMinute();
         
         $baseActive = (int)$season['base_ubi_active_per_tick'];
@@ -365,7 +431,7 @@ class Economy {
         $baseActiveFp = intdiv(self::toFixedPoint($baseActive), $cadenceDivisor);
         
         // Branch selection based on activity state
-        if ($player['activity_state'] === 'Active') {
+        if ($presenceState === 'Active') {
             $ubiFp = $baseActiveFp;
         } else {
             $ubiFp = intdiv($baseActiveFp * $idleFactorFp, FP_SCALE);
@@ -408,6 +474,9 @@ class Economy {
         if (!self::hoardingSinkEnabled($season)) return 0;
         if (!$participation) return 0;
 
+        $presenceState = self::resolveEconomicPresenceState($player, $season, $player['current_game_time'] ?? null);
+        if ($presenceState === 'Offline') return 0;
+
         $coinsHeld = max(0, (int)($participation['coins'] ?? 0));
         if ($coinsHeld <= 0) return 0;
 
@@ -446,7 +515,7 @@ class Economy {
 
         if ($sinkPerTick <= 0) return 0;
 
-        if (($player['activity_state'] ?? 'Active') !== 'Active') {
+        if ($presenceState !== 'Active') {
             $idleMultFp = max(0, (int)($season['hoarding_idle_multiplier_fp'] ?? FP_SCALE));
             $sinkPerTick = intdiv($sinkPerTick * $idleMultFp, FP_SCALE);
         }
@@ -699,6 +768,11 @@ class Economy {
      * Resolve player drop activity state from online + activity flags.
      */
     public static function resolveSigilDropActivityState($player) {
+        $presenceState = (string)($player['economic_presence_state'] ?? '');
+        if (in_array($presenceState, ['Active', 'Idle', 'Offline'], true)) {
+            return $presenceState;
+        }
+
         $isOnline = !empty($player['online_current']);
         if (!$isOnline) {
             return 'Offline';
