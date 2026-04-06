@@ -179,6 +179,44 @@ mysql -u USER -p DB_NAME < tools/verify-season-timing.sql
 After reset, trigger one normal API request or one tick call so bootstrap recreates
 `server_state`, `yearly_state`, and fresh season rows.
 
+## Global Economic Reset (Preserve Accounts/Auth)
+
+To rebuild the game to a day-0 economy while keeping player accounts and authentication
+data intact, use the global economic reset utilities under `tools/`.
+
+What this reset preserves:
+
+- `players` identity/auth columns (email/password/session)
+- `handle_registry`
+- `handle_history`
+
+What this reset clears/rebuilds:
+
+- everything from the season reset
+- `players.global_stars`
+- `player_cosmetics`
+
+Preferred runner (no `mysql` CLI required):
+
+```bash
+php tools/run-global-economic-reset.php
+```
+
+Runner modes:
+
+- Reset + verify (default): `php tools/run-global-economic-reset.php`
+- Verify only: `php tools/run-global-economic-reset.php --verify-only`
+- Reset only: `php tools/run-global-economic-reset.php --no-verify`
+
+Raw SQL alternative:
+
+```bash
+mysql -u USER -p DB_NAME < tools/reinitialize-global-economy-preserve-accounts.sql
+```
+
+After reset, trigger one normal API request or one tick call so bootstrap recreates
+`server_state`, `yearly_state`, and fresh season rows.
+
 ## Wiki (In-Repo, Same Domain)
 
 The project now includes an isolated wiki surface served under:
