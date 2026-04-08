@@ -4,7 +4,7 @@ class Archetypes
 {
     public static function all(): array
     {
-        return [
+        $all = [
             'casual' => [
                 'label' => 'Casual',
                 'phases' => [
@@ -106,6 +106,13 @@ class Archetypes
                 'coin_reserve_ratio' => 0.55,
             ],
         ];
+
+        foreach ($all as $key => &$archetype) {
+            $archetype['traits'] = self::traitsFor($key);
+        }
+        unset($archetype);
+
+        return $all;
     }
 
     public static function get(string $key): array
@@ -144,6 +151,145 @@ class Archetypes
             'lock_in_probability' => $lockIn,
             'freeze_probability' => $freeze,
             'theft_probability' => $theft,
+        ];
+    }
+
+    private static function traitsFor(string $key): array
+    {
+        $map = [
+            'casual' => [
+                'discipline' => 0.35,
+                'risk_tolerance' => 0.42,
+                'patience' => 0.38,
+                'late_conversion' => 0.34,
+                'hoard_bias' => 0.36,
+                'aggression' => 0.10,
+                'boost_bias' => 0.18,
+                'star_bias' => 0.32,
+                'expiry_bias' => 0.22,
+                'exit_by_phase' => ['MID' => 0.08, 'LATE_ACTIVE' => 0.12, 'BLACKOUT' => 0.16],
+            ],
+            'regular' => [
+                'discipline' => 0.58,
+                'risk_tolerance' => 0.48,
+                'patience' => 0.46,
+                'late_conversion' => 0.42,
+                'hoard_bias' => 0.24,
+                'aggression' => 0.18,
+                'boost_bias' => 0.24,
+                'star_bias' => 0.45,
+                'expiry_bias' => 0.18,
+                'exit_by_phase' => ['MID' => 0.10, 'LATE_ACTIVE' => 0.16, 'BLACKOUT' => 0.18],
+            ],
+            'hardcore' => [
+                'discipline' => 0.82,
+                'risk_tolerance' => 0.78,
+                'patience' => 0.70,
+                'late_conversion' => 0.54,
+                'hoard_bias' => 0.16,
+                'aggression' => 0.48,
+                'boost_bias' => 0.42,
+                'star_bias' => 0.48,
+                'expiry_bias' => 0.34,
+                'exit_by_phase' => ['MID' => 0.04, 'LATE_ACTIVE' => 0.12, 'BLACKOUT' => 0.14],
+            ],
+            'hoarder' => [
+                'discipline' => 0.72,
+                'risk_tolerance' => 0.32,
+                'patience' => 0.68,
+                'late_conversion' => 0.62,
+                'hoard_bias' => 0.88,
+                'aggression' => 0.06,
+                'boost_bias' => 0.14,
+                'star_bias' => 0.18,
+                'expiry_bias' => 0.26,
+                'exit_by_phase' => ['MID' => 0.02, 'LATE_ACTIVE' => 0.08, 'BLACKOUT' => 0.12],
+            ],
+            'early_locker' => [
+                'discipline' => 0.68,
+                'risk_tolerance' => 0.20,
+                'patience' => 0.22,
+                'late_conversion' => 0.20,
+                'hoard_bias' => 0.22,
+                'aggression' => 0.12,
+                'boost_bias' => 0.18,
+                'star_bias' => 0.40,
+                'expiry_bias' => 0.08,
+                'exit_by_phase' => ['MID' => 0.26, 'LATE_ACTIVE' => 0.12, 'BLACKOUT' => 0.08],
+            ],
+            'late_deployer' => [
+                'discipline' => 0.64,
+                'risk_tolerance' => 0.66,
+                'patience' => 0.80,
+                'late_conversion' => 0.92,
+                'hoard_bias' => 0.42,
+                'aggression' => 0.22,
+                'boost_bias' => 0.34,
+                'star_bias' => 0.62,
+                'expiry_bias' => 0.34,
+                'exit_by_phase' => ['MID' => 0.01, 'LATE_ACTIVE' => 0.08, 'BLACKOUT' => 0.18],
+            ],
+            'boost_focused' => [
+                'discipline' => 0.70,
+                'risk_tolerance' => 0.60,
+                'patience' => 0.58,
+                'late_conversion' => 0.58,
+                'hoard_bias' => 0.24,
+                'aggression' => 0.18,
+                'boost_bias' => 0.94,
+                'star_bias' => 0.30,
+                'expiry_bias' => 0.24,
+                'exit_by_phase' => ['MID' => 0.04, 'LATE_ACTIVE' => 0.10, 'BLACKOUT' => 0.16],
+            ],
+            'star_focused' => [
+                'discipline' => 0.66,
+                'risk_tolerance' => 0.46,
+                'patience' => 0.44,
+                'late_conversion' => 0.46,
+                'hoard_bias' => 0.12,
+                'aggression' => 0.08,
+                'boost_bias' => 0.14,
+                'star_bias' => 0.95,
+                'expiry_bias' => 0.18,
+                'exit_by_phase' => ['MID' => 0.08, 'LATE_ACTIVE' => 0.16, 'BLACKOUT' => 0.18],
+            ],
+            'aggressive_sigil_user' => [
+                'discipline' => 0.60,
+                'risk_tolerance' => 0.72,
+                'patience' => 0.42,
+                'late_conversion' => 0.50,
+                'hoard_bias' => 0.18,
+                'aggression' => 0.98,
+                'boost_bias' => 0.30,
+                'star_bias' => 0.28,
+                'expiry_bias' => 0.20,
+                'exit_by_phase' => ['MID' => 0.03, 'LATE_ACTIVE' => 0.10, 'BLACKOUT' => 0.14],
+            ],
+            'mostly_idle' => [
+                'discipline' => 0.20,
+                'risk_tolerance' => 0.28,
+                'patience' => 0.30,
+                'late_conversion' => 0.24,
+                'hoard_bias' => 0.50,
+                'aggression' => 0.04,
+                'boost_bias' => 0.08,
+                'star_bias' => 0.16,
+                'expiry_bias' => 0.30,
+                'exit_by_phase' => ['MID' => 0.12, 'LATE_ACTIVE' => 0.10, 'BLACKOUT' => 0.18],
+            ],
+        ];
+
+        return $map[$key] ?? [
+            'discipline' => 0.50,
+            'risk_tolerance' => 0.50,
+            'patience' => 0.50,
+            'late_conversion' => 0.50,
+            'hoard_bias' => 0.25,
+            'aggression' => 0.10,
+            'boost_bias' => 0.20,
+            'star_bias' => 0.40,
+            'expiry_bias' => 0.20,
+            'exit_by_phase' => ['MID' => 0.05, 'LATE_ACTIVE' => 0.10, 'BLACKOUT' => 0.16],
         ];
     }
 }

@@ -30,6 +30,19 @@ class MetricsCollector
     public static function buildSeasonOutput(string $seed, array $season, array $players, array $archetypes, int $playersPerArchetype): array
     {
         $archetypeMetrics = [];
+        $overallDiagnostics = [
+            'lock_in_timing' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0, 'NONE' => 0],
+            'natural_expiry_count' => 0,
+            'late_active_active_players' => 0,
+            'late_active_engaged_players' => 0,
+            'action_volume_by_phase' => [
+                'EARLY' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'MID' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'LATE_ACTIVE' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'BLACKOUT' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+            ],
+        ];
+
         foreach ($archetypes as $key => $archetype) {
             $rows = array_values(array_filter($players, static function ($player) use ($key) {
                 return $player['archetype_key'] === $key;
@@ -47,6 +60,15 @@ class MetricsCollector
             $blackoutConversions = 0;
             $t6Total = 0;
             $t6BySource = ['drop' => 0, 'combine' => 0, 'theft' => 0];
+            $lockInTiming = ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0, 'NONE' => 0];
+            $lateActiveActivePlayers = 0;
+            $lateActiveEngagedPlayers = 0;
+            $actionVolumeByPhase = [
+                'EARLY' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'MID' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'LATE_ACTIVE' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'BLACKOUT' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+            ];
 
             foreach ($rows as $row) {
                 foreach ($phaseCoins as $phase => $_) {
@@ -68,6 +90,33 @@ class MetricsCollector
                 $naturalExpiry += empty($row['locked_in']) ? 1 : 0;
                 $blackoutConversions += (int)($row['metrics']['blackout_conversions'] ?? 0);
                 $t6Total += (int)($row['metrics']['t6_total_acquired'] ?? 0);
+
+                $lockPhase = (string)($row['metrics']['lock_in_phase'] ?? 'NONE');
+                if (!isset($lockInTiming[$lockPhase])) {
+                    $lockPhase = 'NONE';
+                }
+                $lockInTiming[$lockPhase]++;
+
+                $activeLateTicks = (int)($row['metrics']['active_ticks_by_phase']['LATE_ACTIVE'] ?? 0);
+                if ($activeLateTicks > 0) {
+                    $lateActiveActivePlayers++;
+                }
+
+                $lateEngaged = $activeLateTicks > 0 || (int)($row['metrics']['stars_purchased_by_phase']['LATE_ACTIVE'] ?? 0) > 0;
+                foreach ($actionVolumeByPhase as $phase => $_) {
+                    foreach ($actionVolumeByPhase[$phase] as $action => $_count) {
+                        $count = (int)($row['metrics']['actions_by_phase'][$phase][$action] ?? 0);
+                        $actionVolumeByPhase[$phase][$action] += $count;
+                        $overallDiagnostics['action_volume_by_phase'][$phase][$action] += $count;
+                        if ($phase === 'LATE_ACTIVE' && $count > 0) {
+                            $lateEngaged = true;
+                        }
+                    }
+                }
+                if ($lateEngaged) {
+                    $lateActiveEngagedPlayers++;
+                }
+
                 foreach ($t6BySource as $source => $_) {
                     $t6BySource[$source] += (int)($row['metrics']['t6_by_source'][$source] ?? 0);
                 }
@@ -91,8 +140,27 @@ class MetricsCollector
                 'blackout_conversions' => $blackoutConversions,
                 'final_rank_distribution' => $rankDistribution,
                 'global_stars_gained' => $globalStarsGained,
+                'lock_in_timing' => $lockInTiming,
+                'natural_expiry_rate' => $naturalExpiry / $count,
+                'late_active_active_players' => $lateActiveActivePlayers,
+                'late_active_active_rate' => $lateActiveActivePlayers / $count,
+                'late_active_engaged_players' => $lateActiveEngagedPlayers,
+                'late_active_engaged_rate' => $lateActiveEngagedPlayers / $count,
+                'action_volume_by_phase' => $actionVolumeByPhase,
             ];
+
+            foreach ($lockInTiming as $phase => $phaseCount) {
+                $overallDiagnostics['lock_in_timing'][$phase] += $phaseCount;
+            }
+            $overallDiagnostics['natural_expiry_count'] += $naturalExpiry;
+            $overallDiagnostics['late_active_active_players'] += $lateActiveActivePlayers;
+            $overallDiagnostics['late_active_engaged_players'] += $lateActiveEngagedPlayers;
         }
+
+        $playerCount = max(1, count($players));
+        $overallDiagnostics['natural_expiry_rate'] = $overallDiagnostics['natural_expiry_count'] / $playerCount;
+        $overallDiagnostics['late_active_active_rate'] = $overallDiagnostics['late_active_active_players'] / $playerCount;
+        $overallDiagnostics['late_active_engaged_rate'] = $overallDiagnostics['late_active_engaged_players'] / $playerCount;
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -104,6 +172,7 @@ class MetricsCollector
                 'players_per_archetype' => $playersPerArchetype,
                 'total_players' => count($players),
             ],
+            'diagnostics' => $overallDiagnostics,
             'archetypes' => $archetypeMetrics,
             'players' => array_map(static function ($row) {
                 return [
@@ -114,6 +183,7 @@ class MetricsCollector
                     'final_rank' => (int)$row['final_rank'],
                     'global_stars_gained' => (int)$row['global_stars_gained'],
                     'locked_in' => (bool)$row['locked_in'],
+                    'participation' => $row['participation'],
                     'metrics' => $row['metrics'],
                 ];
             }, $players),
@@ -190,11 +260,12 @@ class MetricsCollector
         echo 'Single-Season Population Simulator' . PHP_EOL;
         foreach ((array)$payload['archetypes'] as $metrics) {
             echo sprintf(
-                '%s | avg score %d | lock-in %d | expiry %d | global stars %d',
+                '%s | avg score %d | lock-in %d | expiry %d | late-active %.0f%% | global stars %d',
                 (string)$metrics['label'],
                 (int)$metrics['average_final_effective_score'],
                 (int)$metrics['lock_in_count'],
                 (int)$metrics['natural_expiry_count'],
+                ((float)$metrics['late_active_engaged_rate']) * 100,
                 (int)$metrics['global_stars_gained']
             ) . PHP_EOL;
         }

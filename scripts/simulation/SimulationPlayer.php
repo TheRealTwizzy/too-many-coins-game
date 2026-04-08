@@ -14,6 +14,7 @@ class SimulationPlayer
     private array $participation;
     private array $boost;
     private array $freeze;
+    private array $policy;
     private array $metrics;
     private int $globalStarsGained = 0;
     private bool $lockedIn = false;
@@ -79,15 +80,29 @@ class SimulationPlayer
             'expires_tick' => 0,
             'applied_count' => 0,
         ];
+        $this->policy = [
+            'next_lock_review_tick' => 0,
+            'lock_reviews' => 0,
+        ];
         $this->metrics = [
             'coins_earned_by_phase' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0],
             'stars_purchased_by_phase' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0],
+            'presence_ticks_by_phase' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0],
+            'active_ticks_by_phase' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0],
             'sigils_acquired_by_tier' => ['1' => 0, '2' => 0, '3' => 0, '4' => 0, '5' => 0, '6' => 0],
             'sigils_spent_by_action' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0, 'melt' => 0],
+            'actions_by_phase' => [
+                'EARLY' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'MID' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'LATE_ACTIVE' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+                'BLACKOUT' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
+            ],
             't6_total_acquired' => 0,
             't6_by_source' => ['drop' => 0, 'combine' => 0, 'theft' => 0],
             'blackout_conversions' => 0,
             'blackout_global_stars_gained' => 0,
+            'lock_in_phase' => null,
+            'natural_expiry' => false,
         ];
     }
 
@@ -164,8 +179,10 @@ class SimulationPlayer
         $this->participation['hoarding_sink_total'] += (int)$rates['sink_per_tick'];
         $this->participation['participation_time_total']++;
         $this->participation['participation_ticks_since_join']++;
+        $this->metrics['presence_ticks_by_phase'][$phase]++;
         if ($this->player['economic_presence_state'] === 'Active') {
             $this->participation['active_ticks_total']++;
+            $this->metrics['active_ticks_by_phase'][$phase]++;
         }
 
         $this->metrics['coins_earned_by_phase'][$phase] += $netCoins;
@@ -186,22 +203,22 @@ class SimulationPlayer
 
         $combineTier = PolicyBehavior::decideCombineTier($this->archetype, $state, $phase, $this->seed, $tick);
         if ($combineTier !== null) {
-            $this->combineSigils($combineTier);
+            $this->combineSigils($combineTier, $phase);
         }
 
         $boostDecision = PolicyBehavior::decideBoostPurchase($this->archetype, $state, $phase, $this->seed, $tick);
         if ($boostDecision !== null) {
-            $this->purchaseBoost((int)$boostDecision['tier'], (string)$boostDecision['kind'], $tick);
+            $this->purchaseBoost((int)$boostDecision['tier'], (string)$boostDecision['kind'], $tick, $phase);
         }
 
         $freezeTarget = PolicyBehavior::chooseFreezeTarget($this->archetype, $this->snapshot(), $playerSnapshots, $phase, $this->seed, $tick);
         if ($freezeTarget !== null && isset($playerMap[$freezeTarget])) {
-            $this->freezeTarget($playerMap[$freezeTarget], (string)$season['status'], $tick);
+            $this->freezeTarget($playerMap[$freezeTarget], (string)$season['status'], $tick, $phase);
         }
 
         $theftTarget = PolicyBehavior::chooseTheftTarget($this->archetype, $this->snapshot(), $playerSnapshots, $phase, $this->seed, $tick);
         if ($theftTarget !== null && isset($playerMap[$theftTarget])) {
-            $this->attemptTheft($playerMap[$theftTarget], (string)$season['status'], $tick);
+            $this->attemptTheft($playerMap[$theftTarget], (string)$season['status'], $tick, $phase);
         }
 
         $starsToBuy = PolicyBehavior::decideStarPurchase($this->archetype, $this->snapshot(), $season, $phase, $this->seed, $tick);
@@ -209,8 +226,21 @@ class SimulationPlayer
             $this->purchaseStars($season, $phase, $starsToBuy);
         }
 
-        if (PolicyBehavior::shouldLockIn($this->archetype, $this->snapshot(), $phase, $this->seed, $tick)) {
-            $this->lockIn((string)$season['status'], $tick);
+        if (in_array($phase, ['MID', 'LATE_ACTIVE', 'BLACKOUT'], true) && $tick >= (int)$this->policy['next_lock_review_tick']) {
+            $this->policy['lock_reviews']++;
+            if (PolicyBehavior::shouldLockIn($this->archetype, $this->snapshot(), $season, $phase, $this->seed, $tick)) {
+                $this->lockIn((string)$season['status'], $tick, $phase);
+                return;
+            }
+
+            $this->policy['next_lock_review_tick'] = PolicyBehavior::scheduleNextLockReview(
+                $this->archetype,
+                $season,
+                $phase,
+                $this->seed,
+                (int)$this->player['player_id'],
+                $tick
+            );
         }
     }
 
@@ -252,6 +282,7 @@ class SimulationPlayer
         $this->boost = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
         $this->player['joined_season_id'] = null;
         $this->player['participation_enabled'] = 0;
+        $this->metrics['natural_expiry'] = true;
     }
 
     public function setFinalRank(int $rank): void
@@ -268,7 +299,10 @@ class SimulationPlayer
             'archetype_label' => (string)$this->player['archetype_label'],
             'participation' => $this->participation,
             'locked_out' => !$this->isParticipating(),
+            'player' => $this->player,
             'boost' => $this->boost,
+            'freeze' => $this->freeze,
+            'policy' => $this->policy,
             'metrics' => $this->metrics,
         ];
     }
@@ -337,7 +371,7 @@ class SimulationPlayer
         $this->player['last_activity_tick'] = (int)$this->player['current_game_time'];
     }
 
-    private function combineSigils(int $fromTier): void
+    private function combineSigils(int $fromTier, string $phase): void
     {
         $required = (int)(SIGIL_COMBINE_RECIPES[$fromTier] ?? 0);
         if ($required <= 0) {
@@ -356,13 +390,14 @@ class SimulationPlayer
         $this->participation[$fromCol] -= $required;
         $this->participation[$toCol] += 1;
         $this->metrics['sigils_spent_by_action']['combine'] += $required;
+        $this->recordAction($phase, 'combine');
         if ($toTier === 6) {
             $this->metrics['t6_total_acquired']++;
             $this->metrics['t6_by_source']['combine']++;
         }
     }
 
-    private function purchaseBoost(int $sigilTier, string $purchaseKind, int $tick): void
+    private function purchaseBoost(int $sigilTier, string $purchaseKind, int $tick, string $phase): void
     {
         if (!BoostCatalog::canSpendSigilTier($sigilTier)) {
             return;
@@ -387,6 +422,7 @@ class SimulationPlayer
             ];
             $this->participation[$sigilCol] -= 1;
             $this->metrics['sigils_spent_by_action']['boost']++;
+            $this->recordAction($phase, 'boost');
             return;
         }
 
@@ -406,9 +442,10 @@ class SimulationPlayer
 
         $this->participation[$sigilCol] -= 1;
         $this->metrics['sigils_spent_by_action']['boost']++;
+        $this->recordAction($phase, 'boost');
     }
 
-    private function freezeTarget(self $target, string $status, int $tick): void
+    private function freezeTarget(self $target, string $status, int $tick, string $phase): void
     {
         if ((int)$this->participation['sigils_t6'] < 1 || !$target->isParticipating()) {
             return;
@@ -418,6 +455,7 @@ class SimulationPlayer
         $stackTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_STACK_EXTENSION_TICKS : FREEZE_STACK_EXTENSION_TICKS);
         $this->participation['sigils_t6'] -= 1;
         $this->metrics['sigils_spent_by_action']['freeze']++;
+        $this->recordAction($phase, 'freeze');
 
         if ($target->freeze['is_active']) {
             $target->freeze['expires_tick'] = max((int)$target->freeze['expires_tick'], $tick) + $stackTicks;
@@ -431,7 +469,7 @@ class SimulationPlayer
         }
     }
 
-    private function attemptTheft(self $target, string $status, int $tick): void
+    private function attemptTheft(self $target, string $status, int $tick, string $phase): void
     {
         if (!$target->isParticipating()) {
             return;
@@ -466,6 +504,7 @@ class SimulationPlayer
         $successChanceFp = self::computeTheftSuccessChanceFp($spendValue, $requestedValue);
         $this->participation['sigils_t' . $spendTier] -= 1;
         $this->metrics['sigils_spent_by_action']['theft']++;
+        $this->recordAction($phase, 'theft');
         $this->player['theft_cooldown_until'] = $tick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS);
         $target->player['theft_protection_until'] = $tick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS : SIGIL_THEFT_PROTECTION_TICKS);
 
@@ -499,7 +538,7 @@ class SimulationPlayer
         return min((int)SIGIL_THEFT_SUCCESS_CAP_FP, intdiv($spendValue * FP_SCALE, max(1, $denominator)));
     }
 
-    private function lockIn(string $status, int $tick): void
+    private function lockIn(string $status, int $tick, string $phase): void
     {
         $tierCosts = [
             (int)(SIGIL_REFERENCE_STARS_BY_TIER[1] ?? 0),
@@ -540,9 +579,19 @@ class SimulationPlayer
         $this->player['joined_season_id'] = null;
         $this->player['participation_enabled'] = 0;
         $this->lockedIn = true;
+        $this->metrics['lock_in_phase'] = $phase;
         if ($status === 'Blackout') {
             $this->metrics['blackout_conversions']++;
             $this->metrics['blackout_global_stars_gained'] += (int)$grant['global_stars_gained'];
         }
+    }
+
+    private function recordAction(string $phase, string $action): void
+    {
+        if (!isset($this->metrics['actions_by_phase'][$phase][$action])) {
+            return;
+        }
+
+        $this->metrics['actions_by_phase'][$phase][$action]++;
     }
 }

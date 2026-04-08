@@ -27,6 +27,10 @@ class SimulationSeasonSmokeTest extends TestCase
         $this->assertArrayHasKey('sigils_spent_by_action', $casual);
         $this->assertArrayHasKey('final_rank_distribution', $casual);
         $this->assertArrayHasKey('global_stars_gained', $casual);
+        $this->assertArrayHasKey('diagnostics', $payload);
+        $this->assertArrayHasKey('lock_in_timing', $payload['diagnostics']);
+        $this->assertArrayHasKey('late_active_engaged_rate', $payload['diagnostics']);
+        $this->assertArrayHasKey('action_volume_by_phase', $payload['diagnostics']);
     }
 
     public function testPopulationSimulationIsDeterministicForSameSeed(): void
@@ -35,5 +39,25 @@ class SimulationSeasonSmokeTest extends TestCase
         $second = SimulationPopulationSeason::run('stable-seed', 1, null);
 
         $this->assertSame($first['archetypes'], $second['archetypes']);
+        $this->assertSame($first['diagnostics'], $second['diagnostics']);
+    }
+
+    public function testPopulationSimulationProducesMixedExitOutcomes(): void
+    {
+        $payload = SimulationPopulationSeason::run('behavior-mix', 3, null);
+
+        $this->assertGreaterThan(0, (int)$payload['diagnostics']['natural_expiry_count']);
+        $this->assertGreaterThan(0, (int)$payload['diagnostics']['late_active_active_players']);
+        $this->assertGreaterThan(0, (int)$payload['diagnostics']['late_active_engaged_players']);
+
+        $lockedIn = (int)$payload['diagnostics']['lock_in_timing']['MID']
+            + (int)$payload['diagnostics']['lock_in_timing']['LATE_ACTIVE']
+            + (int)$payload['diagnostics']['lock_in_timing']['BLACKOUT'];
+
+        $this->assertGreaterThan(0, $lockedIn);
+        $this->assertLessThan((int)$payload['config']['total_players'], $lockedIn);
+
+        $lateActiveActions = array_sum((array)$payload['diagnostics']['action_volume_by_phase']['LATE_ACTIVE']);
+        $this->assertGreaterThan(0, $lateActiveActions);
     }
 }
