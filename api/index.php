@@ -1218,8 +1218,8 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
                 $limit > 0
-                    ? [$boostCapFp, $seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                    : [$boostCapFp, $seasonId, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
+                    ? [$boostCapFp, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
+                    : [$boostCapFp, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
             );
         } elseif ($hasFreezeTable) {
             $rows = $db->fetchAll(
