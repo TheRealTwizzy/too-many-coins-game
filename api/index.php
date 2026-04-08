@@ -737,7 +737,12 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
     }
 
     $totalModFp = (int)($activeBoosts['total_modifier_fp'] ?? 0);
-    $rates = Economy::calculateRateBreakdown($season, $player, $participation, $totalModFp, false);
+    $gameTime = GameTime::now();
+    $seasonForRates = $season;
+    $seasonForRates['computed_status'] = $seasonForRates['computed_status'] ?? GameTime::getSeasonStatus($seasonForRates, $gameTime);
+    $playerForRates = $player;
+    $playerForRates['current_game_time'] = $gameTime;
+    $rates = Economy::calculateRateBreakdown($seasonForRates, $playerForRates, $participation, $totalModFp, false);
 
     $grossRate = round(((int)$rates['gross_rate_fp']) / FP_SCALE, 2);
     $sinkPerTick = max(0, (int)$rates['sink_per_tick']);
@@ -757,10 +762,14 @@ function calculateLeaderboardRowMetrics($season, array $row): array {
     $boostCapFp = (int)BoostCatalog::TOTAL_POWER_CAP_FP;
     $boostModFp = max(0, min((int)($row['boost_mod_fp'] ?? 0), $boostCapFp));
     $isFrozen = ((int)($row['is_frozen'] ?? 0) > 0);
+    $gameTime = GameTime::now();
+    $seasonForRates = $season;
+    $seasonForRates['computed_status'] = $seasonForRates['computed_status'] ?? GameTime::getSeasonStatus($seasonForRates, $gameTime);
 
     $playerShim = [
         'participation_enabled' => 1,
         'activity_state' => $row['activity_state'] ?? 'Offline',
+        'current_game_time' => $gameTime,
     ];
     $participationShim = [
         'coins' => (int)($row['coins'] ?? 0),
@@ -768,7 +777,7 @@ function calculateLeaderboardRowMetrics($season, array $row): array {
     ];
 
     $breakdown = Economy::calculateRateBreakdown(
-        $season,
+        $seasonForRates,
         $playerShim,
         $participationShim,
         $boostModFp,
@@ -801,6 +810,7 @@ function getGameState($player) {
     foreach ($seasons as &$s) {
         $s['computed_status'] = GameTime::getSeasonStatus($s);
         applySeasonCountdownFields($s, $gameTime);
+        applyPublishedStarPrice($s);
         $endTime = (int)$s['end_time'];
         $blackoutTime = (int)$s['blackout_time'];
         $s['blackout_remaining'] = max(0, $blackoutTime - $gameTime);
@@ -846,6 +856,7 @@ function getGameState($player) {
             'participation' => $participation ? [
                 'coins' => (int)$participation['coins'],
                 'seasonal_stars' => (int)$participation['seasonal_stars'],
+                'effective_seasonal_stars' => Economy::effectiveSeasonalStars($participation),
                 'sigils' => [
                     (int)$participation['sigils_t1'],
                     (int)$participation['sigils_t2'],
@@ -934,8 +945,33 @@ function applySeasonCountdownFields(&$season, $gameTime) {
     $season['countdown_label'] = $label;
 }
 
+function applyPublishedStarPrice(&$season) {
+    if (!$season || !is_array($season)) {
+        return;
+    }
+
+    $status = $season['computed_status'] ?? $season['status'] ?? null;
+    $season['published_star_price'] = Economy::publishedStarPrice($season, $status);
+}
+
 function seasonEffectiveScoreSql(string $alias = 'sp'): string {
     return "CASE WHEN {$alias}.lock_in_effect_tick IS NOT NULL THEN COALESCE({$alias}.lock_in_snapshot_seasonal_stars, 0) ELSE COALESCE({$alias}.seasonal_stars, 0) END";
+}
+
+function normalizeParticipationScorePayload(array $participation): array {
+    $participation['effective_seasonal_stars'] = Economy::effectiveSeasonalStars($participation);
+    return $participation;
+}
+
+function normalizeParticipationScorePayloads(array $rows): array {
+    foreach ($rows as &$row) {
+        if (is_array($row)) {
+            $row = normalizeParticipationScorePayload($row);
+        }
+    }
+    unset($row);
+
+    return $rows;
 }
 
 function canLockIn($player, $participation) {
@@ -1051,6 +1087,7 @@ function getSeasonDetail($player, $seasonId) {
     $gameTime = GameTime::now();
     $season['computed_status'] = GameTime::getSeasonStatus($season);
     applySeasonCountdownFields($season, $gameTime);
+    applyPublishedStarPrice($season);
 
     $season['sigil_drop_rates'] = getSigilDropRateMetadata();
 
@@ -1085,6 +1122,7 @@ function getSeasonDetail($player, $seasonId) {
         $season['leaderboard'] = $db->fetchAll(
             "SELECT sp.player_id, p.handle,
                     {$effectiveScoreSql} AS seasonal_stars,
+                    {$effectiveScoreSql} AS effective_seasonal_stars,
                     sp.lock_in_effect_tick
              FROM season_participation sp
              JOIN players p ON p.player_id = sp.player_id
@@ -1094,7 +1132,7 @@ function getSeasonDetail($player, $seasonId) {
         );
     } else {
         $season['leaderboard'] = $db->fetchAll(
-            "SELECT sp.player_id, p.handle, {$effectiveScoreSql} AS seasonal_stars, sp.lock_in_effect_tick
+            "SELECT sp.player_id, p.handle, {$effectiveScoreSql} AS seasonal_stars, {$effectiveScoreSql} AS effective_seasonal_stars, sp.lock_in_effect_tick
              FROM season_participation sp
              JOIN players p ON p.player_id = sp.player_id
              WHERE sp.season_id = ?
@@ -1141,6 +1179,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
             $rows = $db->fetchAll(
                 "SELECT sp.player_id, p.handle,
                         {$effectiveScoreSql} AS seasonal_stars,
+                    {$effectiveScoreSql} AS effective_seasonal_stars,
                         COALESCE(sp.coins, 0) AS coins,
                         sp.participation_time_total,
                         sp.final_rank,
@@ -1177,6 +1216,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
             $rows = $db->fetchAll(
                 "SELECT sp.player_id, p.handle,
                         {$effectiveScoreSql} AS seasonal_stars,
+                    {$effectiveScoreSql} AS effective_seasonal_stars,
                         COALESCE(sp.coins, 0) AS coins,
                         sp.participation_time_total,
                         sp.final_rank,
@@ -1208,6 +1248,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
             $rows = $db->fetchAll(
                 "SELECT sp.player_id, p.handle,
                         {$effectiveScoreSql} AS seasonal_stars,
+                    {$effectiveScoreSql} AS effective_seasonal_stars,
                         COALESCE(sp.coins, 0) AS coins,
                         sp.participation_time_total,
                         sp.final_rank,
@@ -1242,7 +1283,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
     }
 
     $rows = $db->fetchAll(
-        "SELECT sp.player_id, p.handle, {$effectiveScoreSql} AS seasonal_stars, COALESCE(sp.coins, 0) AS coins, sp.final_rank,
+        "SELECT sp.player_id, p.handle, {$effectiveScoreSql} AS seasonal_stars, {$effectiveScoreSql} AS effective_seasonal_stars, COALESCE(sp.coins, 0) AS coins, sp.final_rank,
                 sp.lock_in_effect_tick, sp.end_membership, sp.badge_awarded,
                 sp.global_stars_earned, sp.participation_bonus, sp.placement_bonus,
                 p.activity_state, p.online_current,
@@ -1467,6 +1508,7 @@ function getChatMessages($player, $input) {
 
 function getProfile($viewer, $targetId) {
     $db = Database::getInstance();
+    $effectiveScoreSql = seasonEffectiveScoreSql('sp');
     $target = $db->fetch(
         "SELECT player_id, handle, role, global_stars, global_stars_fractional_fp, profile_visibility, created_at, profile_deleted_at,
             joined_season_id, participation_enabled, activity_state, online_current
@@ -1487,7 +1529,7 @@ function getProfile($viewer, $targetId) {
     
     // Get season history
     $history = $db->fetchAll(
-        "SELECT sp.*, s.start_time, s.end_time
+        "SELECT sp.*, {$effectiveScoreSql} AS effective_seasonal_stars, s.start_time, s.end_time, s.status AS season_status
          FROM season_participation sp
          JOIN seasons s ON s.season_id = sp.season_id
          WHERE sp.player_id = ? AND (sp.end_membership = 1 OR sp.lock_in_effect_tick IS NOT NULL)
@@ -1496,7 +1538,7 @@ function getProfile($viewer, $targetId) {
     );
     
     $target['badges'] = $badges;
-    $target['season_history'] = $history;
+    $target['season_history'] = normalizeParticipationScorePayloads($history);
     $target['active_participation'] = null;
     $target['global_stars_progress'] = getGlobalStarsProgressPayload($target['global_stars_fractional_fp'] ?? 0);
     $target['equipped_cosmetics'] = getEquippedCosmeticsForPlayerIds([(int)$targetId])[(int)$targetId] ?? getEmptyEquippedCosmeticsPayload();
@@ -1507,14 +1549,16 @@ function getProfile($viewer, $targetId) {
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$target['joined_season_id']]);
         if ($season) {
             $status = GameTime::getSeasonStatus($season);
-            if ($status === 'Active') {
+            if ($status === 'Active' || $status === 'Blackout') {
                 $participation = $db->fetch(
-                    "SELECT coins, sigils_t1, sigils_t2, sigils_t3, sigils_t4, sigils_t5, sigils_t6, first_joined_at
+                    "SELECT coins, seasonal_stars, lock_in_effect_tick, lock_in_snapshot_seasonal_stars,
+                            sigils_t1, sigils_t2, sigils_t3, sigils_t4, sigils_t5, sigils_t6, first_joined_at
                      FROM season_participation
                      WHERE player_id = ? AND season_id = ?",
                     [$targetId, $target['joined_season_id']]
                 );
                 if ($participation) {
+                    $participation = normalizeParticipationScorePayload($participation);
                     $profileBoosts = getActiveBoosts($target, $participation);
                     $profilePrimaryBoost = (isset($profileBoosts['self'][0]) && is_array($profileBoosts['self'][0]))
                         ? $profileBoosts['self'][0]
@@ -1523,8 +1567,14 @@ function getProfile($viewer, $targetId) {
                     $profileTheft = getTheftStatusForPlayer((int)$targetId, (int)$target['joined_season_id'], $participation);
                     $target['active_participation'] = [
                         'season_id' => (int)$target['joined_season_id'],
+                        'season_status' => $status,
                         'activity_state' => (string)($target['activity_state'] ?? 'Active'),
                         'coins' => (int)$participation['coins'],
+                        'seasonal_stars' => (int)($participation['seasonal_stars'] ?? 0),
+                        'effective_seasonal_stars' => (int)($participation['effective_seasonal_stars'] ?? 0),
+                        'lock_in_stars' => isset($participation['lock_in_snapshot_seasonal_stars'])
+                            ? (int)$participation['lock_in_snapshot_seasonal_stars']
+                            : null,
                         'sigils' => [
                             (int)$participation['sigils_t1'],
                             (int)$participation['sigils_t2'],
@@ -1542,10 +1592,13 @@ function getProfile($viewer, $targetId) {
                         ],
                         'freeze' => $profileFreeze,
                         'theft' => $profileTheft,
-                        'can_freeze' => ((int)($participation['sigils_t6'] ?? 0) > 0),
-                        'can_melt' => ($profileFreeze['is_frozen'] ?? false)
+                        'can_freeze' => $status === 'Active'
+                            && ((int)($participation['sigils_t6'] ?? 0) > 0),
+                        'can_melt' => in_array($status, ['Active', 'Blackout'], true)
+                            && ($profileFreeze['is_frozen'] ?? false)
                             && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
-                        'can_steal' => !($profileTheft['is_on_cooldown'] ?? false)
+                        'can_steal' => $status === 'Active'
+                            && !($profileTheft['is_on_cooldown'] ?? false)
                             && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
                     ];
                 }
@@ -1570,14 +1623,17 @@ function getMyBadges($player) {
 
 function getSeasonHistory($player) {
     $db = Database::getInstance();
-    return $db->fetchAll(
-        "SELECT sp.*, s.start_time, s.end_time, s.status as season_status
+    $effectiveScoreSql = seasonEffectiveScoreSql('sp');
+    $rows = $db->fetchAll(
+        "SELECT sp.*, {$effectiveScoreSql} AS effective_seasonal_stars, s.start_time, s.end_time, s.status as season_status
          FROM season_participation sp
          JOIN seasons s ON s.season_id = sp.season_id
          WHERE sp.player_id = ?
          ORDER BY s.start_time DESC LIMIT 50",
         [$player['player_id']]
     );
+
+    return normalizeParticipationScorePayloads($rows);
 }
 
 function getBoostCatalog() {

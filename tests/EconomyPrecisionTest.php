@@ -329,6 +329,30 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(0, Economy::calculateUBIFp($season, $player, []));
     }
 
+    public function testCalculateUBIFpIsZeroDuringBlackoutSettlement(): void
+    {
+        $season = [
+            'base_ubi_active_per_tick' => 30,
+            'base_ubi_idle_factor_fp' => 250000,
+            'ubi_min_per_tick' => 1,
+            'total_coins_supply' => 0,
+            'inflation_table' => json_encode([
+                ['x' => 0, 'factor_fp' => 1000000],
+                ['x' => 1000000, 'factor_fp' => 1000000],
+            ]),
+            'hoarding_min_factor_fp' => 90000,
+            'blackout_time' => 500,
+            'end_time' => 900,
+        ];
+        $player = [
+            'participation_enabled' => 1,
+            'activity_state' => 'Active',
+            'current_game_time' => 700,
+        ];
+
+        $this->assertSame(0, Economy::calculateUBIFp($season, $player, []));
+    }
+
     public function testResolveSigilDropActivityStateHonorsEconomicPresenceStateOverride(): void
     {
         $player = [
@@ -398,6 +422,25 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(0, (int)($midWeights[6] ?? 0));
         $this->assertGreaterThan(0, (int)($lateActiveWeights[6] ?? 0));
         $this->assertSame(0, (int)($blackoutWeights[6] ?? 0));
+    }
+
+    public function testEvaluateSigilDropForTickReturnsNullDuringBlackout(): void
+    {
+        $season = [
+            'season_id' => 6,
+            'start_time' => 1000,
+            'end_time' => 1000 + ticks_from_real_seconds(1209600),
+            'season_seed' => str_repeat("\x05", 32),
+        ];
+        $player = [
+            'player_id' => 77,
+            'online_current' => 1,
+            'activity_state' => 'Active',
+        ];
+
+        $blackoutTick = (int)$season['end_time'] - 1;
+
+        $this->assertNull(Economy::evaluateSigilDropForTick($season, $player, $blackoutTick));
     }
 
     public function testEffectiveSigilTierChancesDecreaseAtFullPower(): void
@@ -640,6 +683,24 @@ class EconomyPrecisionTest extends TestCase
             'sink_per_tick must be 0 when player is frozen.');
         $this->assertSame(0, (int)$rates['net_rate_fp'],
             'net_rate_fp must be 0 when player is frozen.');
+    }
+
+    public function testCalculateRateBreakdownAllZeroDuringBlackoutSettlement(): void
+    {
+        $season = $this->makeSeasonFixture([
+            'blackout_time' => 500,
+            'end_time' => 1000,
+        ]);
+        $player = $this->makePlayerFixture([
+            'current_game_time' => 750,
+        ]);
+        $boostModFp = 500000;
+
+        $rates = Economy::calculateRateBreakdown($season, $player, $player, $boostModFp, false);
+
+        $this->assertSame(0, (int)$rates['gross_rate_fp']);
+        $this->assertSame(0, (int)$rates['sink_per_tick']);
+        $this->assertSame(0, (int)$rates['net_rate_fp']);
     }
 
     /**
@@ -928,6 +989,17 @@ class EconomyPrecisionTest extends TestCase
             'starprice_max_upstep_fp'        => 2000,   // 0.2 %/tick
             'starprice_max_downstep_fp'      => 10000,  // 1.0 %/tick
         ], $overrides);
+    }
+
+    public function testPublishedStarPriceUsesBlackoutSnapshotDuringBlackout(): void
+    {
+        $season = $this->makeStarPriceSeason([
+            'current_star_price' => 900,
+            'blackout_star_price_snapshot' => 777,
+        ]);
+
+        $this->assertSame(777, Economy::publishedStarPrice($season, 'Blackout'));
+        $this->assertSame(900, Economy::publishedStarPrice($season, 'Active'));
     }
 
     // --- Supply delta accounting ---

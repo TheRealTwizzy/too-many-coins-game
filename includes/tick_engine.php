@@ -163,8 +163,8 @@ class TickEngine {
                 $boostModFp = self::calculateBoostModifier($selfBoosts);
                 $isFrozen = !empty($frozenPlayers[(int)$playerId]);
                 
-                // Phase 3: Sigil drop evaluation (not on last-valid or expiration)
-                if (!$isLastValid && !$isExpiration) {
+                // Phase 3: Sigil drop evaluation (active window only; blackout is settlement-only)
+                if (!$isBlackout && !$isLastValid && !$isExpiration) {
                     self::processSigilDrops($season, $p, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp);
                 }
                 

@@ -1189,9 +1189,10 @@ const TMC = {
             const timerLabel = this.getSeasonCardTimerLabel(s);
             const timerText = this.getSeasonTimerText(s);
             const canJoin = this.state.player && !this.state.player.joined_season_id &&
-                           (status === 'Active' || status === 'Blackout');
+                           status === 'Active';
             const isMyseason = this.state.player && this.state.player.joined_season_id == s.season_id;
             const playerCount = s.player_count || 0;
+            const displayedStarPrice = this.getDisplayedStarPrice(s);
 
             html += `
                 <div class="season-card ${statusClass} ${isMyseason ? 'my-season' : ''}" onclick="TMC.navigate('season-detail', ${s.season_id})">
@@ -1206,7 +1207,7 @@ const TMC = {
                         </div>
                         <div class="season-stat">
                             <span class="stat-label">Star Price</span>
-                            <span class="stat-value">${this.formatNumber(s.current_star_price)} coins</span>
+                            <span class="stat-value">${this.formatNumber(displayedStarPrice)} coins</span>
                         </div>
                         <div class="season-stat">
                             <span class="stat-label season-timer-label" data-season-id="${s.season_id}">${timerLabel}</span>
@@ -1229,6 +1230,13 @@ const TMC = {
     },
 
     // ==================== SEASON DETAIL ====================
+    getDisplayedStarPrice(season) {
+        if (!season) return 0;
+        const rawPrice = season.published_star_price != null ? season.published_star_price : season.current_star_price;
+        const parsed = parseInt(rawPrice, 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    },
+
     updateSeasonDetailLive() {
         // Update dynamic values without re-rendering the entire season detail
         const seasonId = this.state.currentSeason;
@@ -1248,11 +1256,12 @@ const TMC = {
         }
 
         const isBlackout = (season.computed_status || season.status) === 'Blackout';
+        const displayedStarPrice = this.getDisplayedStarPrice(season);
 
         // Update economy bar values if they exist
         const econValues = document.querySelectorAll('.econ-value');
         if (econValues.length >= 3) {
-            econValues[0].textContent = this.formatNumber(season.current_star_price) + ' coins';
+            econValues[0].textContent = this.formatNumber(displayedStarPrice) + ' coins';
             econValues[1].textContent = this.formatNumber(season.total_coins_supply);
             econValues[2].textContent = season.player_count || 0;
         }
@@ -1261,7 +1270,7 @@ const TMC = {
         const panelInfos = document.querySelectorAll('.panel-info');
         panelInfos.forEach(el => {
             if (el.textContent.includes('Current price:')) {
-                el.innerHTML = `Current price: <strong>${this.formatNumber(season.current_star_price)} coins</strong> per star`;
+                el.innerHTML = `Current price: <strong>${this.formatNumber(displayedStarPrice)} coins</strong> per star`;
             }
         });
 
@@ -1278,7 +1287,7 @@ const TMC = {
         const lockInBtn = document.querySelector('.panel-lockin .btn-danger');
         if (lockInBtn) {
             lockInBtn.textContent = `Lock-In (${this.formatNumber(p.participation.seasonal_stars)} Stars)`;
-            lockInBtn.disabled = !p.can_lock_in || isBlackout;
+            lockInBtn.disabled = !p.can_lock_in;
         }
 
         this.syncSeasonDetailSigilActionState();
@@ -1318,6 +1327,7 @@ const TMC = {
         const status = detail.computed_status || detail.status;
         const isBlackout = status === 'Blackout';
         const isExpired = status === 'Expired';
+        const displayedStarPrice = this.getDisplayedStarPrice(detail);
         const timerLabel = this.getSeasonDetailTimerLabel(detail);
         const combineRecipes = (p && p.participation && Array.isArray(p.participation.combine_recipes))
             ? p.participation.combine_recipes
@@ -1343,7 +1353,7 @@ const TMC = {
                 <div class="season-header-left">
                     <h2>Season #${seasonId}</h2>
                     <span class="badge badge-${status.toLowerCase()} badge-lg">${status}</span>
-                    ${isBlackout ? '<span class="badge badge-warning badge-lg">BLACKOUT - No new actions</span>' : ''}
+                    ${isBlackout ? '<span class="badge badge-warning badge-lg">BLACKOUT - Settlement Only</span>' : ''}
                 </div>
                 <div class="season-header-right">
                     <div class="season-timer">
@@ -1356,7 +1366,7 @@ const TMC = {
             <div class="season-economy-bar">
                 <div class="economy-stat">
                     <span class="econ-label">Star Price</span>
-                    <span class="econ-value">${this.formatNumber(detail.current_star_price)} coins</span>
+                    <span class="econ-value">${this.formatNumber(displayedStarPrice)} coins</span>
                 </div>
                 <div class="economy-stat">
                     <span class="econ-label">Coin Supply</span>
@@ -1376,11 +1386,11 @@ const TMC = {
                     <!-- Purchase Stars Panel -->
                     <div class="action-panel">
                         <h3>Purchase Seasonal Stars</h3>
-                        <p class="panel-info">Current price: <strong>${this.formatNumber(detail.current_star_price)} coins</strong> per star</p>
+                        <p class="panel-info">Current price: <strong>${this.formatNumber(displayedStarPrice)} coins</strong> per star</p>
                         <div class="action-row">
                             <input type="number" id="purchase-stars" min="1" placeholder="Star quantity" class="input-field" oninput="TMC.updatePurchaseEstimate()">
-                            <button id="purchase-stars-btn" class="btn btn-primary" onclick="TMC.purchaseStarsGated()" ${isBlackout ? 'disabled' : ''}>Buy Stars</button>
-                            <button id="purchase-max-btn" class="btn btn-outline" onclick="TMC.buyMaxStars()" ${isBlackout ? 'disabled' : ''}>Buy Max</button>
+                            <button id="purchase-stars-btn" class="btn btn-primary" onclick="TMC.purchaseStarsGated()">Buy Stars</button>
+                            <button id="purchase-max-btn" class="btn btn-outline" onclick="TMC.buyMaxStars()">Buy Max</button>
                         </div>
                         <p id="purchase-estimate" class="panel-info">Enter a star quantity to see estimated coin cost.</p>
                     </div>
@@ -1417,7 +1427,7 @@ const TMC = {
                     <div class="action-panel panel-lockin">
                         <h3>Lock-In</h3>
                         <button class="btn btn-danger btn-lg" onclick="TMC.confirmLockIn()" 
-                            ${!p.can_lock_in || isBlackout ? 'disabled' : ''}>
+                            ${!p.can_lock_in ? 'disabled' : ''}>
                             Lock-In (${this.formatNumber(part.seasonal_stars)} Stars)
                         </button>
                     </div>
@@ -1563,7 +1573,7 @@ const TMC = {
         if (!input) return;
 
         const season = this.state.seasons.find(s => s.season_id == this.state.currentSeason);
-        const starPrice = season ? parseInt(season.current_star_price, 10) : 0;
+        const starPrice = this.getDisplayedStarPrice(season);
         const coinsOwned = this.state.player && this.state.player.participation ? this.state.player.participation.coins : 0;
 
         if (!starPrice || starPrice <= 0) {
@@ -1591,15 +1601,6 @@ const TMC = {
 
         const starsRequested = parseInt(input.value, 10);
         const season = this.state.seasons.find(s => s.season_id == this.state.currentSeason);
-        const status = season && season.computed_status ? season.computed_status : (season ? season.status : null);
-        const isBlackout = status === 'Blackout';
-
-        if (buyButton) {
-            buyButton.disabled = isBlackout;
-        }
-        if (buyMaxButton) {
-            buyMaxButton.disabled = isBlackout;
-        }
 
         if (!starsRequested || starsRequested <= 0) {
             estimateEl.classList.remove('panel-warning');
@@ -1607,10 +1608,10 @@ const TMC = {
             return;
         }
 
-        const starPrice = season ? parseInt(season.current_star_price, 10) : 0;
+        const starPrice = this.getDisplayedStarPrice(season);
         if (!starPrice || starPrice <= 0) {
-            if (buyButton && !isBlackout) buyButton.disabled = true;
-            if (buyMaxButton && !isBlackout) buyMaxButton.disabled = true;
+            if (buyButton) buyButton.disabled = true;
+            if (buyMaxButton) buyMaxButton.disabled = true;
             estimateEl.classList.remove('panel-warning');
             estimateEl.textContent = 'Coin cost estimate unavailable right now.';
             return;
@@ -1620,18 +1621,18 @@ const TMC = {
         const coinsOwned = this.state.player && this.state.player.participation ? this.state.player.participation.coins : null;
         const maxStars = coinsOwned !== null ? Math.floor(coinsOwned / starPrice) : 0;
 
-        if (buyMaxButton && !isBlackout) {
+        if (buyMaxButton) {
             buyMaxButton.disabled = maxStars < 1;
         }
 
         if (coinsOwned !== null && coinsNeeded > coinsOwned) {
-            if (buyButton && !isBlackout) buyButton.disabled = true;
+            if (buyButton) buyButton.disabled = true;
             estimateEl.classList.add('panel-warning');
             estimateEl.textContent = `Estimated cost: ${this.formatNumber(coinsNeeded)} coins (${this.formatNumber(starPrice)} each). You need ${this.formatNumber(coinsNeeded - coinsOwned)} more coins.`;
             return;
         }
 
-        if (buyButton && !isBlackout) buyButton.disabled = false;
+        if (buyButton) buyButton.disabled = false;
         estimateEl.classList.remove('panel-warning');
         estimateEl.textContent = `Estimated cost: ${this.formatNumber(coinsNeeded)} coins (${this.formatNumber(starPrice)} each).`;
     },

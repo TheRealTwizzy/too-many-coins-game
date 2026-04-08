@@ -180,6 +180,33 @@ class Economy {
     }
 
     /**
+     * Blackout is settlement-only: no new accrual or drops should occur.
+     */
+    public static function isBlackoutSettlementPhase($season, $gameTime = null) {
+        if (!$season || !is_array($season)) {
+            return false;
+        }
+
+        $status = (string)($season['computed_status'] ?? $season['status'] ?? '');
+        if ($status === 'Blackout') {
+            return true;
+        }
+
+        if ($gameTime === null) {
+            return false;
+        }
+
+        $blackoutTime = (int)($season['blackout_time'] ?? 0);
+        $endTime = (int)($season['end_time'] ?? PHP_INT_MAX);
+        if ($blackoutTime <= 0) {
+            return false;
+        }
+
+        $gameTime = (int)$gameTime;
+        return $gameTime >= $blackoutTime && $gameTime < $endTime;
+    }
+
+    /**
      * Guaranteed whole-coin floor from effective boost modifier.
      * Example default policy: +1 coin/tick per 10% boost (100,000 fp).
      */
@@ -491,6 +518,8 @@ class Economy {
     public static function calculateUBIFp($season, $player, $participation, $isLockInTick = false) {
         // Lock-In suppression
         if ($isLockInTick) return 0;
+
+        if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) return 0;
         
         // Not participating
         if (!$player['participation_enabled']) return 0;
@@ -549,6 +578,7 @@ class Economy {
     public static function calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRatePerTickFp) {
         if (!self::hoardingSinkEnabled($season)) return 0;
         if (!$participation) return 0;
+        if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) return 0;
 
         $presenceState = self::resolveEconomicPresenceState($player, $season, $player['current_game_time'] ?? null);
         if ($presenceState === 'Offline') return 0;
@@ -610,6 +640,14 @@ class Economy {
      */
     public static function calculateRateBreakdown($season, $player, $participation, $boostModFp, $isFrozen = false, $isLockInTick = false) {
         if ($isFrozen) {
+            return [
+                'gross_rate_fp' => 0,
+                'sink_per_tick' => 0,
+                'net_rate_fp' => 0,
+            ];
+        }
+
+        if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) {
             return [
                 'gross_rate_fp' => 0,
                 'sink_per_tick' => 0,
@@ -878,6 +916,11 @@ class Economy {
             return null;
         }
 
+        $seasonPhase = self::sigilSeasonPhase($season, $tickIndex);
+        if ($seasonPhase === (string)SIGIL_SEASON_PHASE_BLACKOUT) {
+            return null;
+        }
+
         $seasonId = (int)$season['season_id'];
         $playerId = (int)$player['player_id'];
         $tickIndex = (int)$tickIndex;
@@ -890,7 +933,6 @@ class Economy {
         }
 
         $seasonProgressFp = self::sigilSeasonProgressFp($season, $tickIndex);
-        $seasonPhase = self::sigilSeasonPhase($season, $tickIndex);
         $tierWeights = self::sigilTierWeightsForPhase($seasonPhase);
         $tierRoll = self::deterministicSigilRollU32($seasonId, $playerId, $tickIndex, 'sigil_tier', $season['season_seed']);
         $tier = self::pickWeightedTier($tierWeights, $tierRoll);
