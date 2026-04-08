@@ -1,0 +1,273 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-08T21:13:38+00:00",
+    "seed": "fullpass-20260408",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 3,
+        "season_count": 8,
+        "scenario_names": [
+            "baseline",
+            "mostly-idle-pressure-v1",
+            "star-focused-friction-v1",
+            "boost-payoff-relief-v1",
+            "hoarder-pressure-v1"
+        ]
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep\\runs\\sweep_baseline_B_fullpass-20260408_scenario_baseline_sim_B_ppa3.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_baseline_B_fullpass-20260408_scenario_baseline_sim_B_ppa3.csv"
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 8
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep\\runs\\sweep_baseline_C_fullpass-20260408_scenario_baseline_sim_C_ppa3_s8.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_baseline_C_fullpass-20260408_scenario_baseline_sim_C_ppa3_s8.csv"
+        },
+        {
+            "scenario_name": "mostly-idle-pressure-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|mostly-idle-pressure-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "star_conversion_pricing",
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "starprice_idle_weight_fp",
+                "hoarding_idle_multiplier_fp",
+                "hoarding_safe_min_coins"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_mostly-idle-pressure-v1_B_fullpass-20260408_scenario_mostly-idle-pressure-v1_sim_B_ppa3.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_mostly-idle-pressure-v1_B_fullpass-20260408_scenario_mostly-idle-pressure-v1_sim_B_ppa3.csv"
+        },
+        {
+            "scenario_name": "mostly-idle-pressure-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|mostly-idle-pressure-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 8
+            },
+            "override_categories": [
+                "star_conversion_pricing",
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "starprice_idle_weight_fp",
+                "hoarding_idle_multiplier_fp",
+                "hoarding_safe_min_coins"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_mostly-idle-pressure-v1_C_fullpass-20260408_scenario_mostly-idle-pressure-v1_sim_C_ppa3_s8.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_mostly-idle-pressure-v1_C_fullpass-20260408_scenario_mostly-idle-pressure-v1_sim_C_ppa3_s8.csv"
+        },
+        {
+            "scenario_name": "star-focused-friction-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|star-focused-friction-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "star_conversion_pricing",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "market_affordability_bias_fp",
+                "starprice_reactivation_window_ticks",
+                "starprice_max_upstep_fp"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_star-focused-friction-v1_B_fullpass-20260408_scenario_star-focused-friction-v1_sim_B_ppa3.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_star-focused-friction-v1_B_fullpass-20260408_scenario_star-focused-friction-v1_sim_B_ppa3.csv"
+        },
+        {
+            "scenario_name": "star-focused-friction-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|star-focused-friction-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 8
+            },
+            "override_categories": [
+                "star_conversion_pricing",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "market_affordability_bias_fp",
+                "starprice_reactivation_window_ticks",
+                "starprice_max_upstep_fp"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_star-focused-friction-v1_C_fullpass-20260408_scenario_star-focused-friction-v1_sim_C_ppa3_s8.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_star-focused-friction-v1_C_fullpass-20260408_scenario_star-focused-friction-v1_sim_C_ppa3_s8.csv"
+        },
+        {
+            "scenario_name": "boost-payoff-relief-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|boost-payoff-relief-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "boost_related",
+                "lock_in_expiry_incentives",
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_B_fullpass-20260408_scenario_boost-payoff-relief-v1_sim_B_ppa3.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_B_fullpass-20260408_scenario_boost-payoff-relief-v1_sim_B_ppa3.csv"
+        },
+        {
+            "scenario_name": "boost-payoff-relief-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|boost-payoff-relief-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 8
+            },
+            "override_categories": [
+                "boost_related",
+                "lock_in_expiry_incentives",
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_C_fullpass-20260408_scenario_boost-payoff-relief-v1_sim_C_ppa3_s8.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_C_fullpass-20260408_scenario_boost-payoff-relief-v1_sim_C_ppa3_s8.csv"
+        },
+        {
+            "scenario_name": "hoarder-pressure-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|hoarder-pressure-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "hoarding_tier1_rate_hourly_fp",
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_sink_cap_ratio_fp"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_hoarder-pressure-v1_B_fullpass-20260408_scenario_hoarder-pressure-v1_sim_B_ppa3.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_hoarder-pressure-v1_B_fullpass-20260408_scenario_hoarder-pressure-v1_sim_B_ppa3.csv"
+        },
+        {
+            "scenario_name": "hoarder-pressure-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "fullpass-20260408|scenario|hoarder-pressure-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 8
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "hoarding_tier1_rate_hourly_fp",
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_sink_cap_ratio_fp"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_hoarder-pressure-v1_C_fullpass-20260408_scenario_hoarder-pressure-v1_sim_C_ppa3_s8.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_hoarder-pressure-v1_C_fullpass-20260408_scenario_hoarder-pressure-v1_sim_C_ppa3_s8.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}

@@ -1,0 +1,785 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "comparator_schema_version": "tmc-sim-comparator.v1",
+    "generated_at": "2026-04-08T21:13:48+00:00",
+    "seed": "fullpass-20260408",
+    "inputs": {
+        "sweep_manifest": "simulation_output/sweep/policy_sweep_fullpass-20260408_ppa3_s8.json",
+        "baseline_b_paths": [],
+        "baseline_c_paths": []
+    },
+    "summary": {
+        "scenario_count": 4,
+        "baseline_group_count": 2,
+        "scenario_group_count": 4
+    },
+    "scenarios": [
+        {
+            "scenario_name": "boost-payoff-relief-v1",
+            "wins": 8,
+            "losses": 7,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=3|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -1,
+                            "natural_expiry_delta": 1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.1333333333333333
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 4356
+                        },
+                        "star_focused_dominance": {
+                            "delta": -4119
+                        },
+                        "hoarder_performance": {
+                            "delta": 14
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 171
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.04656735735442635,
+                            "top10_share_delta": 0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -3,
+                        "Regular": -6,
+                        "Hoarder": 1,
+                        "Casual": -1,
+                        "Late Deployer": -2,
+                        "Aggressive Sigil User": 0,
+                        "Early Locker": 4,
+                        "Mostly Idle": 7,
+                        "Hardcore": 0,
+                        "Boost-Focused": 0
+                    },
+                    "wins": 3,
+                    "losses": 3,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "boost_related",
+                            "lock_in_expiry_incentives",
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "target_spend_rate_per_tick",
+                            "hoarding_min_factor_fp",
+                            "hoarding_safe_hours"
+                        ],
+                        "scenario_name": "boost-payoff-relief-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Mostly Idle"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=3|seasons=8",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -0.03774412991002851,
+                            "natural_expiry_delta": 3
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.11848047785547788
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 1,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -1098.6666666666665
+                        },
+                        "star_focused_dominance": {
+                            "delta": -840.3333333333339
+                        },
+                        "hoarder_performance": {
+                            "delta": 1761.333333333334
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 318
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.02994905446036014
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -192.21750663129978
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.016944396630685435,
+                            "top10_share_delta": 0.02994905446036014
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -1,
+                        "Casual": -5,
+                        "Hoarder": 2,
+                        "Early Locker": 0,
+                        "Regular": -1,
+                        "Hardcore": -3,
+                        "Late Deployer": 4,
+                        "Aggressive Sigil User": 3,
+                        "Mostly Idle": -1,
+                        "Boost-Focused": 2
+                    },
+                    "wins": 5,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "long_run_concentration_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "boost_related",
+                            "lock_in_expiry_incentives",
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "target_spend_rate_per_tick",
+                            "hoarding_min_factor_fp",
+                            "hoarding_safe_hours"
+                        ],
+                        "scenario_name": "boost-payoff-relief-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "long_run_concentration_worsened",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ]
+        },
+        {
+            "scenario_name": "hoarder-pressure-v1",
+            "wins": 9,
+            "losses": 5,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=3|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -2,
+                            "natural_expiry_delta": 2
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.1333333333333333
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 2115
+                        },
+                        "star_focused_dominance": {
+                            "delta": -2664
+                        },
+                        "hoarder_performance": {
+                            "delta": -463
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 6998
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.053084910563724996,
+                            "top10_share_delta": 0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -2,
+                        "Regular": 0,
+                        "Hoarder": -3,
+                        "Casual": -5,
+                        "Late Deployer": -3,
+                        "Aggressive Sigil User": 1,
+                        "Early Locker": 3,
+                        "Mostly Idle": 1,
+                        "Hardcore": -1,
+                        "Boost-Focused": 9
+                    },
+                    "wins": 4,
+                    "losses": 2,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "hoarding_tier1_rate_hourly_fp",
+                            "hoarding_tier2_rate_hourly_fp",
+                            "hoarding_tier3_rate_hourly_fp",
+                            "hoarding_sink_cap_ratio_fp"
+                        ],
+                        "scenario_name": "hoarder-pressure-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Boost-Focused"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=3|seasons=8",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.011131725417439675,
+                            "natural_expiry_delta": -1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.045224567099567126
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 313
+                        },
+                        "star_focused_dominance": {
+                            "delta": -2880.0000000000005
+                        },
+                        "hoarder_performance": {
+                            "delta": 1556
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 2211.333333333333
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.0024356228815229364
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -4848.954415954417
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.005165982689739931,
+                            "top10_share_delta": 0.0024356228815229364
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -3,
+                        "Casual": -7,
+                        "Hoarder": 2,
+                        "Early Locker": 1,
+                        "Regular": 3,
+                        "Hardcore": -4,
+                        "Late Deployer": 1,
+                        "Aggressive Sigil User": 1,
+                        "Mostly Idle": 1,
+                        "Boost-Focused": 5
+                    },
+                    "wins": 5,
+                    "losses": 3,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "hoarding_tier1_rate_hourly_fp",
+                            "hoarding_tier2_rate_hourly_fp",
+                            "hoarding_tier3_rate_hourly_fp",
+                            "hoarding_sink_cap_ratio_fp"
+                        ],
+                        "scenario_name": "hoarder-pressure-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ]
+        },
+        {
+            "scenario_name": "mostly-idle-pressure-v1",
+            "wins": 7,
+            "losses": 7,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=3|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -2,
+                            "natural_expiry_delta": 2
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.09999999999999998
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 585
+                        },
+                        "star_focused_dominance": {
+                            "delta": -5359
+                        },
+                        "hoarder_performance": {
+                            "delta": 2350
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 395
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.036453207443175095,
+                            "top10_share_delta": 0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -3,
+                        "Regular": -1,
+                        "Hoarder": 2,
+                        "Casual": -1,
+                        "Late Deployer": -2,
+                        "Aggressive Sigil User": 4,
+                        "Early Locker": -1,
+                        "Mostly Idle": 2,
+                        "Hardcore": 0,
+                        "Boost-Focused": 0
+                    },
+                    "wins": 3,
+                    "losses": 3,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "star_conversion_pricing",
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "starprice_idle_weight_fp",
+                            "hoarding_idle_multiplier_fp",
+                            "hoarding_safe_min_coins"
+                        ],
+                        "scenario_name": "mostly-idle-pressure-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=3|seasons=8",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.04543704274162497,
+                            "natural_expiry_delta": -4
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.05810751748251752
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 1105.3333333333335
+                        },
+                        "star_focused_dominance": {
+                            "delta": -707
+                        },
+                        "hoarder_performance": {
+                            "delta": 1334.666666666667
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 696.9999999999999
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.014121761699901925
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 42.30484330484296
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.000927727968925568,
+                            "top10_share_delta": 0.014121761699901925
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -2,
+                        "Casual": -2,
+                        "Hoarder": 1,
+                        "Early Locker": -1,
+                        "Regular": -2,
+                        "Hardcore": -3,
+                        "Late Deployer": -1,
+                        "Aggressive Sigil User": 7,
+                        "Mostly Idle": 3,
+                        "Boost-Focused": 0
+                    },
+                    "wins": 4,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "long_run_concentration_worsened",
+                        "skip_rejoin_exploit_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "star_conversion_pricing",
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "starprice_idle_weight_fp",
+                            "hoarding_idle_multiplier_fp",
+                            "hoarding_safe_min_coins"
+                        ],
+                        "scenario_name": "mostly-idle-pressure-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Aggressive Sigil User"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "long_run_concentration_worsened",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "skip_rejoin_exploit_worsened"
+            ]
+        },
+        {
+            "scenario_name": "star-focused-friction-v1",
+            "wins": 7,
+            "losses": 8,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=3|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -1,
+                            "natural_expiry_delta": 1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.033333333333333326
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 1749
+                        },
+                        "star_focused_dominance": {
+                            "delta": -3444
+                        },
+                        "hoarder_performance": {
+                            "delta": 4033
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 631
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.01678112108578264,
+                            "top10_share_delta": 0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -2,
+                        "Regular": -8,
+                        "Hoarder": 2,
+                        "Casual": -3,
+                        "Late Deployer": 1,
+                        "Aggressive Sigil User": 1,
+                        "Early Locker": -1,
+                        "Mostly Idle": 2,
+                        "Hardcore": 7,
+                        "Boost-Focused": 1
+                    },
+                    "wins": 3,
+                    "losses": 3,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "star_conversion_pricing",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "market_affordability_bias_fp",
+                            "starprice_reactivation_window_ticks",
+                            "starprice_max_upstep_fp"
+                        ],
+                        "scenario_name": "star-focused-friction-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=3|seasons=8",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.02377994676131323,
+                            "natural_expiry_delta": -1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.002377830502830469
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 1,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -96.33333333333326
+                        },
+                        "star_focused_dominance": {
+                            "delta": 457
+                        },
+                        "hoarder_performance": {
+                            "delta": 4993.666666666667
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 2944
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.054374039197342044
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -5780.8996655518395
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.050957766984081554,
+                            "top10_share_delta": 0.054374039197342044
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -1,
+                        "Casual": -2,
+                        "Hoarder": 2,
+                        "Early Locker": -1,
+                        "Regular": 2,
+                        "Hardcore": -4,
+                        "Late Deployer": -1,
+                        "Aggressive Sigil User": 2,
+                        "Mostly Idle": 0,
+                        "Boost-Focused": 3
+                    },
+                    "wins": 4,
+                    "losses": 5,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "long_run_concentration_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "star_conversion_pricing",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "market_affordability_bias_fp",
+                            "starprice_reactivation_window_ticks",
+                            "starprice_max_upstep_fp"
+                        ],
+                        "scenario_name": "star-focused-friction-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "long_run_concentration_worsened",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ]
+        }
+    ]
+}
