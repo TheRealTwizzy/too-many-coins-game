@@ -1,0 +1,1966 @@
+{
+    "generated_at": "2026-04-08T18:52:29+00:00",
+    "files": [
+        "season_baseline-a-20260408_ppa1.json",
+        "season_baseline-a-20260408_ppa12.json",
+        "season_baseline-a-20260408_ppa5.json",
+        "season_baseline-b-20260408_ppa1.json",
+        "season_baseline-b-20260408_ppa12.json",
+        "season_baseline-b-20260408_ppa5.json",
+        "season_baseline-c-20260408_ppa1.json",
+        "season_baseline-c-20260408_ppa12.json",
+        "season_baseline-c-20260408_ppa5.json",
+        "season_baseline-d-20260408_ppa1.json",
+        "season_baseline-d-20260408_ppa12.json",
+        "season_baseline-d-20260408_ppa5.json"
+    ],
+    "contract": {
+        "schema_version": "tmc-sim-phase1.v1",
+        "simulator": "contract-simulator",
+        "generated_at": "2026-04-08T18:44:02+00:00",
+        "seed": "baseline-contract-20260408",
+        "summary": {
+            "passed": 8,
+            "failed": 0,
+            "all_passed": true
+        },
+        "checks": [
+            {
+                "name": "active_rate_breakdown_nonzero",
+                "passed": true,
+                "details": {
+                    "gross_rate_fp": 30000000,
+                    "sink_per_tick": 0,
+                    "net_rate_fp": 30000000
+                }
+            },
+            {
+                "name": "blackout_zero_accrual",
+                "passed": true,
+                "details": {
+                    "gross_rate_fp": 0,
+                    "sink_per_tick": 0,
+                    "net_rate_fp": 0
+                }
+            },
+            {
+                "name": "published_star_price_uses_blackout_snapshot",
+                "passed": true,
+                "details": {
+                    "published_price": 321
+                }
+            },
+            {
+                "name": "sigil_drop_is_deterministic",
+                "passed": true,
+                "details": {
+                    "drop": {
+                        "sigil_id": null,
+                        "tier": 1,
+                        "tick_index": 56,
+                        "activity_state": "Active",
+                        "season_phase": "EARLY",
+                        "season_progress": 0.002728,
+                        "metadata": {
+                            "algorithm_version": "deterministic_v3",
+                            "effective_drop_chance_fp": 125000,
+                            "activity_multiplier_fp": 1000000,
+                            "season_phase": "EARLY",
+                            "season_progress_fp": 2728,
+                            "gate_roll_u32": 309871735,
+                            "tier_roll_u32": 3728001503,
+                            "tier_weights": {
+                                "1": 1000,
+                                "2": 450,
+                                "3": 90,
+                                "4": 0,
+                                "5": 0,
+                                "6": 0
+                            },
+                            "available_tiers": [
+                                1,
+                                2,
+                                3
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "name": "blackout_has_no_rng_sigil_drop",
+                "passed": true,
+                "details": {
+                    "drop": null
+                }
+            },
+            {
+                "name": "lock_in_payout_adds_sigil_refund_then_converts",
+                "passed": true,
+                "details": {
+                    "sigil_refund_stars": 3550,
+                    "total_seasonal_stars": 3650,
+                    "global_stars_gained": 2372,
+                    "global_stars_grant_fp": 2372500000,
+                    "global_stars_fractional_fp": 500000,
+                    "global_stars_progress_percent": 50
+                }
+            },
+            {
+                "name": "natural_expiry_payout_includes_participation_and_placement",
+                "passed": true,
+                "details": {
+                    "payout_seasonal_stars": 200,
+                    "participation_bonus": 56,
+                    "placement_bonus": 60,
+                    "payout_bonus_stars": 116,
+                    "total_source_stars": 316,
+                    "source_stars": 316,
+                    "grant_fp": 316000000,
+                    "carry_in_fp": 0,
+                    "total_fp": 316000000,
+                    "global_stars_gained": 316,
+                    "global_stars_fractional_fp": 0,
+                    "global_stars_progress_percent": 0
+                }
+            },
+            {
+                "name": "effective_score_semantics_match_runtime",
+                "passed": true,
+                "details": {
+                    "locked": 555,
+                    "end": 444
+                }
+            }
+        ]
+    },
+    "runs": [
+        {
+            "file": "season_baseline-a-20260408_ppa1.json",
+            "seed": "baseline-a-20260408",
+            "players_per_archetype": 1,
+            "total_players": 10
+        },
+        {
+            "file": "season_baseline-a-20260408_ppa12.json",
+            "seed": "baseline-a-20260408",
+            "players_per_archetype": 12,
+            "total_players": 120
+        },
+        {
+            "file": "season_baseline-a-20260408_ppa5.json",
+            "seed": "baseline-a-20260408",
+            "players_per_archetype": 5,
+            "total_players": 50
+        },
+        {
+            "file": "season_baseline-b-20260408_ppa1.json",
+            "seed": "baseline-b-20260408",
+            "players_per_archetype": 1,
+            "total_players": 10
+        },
+        {
+            "file": "season_baseline-b-20260408_ppa12.json",
+            "seed": "baseline-b-20260408",
+            "players_per_archetype": 12,
+            "total_players": 120
+        },
+        {
+            "file": "season_baseline-b-20260408_ppa5.json",
+            "seed": "baseline-b-20260408",
+            "players_per_archetype": 5,
+            "total_players": 50
+        },
+        {
+            "file": "season_baseline-c-20260408_ppa1.json",
+            "seed": "baseline-c-20260408",
+            "players_per_archetype": 1,
+            "total_players": 10
+        },
+        {
+            "file": "season_baseline-c-20260408_ppa12.json",
+            "seed": "baseline-c-20260408",
+            "players_per_archetype": 12,
+            "total_players": 120
+        },
+        {
+            "file": "season_baseline-c-20260408_ppa5.json",
+            "seed": "baseline-c-20260408",
+            "players_per_archetype": 5,
+            "total_players": 50
+        },
+        {
+            "file": "season_baseline-d-20260408_ppa1.json",
+            "seed": "baseline-d-20260408",
+            "players_per_archetype": 1,
+            "total_players": 10
+        },
+        {
+            "file": "season_baseline-d-20260408_ppa12.json",
+            "seed": "baseline-d-20260408",
+            "players_per_archetype": 12,
+            "total_players": 120
+        },
+        {
+            "file": "season_baseline-d-20260408_ppa5.json",
+            "seed": "baseline-d-20260408",
+            "players_per_archetype": 5,
+            "total_players": 50
+        }
+    ],
+    "overall": {
+        "phase_totals": {
+            "EARLY": {
+                "coins": 84578112,
+                "stars": 52179
+            },
+            "MID": {
+                "coins": 100136944,
+                "stars": 78967
+            },
+            "LATE_ACTIVE": {
+                "coins": 129980,
+                "stars": 136
+            },
+            "BLACKOUT": {
+                "coins": 0,
+                "stars": 0
+            }
+        },
+        "lock_in_by_phase": {
+            "EARLY": 0,
+            "MID": 0,
+            "LATE_ACTIVE": 0,
+            "BLACKOUT": 0,
+            "NONE": 720
+        },
+        "blackout_global_stars": 0,
+        "t6": {
+            "total": 6114,
+            "by_source": {
+                "drop": 0,
+                "combine": 6114,
+                "theft": 0
+            }
+        },
+        "actions": {
+            "boost": 88963,
+            "combine": 766568,
+            "freeze": 2441,
+            "theft": 3917,
+            "melt": 0
+        },
+        "players_total": 720,
+        "unmodeled_mechanics": {
+            "idle_ack_reactivation_snapshot": "Simulation uses direct phase-aware presence selection and does not emulate manual idle acknowledgements.",
+            "vault_market_spending": "Vault supply/cost interactions are excluded in Phase 1 to keep seasonal economy focus on coins, stars, sigils, boosts, theft, freeze, and settlement.",
+            "live_api_concurrency_ordering": "Actions are resolved in a deterministic per-tick order after accrual instead of concurrent API timing."
+        }
+    },
+    "archetypes": {
+        "casual": {
+            "label": "Casual",
+            "players": 72,
+            "score_sum": 713709,
+            "global_stars_sum": 463900,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 607,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 4586617,
+                "MID": 5227942,
+                "LATE_ACTIVE": 5532,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 2747,
+                "MID": 3887,
+                "LATE_ACTIVE": 8,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 29105,
+                "2": 15363,
+                "3": 4906,
+                "4": 535,
+                "5": 114,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 3713,
+                "combine": 59042,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 607,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "6": 3,
+                "66": 1,
+                "26": 3,
+                "12": 1,
+                "25": 3,
+                "100": 1,
+                "54": 1,
+                "64": 1,
+                "38": 1,
+                "19": 2,
+                "107": 1,
+                "109": 1,
+                "27": 2,
+                "10": 2,
+                "5": 2,
+                "9": 2,
+                "40": 2,
+                "1": 2,
+                "28": 1,
+                "14": 3,
+                "93": 1,
+                "20": 1,
+                "35": 3,
+                "39": 1,
+                "8": 3,
+                "31": 2,
+                "98": 1,
+                "11": 1,
+                "7": 1,
+                "94": 1,
+                "69": 1,
+                "112": 1,
+                "21": 1,
+                "89": 1,
+                "30": 2,
+                "63": 1,
+                "77": 1,
+                "42": 1,
+                "34": 1,
+                "46": 1,
+                "87": 1,
+                "23": 1,
+                "57": 1,
+                "60": 1,
+                "15": 2,
+                "18": 1,
+                "72": 1,
+                "103": 1,
+                "92": 1,
+                "50": 1
+            },
+            "run_avg_scores": [
+                7188,
+                9460,
+                10817,
+                13775,
+                13323,
+                12402,
+                2240,
+                8471,
+                7145,
+                4583,
+                9390,
+                9275
+            ],
+            "run_avg_global_stars": [
+                4672,
+                6148.916666666667,
+                7030.6,
+                8953,
+                8659.833333333334,
+                8061.4,
+                1456,
+                5506.25,
+                4644.2,
+                2978,
+                6103.166666666667,
+                6028.4
+            ],
+            "avg_final_score": 9912.625,
+            "avg_global_stars": 6443.055555555556,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 8.430555555555555,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 63703.01388888889,
+                "MID": 72610.30555555556,
+                "LATE_ACTIVE": 76.83333333333333,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 38.15277777777778,
+                "MID": 53.986111111111114,
+                "LATE_ACTIVE": 0.1111111111111111,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 59042,
+                "boost": 3713,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 29105,
+                "2": 15363,
+                "3": 4906,
+                "4": 535,
+                "5": 114,
+                "6": 0
+            }
+        },
+        "regular": {
+            "label": "Regular",
+            "players": 72,
+            "score_sum": 618034,
+            "global_stars_sum": 401710,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 793,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 8685200,
+                "MID": 13643988,
+                "LATE_ACTIVE": 12320,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 5779,
+                "MID": 10579,
+                "LATE_ACTIVE": 8,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 39656,
+                "2": 20675,
+                "3": 6514,
+                "4": 826,
+                "5": 148,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 10090,
+                "combine": 73784,
+                "freeze": 786,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 793,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "4": 1,
+                "35": 2,
+                "116": 2,
+                "71": 1,
+                "65": 1,
+                "56": 2,
+                "14": 1,
+                "74": 1,
+                "47": 1,
+                "17": 2,
+                "105": 1,
+                "70": 2,
+                "30": 2,
+                "12": 2,
+                "43": 2,
+                "34": 1,
+                "22": 2,
+                "28": 3,
+                "7": 1,
+                "109": 1,
+                "58": 1,
+                "75": 1,
+                "68": 1,
+                "37": 2,
+                "29": 1,
+                "85": 1,
+                "57": 1,
+                "16": 2,
+                "45": 1,
+                "27": 1,
+                "3": 1,
+                "10": 2,
+                "2": 3,
+                "49": 1,
+                "117": 1,
+                "5": 1,
+                "81": 1,
+                "88": 1,
+                "96": 1,
+                "115": 1,
+                "62": 1,
+                "19": 1,
+                "38": 1,
+                "18": 1,
+                "26": 1,
+                "40": 1,
+                "21": 1,
+                "66": 1,
+                "82": 1,
+                "97": 1,
+                "11": 1,
+                "8": 1,
+                "98": 1,
+                "106": 1,
+                "108": 1,
+                "20": 1
+            },
+            "run_avg_scores": [
+                9463,
+                8570,
+                6633,
+                5216,
+                10236,
+                9237,
+                11448,
+                6752,
+                7210,
+                15810,
+                9608,
+                7741
+            ],
+            "run_avg_global_stars": [
+                6150,
+                5570.25,
+                4311.2,
+                3390,
+                6653.333333333333,
+                6003.8,
+                7441,
+                4388.75,
+                4686.4,
+                10276,
+                6245,
+                5031.6
+            ],
+            "avg_final_score": 8583.805555555555,
+            "avg_global_stars": 5579.305555555556,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 11.01388888888889,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 120627.77777777778,
+                "MID": 189499.83333333334,
+                "LATE_ACTIVE": 171.11111111111111,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 80.26388888888889,
+                "MID": 146.93055555555554,
+                "LATE_ACTIVE": 0.1111111111111111,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 73784,
+                "boost": 10090,
+                "freeze": 786,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 39656,
+                "2": 20675,
+                "3": 6514,
+                "4": 826,
+                "5": 148,
+                "6": 0
+            }
+        },
+        "hardcore": {
+            "label": "Hardcore",
+            "players": 72,
+            "score_sum": 369096,
+            "global_stars_sum": 239897,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 357,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 17126422,
+                "MID": 17043988,
+                "LATE_ACTIVE": 13942,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 13656,
+                "MID": 13109,
+                "LATE_ACTIVE": 12,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 54789,
+                "2": 27986,
+                "3": 8957,
+                "4": 1092,
+                "5": 198,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 17856,
+                "combine": 92519,
+                "freeze": 357,
+                "theft": 1320,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 357,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "9": 2,
+                "90": 1,
+                "48": 2,
+                "32": 2,
+                "120": 1,
+                "86": 2,
+                "103": 2,
+                "21": 1,
+                "110": 2,
+                "96": 1,
+                "60": 1,
+                "91": 3,
+                "34": 1,
+                "39": 3,
+                "30": 1,
+                "46": 2,
+                "44": 1,
+                "31": 1,
+                "3": 1,
+                "81": 1,
+                "112": 1,
+                "95": 2,
+                "94": 1,
+                "113": 1,
+                "33": 1,
+                "106": 2,
+                "111": 1,
+                "72": 1,
+                "83": 1,
+                "54": 1,
+                "42": 1,
+                "28": 1,
+                "13": 2,
+                "36": 1,
+                "7": 1,
+                "100": 1,
+                "73": 1,
+                "87": 1,
+                "79": 1,
+                "104": 1,
+                "109": 1,
+                "70": 1,
+                "75": 1,
+                "37": 1,
+                "47": 2,
+                "20": 2,
+                "50": 1,
+                "10": 1,
+                "62": 1,
+                "64": 1,
+                "85": 1,
+                "99": 1,
+                "69": 1,
+                "74": 1,
+                "116": 1,
+                "5": 1
+            },
+            "run_avg_scores": [
+                2074,
+                6277,
+                2681,
+                10720,
+                4889,
+                6011,
+                2769,
+                3866,
+                3889,
+                1963,
+                6098,
+                7021
+            ],
+            "run_avg_global_stars": [
+                1348,
+                4079.6666666666665,
+                1742.4,
+                6968,
+                3177.9166666666665,
+                3906.8,
+                1799,
+                2512.6666666666665,
+                2527.6,
+                1275,
+                3963.5833333333335,
+                4563.4
+            ],
+            "avg_final_score": 5126.333333333333,
+            "avg_global_stars": 3331.902777777778,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 4.958333333333333,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 237866.97222222222,
+                "MID": 236722.05555555556,
+                "LATE_ACTIVE": 193.63888888888889,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 189.66666666666666,
+                "MID": 182.06944444444446,
+                "LATE_ACTIVE": 0.16666666666666666,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 92519,
+                "boost": 17856,
+                "theft": 1320,
+                "freeze": 357,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 54789,
+                "2": 27986,
+                "3": 8957,
+                "4": 1092,
+                "5": 198,
+                "6": 0
+            }
+        },
+        "hoarder": {
+            "label": "Hoarder",
+            "players": 72,
+            "score_sum": 808676,
+            "global_stars_sum": 525626,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 944,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 3375791,
+                "MID": 4204419,
+                "LATE_ACTIVE": 21067,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 1383,
+                "MID": 2365,
+                "LATE_ACTIVE": 10,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 45263,
+                "2": 23348,
+                "3": 7461,
+                "4": 866,
+                "5": 147,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 1939,
+                "combine": 95802,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 944,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "3": 3,
+                "1": 8,
+                "13": 2,
+                "52": 2,
+                "77": 2,
+                "69": 1,
+                "75": 1,
+                "39": 1,
+                "99": 2,
+                "79": 1,
+                "85": 1,
+                "89": 1,
+                "26": 3,
+                "2": 6,
+                "20": 1,
+                "33": 1,
+                "21": 1,
+                "4": 1,
+                "47": 1,
+                "64": 2,
+                "40": 1,
+                "45": 1,
+                "42": 1,
+                "90": 1,
+                "78": 1,
+                "15": 1,
+                "22": 2,
+                "17": 2,
+                "67": 1,
+                "14": 2,
+                "91": 1,
+                "71": 1,
+                "37": 1,
+                "24": 1,
+                "7": 1,
+                "9": 1,
+                "27": 2,
+                "68": 1,
+                "32": 1,
+                "96": 1,
+                "36": 2,
+                "12": 1,
+                "84": 1,
+                "94": 1,
+                "16": 1,
+                "23": 1
+            },
+            "run_avg_scores": [
+                12357,
+                9005,
+                9394,
+                8998,
+                10513,
+                13907,
+                18203,
+                10996,
+                14516,
+                16520,
+                11490,
+                11893
+            ],
+            "run_avg_global_stars": [
+                8032,
+                5852.916666666667,
+                6106.2,
+                5848,
+                6833.583333333333,
+                9039.6,
+                11831,
+                7147,
+                9435,
+                10738,
+                7468.333333333333,
+                7730.2
+            ],
+            "avg_final_score": 11231.611111111111,
+            "avg_global_stars": 7300.361111111111,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 13.11111111111111,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 46885.98611111111,
+                "MID": 58394.708333333336,
+                "LATE_ACTIVE": 292.59722222222223,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 19.208333333333332,
+                "MID": 32.84722222222222,
+                "LATE_ACTIVE": 0.1388888888888889,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 95802,
+                "boost": 1939,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 45263,
+                "2": 23348,
+                "3": 7461,
+                "4": 866,
+                "5": 147,
+                "6": 0
+            }
+        },
+        "early_locker": {
+            "label": "Early Locker",
+            "players": 72,
+            "score_sum": 655568,
+            "global_stars_sum": 426108,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 804,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 11360484,
+                "MID": 14239610,
+                "LATE_ACTIVE": 3401,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 8550,
+                "MID": 10900,
+                "LATE_ACTIVE": 3,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 42702,
+                "2": 21945,
+                "3": 7046,
+                "4": 892,
+                "5": 135,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 10766,
+                "combine": 79031,
+                "freeze": 795,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 804,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "5": 3,
+                "68": 1,
+                "42": 2,
+                "95": 2,
+                "45": 1,
+                "78": 1,
+                "117": 1,
+                "9": 1,
+                "4": 1,
+                "31": 2,
+                "8": 1,
+                "28": 2,
+                "3": 5,
+                "36": 1,
+                "49": 1,
+                "32": 2,
+                "2": 1,
+                "10": 1,
+                "82": 2,
+                "63": 2,
+                "62": 1,
+                "67": 1,
+                "41": 1,
+                "60": 2,
+                "61": 1,
+                "46": 1,
+                "52": 1,
+                "88": 1,
+                "38": 1,
+                "26": 1,
+                "6": 1,
+                "23": 1,
+                "119": 1,
+                "15": 1,
+                "51": 1,
+                "92": 1,
+                "107": 2,
+                "29": 1,
+                "102": 1,
+                "74": 1,
+                "12": 2,
+                "24": 1,
+                "13": 1,
+                "30": 1,
+                "89": 1,
+                "53": 1,
+                "22": 1,
+                "56": 1,
+                "7": 1,
+                "58": 1,
+                "71": 1,
+                "120": 1,
+                "27": 1,
+                "11": 1,
+                "39": 1,
+                "33": 1
+            },
+            "run_avg_scores": [
+                8459,
+                11055,
+                5655,
+                13571,
+                10388,
+                8412,
+                10492,
+                7080,
+                11805,
+                13052,
+                7794,
+                8966
+            ],
+            "run_avg_global_stars": [
+                5498,
+                7185.5,
+                3676,
+                8821,
+                6752.166666666667,
+                5467.4,
+                6819,
+                4602.083333333333,
+                7673.2,
+                8483,
+                5065.75,
+                5827.6
+            ],
+            "avg_final_score": 9105.111111111111,
+            "avg_global_stars": 5918.166666666667,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 11.166666666666666,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 157784.5,
+                "MID": 197772.36111111112,
+                "LATE_ACTIVE": 47.236111111111114,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 118.75,
+                "MID": 151.38888888888889,
+                "LATE_ACTIVE": 0.041666666666666664,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 79031,
+                "boost": 10766,
+                "freeze": 795,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 42702,
+                "2": 21945,
+                "3": 7046,
+                "4": 892,
+                "5": 135,
+                "6": 0
+            }
+        },
+        "late_deployer": {
+            "label": "Late Deployer",
+            "players": 72,
+            "score_sum": 655025,
+            "global_stars_sum": 425754,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 653,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 2584390,
+                "MID": 4070499,
+                "LATE_ACTIVE": 24226,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 1571,
+                "MID": 2979,
+                "LATE_ACTIVE": 56,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 30551,
+                "2": 15807,
+                "3": 5210,
+                "4": 635,
+                "5": 119,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 2097,
+                "combine": 64026,
+                "freeze": 18,
+                "theft": 5,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 653,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "8": 2,
+                "108": 1,
+                "50": 3,
+                "82": 1,
+                "6": 4,
+                "113": 1,
+                "24": 1,
+                "16": 2,
+                "23": 1,
+                "37": 1,
+                "55": 1,
+                "98": 1,
+                "22": 2,
+                "41": 1,
+                "7": 1,
+                "17": 2,
+                "87": 1,
+                "79": 1,
+                "15": 1,
+                "114": 1,
+                "13": 2,
+                "12": 1,
+                "119": 2,
+                "73": 1,
+                "66": 2,
+                "107": 1,
+                "27": 1,
+                "21": 2,
+                "4": 1,
+                "47": 1,
+                "18": 2,
+                "9": 2,
+                "10": 1,
+                "3": 1,
+                "65": 1,
+                "39": 1,
+                "45": 1,
+                "38": 1,
+                "68": 1,
+                "44": 1,
+                "20": 1,
+                "97": 1,
+                "32": 1,
+                "5": 2,
+                "49": 2,
+                "33": 2,
+                "43": 1,
+                "40": 1,
+                "59": 1,
+                "34": 1,
+                "112": 1,
+                "76": 1,
+                "90": 1,
+                "29": 1
+            },
+            "run_avg_scores": [
+                4495,
+                9623,
+                12038,
+                5405,
+                8905,
+                9144,
+                1296,
+                10183,
+                7269,
+                9196,
+                9253,
+                7362
+            ],
+            "run_avg_global_stars": [
+                2921,
+                6254.833333333333,
+                7824.8,
+                3513,
+                5787.916666666667,
+                5943.8,
+                842,
+                6619.083333333333,
+                4724.2,
+                5977,
+                6014,
+                4785.4
+            ],
+            "avg_final_score": 9097.569444444445,
+            "avg_global_stars": 5913.25,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 9.069444444444445,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 35894.305555555555,
+                "MID": 56534.708333333336,
+                "LATE_ACTIVE": 336.47222222222223,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 21.819444444444443,
+                "MID": 41.375,
+                "LATE_ACTIVE": 0.7777777777777778,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 64026,
+                "boost": 2097,
+                "freeze": 18,
+                "theft": 5,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 30551,
+                "2": 15807,
+                "3": 5210,
+                "4": 635,
+                "5": 119,
+                "6": 0
+            }
+        },
+        "boost_focused": {
+            "label": "Boost-Focused",
+            "players": 72,
+            "score_sum": 430647,
+            "global_stars_sum": 279905,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 108,
+            "t6_holders": 62,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 18443132,
+                "MID": 18781506,
+                "LATE_ACTIVE": 21292,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 6673,
+                "MID": 16987,
+                "LATE_ACTIVE": 15,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 49747,
+                "2": 25677,
+                "3": 8144,
+                "4": 960,
+                "5": 178,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 26096,
+                "combine": 73207,
+                "freeze": 107,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 108,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "10": 2,
+                "40": 2,
+                "93": 2,
+                "94": 1,
+                "114": 3,
+                "111": 1,
+                "112": 1,
+                "115": 3,
+                "49": 1,
+                "102": 2,
+                "41": 2,
+                "101": 2,
+                "51": 2,
+                "45": 3,
+                "48": 3,
+                "13": 1,
+                "29": 1,
+                "19": 2,
+                "8": 1,
+                "104": 1,
+                "120": 1,
+                "105": 3,
+                "56": 1,
+                "71": 1,
+                "117": 2,
+                "9": 1,
+                "43": 2,
+                "36": 1,
+                "16": 2,
+                "20": 1,
+                "34": 2,
+                "6": 1,
+                "83": 1,
+                "59": 1,
+                "42": 1,
+                "46": 2,
+                "32": 1,
+                "113": 2,
+                "15": 1,
+                "44": 1,
+                "4": 1,
+                "24": 1,
+                "75": 1,
+                "81": 1,
+                "47": 1,
+                "118": 1,
+                "7": 1,
+                "18": 1
+            },
+            "run_avg_scores": [
+                515,
+                4712,
+                6166,
+                3813,
+                6576,
+                7971,
+                3146,
+                6738,
+                7784,
+                11459,
+                4706,
+                5865
+            ],
+            "run_avg_global_stars": [
+                334,
+                3062.5,
+                4008,
+                2478,
+                4273.916666666667,
+                5180.6,
+                2044,
+                4379.916666666667,
+                5059.4,
+                7448,
+                3058.6666666666665,
+                3812.2
+            ],
+            "avg_final_score": 5981.208333333333,
+            "avg_global_stars": 3887.5694444444443,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 1.5,
+            "t6_holder_rate": 0.8611111111111112,
+            "avg_coins_by_phase": {
+                "EARLY": 256154.61111111112,
+                "MID": 260854.25,
+                "LATE_ACTIVE": 295.72222222222223,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 92.68055555555556,
+                "MID": 235.93055555555554,
+                "LATE_ACTIVE": 0.20833333333333334,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 73207,
+                "boost": 26096,
+                "freeze": 107,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 49747,
+                "2": 25677,
+                "3": 8144,
+                "4": 960,
+                "5": 178,
+                "6": 0
+            }
+        },
+        "star_focused": {
+            "label": "Star-Focused",
+            "players": 72,
+            "score_sum": 642526,
+            "global_stars_sum": 417635,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 924,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 6816587,
+                "MID": 8052088,
+                "LATE_ACTIVE": 5810,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 5719,
+                "MID": 6190,
+                "LATE_ACTIVE": 5,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 43328,
+                "2": 22467,
+                "3": 7143,
+                "4": 894,
+                "5": 161,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 6187,
+                "combine": 86711,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 924,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "1": 2,
+                "36": 2,
+                "11": 3,
+                "29": 2,
+                "44": 1,
+                "83": 1,
+                "92": 1,
+                "7": 3,
+                "80": 1,
+                "20": 1,
+                "104": 1,
+                "18": 1,
+                "10": 1,
+                "35": 1,
+                "23": 1,
+                "27": 1,
+                "16": 1,
+                "5": 3,
+                "74": 1,
+                "53": 1,
+                "30": 1,
+                "86": 1,
+                "48": 1,
+                "100": 1,
+                "34": 1,
+                "97": 1,
+                "116": 1,
+                "103": 1,
+                "110": 1,
+                "24": 1,
+                "43": 1,
+                "49": 1,
+                "25": 1,
+                "120": 1,
+                "33": 1,
+                "98": 1,
+                "90": 1,
+                "17": 1,
+                "101": 1,
+                "118": 1,
+                "47": 1,
+                "76": 1,
+                "31": 2,
+                "4": 2,
+                "6": 3,
+                "45": 1,
+                "54": 1,
+                "19": 2,
+                "111": 1,
+                "41": 1,
+                "73": 1,
+                "3": 1,
+                "61": 1,
+                "79": 1,
+                "38": 1,
+                "51": 1,
+                "42": 1,
+                "21": 1
+            },
+            "run_avg_scores": [
+                16149,
+                11018,
+                9517,
+                6300,
+                7409,
+                4732,
+                3441,
+                7572,
+                10690,
+                8891,
+                10781,
+                8338
+            ],
+            "run_avg_global_stars": [
+                10496,
+                7161.666666666667,
+                6186,
+                4095,
+                4816,
+                3075.4,
+                2236,
+                4921.583333333333,
+                6948.4,
+                5779,
+                7007.583333333333,
+                5419.6
+            ],
+            "avg_final_score": 8923.972222222223,
+            "avg_global_stars": 5800.486111111111,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 12.833333333333334,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 94674.81944444444,
+                "MID": 111834.55555555556,
+                "LATE_ACTIVE": 80.69444444444444,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 79.43055555555556,
+                "MID": 85.97222222222223,
+                "LATE_ACTIVE": 0.06944444444444445,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 86711,
+                "boost": 6187,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 43328,
+                "2": 22467,
+                "3": 7143,
+                "4": 894,
+                "5": 161,
+                "6": 0
+            }
+        },
+        "aggressive_sigil_user": {
+            "label": "Aggressive Sigil User",
+            "players": 72,
+            "score_sum": 450886,
+            "global_stars_sum": 293062,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 380,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 10099974,
+                "MID": 13214711,
+                "LATE_ACTIVE": 16608,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 5352,
+                "MID": 10653,
+                "LATE_ACTIVE": 10,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 46432,
+                "2": 24040,
+                "3": 7806,
+                "4": 949,
+                "5": 162,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 9541,
+                "combine": 87483,
+                "freeze": 378,
+                "theft": 2592,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 380,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "7": 1,
+                "81": 1,
+                "118": 1,
+                "73": 1,
+                "62": 1,
+                "63": 1,
+                "88": 2,
+                "87": 1,
+                "59": 2,
+                "67": 2,
+                "53": 2,
+                "76": 2,
+                "106": 1,
+                "47": 1,
+                "37": 2,
+                "24": 2,
+                "18": 1,
+                "38": 2,
+                "9": 1,
+                "89": 1,
+                "92": 1,
+                "108": 1,
+                "84": 1,
+                "101": 1,
+                "69": 1,
+                "50": 2,
+                "32": 1,
+                "96": 1,
+                "44": 3,
+                "30": 1,
+                "21": 1,
+                "41": 3,
+                "39": 1,
+                "4": 1,
+                "48": 2,
+                "25": 1,
+                "61": 1,
+                "80": 2,
+                "111": 1,
+                "86": 1,
+                "58": 1,
+                "85": 1,
+                "72": 1,
+                "54": 1,
+                "17": 1,
+                "29": 1,
+                "36": 1,
+                "43": 1,
+                "8": 1,
+                "10": 1,
+                "52": 1,
+                "65": 1,
+                "42": 1,
+                "83": 1,
+                "102": 1,
+                "93": 1,
+                "14": 1
+            },
+            "run_avg_scores": [
+                6080,
+                5506,
+                5014,
+                3459,
+                6887,
+                5291,
+                7435,
+                6448,
+                5406,
+                8125,
+                7675,
+                5808
+            ],
+            "run_avg_global_stars": [
+                3952,
+                3578.4166666666665,
+                3259,
+                2248,
+                4476.583333333333,
+                3439.4,
+                4832,
+                4191.25,
+                3513.4,
+                5281,
+                4988.333333333333,
+                3775
+            ],
+            "avg_final_score": 6262.305555555556,
+            "avg_global_stars": 4070.3055555555557,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 5.277777777777778,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 140277.41666666666,
+                "MID": 183537.65277777778,
+                "LATE_ACTIVE": 230.66666666666666,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 74.33333333333333,
+                "MID": 147.95833333333334,
+                "LATE_ACTIVE": 0.1388888888888889,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 87483,
+                "boost": 9541,
+                "theft": 2592,
+                "freeze": 378,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 46432,
+                "2": 24040,
+                "3": 7806,
+                "4": 949,
+                "5": 162,
+                "6": 0
+            }
+        },
+        "mostly_idle": {
+            "label": "Mostly Idle",
+            "players": 72,
+            "score_sum": 652037,
+            "global_stars_sum": 423818,
+            "lock_ins": 72,
+            "natural_expiry": 0,
+            "t6_total": 544,
+            "t6_holders": 72,
+            "blackout_conversions": 0,
+            "blackout_global_stars": 0,
+            "coins_by_phase": {
+                "EARLY": 1499515,
+                "MID": 1658193,
+                "LATE_ACTIVE": 5782,
+                "BLACKOUT": 0
+            },
+            "stars_by_phase": {
+                "EARLY": 749,
+                "MID": 1318,
+                "LATE_ACTIVE": 9,
+                "BLACKOUT": 0
+            },
+            "sigils_by_tier": {
+                "1": 25623,
+                "2": 13386,
+                "3": 4309,
+                "4": 528,
+                "5": 96,
+                "6": 0
+            },
+            "spent_by_action": {
+                "boost": 678,
+                "combine": 54963,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "t6_by_source": {
+                "drop": 0,
+                "combine": 544,
+                "theft": 0
+            },
+            "rank_distribution": {
+                "2": 2,
+                "97": 1,
+                "119": 1,
+                "84": 2,
+                "61": 1,
+                "46": 2,
+                "43": 1,
+                "15": 2,
+                "72": 1,
+                "58": 1,
+                "57": 2,
+                "33": 2,
+                "14": 1,
+                "11": 2,
+                "50": 1,
+                "4": 4,
+                "10": 1,
+                "44": 1,
+                "18": 1,
+                "65": 1,
+                "25": 3,
+                "55": 3,
+                "24": 1,
+                "23": 3,
+                "49": 2,
+                "80": 1,
+                "118": 1,
+                "31": 1,
+                "37": 1,
+                "12": 1,
+                "8": 3,
+                "9": 2,
+                "78": 2,
+                "40": 1,
+                "108": 1,
+                "19": 1,
+                "110": 1,
+                "99": 1,
+                "35": 2,
+                "28": 1,
+                "22": 1,
+                "7": 1,
+                "100": 1,
+                "70": 1,
+                "109": 1,
+                "104": 1,
+                "77": 1,
+                "38": 1,
+                "29": 1,
+                "34": 1
+            },
+            "run_avg_scores": [
+                15113,
+                8708,
+                11461,
+                2455,
+                11798,
+                9230,
+                2045,
+                8289,
+                6914,
+                8400,
+                7997,
+                8899
+            ],
+            "run_avg_global_stars": [
+                9823,
+                5660.166666666667,
+                7449.4,
+                1595,
+                7668.5,
+                5999.2,
+                1329,
+                5387.916666666667,
+                4493.8,
+                5460,
+                5198.25,
+                5784.2
+            ],
+            "avg_final_score": 9056.069444444445,
+            "avg_global_stars": 5886.361111111111,
+            "lock_in_rate": 1,
+            "natural_expiry_rate": 0,
+            "avg_t6_per_player": 7.555555555555555,
+            "t6_holder_rate": 1,
+            "avg_coins_by_phase": {
+                "EARLY": 20826.597222222223,
+                "MID": 23030.458333333332,
+                "LATE_ACTIVE": 80.30555555555556,
+                "BLACKOUT": 0
+            },
+            "avg_stars_by_phase": {
+                "EARLY": 10.402777777777779,
+                "MID": 18.305555555555557,
+                "LATE_ACTIVE": 0.125,
+                "BLACKOUT": 0
+            },
+            "top_actions": {
+                "combine": 54963,
+                "boost": 678,
+                "freeze": 0,
+                "theft": 0,
+                "melt": 0
+            },
+            "top_sigil_tiers": {
+                "1": 25623,
+                "2": 13386,
+                "3": 4309,
+                "4": 528,
+                "5": 96,
+                "6": 0
+            }
+        }
+    },
+    "score_ranking": [
+        {
+            "label": "Hoarder",
+            "avg_final_score": 11231.611111111111,
+            "avg_global_stars": 7300.361111111111
+        },
+        {
+            "label": "Casual",
+            "avg_final_score": 9912.625,
+            "avg_global_stars": 6443.055555555556
+        },
+        {
+            "label": "Early Locker",
+            "avg_final_score": 9105.111111111111,
+            "avg_global_stars": 5918.166666666667
+        },
+        {
+            "label": "Late Deployer",
+            "avg_final_score": 9097.569444444445,
+            "avg_global_stars": 5913.25
+        },
+        {
+            "label": "Mostly Idle",
+            "avg_final_score": 9056.069444444445,
+            "avg_global_stars": 5886.361111111111
+        },
+        {
+            "label": "Star-Focused",
+            "avg_final_score": 8923.972222222223,
+            "avg_global_stars": 5800.486111111111
+        },
+        {
+            "label": "Regular",
+            "avg_final_score": 8583.805555555555,
+            "avg_global_stars": 5579.305555555556
+        },
+        {
+            "label": "Aggressive Sigil User",
+            "avg_final_score": 6262.305555555556,
+            "avg_global_stars": 4070.3055555555557
+        },
+        {
+            "label": "Boost-Focused",
+            "avg_final_score": 5981.208333333333,
+            "avg_global_stars": 3887.5694444444443
+        },
+        {
+            "label": "Hardcore",
+            "avg_final_score": 5126.333333333333,
+            "avg_global_stars": 3331.902777777778
+        }
+    ],
+    "t6_ranking": [
+        {
+            "label": "Hoarder",
+            "t6_total": 944,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Star-Focused",
+            "t6_total": 924,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Early Locker",
+            "t6_total": 804,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Regular",
+            "t6_total": 793,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Late Deployer",
+            "t6_total": 653,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Casual",
+            "t6_total": 607,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Mostly Idle",
+            "t6_total": 544,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Aggressive Sigil User",
+            "t6_total": 380,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Hardcore",
+            "t6_total": 357,
+            "t6_holder_rate": 1
+        },
+        {
+            "label": "Boost-Focused",
+            "t6_total": 108,
+            "t6_holder_rate": 0.8611111111111112
+        }
+    ]
+}
