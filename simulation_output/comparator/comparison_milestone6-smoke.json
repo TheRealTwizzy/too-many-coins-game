@@ -1,0 +1,205 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "comparator_schema_version": "tmc-sim-comparator.v1",
+    "generated_at": "2026-04-08T21:06:23+00:00",
+    "seed": "milestone6-smoke",
+    "inputs": {
+        "sweep_manifest": "simulation_output/sweep/policy_sweep_milestone5-smoke_ppa1_s4.json",
+        "baseline_b_paths": [],
+        "baseline_c_paths": []
+    },
+    "summary": {
+        "scenario_count": 1,
+        "baseline_group_count": 2,
+        "scenario_group_count": 1
+    },
+    "scenarios": [
+        {
+            "scenario_name": "boost-payoff-relief-v1",
+            "wins": 4,
+            "losses": 9,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=1|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0,
+                            "natural_expiry_delta": 0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.19999999999999996
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 650
+                        },
+                        "star_focused_dominance": {
+                            "delta": -1517
+                        },
+                        "hoarder_performance": {
+                            "delta": 585
+                        },
+                        "boost_focused_payoff": {
+                            "delta": -161
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.08401318201719118,
+                            "top10_share_delta": 0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Aggressive Sigil User": -8,
+                        "Hardcore": -4,
+                        "Star-Focused": -4,
+                        "Regular": -6,
+                        "Hoarder": 3,
+                        "Early Locker": 2,
+                        "Late Deployer": 6,
+                        "Casual": 3,
+                        "Boost-Focused": 1,
+                        "Mostly Idle": 7
+                    },
+                    "wins": 1,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "boost_related",
+                            "lock_in_expiry_incentives",
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "target_spend_rate_per_tick",
+                            "hoarding_min_factor_fp",
+                            "hoarding_safe_hours"
+                        ],
+                        "scenario_name": "boost-payoff-relief-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Aggressive Sigil User",
+                            "candidate": "Late Deployer"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=1|seasons=4",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.04761904761904756,
+                            "natural_expiry_delta": -1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.06369047619047619
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -292
+                        },
+                        "star_focused_dominance": {
+                            "delta": 1850
+                        },
+                        "hoarder_performance": {
+                            "delta": 1964
+                        },
+                        "boost_focused_payoff": {
+                            "delta": -296
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.0382928689318785
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -1789
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.0382928689318785,
+                            "top10_share_delta": 0.0382928689318785
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Hardcore": -9,
+                        "Aggressive Sigil User": -5,
+                        "Star-Focused": 2,
+                        "Regular": -2,
+                        "Early Locker": 1,
+                        "Mostly Idle": -2,
+                        "Hoarder": 4,
+                        "Boost-Focused": -1,
+                        "Late Deployer": 4,
+                        "Casual": 8
+                    },
+                    "wins": 3,
+                    "losses": 5,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "long_run_concentration_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "boost_related",
+                            "lock_in_expiry_incentives",
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "target_spend_rate_per_tick",
+                            "hoarding_min_factor_fp",
+                            "hoarding_safe_hours"
+                        ],
+                        "scenario_name": "boost-payoff-relief-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Hardcore",
+                            "candidate": "Star-Focused"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduced_one_dominant_but_created_new_dominant"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "long_run_concentration_worsened",
+                "reduced_one_dominant_but_created_new_dominant"
+            ]
+        }
+    ]
+}
