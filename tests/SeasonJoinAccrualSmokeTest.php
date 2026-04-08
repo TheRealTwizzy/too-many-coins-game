@@ -18,6 +18,10 @@ class SeasonJoinAccrualSmokeTest extends TestCase
             return false;
         }
 
+        if ($gameTime >= (int)$season['blackout_time']) {
+            return false;
+        }
+
         if ($gameTime >= ((int)$season['end_time'] - 1)) {
             return false;
         }
@@ -53,7 +57,7 @@ class SeasonJoinAccrualSmokeTest extends TestCase
         $this->assertSame('Scheduled', GameTime::getSeasonStatus($season2, $tickBeforeSeason2));
     }
 
-    public function testJoinGateAllowsActiveAndBlackoutButBlocksScheduledExpiredAndLastTick(): void
+    public function testJoinGateAllowsOnlyPreBlackoutActiveWindow(): void
     {
         $season = $this->baselineSeasonWindow(1);
 
@@ -64,7 +68,7 @@ class SeasonJoinAccrualSmokeTest extends TestCase
         $tooLateTick = (int)$season['end_time'] - 1;
 
         $this->assertTrue($this->canJoinSeasonAtTick($season, $activeTick));
-        $this->assertTrue($this->canJoinSeasonAtTick($season, $blackoutTick));
+        $this->assertFalse($this->canJoinSeasonAtTick($season, $blackoutTick));
         $this->assertFalse($this->canJoinSeasonAtTick($season, $scheduledTick));
         $this->assertFalse($this->canJoinSeasonAtTick($season, $expiredTick));
         $this->assertFalse($this->canJoinSeasonAtTick($season, $tooLateTick));

@@ -116,6 +116,18 @@ class TickEngine {
         $participantIds = array_map(static function ($row) {
             return (int)$row['player_id'];
         }, $participants);
+
+        if ($isBlackout && empty($season['blackout_started_tick'])) {
+            $db->query(
+                "UPDATE seasons
+                 SET blackout_started_tick = COALESCE(blackout_started_tick, ?),
+                     blackout_star_price_snapshot = COALESCE(blackout_star_price_snapshot, current_star_price)
+                 WHERE season_id = ?",
+                [$gameTime, $seasonId]
+            );
+            $season['blackout_started_tick'] = $gameTime;
+            $season['blackout_star_price_snapshot'] = (int)($season['current_star_price'] ?? 0);
+        }
         
         $db->beginTransaction();
         try {
@@ -292,7 +304,9 @@ class TickEngine {
             // Recalculate star price using updated season data (includes effective_price_supply
             // and current_star_price as the previous-price reference for velocity clamping).
             $updatedSeason = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
-            $newPrice = Economy::calculateStarPrice($updatedSeason);
+            $newPrice = $isBlackout
+                ? Economy::publishedStarPrice($updatedSeason, 'Blackout')
+                : Economy::calculateStarPrice($updatedSeason);
             $db->query(
                 "UPDATE seasons SET current_star_price = ? WHERE season_id = ?",
                 [$newPrice, $seasonId]
@@ -597,18 +611,29 @@ class TickEngine {
             
             // 5. Compute final rankings
             $rankedEntries = $db->fetchAll(
-                "SELECT sp.player_id, sp.seasonal_stars, sp.lock_in_snapshot_seasonal_stars,
+                "SELECT sp.player_id, sp.seasonal_stars, sp.lock_in_effect_tick, sp.lock_in_snapshot_seasonal_stars,
                         sp.end_membership, sp.active_ticks_total
                  FROM season_participation sp
                  WHERE sp.season_id = ? 
-                 AND (sp.end_membership = 1 OR sp.lock_in_effect_tick IS NOT NULL)
-                 ORDER BY sp.seasonal_stars DESC, sp.player_id ASC",
+                 AND (sp.end_membership = 1 OR sp.lock_in_effect_tick IS NOT NULL)",
                 [$seasonId]
             );
+
+            usort($rankedEntries, static function ($left, $right) {
+                $leftScore = Economy::effectiveSeasonalStars($left);
+                $rightScore = Economy::effectiveSeasonalStars($right);
+                if ($leftScore === $rightScore) {
+                    return ((int)$left['player_id']) <=> ((int)$right['player_id']);
+                }
+
+                return $rightScore <=> $leftScore;
+            });
             
             $rank = 0;
+            $rankMap = [];
             foreach ($rankedEntries as $entry) {
                 $rank++;
+                $rankMap[(int)$entry['player_id']] = $rank;
                 $db->query(
                     "UPDATE season_participation SET final_rank = ? WHERE player_id = ? AND season_id = ?",
                     [$rank, $entry['player_id'], $seasonId]
@@ -616,13 +641,22 @@ class TickEngine {
             }
             
             // 6. No-winner guard
-            $topValue = !empty($rankedEntries) ? (int)$rankedEntries[0]['seasonal_stars'] : 0;
+            $topValue = !empty($rankedEntries) ? Economy::effectiveSeasonalStars($rankedEntries[0]) : 0;
             $awardBadgesAndPlacement = ($topValue > 0);
+
+            usort($endFinishers, static function ($left, $right) use ($rankMap) {
+                $leftRank = (int)($rankMap[(int)$left['player_id']] ?? PHP_INT_MAX);
+                $rightRank = (int)($rankMap[(int)$right['player_id']] ?? PHP_INT_MAX);
+                if ($leftRank === $rightRank) {
+                    return ((int)$left['player_id']) <=> ((int)$right['player_id']);
+                }
+
+                return $leftRank <=> $rightRank;
+            });
             
             // 7. Award bonuses to end-finishers
-            $endRank = 0;
             foreach ($endFinishers as $ef) {
-                $endRank++;
+                $placementRank = (int)($rankMap[(int)$ef['player_id']] ?? PHP_INT_MAX);
                 $globalStarsEarned = 0;
                 $playerCarryFp = max(0, (int)($ef['global_stars_fractional_fp'] ?? 0));
                 
@@ -633,8 +667,8 @@ class TickEngine {
                 
                 // Placement bonus
                 $placementBonus = 0;
-                if ($awardBadgesAndPlacement && isset(PLACEMENT_BONUS[$endRank])) {
-                    $placementBonus = PLACEMENT_BONUS[$endRank];
+                if ($awardBadgesAndPlacement && isset(PLACEMENT_BONUS[$placementRank])) {
+                    $placementBonus = PLACEMENT_BONUS[$placementRank];
                     $globalStarsEarned += $placementBonus;
                 }
                 
@@ -661,11 +695,11 @@ class TickEngine {
                 );
                 
                 // Award badges
-                if ($awardBadgesAndPlacement && $endRank <= 3) {
+                if ($awardBadgesAndPlacement && $placementRank >= 1 && $placementRank <= 3) {
                     $badgeTypes = [1 => 'seasonal_first', 2 => 'seasonal_second', 3 => 'seasonal_third'];
                     $db->query(
                         "INSERT INTO badges (player_id, badge_type, season_id) VALUES (?, ?, ?)",
-                        [$ef['player_id'], $badgeTypes[$endRank], $seasonId]
+                        [$ef['player_id'], $badgeTypes[$placementRank], $seasonId]
                     );
                 }
                 

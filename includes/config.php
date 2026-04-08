@@ -119,13 +119,17 @@ define('SIGIL_ACTIVITY_MULTIPLIER_FP', [
 ]);
 define('SIGIL_SEASON_PHASE_EARLY', 'EARLY');
 define('SIGIL_SEASON_PHASE_MID', 'MID');
-define('SIGIL_SEASON_PHASE_LATE_BLACKOUT', 'LATE_BLACKOUT');
+define('SIGIL_SEASON_PHASE_LATE_ACTIVE', 'LATE_ACTIVE');
+define('SIGIL_SEASON_PHASE_BLACKOUT', 'BLACKOUT');
+define('SIGIL_SEASON_PHASE_LATE_BLACKOUT', SIGIL_SEASON_PHASE_BLACKOUT);
 define('SIGIL_BLACKOUT_DURATION_TICKS', ticks_from_real_seconds(259200)); // Final 3 real days
+define('SIGIL_LATE_ACTIVE_DURATION_TICKS', SIGIL_BLACKOUT_DURATION_TICKS);
 define('SIGIL_EARLY_PHASE_FRACTION_FP', 500000); // First half of non-blackout window
 define('SIGIL_PHASE_AVAILABLE_TIERS', [
     SIGIL_SEASON_PHASE_EARLY => [1, 2, 3],
     SIGIL_SEASON_PHASE_MID => [1, 2, 3, 4, 5],
-    SIGIL_SEASON_PHASE_LATE_BLACKOUT => [1, 2, 3, 4, 5, 6],
+    SIGIL_SEASON_PHASE_LATE_ACTIVE => [1, 2, 3, 4, 5, 6],
+    SIGIL_SEASON_PHASE_BLACKOUT => [1, 2, 3, 4, 5],
 ]);
 define('SIGIL_PHASE_TIER_WEIGHTS', [
     SIGIL_SEASON_PHASE_EARLY => [
@@ -140,13 +144,20 @@ define('SIGIL_PHASE_TIER_WEIGHTS', [
         4 => 45,
         5 => 8,
     ],
-    SIGIL_SEASON_PHASE_LATE_BLACKOUT => [
+    SIGIL_SEASON_PHASE_LATE_ACTIVE => [
         1 => 960,
         2 => 620,
         3 => 320,
         4 => 120,
         5 => 22,
         6 => 3,
+    ],
+    SIGIL_SEASON_PHASE_BLACKOUT => [
+        1 => 960,
+        2 => 620,
+        3 => 320,
+        4 => 120,
+        5 => 22,
     ],
 ]);
 define('SIGIL_DROP_ALGORITHM_VERSION', 'deterministic_v3');
@@ -308,7 +319,7 @@ define('FREEZE_STACK_EXTENSION_TICKS', ABILITY_UNIT_DURATION_TICKS); // +15 minu
 // Set cap to 0 for no cap.
 define('BOOST_GUARANTEED_FLOOR_STEP_PERCENT', 10);
 define('BOOST_GUARANTEED_FLOOR_STEP_COINS', 1);
-define('BOOST_GUARANTEED_FLOOR_CAP_COINS', 0);
+define('BOOST_GUARANTEED_FLOOR_CAP_COINS', 5);
 
 // Sigil tier odds (fixed-point, sum = 1,000,000)
 // Proportional to SIGIL_TIER_DROP_RATES: T1=8.75%, T2=2.5%, T3=1.0%, T4=0.19%, T5=0.06% of total 12.5%

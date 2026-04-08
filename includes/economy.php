@@ -148,6 +148,38 @@ class Economy {
     }
 
     /**
+     * Canonical season score used for rank and leaderboard display.
+     */
+    public static function effectiveSeasonalStars($participation) {
+        if (!$participation || !is_array($participation)) {
+            return 0;
+        }
+
+        if (!empty($participation['lock_in_effect_tick'])) {
+            return max(0, (int)($participation['lock_in_snapshot_seasonal_stars'] ?? 0));
+        }
+
+        return max(0, (int)($participation['seasonal_stars'] ?? 0));
+    }
+
+    /**
+     * Published star price, using the blackout settlement snapshot when present.
+     */
+    public static function publishedStarPrice($season, $status = null) {
+        if (!$season || !is_array($season)) {
+            return 0;
+        }
+
+        $currentPrice = max(0, (int)($season['current_star_price'] ?? 0));
+        $snapshotPrice = max(0, (int)($season['blackout_star_price_snapshot'] ?? 0));
+        if ((string)$status === 'Blackout' && $snapshotPrice > 0) {
+            return $snapshotPrice;
+        }
+
+        return $currentPrice;
+    }
+
+    /**
      * Guaranteed whole-coin floor from effective boost modifier.
      * Example default policy: +1 coin/tick per 10% boost (100,000 fp).
      */
@@ -186,16 +218,16 @@ class Economy {
      */
     private const BOOST_RATE_BONUS_BREAKPOINTS = [
         [   0.0,   0.0],
-        [  10.0,   8.0],
-        [  25.0,  16.0],
-        [  50.0,  28.0],
-        [  75.0,  37.0],
-        [ 100.0,  45.0],
-        [ 150.0,  58.0],
-        [ 200.0,  68.0],
-        [ 300.0,  82.0],
-        [ 400.0,  92.0],
-        [ 500.0, 100.0],
+        [  10.0,   6.0],
+        [  25.0,  12.0],
+        [  50.0,  20.0],
+        [  75.0,  27.0],
+        [ 100.0,  33.0],
+        [ 150.0,  42.0],
+        [ 200.0,  50.0],
+        [ 300.0,  60.0],
+        [ 400.0,  68.0],
+        [ 500.0,  75.0],
     ];
 
     /**
@@ -906,15 +938,21 @@ class Economy {
 
         $blackoutTicks = max(1, min($duration, (int)SIGIL_BLACKOUT_DURATION_TICKS));
         $blackoutStartTick = $endTick - $blackoutTicks;
+        $lateActiveTicks = max(1, min(max(1, $blackoutStartTick - $startTick), (int)SIGIL_LATE_ACTIVE_DURATION_TICKS));
+        $lateActiveStartTick = $blackoutStartTick - $lateActiveTicks;
         if ((int)$tickIndex >= $blackoutStartTick) {
-            return (string)SIGIL_SEASON_PHASE_LATE_BLACKOUT;
+            return (string)SIGIL_SEASON_PHASE_BLACKOUT;
         }
 
-        $preBlackoutSpan = max(1, $blackoutStartTick - $startTick);
-        $elapsedPreBlackout = max(0, min($preBlackoutSpan, (int)$tickIndex - $startTick));
-        $earlyCutoff = max(1, intdiv($preBlackoutSpan * (int)SIGIL_EARLY_PHASE_FRACTION_FP, FP_SCALE));
+        if ((int)$tickIndex >= $lateActiveStartTick) {
+            return (string)SIGIL_SEASON_PHASE_LATE_ACTIVE;
+        }
 
-        if ($elapsedPreBlackout < $earlyCutoff) {
+        $preLateActiveSpan = max(1, $lateActiveStartTick - $startTick);
+        $elapsedPreLateActive = max(0, min($preLateActiveSpan, (int)$tickIndex - $startTick));
+        $earlyCutoff = max(1, intdiv($preLateActiveSpan * (int)SIGIL_EARLY_PHASE_FRACTION_FP, FP_SCALE));
+
+        if ($elapsedPreLateActive < $earlyCutoff) {
             return (string)SIGIL_SEASON_PHASE_EARLY;
         }
 
@@ -923,8 +961,14 @@ class Economy {
 
     public static function sigilTierWeightsForProgressFp($seasonProgressFp) {
         $progress = max(0, min(FP_SCALE, (int)$seasonProgressFp));
-        if ($progress >= FP_SCALE) {
-            return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_LATE_BLACKOUT);
+        $blackoutStartFp = FP_SCALE - min(FP_SCALE, (int)intdiv((int)SIGIL_BLACKOUT_DURATION_TICKS * FP_SCALE, max(1, (int)SEASON_DURATION)));
+        $lateActiveStartFp = max(0, $blackoutStartFp - min(FP_SCALE, (int)intdiv((int)SIGIL_LATE_ACTIVE_DURATION_TICKS * FP_SCALE, max(1, (int)SEASON_DURATION))));
+
+        if ($progress >= $blackoutStartFp) {
+            return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_BLACKOUT);
+        }
+        if ($progress >= $lateActiveStartFp) {
+            return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_LATE_ACTIVE);
         }
         if ($progress < (int)SIGIL_EARLY_PHASE_FRACTION_FP) {
             return self::sigilTierWeightsForPhase((string)SIGIL_SEASON_PHASE_EARLY);

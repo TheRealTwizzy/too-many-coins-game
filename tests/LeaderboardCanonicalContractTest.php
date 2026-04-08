@@ -40,6 +40,23 @@ class LeaderboardCanonicalContractTest extends TestCase
         );
     }
 
+    public function testLeaderboardUsesCanonicalEffectiveSeasonScoreForLockedInRows(): void
+    {
+        $apiSource = file_get_contents(__DIR__ . '/../api/index.php');
+        $this->assertIsString($apiSource);
+
+        $this->assertStringContainsString(
+            'function seasonEffectiveScoreSql',
+            $apiSource,
+            'Leaderboard code must define a canonical effective-score SQL helper for locked-in rows.'
+        );
+        $this->assertStringContainsString(
+            '$effectiveScoreSql = seasonEffectiveScoreSql(\'sp\');',
+            $apiSource,
+            'Leaderboard SQL must use the canonical effective-score helper instead of raw seasonal_stars ordering.'
+        );
+    }
+
     public function testCanonicalCapAllowsValuesAboveFourHundredPercentAndClampsAtFiveHundred(): void
     {
         $cap = (int)BoostCatalog::TOTAL_POWER_CAP_FP;

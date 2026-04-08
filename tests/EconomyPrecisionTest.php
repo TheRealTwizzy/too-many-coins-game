@@ -12,7 +12,8 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(1, Economy::guaranteedBoostFloorCoins(100000));  // 10%
         $this->assertSame(2, Economy::guaranteedBoostFloorCoins(200000));  // 20%
         $this->assertSame(5, Economy::guaranteedBoostFloorCoins(500000));  // 50%
-        $this->assertSame(10, Economy::guaranteedBoostFloorCoins(1000000)); // 100%
+        $this->assertSame(5, Economy::guaranteedBoostFloorCoins(1000000)); // 100% (capped)
+        $this->assertSame(5, Economy::guaranteedBoostFloorCoins(2000000)); // 200% (still capped)
     }
 
     public function testGuaranteedBoostFloorFpAddsWholeCoinAtTenPercentEvenOnLowBase(): void
@@ -247,9 +248,10 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(0, (int)($startWeights[5] ?? 0));
         $this->assertSame(0, (int)($startWeights[6] ?? 0));
 
-        for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
+        for ($tier = 1; $tier <= 5; $tier++) {
             $this->assertGreaterThan(0, (int)($endWeights[$tier] ?? 0));
         }
+        $this->assertSame(0, (int)($endWeights[6] ?? 0));
     }
 
     public function testOfflinePlayerNeverReceivesSigilDrop(): void
@@ -349,14 +351,17 @@ class EconomyPrecisionTest extends TestCase
 
         $earlyPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time']);
         $midPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time'] + ticks_from_real_seconds(6 * 86400));
+        $lateActivePhase = Economy::sigilSeasonPhase($season, (int)$season['end_time'] - (int)SIGIL_BLACKOUT_DURATION_TICKS - 1);
         $latePhase = Economy::sigilSeasonPhase($season, (int)$season['end_time'] - 1);
 
         $this->assertSame((string)SIGIL_SEASON_PHASE_EARLY, $earlyPhase);
         $this->assertSame((string)SIGIL_SEASON_PHASE_MID, $midPhase);
-        $this->assertSame((string)SIGIL_SEASON_PHASE_LATE_BLACKOUT, $latePhase);
+        $this->assertSame((string)SIGIL_SEASON_PHASE_LATE_ACTIVE, $lateActivePhase);
+        $this->assertSame((string)SIGIL_SEASON_PHASE_BLACKOUT, $latePhase);
 
         $earlyWeights = Economy::sigilTierWeightsForPhase($earlyPhase);
         $midWeights = Economy::sigilTierWeightsForPhase($midPhase);
+        $lateActiveWeights = Economy::sigilTierWeightsForPhase($lateActivePhase);
         $lateWeights = Economy::sigilTierWeightsForPhase($latePhase);
 
         $this->assertGreaterThan(0, (int)$earlyWeights[1]);
@@ -370,10 +375,11 @@ class EconomyPrecisionTest extends TestCase
         $this->assertGreaterThan(0, (int)$midWeights[5]);
         $this->assertSame(0, (int)$midWeights[6]);
 
-        $this->assertGreaterThan(0, (int)$lateWeights[6]);
+        $this->assertGreaterThan(0, (int)$lateActiveWeights[6]);
+        $this->assertSame(0, (int)$lateWeights[6]);
     }
 
-    public function testBlackoutTierSixIsOnlyAvailableInFinalThreeDays(): void
+    public function testTierSixMovesIntoLateActiveAndStaysOutOfBlackout(): void
     {
         $season = [
             'season_id' => 5,
@@ -383,12 +389,15 @@ class EconomyPrecisionTest extends TestCase
         ];
 
         $blackoutStart = (int)$season['end_time'] - (int)SIGIL_BLACKOUT_DURATION_TICKS;
+        $lateActiveStart = $blackoutStart - (int)SIGIL_LATE_ACTIVE_DURATION_TICKS;
 
-        $preBlackoutWeights = Economy::sigilTierWeightsForPhase(Economy::sigilSeasonPhase($season, $blackoutStart - 1));
+        $midWeights = Economy::sigilTierWeightsForPhase(Economy::sigilSeasonPhase($season, $lateActiveStart - 1));
+        $lateActiveWeights = Economy::sigilTierWeightsForPhase(Economy::sigilSeasonPhase($season, $lateActiveStart));
         $blackoutWeights = Economy::sigilTierWeightsForPhase(Economy::sigilSeasonPhase($season, $blackoutStart));
 
-        $this->assertSame(0, (int)($preBlackoutWeights[6] ?? 0));
-        $this->assertGreaterThan(0, (int)($blackoutWeights[6] ?? 0));
+        $this->assertSame(0, (int)($midWeights[6] ?? 0));
+        $this->assertGreaterThan(0, (int)($lateActiveWeights[6] ?? 0));
+        $this->assertSame(0, (int)($blackoutWeights[6] ?? 0));
     }
 
     public function testEffectiveSigilTierChancesDecreaseAtFullPower(): void
@@ -754,8 +763,8 @@ class EconomyPrecisionTest extends TestCase
      */
     public function testGrossRateBonusClampsAbove500(): void
     {
-        $this->assertEqualsWithDelta(100.0, Economy::grossRateBonusFromBoostPct(501.0), 0.0001);
-        $this->assertEqualsWithDelta(100.0, Economy::grossRateBonusFromBoostPct(9999.0), 0.0001);
+        $this->assertEqualsWithDelta(75.0, Economy::grossRateBonusFromBoostPct(501.0), 0.0001);
+        $this->assertEqualsWithDelta(75.0, Economy::grossRateBonusFromBoostPct(9999.0), 0.0001);
     }
 
     /**
@@ -766,16 +775,16 @@ class EconomyPrecisionTest extends TestCase
     {
         $cases = [
               0.0 =>   0.0,
-             10.0 =>   8.0,
-             25.0 =>  16.0,
-             50.0 =>  28.0,
-             75.0 =>  37.0,
-            100.0 =>  45.0,
-            150.0 =>  58.0,
-            200.0 =>  68.0,
-            300.0 =>  82.0,
-            400.0 =>  92.0,
-            500.0 => 100.0,
+             10.0 =>   6.0,
+             25.0 =>  12.0,
+             50.0 =>  20.0,
+             75.0 =>  27.0,
+            100.0 =>  33.0,
+            150.0 =>  42.0,
+            200.0 =>  50.0,
+            300.0 =>  60.0,
+            400.0 =>  68.0,
+            500.0 =>  75.0,
         ];
 
         foreach ($cases as $boostPct => $expected) {
@@ -794,29 +803,29 @@ class EconomyPrecisionTest extends TestCase
      */
     public function testGrossRateBonusSegmentInterpolation(): void
     {
-        // 0–10: midpoint 5% → 0 + (8-0)*0.5 = 4.0
-        $this->assertEqualsWithDelta(4.0, Economy::grossRateBonusFromBoostPct(5.0), 0.0001,
-            '5% (mid of 0–10 segment) should interpolate to 4.0');
+        // 0–10: midpoint 5% → 0 + (6-0)*0.5 = 3.0
+        $this->assertEqualsWithDelta(3.0, Economy::grossRateBonusFromBoostPct(5.0), 0.0001,
+            '5% (mid of 0–10 segment) should interpolate to 3.0');
 
-        // 10–25: midpoint 17.5% → 8 + (16-8)*0.5 = 12.0
-        $this->assertEqualsWithDelta(12.0, Economy::grossRateBonusFromBoostPct(17.5), 0.0001,
-            '17.5% (mid of 10–25 segment) should interpolate to 12.0');
+        // 10–25: midpoint 17.5% → 6 + (12-6)*0.5 = 9.0
+        $this->assertEqualsWithDelta(9.0, Economy::grossRateBonusFromBoostPct(17.5), 0.0001,
+            '17.5% (mid of 10–25 segment) should interpolate to 9.0');
 
-        // 50–75: midpoint 62.5% → 28 + (37-28)*0.5 = 32.5
-        $this->assertEqualsWithDelta(32.5, Economy::grossRateBonusFromBoostPct(62.5), 0.0001,
-            '62.5% (mid of 50–75 segment) should interpolate to 32.5');
+        // 50–75: midpoint 62.5% → 20 + (27-20)*0.5 = 23.5
+        $this->assertEqualsWithDelta(23.5, Economy::grossRateBonusFromBoostPct(62.5), 0.0001,
+            '62.5% (mid of 50–75 segment) should interpolate to 23.5');
 
-        // 100–150: midpoint 125% → 45 + (58-45)*0.5 = 51.5
-        $this->assertEqualsWithDelta(51.5, Economy::grossRateBonusFromBoostPct(125.0), 0.0001,
-            '125% (mid of 100–150 segment) should interpolate to 51.5');
+        // 100–150: midpoint 125% → 33 + (42-33)*0.5 = 37.5
+        $this->assertEqualsWithDelta(37.5, Economy::grossRateBonusFromBoostPct(125.0), 0.0001,
+            '125% (mid of 100–150 segment) should interpolate to 37.5');
 
-        // 200–300: midpoint 250% → 68 + (82-68)*0.5 = 75.0
-        $this->assertEqualsWithDelta(75.0, Economy::grossRateBonusFromBoostPct(250.0), 0.0001,
-            '250% (mid of 200–300 segment) should interpolate to 75.0');
+        // 200–300: midpoint 250% → 50 + (60-50)*0.5 = 55.0
+        $this->assertEqualsWithDelta(55.0, Economy::grossRateBonusFromBoostPct(250.0), 0.0001,
+            '250% (mid of 200–300 segment) should interpolate to 55.0');
 
-        // 400–500: midpoint 450% → 92 + (100-92)*0.5 = 96.0
-        $this->assertEqualsWithDelta(96.0, Economy::grossRateBonusFromBoostPct(450.0), 0.0001,
-            '450% (mid of 400–500 segment) should interpolate to 96.0');
+        // 400–500: midpoint 450% → 68 + (75-68)*0.5 = 71.5
+        $this->assertEqualsWithDelta(71.5, Economy::grossRateBonusFromBoostPct(450.0), 0.0001,
+            '450% (mid of 400–500 segment) should interpolate to 71.5');
     }
 
     /**

@@ -227,6 +227,9 @@ class Actions {
         
         // Check if join would be effective before expiration
         $gameTime = GameTime::now();
+        if ($gameTime >= (int)$season['blackout_time']) {
+            return ['error' => 'Season settlement has started'];
+        }
         if ($gameTime >= $season['end_time'] - 1) {
             return ['error' => 'Too late to join this season'];
         }
@@ -285,8 +288,8 @@ class Actions {
         $seasonId = $player['joined_season_id'];
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
         $status = GameTime::getSeasonStatus($season);
-        if ($status === 'Blackout') {
-            return ['error' => 'Star purchases are not available during blackout', 'reason_code' => 'blackout_disallows_action'];
+        if ($status !== 'Active' && $status !== 'Blackout') {
+            return ['error' => 'Star purchases are only available during the season'];
         }
 
         $participation = $db->fetch(
@@ -298,7 +301,7 @@ class Actions {
         if ($starsRequested <= 0) return ['error' => 'Must request a positive star quantity'];
         
         // Get locked star price
-        $starPrice = (int)$season['current_star_price'];
+        $starPrice = Economy::publishedStarPrice($season, $status);
         if ($starPrice <= 0) return ['error' => 'Invalid star price'];
         
         $coinsNeeded = $starsRequested * $starPrice;
@@ -367,13 +370,12 @@ class Actions {
         $seasonId = $player['joined_season_id'];
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
         
-        // Blackout check
         $status = GameTime::getSeasonStatus($season);
-        if ($status === 'Blackout') {
-            return ['error' => 'Lock-In is not available during blackout', 'reason_code' => 'blackout_disallows_action'];
-        }
         if ($status === 'Expired') {
             return ['error' => 'Season has expired'];
+        }
+        if ($status !== 'Active' && $status !== 'Blackout') {
+            return ['error' => 'Lock-In is only available during the season'];
         }
         
         $participation = $db->fetch(
@@ -1384,6 +1386,12 @@ class Actions {
         }
 
         $seasonId = (int)$player['joined_season_id'];
+        $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+        $status = GameTime::getSeasonStatus($season);
+        if ($status !== 'Active' && $status !== 'Blackout') {
+            return ['error' => 'Melt is only available during the season'];
+        }
+
         $participation = $db->fetch(
             "SELECT sigils_t5, sigils_t6 FROM season_participation WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
