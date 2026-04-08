@@ -124,11 +124,15 @@ class MetricsCollector
 
             sort($finalScores);
             $count = max(1, count($rows));
+            $median = 0;
+            if (!empty($finalScores)) {
+                $median = (int)$finalScores[(int)floor((count($finalScores) - 1) / 2)];
+            }
             $archetypeMetrics[$key] = [
                 'label' => (string)$archetype['label'],
                 'players' => count($rows),
                 'average_final_effective_score' => (int)floor(array_sum($finalScores) / $count),
-                'median_final_effective_score' => (int)$finalScores[(int)floor((count($finalScores) - 1) / 2)],
+                'median_final_effective_score' => $median,
                 'coins_earned_by_phase' => $phaseCoins,
                 'stars_purchased_by_phase' => $phaseStars,
                 'lock_in_count' => $lockIns,
@@ -246,6 +250,55 @@ class MetricsCollector
         return $path;
     }
 
+    public static function writeLifetimeCsv(array $payload, string $outputDir, string $baseName): ?string
+    {
+        if (($payload['simulator'] ?? '') !== 'lifetime-overlapping-season') {
+            return null;
+        }
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0777, true);
+        }
+
+        $path = rtrim($outputDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $baseName . '.csv';
+        $handle = fopen($path, 'wb');
+        if ($handle === false) {
+            return null;
+        }
+
+        fputcsv($handle, [
+            'player_id',
+            'archetype',
+            'seasons_entered',
+            'seasons_skipped',
+            'avg_rejoin_delay',
+            'cumulative_global_stars',
+            'cumulative_participation_bonus',
+            'cumulative_placement_bonus',
+            'lock_in_count',
+            'natural_expiry_count',
+            'avg_final_rank',
+        ]);
+
+        foreach ((array)$payload['players'] as $player) {
+            fputcsv($handle, [
+                (int)$player['player_id'],
+                (string)$player['archetype_label'],
+                (int)$player['seasons_entered'],
+                (int)$player['seasons_skipped'],
+                round((float)$player['rejoin_delay_average'], 4),
+                (int)$player['cumulative_global_stars'],
+                (int)$player['cumulative_participation_bonus'],
+                (int)$player['cumulative_placement_bonus'],
+                (int)$player['lock_in_count'],
+                (int)$player['natural_expiry_count'],
+                round((float)$player['average_final_rank'], 4),
+            ]);
+        }
+
+        fclose($handle);
+        return $path;
+    }
+
     public static function printContractSummary(array $payload): void
     {
         echo 'Contract Simulator' . PHP_EOL;
@@ -269,5 +322,32 @@ class MetricsCollector
                 (int)$metrics['global_stars_gained']
             ) . PHP_EOL;
         }
+    }
+
+    public static function printLifetimeSummary(array $payload): void
+    {
+        $diag = (array)($payload['population_diagnostics'] ?? []);
+        $concentration = (array)($payload['concentration_drift'] ?? []);
+        $final = !empty($concentration) ? (array)$concentration[count($concentration) - 1] : [];
+
+        echo 'Lifetime / Overlapping-Season Simulator' . PHP_EOL;
+        echo sprintf(
+            'Players %d | Seasons %d | Avg cumulative stars %.2f',
+            (int)($payload['config']['total_players'] ?? 0),
+            (int)($payload['config']['season_count'] ?? 0),
+            (float)($diag['average_cumulative_global_stars'] ?? 0.0)
+        ) . PHP_EOL;
+        echo sprintf(
+            'Concentration final | median %.2f | top10 avg %.2f | top1 avg %.2f',
+            (float)($final['median_cumulative_global_stars'] ?? 0.0),
+            (float)($final['top_10_percent_average'] ?? 0.0),
+            (float)($final['top_1_percent_average'] ?? 0.0)
+        ) . PHP_EOL;
+        echo sprintf(
+            'Consistent avg %.2f | Skip-heavy avg %.2f | edge %.2f',
+            (float)($diag['consistent_participation_group']['average_cumulative_global_stars'] ?? 0.0),
+            (float)($diag['skip_heavy_group']['average_cumulative_global_stars'] ?? 0.0),
+            (float)($diag['skip_strategy_edge'] ?? 0.0)
+        ) . PHP_EOL;
     }
 }
