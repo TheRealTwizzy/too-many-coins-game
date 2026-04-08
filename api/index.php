@@ -884,12 +884,12 @@ function getGameState($player) {
                 'eligible_ticks_since_last_drop' => (int)($participation['eligible_ticks_since_last_drop'] ?? 0),
                 'combine_recipes' => getCombineRecipesForParticipation($participation),
                 'tier6_visible' => shouldRevealTier6($participation),
-                'can_freeze' => $joinedSeasonStatus === 'Active'
+                'can_freeze' => in_array($joinedSeasonStatus, ['Active', 'Blackout'], true)
                     && ((int)($participation['sigils_t6'] ?? 0) > 0),
                 'can_melt' => in_array($joinedSeasonStatus, ['Active', 'Blackout'], true)
                     && ($freezeStatus['is_frozen'] ?? false)
                     && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
-                'can_steal' => $joinedSeasonStatus === 'Active'
+                'can_steal' => in_array($joinedSeasonStatus, ['Active', 'Blackout'], true)
                     && !($theftStatus['is_on_cooldown'] ?? false)
                     && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
                 'freeze' => $freezeStatus,
@@ -1104,12 +1104,12 @@ function getSeasonDetail($player, $seasonId) {
             $playerFreeze = getFreezeStatusForPlayer((int)$player['player_id'], (int)$seasonId, $participation);
             $playerTheft = getTheftStatusForPlayer((int)$player['player_id'], (int)$seasonId, $participation);
             $seasonStatus = (string)($season['computed_status'] ?? GameTime::getSeasonStatus($season, $gameTime));
-            $season['player_can_freeze'] = $seasonStatus === 'Active'
+            $season['player_can_freeze'] = in_array($seasonStatus, ['Active', 'Blackout'], true)
                 && ((int)($participation['sigils_t6'] ?? 0) > 0);
             $season['player_can_melt'] = in_array($seasonStatus, ['Active', 'Blackout'], true)
                 && ($playerFreeze['is_frozen'] ?? false)
                 && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0));
-            $season['player_can_steal'] = $seasonStatus === 'Active'
+            $season['player_can_steal'] = in_array($seasonStatus, ['Active', 'Blackout'], true)
                 && !($playerTheft['is_on_cooldown'] ?? false)
                 && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0));
             $season['player_freeze'] = $playerFreeze;
@@ -1592,12 +1592,12 @@ function getProfile($viewer, $targetId) {
                         ],
                         'freeze' => $profileFreeze,
                         'theft' => $profileTheft,
-                        'can_freeze' => $status === 'Active'
+                        'can_freeze' => in_array($status, ['Active', 'Blackout'], true)
                             && ((int)($participation['sigils_t6'] ?? 0) > 0),
                         'can_melt' => in_array($status, ['Active', 'Blackout'], true)
                             && ($profileFreeze['is_frozen'] ?? false)
                             && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
-                        'can_steal' => $status === 'Active'
+                        'can_steal' => in_array($status, ['Active', 'Blackout'], true)
                             && !($profileTheft['is_on_cooldown'] ?? false)
                             && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
                     ];
@@ -2014,8 +2014,8 @@ function previewSigilTheft(
     $seasonId = (int)$fullPlayer['joined_season_id'];
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     $status = GameTime::getSeasonStatus($season);
-    if ($status !== 'Active') {
-        return ['error' => 'Sigil theft is only available during active season', 'reason_code' => 'blackout_disallows_action'];
+    if ($status !== 'Active' && $status !== 'Blackout') {
+        return ['error' => 'Sigil theft is only available during Active or Blackout phase'];
     }
 
     $targetPlayerId = (int)$targetPlayerId;
@@ -2245,8 +2245,8 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
     $seasonId = (int)$fullPlayer['joined_season_id'];
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     $status = GameTime::getSeasonStatus($season);
-    if ($status === 'Blackout' || $status !== 'Active') {
-        return ['error' => 'Boost activation is only available during active season', 'reason_code' => 'blackout_disallows_action'];
+    if ($status !== 'Active' && $status !== 'Blackout') {
+        return ['error' => 'Boost activation is only available during active season or blackout'];
     }
 
     $catalogByTier = $db->fetch("SELECT * FROM boost_catalog WHERE tier_required = ? ORDER BY boost_id ASC LIMIT 1", [$sigilTier]);

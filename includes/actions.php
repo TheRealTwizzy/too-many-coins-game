@@ -507,8 +507,8 @@ class Actions {
         $seasonId = (int)$player['joined_season_id'];
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
         $status = GameTime::getSeasonStatus($season);
-        if ($status !== 'Active') {
-            return ['error' => 'Sigil theft is only available during active season'];
+        if ($status !== 'Active' && $status !== 'Blackout') {
+            return ['error' => 'Sigil theft is only available during Active or Blackout phase'];
         }
 
         $targetPlayerId = (int)$targetPlayerId;
@@ -555,8 +555,8 @@ class Actions {
 
         $nowTick = GameTime::now();
         $seasonTick = GameTime::seasonTick((int)$season['start_time'], $nowTick);
-        $cooldownExpires = $nowTick + (int)SIGIL_THEFT_COOLDOWN_TICKS;
-        $protectionExpires = $nowTick + (int)SIGIL_THEFT_PROTECTION_TICKS;
+        $cooldownExpires = $nowTick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS);
+        $protectionExpires = $nowTick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS : SIGIL_THEFT_PROTECTION_TICKS);
         $successChanceFp = self::calculateTheftSuccessChanceFp($spendValue, $requestedValue);
         $rollFp = random_int(1, FP_SCALE);
         $theftSuccess = $rollFp <= $successChanceFp;
@@ -908,12 +908,8 @@ class Actions {
         $seasonId = $player['joined_season_id'];
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
         
-        // Blackout check - no boost activation during blackout
         $status = GameTime::getSeasonStatus($season);
-        if ($status === 'Blackout') {
-            return ['error' => 'Boost activation is not available during blackout', 'reason_code' => 'blackout_disallows_action'];
-        }
-        if ($status !== 'Active') {
+        if ($status !== 'Active' && $status !== 'Blackout') {
             return ['error' => 'Season is not active'];
         }
         
@@ -1277,8 +1273,8 @@ class Actions {
         $seasonId = (int)$player['joined_season_id'];
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
         $status = GameTime::getSeasonStatus($season);
-        if ($status !== 'Active') {
-            return ['error' => 'Freeze is only available during active season'];
+        if ($status !== 'Active' && $status !== 'Blackout') {
+            return ['error' => 'Freeze is only available during Active or Blackout phase'];
         }
 
         $target = null;
@@ -1318,13 +1314,14 @@ class Actions {
             [$seasonId, (int)$target['player_id'], $nowTick]
         );
 
-        $newRemaining = (int)FREEZE_BASE_DURATION_TICKS;
+        $freezeBaseTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_BASE_DURATION_TICKS : FREEZE_BASE_DURATION_TICKS);
+        $freezeStackTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_STACK_EXTENSION_TICKS : FREEZE_STACK_EXTENSION_TICKS);
+        $newRemaining = $freezeBaseTicks;
         if ($existing) {
-            // Flat +15-minute extension: add FREEZE_STACK_EXTENSION_TICKS to the
-            // current expiry tick (preserving any remaining duration rather than
-            // resetting it) so each additional freeze predictably extends the timer.
+            // Flat extension: add stack ticks to the current expiry (preserving
+            // remaining duration), so each additional freeze predictably extends the timer.
             $existingExpires = (int)$existing['expires_tick'];
-            $newExpires = max($existingExpires, $nowTick) + (int)FREEZE_STACK_EXTENSION_TICKS;
+            $newExpires = max($existingExpires, $nowTick) + $freezeStackTicks;
             $newRemaining = $newExpires - $nowTick;
         } else {
             $newExpires = $nowTick + $newRemaining;

@@ -315,6 +315,12 @@ define('SIGIL_TIER_ODDS_MAX_POWER', [
 define('FREEZE_BASE_DURATION_TICKS', ABILITY_UNIT_DURATION_TICKS * 2); // 30 minutes
 define('FREEZE_STACK_EXTENSION_TICKS', ABILITY_UNIT_DURATION_TICKS); // +15 minutes per additional freeze
 
+// Blackout-phase pacing (50% of Active timers for cut-throat end-game pressure).
+define('SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS', intdiv((int)SIGIL_THEFT_COOLDOWN_TICKS, 2));
+define('SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS', intdiv((int)SIGIL_THEFT_PROTECTION_TICKS, 2));
+define('FREEZE_BLACKOUT_BASE_DURATION_TICKS', intdiv((int)FREEZE_BASE_DURATION_TICKS, 2));
+define('FREEZE_BLACKOUT_STACK_EXTENSION_TICKS', intdiv((int)FREEZE_STACK_EXTENSION_TICKS, 2));
+
 // Guaranteed boost floor: +1 whole coin per tick for each 10% effective boost.
 // Set cap to 0 for no cap.
 define('BOOST_GUARANTEED_FLOOR_STEP_PERCENT', 10);
