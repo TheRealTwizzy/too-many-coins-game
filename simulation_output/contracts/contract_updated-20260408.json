@@ -1,0 +1,90 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "simulator": "contract-simulator",
+    "generated_at": "2026-04-08T19:32:06+00:00",
+    "seed": "updated-contract-20260408",
+    "summary": {
+        "passed": 8,
+        "failed": 0,
+        "all_passed": true
+    },
+    "checks": [
+        {
+            "name": "active_rate_breakdown_nonzero",
+            "passed": true,
+            "details": {
+                "gross_rate_fp": 30000000,
+                "sink_per_tick": 0,
+                "net_rate_fp": 30000000
+            }
+        },
+        {
+            "name": "blackout_zero_accrual",
+            "passed": true,
+            "details": {
+                "gross_rate_fp": 0,
+                "sink_per_tick": 0,
+                "net_rate_fp": 0
+            }
+        },
+        {
+            "name": "published_star_price_uses_blackout_snapshot",
+            "passed": true,
+            "details": {
+                "published_price": 321
+            }
+        },
+        {
+            "name": "sigil_drop_is_deterministic",
+            "passed": true,
+            "details": {
+                "drop": null
+            }
+        },
+        {
+            "name": "blackout_has_no_rng_sigil_drop",
+            "passed": true,
+            "details": {
+                "drop": null
+            }
+        },
+        {
+            "name": "lock_in_payout_adds_sigil_refund_then_converts",
+            "passed": true,
+            "details": {
+                "sigil_refund_stars": 3550,
+                "total_seasonal_stars": 3650,
+                "global_stars_gained": 2372,
+                "global_stars_grant_fp": 2372500000,
+                "global_stars_fractional_fp": 500000,
+                "global_stars_progress_percent": 50
+            }
+        },
+        {
+            "name": "natural_expiry_payout_includes_participation_and_placement",
+            "passed": true,
+            "details": {
+                "payout_seasonal_stars": 200,
+                "participation_bonus": 56,
+                "placement_bonus": 60,
+                "payout_bonus_stars": 116,
+                "total_source_stars": 316,
+                "source_stars": 316,
+                "grant_fp": 316000000,
+                "carry_in_fp": 0,
+                "total_fp": 316000000,
+                "global_stars_gained": 316,
+                "global_stars_fractional_fp": 0,
+                "global_stars_progress_percent": 0
+            }
+        },
+        {
+            "name": "effective_score_semantics_match_runtime",
+            "passed": true,
+            "details": {
+                "locked": 555,
+                "end": 444
+            }
+        }
+    ]
+}
