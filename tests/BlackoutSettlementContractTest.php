@@ -72,4 +72,13 @@ class BlackoutSettlementContractTest extends TestCase
             $apiSource
         );
     }
+
+    public function testScorePayloadAlsoExposesSettlementBreakdownFields(): void
+    {
+        $apiSource = file_get_contents(__DIR__ . '/../api/index.php');
+        $this->assertIsString($apiSource);
+
+        $this->assertStringContainsString('$participation[\'payout_seasonal_stars\'] = Economy::settlementPayoutSeasonalStars($participation);', $apiSource);
+        $this->assertStringContainsString('$participation[\'payout_source_stars\'] = Economy::settlementPayoutSourceStars($participation);', $apiSource);
+    }
 }

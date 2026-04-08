@@ -564,6 +564,59 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(15.0, $grant['global_stars_progress_percent']);
     }
 
+    public function testEffectiveSeasonalStarsUsesFinalSeasonalStarsForEndFinishers(): void
+    {
+        $participation = [
+            'end_membership' => 1,
+            'seasonal_stars' => 0,
+            'final_seasonal_stars' => 123,
+        ];
+
+        $this->assertSame(123, Economy::effectiveSeasonalStars($participation));
+    }
+
+    public function testSettlementPayoutSourceStarsSeparatesNaturalExpiryBonusesFromRankingBase(): void
+    {
+        $participation = [
+            'end_membership' => 1,
+            'seasonal_stars' => 0,
+            'final_seasonal_stars' => 200,
+            'participation_bonus' => 56,
+            'placement_bonus' => 40,
+        ];
+
+        $this->assertSame(200, Economy::settlementPayoutSeasonalStars($participation));
+        $this->assertSame(296, Economy::settlementPayoutSourceStars($participation));
+        $this->assertSame(200, Economy::effectiveSeasonalStars($participation));
+    }
+
+    public function testSettlementPayoutSourceStarsUsesLockInSnapshotForSigilHeavyPlayers(): void
+    {
+        $participation = [
+            'lock_in_effect_tick' => 100,
+            'seasonal_stars' => 0,
+            'lock_in_snapshot_seasonal_stars' => 1390,
+            'participation_bonus' => 0,
+            'placement_bonus' => 0,
+        ];
+
+        $this->assertSame(1390, Economy::settlementPayoutSeasonalStars($participation));
+        $this->assertSame(1390, Economy::settlementPayoutSourceStars($participation));
+    }
+
+    public function testNaturalExpiryPayoutUsesSeasonalStarsAndBonusesWithCarry(): void
+    {
+        $payout = Economy::computeNaturalExpiryPayout(200, PARTICIPATION_BONUS_DIVISOR * 80, 2, 500000, true);
+
+        $this->assertSame(200, $payout['payout_seasonal_stars']);
+        $this->assertSame(PARTICIPATION_BONUS_CAP, $payout['participation_bonus']);
+        $this->assertSame(60, $payout['placement_bonus']);
+        $this->assertSame(316, $payout['total_source_stars']);
+        $this->assertSame(316, $payout['global_stars_gained']);
+        $this->assertSame(500000, $payout['global_stars_fractional_fp']);
+        $this->assertSame(50.0, $payout['global_stars_progress_percent']);
+    }
+
     public function testLowerTierSigilsDropMoreFrequentlyThanHigherTiers(): void
     {
         // T1 should dominate conditional drop odds (target: 70%)

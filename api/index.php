@@ -955,11 +955,19 @@ function applyPublishedStarPrice(&$season) {
 }
 
 function seasonEffectiveScoreSql(string $alias = 'sp'): string {
-    return "CASE WHEN {$alias}.lock_in_effect_tick IS NOT NULL THEN COALESCE({$alias}.lock_in_snapshot_seasonal_stars, 0) ELSE COALESCE({$alias}.seasonal_stars, 0) END";
+    return "CASE
+        WHEN {$alias}.lock_in_effect_tick IS NOT NULL THEN COALESCE({$alias}.lock_in_snapshot_seasonal_stars, 0)
+        WHEN COALESCE({$alias}.end_membership, 0) = 1 THEN COALESCE({$alias}.final_seasonal_stars, {$alias}.seasonal_stars, 0)
+        ELSE COALESCE({$alias}.seasonal_stars, 0)
+    END";
 }
 
 function normalizeParticipationScorePayload(array $participation): array {
     $participation['effective_seasonal_stars'] = Economy::effectiveSeasonalStars($participation);
+    $participation['payout_seasonal_stars'] = Economy::settlementPayoutSeasonalStars($participation);
+    $participation['payout_bonus_stars'] = max(0, (int)($participation['participation_bonus'] ?? 0))
+        + max(0, (int)($participation['placement_bonus'] ?? 0));
+    $participation['payout_source_stars'] = Economy::settlementPayoutSourceStars($participation);
     return $participation;
 }
 
@@ -1141,6 +1149,7 @@ function getSeasonDetail($player, $seasonId) {
             [$seasonId]
         );
     }
+    $season['leaderboard'] = normalizeParticipationScorePayloads($season['leaderboard']);
     
     // Player count
     $livePlayerCount = (int)$db->fetch(
@@ -1272,6 +1281,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
             );
         }
         $rows = attachEquippedCosmeticsToRows($rows);
+        $rows = normalizeParticipationScorePayloads($rows);
         foreach ($rows as &$row) {
             $metrics = calculateLeaderboardRowMetrics($season, $row);
             $row['rate_per_tick'] = (float)$metrics['rate_per_tick'];
@@ -1296,6 +1306,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
         $limit > 0 ? [$seasonId, $limit] : [$seasonId]
     );
     $rows = attachEquippedCosmeticsToRows($rows);
+    $rows = normalizeParticipationScorePayloads($rows);
     foreach ($rows as &$row) {
         $row['rate_per_tick'] = 0;
     }

@@ -159,7 +159,90 @@ class Economy {
             return max(0, (int)($participation['lock_in_snapshot_seasonal_stars'] ?? 0));
         }
 
+        if (!empty($participation['end_membership']) && array_key_exists('final_seasonal_stars', $participation)) {
+            return max(0, (int)($participation['final_seasonal_stars'] ?? 0));
+        }
+
         return max(0, (int)($participation['seasonal_stars'] ?? 0));
+    }
+
+    /**
+     * Canonical seasonal-star base used to settle a player into Global Stars.
+     *
+     * Ranking score and settlement base intentionally diverge for natural-expiry
+     * rows once participation/placement bonuses are added. Consumers should use
+     * this helper instead of inferring settlement from leaderboard score fields.
+     */
+    public static function settlementPayoutSeasonalStars($participation): int {
+        if (!$participation || !is_array($participation)) {
+            return 0;
+        }
+
+        if (!empty($participation['lock_in_effect_tick'])) {
+            return max(0, (int)($participation['lock_in_snapshot_seasonal_stars'] ?? 0));
+        }
+
+        if (!empty($participation['end_membership']) && array_key_exists('final_seasonal_stars', $participation)) {
+            return max(0, (int)($participation['final_seasonal_stars'] ?? 0));
+        }
+
+        return max(0, (int)($participation['seasonal_stars'] ?? 0));
+    }
+
+    public static function calculateParticipationBonus(int $activeTicks): int {
+        return min(intdiv(max(0, $activeTicks), PARTICIPATION_BONUS_DIVISOR), PARTICIPATION_BONUS_CAP);
+    }
+
+    public static function calculatePlacementBonus(int $placementRank, bool $awardBadgesAndPlacement = true): int {
+        if (!$awardBadgesAndPlacement) {
+            return 0;
+        }
+
+        return (int)(PLACEMENT_BONUS[$placementRank] ?? 0);
+    }
+
+    /**
+     * Compute natural-expiry settlement using final seasonal stars plus end-of-season bonuses.
+     */
+    public static function computeNaturalExpiryPayout(
+        int $seasonalStars,
+        int $activeTicks,
+        int $placementRank,
+        int $carryFp = 0,
+        bool $awardBadgesAndPlacement = true
+    ): array {
+        $payoutSeasonalStars = max(0, $seasonalStars);
+        $participationBonus = self::calculateParticipationBonus($activeTicks);
+        $placementBonus = self::calculatePlacementBonus($placementRank, $awardBadgesAndPlacement);
+        $totalSourceStars = $payoutSeasonalStars + $participationBonus + $placementBonus;
+        $grant = self::applyGlobalStarsGrantWithCarry($totalSourceStars, $carryFp);
+
+        return [
+            'payout_seasonal_stars' => $payoutSeasonalStars,
+            'participation_bonus' => $participationBonus,
+            'placement_bonus' => $placementBonus,
+            'payout_bonus_stars' => $participationBonus + $placementBonus,
+            'total_source_stars' => $totalSourceStars,
+            'source_stars' => $grant['source_stars'],
+            'grant_fp' => $grant['grant_fp'],
+            'carry_in_fp' => $grant['carry_in_fp'],
+            'total_fp' => $grant['total_fp'],
+            'global_stars_gained' => $grant['global_stars_gained'],
+            'global_stars_fractional_fp' => $grant['global_stars_fractional_fp'],
+            'global_stars_progress_percent' => $grant['global_stars_progress_percent'],
+        ];
+    }
+
+    public static function settlementPayoutSourceStars($participation): int {
+        if (!$participation || !is_array($participation)) {
+            return 0;
+        }
+
+        $payoutSeasonalStars = self::settlementPayoutSeasonalStars($participation);
+        $participationBonus = max(0, (int)($participation['participation_bonus'] ?? 0));
+        $placementBonus = max(0, (int)($participation['placement_bonus'] ?? 0));
+
+        return $payoutSeasonalStars + $participationBonus + $placementBonus;
     }
 
     /**

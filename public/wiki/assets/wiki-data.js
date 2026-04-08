@@ -120,12 +120,11 @@ Persistent account-level progression includes:
             id: "blackout-state",
             title: "Blackout State",
             content: `During **Blackout**, several actions are intentionally disabled:
-- Lock-In
 - Vault purchases
 - Boost activation
 - Sigil theft attempts
 
-You can still hold your position and continue through the final stretch to expiration.`
+You can still buy stars, Lock-In, and hold your position through the final stretch to expiration.`
           },
           {
             id: "expired-state",
@@ -133,8 +132,7 @@ You can still hold your position and continue through the final stretch to expir
             content: `When a season expires, the tick engine finalizes it:
 - Marks end-finishers
 - Calculates final ranking
-- Converts end-finishers' Seasonal Stars to Global Stars 1:1
-- Applies participation and placement bonuses
+- Converts each end-finisher's final Seasonal Stars plus participation and placement bonuses into Global Stars
 - Awards top-3 seasonal badges
 - Clears season-bound resources`
           }
@@ -341,15 +339,16 @@ Entries include active participants, lock-in snapshots, and end-finishers.`
             content: `Lock-In requires:
 - Participating in a season
 - Not idle-gated
-- Season status = Active (not Blackout, not Expired)
+- Season status = Active or Blackout (not Expired)
 - At least 1 participation tick since join`
           },
           {
             id: "lock-in-effects",
             title: "What Lock-In Does",
             content: `Lock-In performs the following:
-- Saves lock-in snapshot
-- Converts Seasonal Stars to Global Stars at 1:1
+- Saves a lock-in snapshot for leaderboard/rank use
+- Refunds T1-T5 sigils back into Seasonal Star value
+- Converts the total to Global Stars at 65%, banking any fractional carry
 - Destroys season-bound resources (coins, seasonal stars, sigils, active boosts)
 - Exits player from season`
           }
