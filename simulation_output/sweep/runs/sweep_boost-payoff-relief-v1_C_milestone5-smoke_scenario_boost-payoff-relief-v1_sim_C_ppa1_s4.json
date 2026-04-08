@@ -1,0 +1,767 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "simulator": "lifetime-overlapping-season",
+    "generated_at": "2026-04-08T20:58:54+00:00",
+    "seed": "milestone5-smoke|scenario|boost-payoff-relief-v1|sim|C",
+    "config": {
+        "players_per_archetype": 1,
+        "total_players": 10,
+        "season_count": 4,
+        "season_duration_ticks": 336,
+        "season_cadence_ticks": 168,
+        "expected_overlap": 2
+    },
+    "season_timeline": [
+        {
+            "season_seq": 1,
+            "season_id": 1,
+            "start_time": 1,
+            "blackout_time": 265,
+            "end_time": 337,
+            "active_seasons_at_start": 1,
+            "entered_players": 6,
+            "skipped_voluntary": 4,
+            "skipped_busy": 0,
+            "lock_ins": 6,
+            "natural_expiry": 0,
+            "late_active_engaged_rate": 0.8333333333333334,
+            "action_volume_by_phase": {
+                "EARLY": {
+                    "boost": 22,
+                    "combine": 2,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "MID": {
+                    "boost": 34,
+                    "combine": 6,
+                    "freeze": 0,
+                    "theft": 3
+                },
+                "LATE_ACTIVE": {
+                    "boost": 15,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "BLACKOUT": {
+                    "boost": 0,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                }
+            },
+            "t6_total": 0
+        },
+        {
+            "season_seq": 2,
+            "season_id": 2,
+            "start_time": 169,
+            "blackout_time": 433,
+            "end_time": 505,
+            "active_seasons_at_start": 2,
+            "entered_players": 4,
+            "skipped_voluntary": 1,
+            "skipped_busy": 5,
+            "lock_ins": 4,
+            "natural_expiry": 0,
+            "late_active_engaged_rate": 0,
+            "action_volume_by_phase": {
+                "EARLY": {
+                    "boost": 10,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "MID": {
+                    "boost": 8,
+                    "combine": 1,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "LATE_ACTIVE": {
+                    "boost": 0,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "BLACKOUT": {
+                    "boost": 0,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                }
+            },
+            "t6_total": 0
+        },
+        {
+            "season_seq": 3,
+            "season_id": 3,
+            "start_time": 337,
+            "blackout_time": 601,
+            "end_time": 673,
+            "active_seasons_at_start": 2,
+            "entered_players": 7,
+            "skipped_voluntary": 2,
+            "skipped_busy": 1,
+            "lock_ins": 6,
+            "natural_expiry": 1,
+            "late_active_engaged_rate": 0.42857142857142855,
+            "action_volume_by_phase": {
+                "EARLY": {
+                    "boost": 17,
+                    "combine": 1,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "MID": {
+                    "boost": 28,
+                    "combine": 6,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "LATE_ACTIVE": {
+                    "boost": 11,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "BLACKOUT": {
+                    "boost": 0,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                }
+            },
+            "t6_total": 0
+        },
+        {
+            "season_seq": 4,
+            "season_id": 4,
+            "start_time": 505,
+            "blackout_time": 769,
+            "end_time": 841,
+            "active_seasons_at_start": 2,
+            "entered_players": 4,
+            "skipped_voluntary": 3,
+            "skipped_busy": 3,
+            "lock_ins": 4,
+            "natural_expiry": 0,
+            "late_active_engaged_rate": 0.75,
+            "action_volume_by_phase": {
+                "EARLY": {
+                    "boost": 17,
+                    "combine": 1,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "MID": {
+                    "boost": 21,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "LATE_ACTIVE": {
+                    "boost": 0,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                },
+                "BLACKOUT": {
+                    "boost": 0,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 0
+                }
+            },
+            "t6_total": 0
+        }
+    ],
+    "players": [
+        {
+            "player_id": 1,
+            "archetype_key": "casual",
+            "archetype_label": "Casual",
+            "seasons_entered": 4,
+            "seasons_skipped": 0,
+            "seasons_skipped_voluntary": 0,
+            "seasons_skipped_busy": 0,
+            "rejoin_delay_average": 0,
+            "rejoin_delay_samples": [
+                0,
+                0,
+                0
+            ],
+            "cumulative_global_stars": 3045,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 4,
+            "natural_expiry_count": 0,
+            "average_final_rank": 3.75,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 1,
+                    "final_effective_score": 1509,
+                    "global_stars_gained": 980,
+                    "final_rank": 4,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 2,
+                    "final_effective_score": 762,
+                    "global_stars_gained": 495,
+                    "final_rank": 4,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 1810,
+                    "global_stars_gained": 1176,
+                    "final_rank": 4,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 4,
+                    "final_effective_score": 607,
+                    "global_stars_gained": 394,
+                    "final_rank": 3,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0,
+            "entry_throughput": 1
+        },
+        {
+            "player_id": 2,
+            "archetype_key": "regular",
+            "archetype_label": "Regular",
+            "seasons_entered": 2,
+            "seasons_skipped": 2,
+            "seasons_skipped_voluntary": 1,
+            "seasons_skipped_busy": 1,
+            "rejoin_delay_average": 1,
+            "rejoin_delay_samples": [
+                1
+            ],
+            "cumulative_global_stars": 1536,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 2,
+            "natural_expiry_count": 0,
+            "average_final_rank": 4.5,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 1,
+                    "final_effective_score": 45,
+                    "global_stars_gained": 29,
+                    "final_rank": 6,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 2319,
+                    "global_stars_gained": 1507,
+                    "final_rank": 3,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.5,
+            "entry_throughput": 0.5
+        },
+        {
+            "player_id": 3,
+            "archetype_key": "hardcore",
+            "archetype_label": "Hardcore",
+            "seasons_entered": 2,
+            "seasons_skipped": 2,
+            "seasons_skipped_voluntary": 0,
+            "seasons_skipped_busy": 2,
+            "rejoin_delay_average": 1,
+            "rejoin_delay_samples": [
+                1
+            ],
+            "cumulative_global_stars": 370,
+            "cumulative_participation_bonus": 56,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 1,
+            "natural_expiry_count": 1,
+            "average_final_rank": 6,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 1,
+                    "final_effective_score": 373,
+                    "global_stars_gained": 242,
+                    "final_rank": 5,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 72,
+                    "global_stars_gained": 128,
+                    "final_rank": 7,
+                    "locked_in": false
+                }
+            ],
+            "skip_rate": 0.5,
+            "entry_throughput": 0.5
+        },
+        {
+            "player_id": 4,
+            "archetype_key": "hoarder",
+            "archetype_label": "Hoarder",
+            "seasons_entered": 2,
+            "seasons_skipped": 2,
+            "seasons_skipped_voluntary": 0,
+            "seasons_skipped_busy": 2,
+            "rejoin_delay_average": 1,
+            "rejoin_delay_samples": [
+                1
+            ],
+            "cumulative_global_stars": 2964,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 2,
+            "natural_expiry_count": 0,
+            "average_final_rank": 2.5,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 1,
+                    "final_effective_score": 1976,
+                    "global_stars_gained": 1284,
+                    "final_rank": 3,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 2586,
+                    "global_stars_gained": 1680,
+                    "final_rank": 2,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.5,
+            "entry_throughput": 0.5
+        },
+        {
+            "player_id": 5,
+            "archetype_key": "early_locker",
+            "archetype_label": "Early Locker",
+            "seasons_entered": 3,
+            "seasons_skipped": 1,
+            "seasons_skipped_voluntary": 1,
+            "seasons_skipped_busy": 0,
+            "rejoin_delay_average": 0,
+            "rejoin_delay_samples": [
+                0,
+                0
+            ],
+            "cumulative_global_stars": 2292,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 3,
+            "natural_expiry_count": 0,
+            "average_final_rank": 3.3333333333333335,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 2,
+                    "final_effective_score": 2113,
+                    "global_stars_gained": 1373,
+                    "final_rank": 1,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 1127,
+                    "global_stars_gained": 732,
+                    "final_rank": 5,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 4,
+                    "final_effective_score": 288,
+                    "global_stars_gained": 187,
+                    "final_rank": 4,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.25,
+            "entry_throughput": 0.75
+        },
+        {
+            "player_id": 6,
+            "archetype_key": "late_deployer",
+            "archetype_label": "Late Deployer",
+            "seasons_entered": 2,
+            "seasons_skipped": 2,
+            "seasons_skipped_voluntary": 1,
+            "seasons_skipped_busy": 1,
+            "rejoin_delay_average": 1,
+            "rejoin_delay_samples": [
+                1
+            ],
+            "cumulative_global_stars": 1716,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 2,
+            "natural_expiry_count": 0,
+            "average_final_rank": 2,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 2,
+                    "final_effective_score": 1822,
+                    "global_stars_gained": 1184,
+                    "final_rank": 2,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 4,
+                    "final_effective_score": 819,
+                    "global_stars_gained": 532,
+                    "final_rank": 2,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.5,
+            "entry_throughput": 0.5
+        },
+        {
+            "player_id": 7,
+            "archetype_key": "boost_focused",
+            "archetype_label": "Boost-Focused",
+            "seasons_entered": 1,
+            "seasons_skipped": 3,
+            "seasons_skipped_voluntary": 3,
+            "seasons_skipped_busy": 0,
+            "rejoin_delay_average": 0,
+            "rejoin_delay_samples": [],
+            "cumulative_global_stars": 679,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 1,
+            "natural_expiry_count": 0,
+            "average_final_rank": 1,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 4,
+                    "final_effective_score": 1046,
+                    "global_stars_gained": 679,
+                    "final_rank": 1,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.75,
+            "entry_throughput": 0.25
+        },
+        {
+            "player_id": 8,
+            "archetype_key": "star_focused",
+            "archetype_label": "Star-Focused",
+            "seasons_entered": 2,
+            "seasons_skipped": 2,
+            "seasons_skipped_voluntary": 0,
+            "seasons_skipped_busy": 2,
+            "rejoin_delay_average": 1,
+            "rejoin_delay_samples": [
+                1
+            ],
+            "cumulative_global_stars": 7393,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 2,
+            "natural_expiry_count": 0,
+            "average_final_rank": 1,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 1,
+                    "final_effective_score": 2287,
+                    "global_stars_gained": 1486,
+                    "final_rank": 1,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 9088,
+                    "global_stars_gained": 5907,
+                    "final_rank": 1,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.5,
+            "entry_throughput": 0.5
+        },
+        {
+            "player_id": 9,
+            "archetype_key": "aggressive_sigil_user",
+            "archetype_label": "Aggressive Sigil User",
+            "seasons_entered": 1,
+            "seasons_skipped": 3,
+            "seasons_skipped_voluntary": 2,
+            "seasons_skipped_busy": 1,
+            "rejoin_delay_average": 0,
+            "rejoin_delay_samples": [],
+            "cumulative_global_stars": 1457,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 1,
+            "natural_expiry_count": 0,
+            "average_final_rank": 2,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 1,
+                    "final_effective_score": 2242,
+                    "global_stars_gained": 1457,
+                    "final_rank": 2,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.75,
+            "entry_throughput": 0.25
+        },
+        {
+            "player_id": 10,
+            "archetype_key": "mostly_idle",
+            "archetype_label": "Mostly Idle",
+            "seasons_entered": 2,
+            "seasons_skipped": 2,
+            "seasons_skipped_voluntary": 2,
+            "seasons_skipped_busy": 0,
+            "rejoin_delay_average": 0,
+            "rejoin_delay_samples": [
+                0
+            ],
+            "cumulative_global_stars": 982,
+            "cumulative_participation_bonus": 0,
+            "cumulative_placement_bonus": 0,
+            "lock_in_count": 2,
+            "natural_expiry_count": 0,
+            "average_final_rank": 4.5,
+            "score_progression_over_time": [
+                {
+                    "season_seq": 2,
+                    "final_effective_score": 1007,
+                    "global_stars_gained": 654,
+                    "final_rank": 3,
+                    "locked_in": true
+                },
+                {
+                    "season_seq": 3,
+                    "final_effective_score": 506,
+                    "global_stars_gained": 328,
+                    "final_rank": 6,
+                    "locked_in": true
+                }
+            ],
+            "skip_rate": 0.5,
+            "entry_throughput": 0.5
+        }
+    ],
+    "archetypes": {
+        "casual": {
+            "label": "Casual",
+            "players": 1,
+            "cumulative_global_stars_sum": 3045,
+            "cumulative_global_stars_avg": 3045,
+            "cumulative_global_stars_median": 3045,
+            "lock_in_count_sum": 4,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 4,
+            "seasons_skipped_avg": 0,
+            "average_final_rank": 3.75
+        },
+        "regular": {
+            "label": "Regular",
+            "players": 1,
+            "cumulative_global_stars_sum": 1536,
+            "cumulative_global_stars_avg": 1536,
+            "cumulative_global_stars_median": 1536,
+            "lock_in_count_sum": 2,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 2,
+            "seasons_skipped_avg": 2,
+            "average_final_rank": 4.5
+        },
+        "hardcore": {
+            "label": "Hardcore",
+            "players": 1,
+            "cumulative_global_stars_sum": 370,
+            "cumulative_global_stars_avg": 370,
+            "cumulative_global_stars_median": 370,
+            "lock_in_count_sum": 1,
+            "natural_expiry_count_sum": 1,
+            "seasons_entered_avg": 2,
+            "seasons_skipped_avg": 2,
+            "average_final_rank": 6
+        },
+        "hoarder": {
+            "label": "Hoarder",
+            "players": 1,
+            "cumulative_global_stars_sum": 2964,
+            "cumulative_global_stars_avg": 2964,
+            "cumulative_global_stars_median": 2964,
+            "lock_in_count_sum": 2,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 2,
+            "seasons_skipped_avg": 2,
+            "average_final_rank": 2.5
+        },
+        "early_locker": {
+            "label": "Early Locker",
+            "players": 1,
+            "cumulative_global_stars_sum": 2292,
+            "cumulative_global_stars_avg": 2292,
+            "cumulative_global_stars_median": 2292,
+            "lock_in_count_sum": 3,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 3,
+            "seasons_skipped_avg": 1,
+            "average_final_rank": 3.3333333333333335
+        },
+        "late_deployer": {
+            "label": "Late Deployer",
+            "players": 1,
+            "cumulative_global_stars_sum": 1716,
+            "cumulative_global_stars_avg": 1716,
+            "cumulative_global_stars_median": 1716,
+            "lock_in_count_sum": 2,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 2,
+            "seasons_skipped_avg": 2,
+            "average_final_rank": 2
+        },
+        "boost_focused": {
+            "label": "Boost-Focused",
+            "players": 1,
+            "cumulative_global_stars_sum": 679,
+            "cumulative_global_stars_avg": 679,
+            "cumulative_global_stars_median": 679,
+            "lock_in_count_sum": 1,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 1,
+            "seasons_skipped_avg": 3,
+            "average_final_rank": 1
+        },
+        "star_focused": {
+            "label": "Star-Focused",
+            "players": 1,
+            "cumulative_global_stars_sum": 7393,
+            "cumulative_global_stars_avg": 7393,
+            "cumulative_global_stars_median": 7393,
+            "lock_in_count_sum": 2,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 2,
+            "seasons_skipped_avg": 2,
+            "average_final_rank": 1
+        },
+        "aggressive_sigil_user": {
+            "label": "Aggressive Sigil User",
+            "players": 1,
+            "cumulative_global_stars_sum": 1457,
+            "cumulative_global_stars_avg": 1457,
+            "cumulative_global_stars_median": 1457,
+            "lock_in_count_sum": 1,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 1,
+            "seasons_skipped_avg": 3,
+            "average_final_rank": 2
+        },
+        "mostly_idle": {
+            "label": "Mostly Idle",
+            "players": 1,
+            "cumulative_global_stars_sum": 982,
+            "cumulative_global_stars_avg": 982,
+            "cumulative_global_stars_median": 982,
+            "lock_in_count_sum": 2,
+            "natural_expiry_count_sum": 0,
+            "seasons_entered_avg": 2,
+            "seasons_skipped_avg": 2,
+            "average_final_rank": 4.5
+        }
+    },
+    "concentration_drift": [
+        {
+            "season_seq": 1,
+            "median_cumulative_global_stars": 29,
+            "top_10_percent_average": 1486,
+            "top_1_percent_average": 1486,
+            "top_10_percent_share": 0.2712668857247171,
+            "top_1_percent_share": 0.2712668857247171,
+            "total_cumulative_global_stars": 5478
+        },
+        {
+            "season_seq": 2,
+            "median_cumulative_global_stars": 1184,
+            "top_10_percent_average": 1486,
+            "top_1_percent_average": 1486,
+            "top_10_percent_share": 0.16180313588850173,
+            "top_1_percent_share": 0.16180313588850173,
+            "total_cumulative_global_stars": 9184
+        },
+        {
+            "season_seq": 3,
+            "median_cumulative_global_stars": 1457,
+            "top_10_percent_average": 7393,
+            "top_1_percent_average": 7393,
+            "top_10_percent_share": 0.3581532797209573,
+            "top_1_percent_share": 0.3581532797209573,
+            "total_cumulative_global_stars": 20642
+        },
+        {
+            "season_seq": 4,
+            "median_cumulative_global_stars": 1536,
+            "top_10_percent_average": 7393,
+            "top_1_percent_average": 7393,
+            "top_10_percent_share": 0.32954444147276457,
+            "top_1_percent_share": 0.32954444147276457,
+            "total_cumulative_global_stars": 22434
+        }
+    ],
+    "population_diagnostics": {
+        "total_cumulative_global_stars": 22434,
+        "average_cumulative_global_stars": 2243.4,
+        "consistent_participation_group": {
+            "players": 2,
+            "average_cumulative_global_stars": 2668.5
+        },
+        "skip_heavy_group": {
+            "players": 8,
+            "average_cumulative_global_stars": 2137.125
+        },
+        "skip_strategy_edge": -531.375,
+        "highest_compounding_archetype": {
+            "label": "Star-Focused",
+            "avg": 7393
+        },
+        "throughput_lock_in_rate": 0.9523809523809523,
+        "seed_checksum": "2f19629f467c4335f5f3b461bb10c251233e0d2c6593b9fbe8741ce6a93e06a8"
+    },
+    "unmodeled_mechanics": {
+        "idle_ack_reactivation_snapshot": "Simulation uses direct phase-aware presence selection and does not emulate manual idle acknowledgements.",
+        "vault_market_spending": "Vault supply/cost interactions are excluded in Phase 1 to keep seasonal economy focus on coins, stars, sigils, boosts, theft, freeze, and settlement.",
+        "live_api_concurrency_ordering": "Actions are resolved in a deterministic per-tick order after accrual instead of concurrent API timing."
+    },
+    "sweep": {
+        "schema_version": "tmc-sim-sweep.v1",
+        "scenario_name": "boost-payoff-relief-v1",
+        "scenario_description": "Lightly ease spend pressure so boost-heavy paths can convert value more reliably.",
+        "simulator_type": "C",
+        "is_baseline": false,
+        "seed": "milestone5-smoke|scenario|boost-payoff-relief-v1|sim|C",
+        "cohort": {
+            "players_per_archetype": 1,
+            "total_players": 10
+        },
+        "horizon": {
+            "season_count": 4
+        },
+        "override_keys": [
+            "target_spend_rate_per_tick",
+            "hoarding_min_factor_fp",
+            "hoarding_safe_hours"
+        ],
+        "override_categories": [
+            "boost_related",
+            "lock_in_expiry_incentives",
+            "hoarding_preservation_pressure"
+        ]
+    }
+}

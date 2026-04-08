@@ -1,0 +1,118 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-08T20:58:54+00:00",
+    "seed": "milestone5-smoke",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 1,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "boost-payoff-relief-v1"
+        ]
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "milestone5-smoke|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep\\runs\\sweep_baseline_B_milestone5-smoke_scenario_baseline_sim_B_ppa1.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_baseline_B_milestone5-smoke_scenario_baseline_sim_B_ppa1.csv"
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "milestone5-smoke|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep\\runs\\sweep_baseline_C_milestone5-smoke_scenario_baseline_sim_C_ppa1_s4.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_baseline_C_milestone5-smoke_scenario_baseline_sim_C_ppa1_s4.csv"
+        },
+        {
+            "scenario_name": "boost-payoff-relief-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "milestone5-smoke|scenario|boost-payoff-relief-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "boost_related",
+                "lock_in_expiry_incentives",
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_B_milestone5-smoke_scenario_boost-payoff-relief-v1_sim_B_ppa1.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_B_milestone5-smoke_scenario_boost-payoff-relief-v1_sim_B_ppa1.csv"
+        },
+        {
+            "scenario_name": "boost-payoff-relief-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "milestone5-smoke|scenario|boost-payoff-relief-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "boost_related",
+                "lock_in_expiry_incentives",
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_C_milestone5-smoke_scenario_boost-payoff-relief-v1_sim_C_ppa1_s4.json",
+            "csv": "simulation_output/sweep\\runs\\sweep_boost-payoff-relief-v1_C_milestone5-smoke_scenario_boost-payoff-relief-v1_sim_C_ppa1_s4.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}
