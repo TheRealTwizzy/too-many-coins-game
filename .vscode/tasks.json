@@ -1,0 +1,156 @@
+{
+    "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "tmcSimSeed",
+            "type": "promptString",
+            "description": "Seed / run identifier",
+            "default": "current-db"
+        },
+        {
+            "id": "tmcSimPlayersPerArchetype",
+            "type": "promptString",
+            "description": "Players per archetype",
+            "default": "5"
+        },
+        {
+            "id": "tmcSimSeasons",
+            "type": "promptString",
+            "description": "Season count for Sim C and Sim D",
+            "default": "12"
+        },
+        {
+            "id": "tmcSimScenarios",
+            "type": "promptString",
+            "description": "Comma-separated Sim D scenarios",
+            "default": "hoarder-pressure-v1"
+        }
+    ],
+    "tasks": [
+        {
+            "label": "Tunnel Current DB",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\tools\\Start-TmcDbTunnel.ps1",
+                "-ConfigPath",
+                "${workspaceFolder}\\tools\\local\\tmc-sim.current.ps1"
+            ],
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Export Current DB",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\tools\\Invoke-TmcSimulationStep.ps1",
+                "-Step",
+                "export",
+                "-ConfigPath",
+                "${workspaceFolder}\\tools\\local\\tmc-sim.current.ps1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Sim B Current DB",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\tools\\Invoke-TmcSimulationStep.ps1",
+                "-Step",
+                "sim-b",
+                "-ConfigPath",
+                "${workspaceFolder}\\tools\\local\\tmc-sim.current.ps1",
+                "-Seed",
+                "${input:tmcSimSeed}",
+                "-PlayersPerArchetype",
+                "${input:tmcSimPlayersPerArchetype}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Sim C Current DB",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\tools\\Invoke-TmcSimulationStep.ps1",
+                "-Step",
+                "sim-c",
+                "-ConfigPath",
+                "${workspaceFolder}\\tools\\local\\tmc-sim.current.ps1",
+                "-Seed",
+                "${input:tmcSimSeed}",
+                "-PlayersPerArchetype",
+                "${input:tmcSimPlayersPerArchetype}",
+                "-Seasons",
+                "${input:tmcSimSeasons}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Sim D Current DB",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\tools\\Invoke-TmcSimulationStep.ps1",
+                "-Step",
+                "sim-d",
+                "-ConfigPath",
+                "${workspaceFolder}\\tools\\local\\tmc-sim.current.ps1",
+                "-Seed",
+                "${input:tmcSimSeed}",
+                "-PlayersPerArchetype",
+                "${input:tmcSimPlayersPerArchetype}",
+                "-Seasons",
+                "${input:tmcSimSeasons}",
+                "-Scenarios",
+                "${input:tmcSimScenarios}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Sim E Current DB",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\tools\\Invoke-TmcSimulationStep.ps1",
+                "-Step",
+                "sim-e",
+                "-ConfigPath",
+                "${workspaceFolder}\\tools\\local\\tmc-sim.current.ps1",
+                "-Seed",
+                "${input:tmcSimSeed}",
+                "-PlayersPerArchetype",
+                "${input:tmcSimPlayersPerArchetype}",
+                "-Seasons",
+                "${input:tmcSimSeasons}"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

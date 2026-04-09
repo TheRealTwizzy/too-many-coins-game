@@ -273,3 +273,88 @@ All five simulators are fully deterministic for a given seed. Re-running with th
 | C | `simulation_output/lifetime/` |
 | D | `simulation_output/sweep/` and `simulation_output/sweep/runs/` |
 | E | `simulation_output/comparator/` |
+
+---
+
+## Windows + VS Code + Hostinger VPS workflow
+
+This workflow runs the existing export and simulation scripts from VS Code on Windows against the current Hostinger-backed database through an SSH tunnel.
+
+### Prerequisites
+
+- Windows OpenSSH client available as `ssh.exe`
+- PHP CLI available in the VS Code integrated terminal
+- SSH key-based access to the current VPS endpoint
+- The current database host, port, name, user, and password from Hostinger
+- A local secret config file at `tools/local/tmc-sim.current.ps1`
+
+### Local config file
+
+Copy `tools/tmc-sim.config.example.ps1` to `tools/local/tmc-sim.current.ps1` and fill in the real values locally.
+
+Expected variables:
+
+- `TmcSshHost`
+- `TmcSshPort`
+- `TmcSshUser`
+- `TmcSshKeyPath` (full private key file path, not just `.ssh` folder)
+- `TmcRemoteDbHost`
+- `TmcRemoteDbPort`
+- `TmcDbName`
+- `TmcDbUser`
+- `TmcDbPass`
+- `TmcLocalForwardPort`
+
+The local config file is ignored by Git and should never be committed.
+
+### VS Code tasks
+
+The workspace provides these tasks:
+
+- `Tunnel Current DB`
+- `Export Current DB`
+- `Sim B Current DB`
+- `Sim C Current DB`
+- `Sim D Current DB`
+- `Sim E Current DB`
+
+`Tunnel Current DB` keeps an SSH port forward open in its own terminal, using `TmcSshKeyPath`:
+
+- `127.0.0.1:<LocalForwardPort>` on your machine
+- forwarded to `<RemoteDbHost>:<RemoteDbPort>` through `<SshUser>@<SshHost>`
+
+Keep that tunnel terminal running while export and simulation tasks execute.
+
+### Usage flow in VS Code
+
+1. Run `Tasks: Run Task` -> `Tunnel Current DB`.
+2. Leave that terminal open after the tunnel connects.
+3. Run `Export Current DB` to write `simulation_output/current-db/export/current_season.json`.
+4. Run `Sim B Current DB` using the seed and cohort size you want.
+5. Run `Sim C Current DB` using the same seed, cohort size, and season count you want.
+6. Run `Sim D Current DB` using the same seed, cohort size, and season count, plus the scenario list you want.
+7. Run `Sim E Current DB` with the same seed, cohort size, and season count so it can read the sweep manifest from Sim D.
+
+For `Sim C Current DB` and `Sim D Current DB`, the PowerShell wrapper sets `TMC_TICK_REAL_SECONDS=3600` automatically for the current process only.
+
+### Output locations
+
+- Export: `simulation_output/current-db/export/current_season.json`
+- Sim B: `simulation_output/current-db/season/`
+- Sim C: `simulation_output/current-db/lifetime/`
+- Sim D: `simulation_output/current-db/sweep/`
+- Sim E: `simulation_output/current-db/comparator/`
+
+Sim E expects the Sim D manifest at:
+
+- `simulation_output/current-db/sweep/policy_sweep_<seed>_ppa<players-per-archetype>_s<seasons>.json`
+
+Keep the `seed`, `players-per-archetype`, and `seasons` inputs aligned between Sim D and Sim E.
+
+### Troubleshooting
+
+- `Config file not found`: create `tools/local/tmc-sim.current.ps1` from the example file first.
+- `Missing required config value`: fill in the missing SSH or DB value in the local config file.
+- `ssh.exe exited with code ...`: verify the VPS SSH host, port, user, key path, and that the VPS can reach the Hostinger MySQL host.
+- `Database connection failed`: confirm the tunnel is still running and that `LocalForwardPort`, `DbName`, `DbUser`, and `DbPass` match the current database.
+- `Expected sweep manifest not found`: run Sim D first, or re-run Sim E with the same seed, player count, and season count used for Sim D.
