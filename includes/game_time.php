@@ -16,6 +16,13 @@ class GameTime {
     private static $serverEpoch = null;
     private static $legacyScaleChecked = false;
     private static $secondScaleChecked = false;
+
+    /**
+     * Simulation clock override.
+     * When non-null, now() returns this value instead of deriving from wall clock.
+     * Only set via setSimulationTick() during fresh-run simulation; null in production.
+     */
+    private static $simulationTick = null;
     
     /**
      * Get the real-world Unix timestamp when the server was first initialized
@@ -36,8 +43,14 @@ class GameTime {
     /**
      * Get current game time.
      * Game time = floor(real_elapsed_seconds / TICK_REAL_SECONDS) * TIME_SCALE
+     *
+     * When simulation clock override is active, returns the overridden tick value
+     * instead of deriving from wall clock.
      */
     public static function now() {
+        if (self::$simulationTick !== null) {
+            return self::$simulationTick;
+        }
         $realElapsed = time() - self::getServerEpoch();
         $baseTicks = intdiv(max(0, $realElapsed), TICK_REAL_SECONDS);
         return max(0, $baseTicks * TIME_SCALE);
@@ -48,6 +61,42 @@ class GameTime {
      */
     public static function globalTick() {
         return self::now();
+    }
+
+    /**
+     * Set an explicit simulation tick override.
+     *
+     * When set, now() and globalTick() return this value instead of deriving
+     * from wall clock. This allows fresh-run simulation to drive game time
+     * through explicit tick input while reusing all production runtime paths.
+     *
+     * Safety: requires TMC_SIMULATION_MODE=fresh-run environment variable.
+     * Throws if called outside simulation mode.
+     *
+     * @param int $tick  The explicit game tick to set
+     * @throws \RuntimeException if simulation mode is not active
+     */
+    public static function setSimulationTick(int $tick): void {
+        if (getenv('TMC_SIMULATION_MODE') !== 'fresh-run') {
+            throw new \RuntimeException(
+                'GameTime::setSimulationTick() requires TMC_SIMULATION_MODE=fresh-run'
+            );
+        }
+        self::$simulationTick = max(0, $tick);
+    }
+
+    /**
+     * Clear the simulation tick override, restoring wall-clock derivation.
+     */
+    public static function clearSimulationTick(): void {
+        self::$simulationTick = null;
+    }
+
+    /**
+     * Check whether a simulation tick override is currently active.
+     */
+    public static function isSimulationClockActive(): bool {
+        return self::$simulationTick !== null;
     }
 
     /**

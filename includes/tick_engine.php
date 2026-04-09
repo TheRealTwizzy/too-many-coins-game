@@ -57,6 +57,29 @@ class TickEngine {
             [$gameTime]
         );
     }
+
+    /**
+     * Process a single explicit game tick through the same season processing
+     * path used by processTicks().
+     *
+     * This is the simulation entrypoint for fresh-run mode: the caller supplies
+     * an explicit tick value, the simulation clock is set to that value, and
+     * season processing runs exactly as it would in production.
+     *
+     * Clock lifecycle: the caller owns clearing the simulation tick via
+     * GameTime::clearSimulationTick(). This method sets the tick but does NOT
+     * clear it, so sequential processTickAt() calls within an orchestration
+     * loop see a consistent clock between set and clear.
+     *
+     * Safety: requires TMC_SIMULATION_MODE=fresh-run (enforced by GameTime::setSimulationTick).
+     *
+     * @param int $tick  The explicit game tick to process
+     * @throws \RuntimeException if simulation mode is not active
+     */
+    public static function processTickAt(int $tick): void {
+        GameTime::setSimulationTick($tick);
+        self::processTicks();
+    }
     
     /**
      * Process a single tick batch for a season
