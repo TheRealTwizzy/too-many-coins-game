@@ -118,9 +118,10 @@ $exportDir = Join-Path $outputRoot 'export'
 $seasonDir = Join-Path $outputRoot 'season'
 $lifetimeDir = Join-Path $outputRoot 'lifetime'
 $sweepDir = Join-Path $outputRoot 'sweep'
+$sweepRunsDir = Join-Path $sweepDir 'runs'
 $comparatorDir = Join-Path $outputRoot 'comparator'
 
-$null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $comparatorDir
+$null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $sweepRunsDir, $comparatorDir
 
 $exportPath = Join-Path $exportDir 'current_season.json'
 $manifestPath = Join-Path $sweepDir ("policy_sweep_{0}_ppa{1}_s{2}.json" -f $Seed, $PlayersPerArchetype, $Seasons)
