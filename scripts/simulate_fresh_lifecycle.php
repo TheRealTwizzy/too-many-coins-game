@@ -4,13 +4,14 @@
  *
  * Milestone 1: Safety boundary + disposable DB bootstrap/reset/teardown.
  * Milestone 2: Simulation clock adapter + explicit tick-driven processing.
- * Full lifecycle orchestration is deferred to Milestone 3.
+ * Milestone 3A: Lifecycle runner shell + orchestration entrypoint.
  *
  * Usage:
  *   php scripts/simulate_fresh_lifecycle.php --action=bootstrap [--drop-first]
  *   php scripts/simulate_fresh_lifecycle.php --action=teardown
  *   php scripts/simulate_fresh_lifecycle.php --action=status
  *   php scripts/simulate_fresh_lifecycle.php --action=tick --game-tick=<N>
+ *   php scripts/simulate_fresh_lifecycle.php --action=lifecycle [--drop-first] [--seed=N] [--cohort-size=N]
  *
  * Required environment variables:
  *   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
@@ -25,6 +26,7 @@ if (php_sapi_name() !== 'cli') {
 
 require_once __DIR__ . '/simulation/FreshRunSafety.php';
 require_once __DIR__ . '/simulation/FreshRunBootstrap.php';
+require_once __DIR__ . '/simulation/FreshLifecycleRunner.php';
 
 // --- Parse CLI arguments ---
 $options = getopt('', [
@@ -37,41 +39,47 @@ $options = getopt('', [
     'db-user:',
     'db-pass:',
     'game-tick:',
+    'seed:',
+    'cohort-size:',
 ]);
 
 if (isset($options['help']) || !isset($options['action'])) {
     fwrite(STDOUT, <<<HELP
-Fresh Lifecycle Simulation CLI (Milestone 1-2: Bootstrap/Safety/Tick)
+Fresh Lifecycle Simulation CLI (Milestone 1-3A: Bootstrap/Safety/Tick/Lifecycle)
 
 Usage:
   php scripts/simulate_fresh_lifecycle.php --action=bootstrap [--drop-first]
   php scripts/simulate_fresh_lifecycle.php --action=teardown
   php scripts/simulate_fresh_lifecycle.php --action=status
   php scripts/simulate_fresh_lifecycle.php --action=tick --game-tick=<N>
+  php scripts/simulate_fresh_lifecycle.php --action=lifecycle [--drop-first] [--seed=N] [--cohort-size=N]
 
 Actions:
   bootstrap   Create disposable DB from schema + seed + migrations
   teardown    Drop disposable DB for clean rerun
   status      Check if disposable DB exists
   tick        Process a single explicit game tick through TickEngine
+  lifecycle   Run fresh lifecycle orchestration shell (Milestone 3A: skeleton only)
 
 Required environment:
   TMC_SIMULATION_MODE=fresh-run
-  TMC_FRESH_RUN_DESTRUCTIVE_RESET=1  (for bootstrap --drop-first and teardown)
+  TMC_FRESH_RUN_DESTRUCTIVE_RESET=1  (for bootstrap --drop-first, teardown, and lifecycle --drop-first)
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 
 DB name must match a safe prefix: tmc_sim_*, tmc_fresh_*, tmc_test_sim_*
 DB host must be local: 127.0.0.1, localhost, or ::1
 
 Options:
-  --db-host=HOST   Override DB_HOST env var
-  --db-port=PORT   Override DB_PORT env var
-  --db-name=NAME   Override DB_NAME env var
-  --db-user=USER   Override DB_USER env var
-  --db-pass=PASS   Override DB_PASS env var
-  --drop-first     Drop existing DB before bootstrap (requires destructive-reset flag)
-  --game-tick=N    Explicit game tick to process (required for --action=tick)
-  --help           Show this help
+  --db-host=HOST       Override DB_HOST env var
+  --db-port=PORT       Override DB_PORT env var
+  --db-name=NAME       Override DB_NAME env var
+  --db-user=USER       Override DB_USER env var
+  --db-pass=PASS       Override DB_PASS env var
+  --drop-first         Drop existing DB before bootstrap (requires destructive-reset flag)
+  --game-tick=N        Explicit game tick to process (required for --action=tick)
+  --seed=N             Deterministic seed for lifecycle run (default: 42)
+  --cohort-size=N      Players per archetype (default: 100)
+  --help               Show this help
 
 HELP
     );
@@ -147,6 +155,45 @@ switch ($action) {
 
         // Clear simulation clock after explicit tick action completes
         GameTime::clearSimulationTick();
+        break;
+
+    case 'lifecycle':
+        $seed = isset($options['seed']) ? (int)$options['seed'] : 42;
+        $cohortSize = isset($options['cohort-size']) ? (int)$options['cohort-size'] : 100;
+
+        $runner = new FreshLifecycleRunner([
+            'db_host'     => $dbHost,
+            'db_port'     => $dbPort,
+            'db_name'     => $dbName,
+            'db_user'     => $dbUser,
+            'db_pass'     => $dbPass,
+            'seed'        => $seed,
+            'cohort_size' => $cohortSize,
+            'drop_first'  => $dropFirst,
+        ]);
+
+        fwrite(STDOUT, "Fresh lifecycle run: $dbName on $dbHost:$dbPort (seed=$seed, cohort_size=$cohortSize)\n");
+
+        // Phase 1: prepare (validate + bootstrap)
+        $prepResult = $runner->prepare();
+        fwrite(STDOUT, "Prepare status: {$prepResult['status']}\n");
+        foreach ($prepResult['steps'] as $step) {
+            fwrite(STDOUT, "  • $step\n");
+        }
+        if ($runner->getState() === FreshLifecycleRunner::STATE_FAILED) {
+            fwrite(STDERR, "Lifecycle preparation failed. Aborting.\n");
+            exit(1);
+        }
+
+        // Phase 2: run (Milestone 3A: skeleton only)
+        $runResult = $runner->run();
+        fwrite(STDOUT, "Run status: {$runResult['status']}\n");
+        fwrite(STDOUT, "  {$runResult['message']}\n");
+        if (!empty($runResult['unmodeled_mechanics'])) {
+            fwrite(STDOUT, "  Unmodeled mechanics: " . implode(', ', $runResult['unmodeled_mechanics']) . "\n");
+        }
+
+        fwrite(STDOUT, "Runner state: {$runner->getState()}\n");
         break;
 
     default:
