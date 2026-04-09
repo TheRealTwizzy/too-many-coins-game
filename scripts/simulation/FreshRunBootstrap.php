@@ -174,6 +174,27 @@ class FreshRunBootstrap
         return $this->databaseExists($pdo);
     }
 
+    /**
+     * Get a PDO connection to the disposable simulation database.
+     *
+     * Safety: validates simulation mode before returning a connection.
+     * Callers must not use this to connect to non-simulation databases.
+     *
+     * @return PDO
+     */
+    public function getConnection(): PDO
+    {
+        FreshRunSafety::validateOrDie(
+            $this->dbHost,
+            $this->dbPort,
+            $this->dbName,
+            $this->dbUser,
+            false
+        );
+
+        return $this->connectToDb();
+    }
+
     // --- Internal helpers ---
 
     private function connectWithoutDb(): PDO

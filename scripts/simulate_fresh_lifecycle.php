@@ -5,6 +5,7 @@
  * Milestone 1: Safety boundary + disposable DB bootstrap/reset/teardown.
  * Milestone 2: Simulation clock adapter + explicit tick-driven processing.
  * Milestone 3A: Lifecycle runner shell + orchestration entrypoint.
+ * Milestone 3B: Deterministic cohort generation + synthetic player creation.
  *
  * Usage:
  *   php scripts/simulate_fresh_lifecycle.php --action=bootstrap [--drop-first]
@@ -12,6 +13,7 @@
  *   php scripts/simulate_fresh_lifecycle.php --action=status
  *   php scripts/simulate_fresh_lifecycle.php --action=tick --game-tick=<N>
  *   php scripts/simulate_fresh_lifecycle.php --action=lifecycle [--drop-first] [--seed=N] [--cohort-size=N]
+ *   php scripts/simulate_fresh_lifecycle.php --action=cohort [--drop-first] [--seed=N] [--cohort-size=N]
  *
  * Required environment variables:
  *   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
@@ -45,7 +47,7 @@ $options = getopt('', [
 
 if (isset($options['help']) || !isset($options['action'])) {
     fwrite(STDOUT, <<<HELP
-Fresh Lifecycle Simulation CLI (Milestone 1-3A: Bootstrap/Safety/Tick/Lifecycle)
+Fresh Lifecycle Simulation CLI (Milestone 1-3B: Bootstrap/Safety/Tick/Lifecycle/Cohort)
 
 Usage:
   php scripts/simulate_fresh_lifecycle.php --action=bootstrap [--drop-first]
@@ -53,13 +55,15 @@ Usage:
   php scripts/simulate_fresh_lifecycle.php --action=status
   php scripts/simulate_fresh_lifecycle.php --action=tick --game-tick=<N>
   php scripts/simulate_fresh_lifecycle.php --action=lifecycle [--drop-first] [--seed=N] [--cohort-size=N]
+  php scripts/simulate_fresh_lifecycle.php --action=cohort [--drop-first] [--seed=N] [--cohort-size=N]
 
 Actions:
   bootstrap   Create disposable DB from schema + seed + migrations
   teardown    Drop disposable DB for clean rerun
   status      Check if disposable DB exists
   tick        Process a single explicit game tick through TickEngine
-  lifecycle   Run fresh lifecycle orchestration shell (Milestone 3A: skeleton only)
+  lifecycle   Run fresh lifecycle orchestration (validate + prepare + cohort creation)
+  cohort      Create synthetic player cohort only (validate + prepare + cohort, no tick loop)
 
 Required environment:
   TMC_SIMULATION_MODE=fresh-run
@@ -185,12 +189,67 @@ switch ($action) {
             exit(1);
         }
 
-        // Phase 2: run (Milestone 3A: skeleton only)
+        // Phase 2: run (validate + prepare + cohort generation)
         $runResult = $runner->run();
         fwrite(STDOUT, "Run status: {$runResult['status']}\n");
         fwrite(STDOUT, "  {$runResult['message']}\n");
+        if (!empty($runResult['cohort'])) {
+            $cohort = $runResult['cohort'];
+            fwrite(STDOUT, "  Cohort: {$cohort['total_players']} players across {$cohort['archetype_count']} archetypes\n");
+            foreach ($cohort['archetypes'] ?? [] as $key => $info) {
+                fwrite(STDOUT, "    {$info['label']}: {$info['count']} players\n");
+            }
+        }
+        if (!empty($runResult['adapted_paths'])) {
+            fwrite(STDOUT, "  Adapted paths: " . implode(', ', $runResult['adapted_paths']) . "\n");
+        }
         if (!empty($runResult['unmodeled_mechanics'])) {
             fwrite(STDOUT, "  Unmodeled mechanics: " . implode(', ', $runResult['unmodeled_mechanics']) . "\n");
+        }
+
+        fwrite(STDOUT, "Runner state: {$runner->getState()}\n");
+        break;
+
+    case 'cohort':
+        $seed = isset($options['seed']) ? (int)$options['seed'] : 42;
+        $cohortSize = isset($options['cohort-size']) ? (int)$options['cohort-size'] : 100;
+
+        $runner = new FreshLifecycleRunner([
+            'db_host'     => $dbHost,
+            'db_port'     => $dbPort,
+            'db_name'     => $dbName,
+            'db_user'     => $dbUser,
+            'db_pass'     => $dbPass,
+            'seed'        => $seed,
+            'cohort_size' => $cohortSize,
+            'drop_first'  => $dropFirst,
+        ]);
+
+        fwrite(STDOUT, "Cohort generation: $dbName on $dbHost:$dbPort (seed=$seed, cohort_size=$cohortSize)\n");
+
+        // Phase 1: prepare
+        $prepResult = $runner->prepare();
+        fwrite(STDOUT, "Prepare status: {$prepResult['status']}\n");
+        foreach ($prepResult['steps'] as $step) {
+            fwrite(STDOUT, "  • $step\n");
+        }
+        if ($runner->getState() === FreshLifecycleRunner::STATE_FAILED) {
+            fwrite(STDERR, "Preparation failed. Aborting.\n");
+            exit(1);
+        }
+
+        // Phase 2: cohort only
+        $cohortResult = $runner->createCohort();
+        fwrite(STDOUT, "Cohort status: {$cohortResult['status']}\n");
+        if (($cohortResult['status'] ?? '') === 'created') {
+            fwrite(STDOUT, "  Total players: {$cohortResult['total_players']}\n");
+            fwrite(STDOUT, "  Archetypes: {$cohortResult['archetype_count']}\n");
+            foreach ($cohortResult['archetypes'] as $key => $info) {
+                fwrite(STDOUT, "    {$info['label']}: {$info['count']} players (IDs: " . implode(',', array_slice($info['player_ids'], 0, 3)) . "...)\n");
+            }
+        } else {
+            fwrite(STDERR, "  " . ($cohortResult['message'] ?? 'Unknown error') . "\n");
+            exit(1);
         }
 
         fwrite(STDOUT, "Runner state: {$runner->getState()}\n");

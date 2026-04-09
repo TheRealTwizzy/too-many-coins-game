@@ -164,6 +164,7 @@ class FreshLifecycleRunnerTest extends TestCase
         $result = $runner->run();
         $this->assertSame('rejected', $result['status']);
         $this->assertStringContainsString('idle', $result['message']);
+        $this->assertNull($result['cohort']);
     }
 
     public function testRunRejectsFromFailedState(): void
@@ -180,50 +181,62 @@ class FreshLifecycleRunnerTest extends TestCase
     // Run stub result structure (Milestone 3A skeleton)
     // -----------------------------------------------------------------------
 
-    public function testRunStubReturnsExpectedStructure(): void
+    public function testRunReturnsExpectedStructureKeys(): void
     {
-        $this->setFreshRunEnv();
         $runner = new FreshLifecycleRunner($this->safeConfig());
-
-        // We can't call prepare() without a real DB, so manually set state to ready
-        // to test the stub execution path. This is a test-only shortcut.
-        $ref = new ReflectionClass($runner);
-        $prop = $ref->getProperty('state');
-        $prop->setValue($runner, FreshLifecycleRunner::STATE_READY);
-
         $result = $runner->run();
-        $this->assertSame('completed_stub', $result['status']);
+        // Even a rejected run returns the expected keys
+        $this->assertArrayHasKey('status', $result);
         $this->assertArrayHasKey('message', $result);
+        $this->assertArrayHasKey('cohort', $result);
         $this->assertArrayHasKey('adapted_paths', $result);
         $this->assertArrayHasKey('unmodeled_mechanics', $result);
         $this->assertIsArray($result['adapted_paths']);
         $this->assertIsArray($result['unmodeled_mechanics']);
     }
 
-    public function testRunStubTransitionsToCompleted(): void
+    public function testRunFromCohortCreatedAcceptsRun(): void
     {
         $this->setFreshRunEnv();
         $runner = new FreshLifecycleRunner($this->safeConfig());
 
+        // Simulate a runner that already created a cohort (3B state)
         $ref = new ReflectionClass($runner);
-        $prop = $ref->getProperty('state');
-        $prop->setValue($runner, FreshLifecycleRunner::STATE_READY);
+        $stateProp = $ref->getProperty('state');
+        $stateProp->setValue($runner, FreshLifecycleRunner::STATE_COHORT_CREATED);
+        $manifestProp = $ref->getProperty('cohortManifest');
+        $manifestProp->setValue($runner, [
+            'status' => 'created', 'total_players' => 10,
+            'archetype_count' => 10, 'archetypes' => [],
+            'player_map' => [], 'adapted_paths' => ['synthetic_player_insert'],
+            'seed' => '42', 'players_per_archetype' => 1,
+        ]);
 
-        $runner->run();
+        $result = $runner->run();
+        $this->assertSame('completed', $result['status']);
         $this->assertSame(FreshLifecycleRunner::STATE_COMPLETED, $runner->getState());
     }
 
-    public function testRunStubRecordsUnmodeledMechanics(): void
+    public function testRunRecordsUnmodeledMechanicsFor3B(): void
     {
         $this->setFreshRunEnv();
         $runner = new FreshLifecycleRunner($this->safeConfig());
 
         $ref = new ReflectionClass($runner);
-        $prop = $ref->getProperty('state');
-        $prop->setValue($runner, FreshLifecycleRunner::STATE_READY);
+        $stateProp = $ref->getProperty('state');
+        $stateProp->setValue($runner, FreshLifecycleRunner::STATE_COHORT_CREATED);
+        $manifestProp = $ref->getProperty('cohortManifest');
+        $manifestProp->setValue($runner, [
+            'status' => 'created', 'total_players' => 10,
+            'archetype_count' => 10, 'archetypes' => [],
+            'player_map' => [], 'adapted_paths' => ['synthetic_player_insert'],
+            'seed' => '42', 'players_per_archetype' => 1,
+        ]);
 
         $result = $runner->run();
-        $this->assertContains('cohort_generation', $result['unmodeled_mechanics']);
+        // cohort_generation is now modeled; these remain unmodeled
+        $this->assertNotContains('cohort_generation', $result['unmodeled_mechanics']);
+        $this->assertContains('season_join', $result['unmodeled_mechanics']);
         $this->assertContains('tick_loop', $result['unmodeled_mechanics']);
         $this->assertContains('action_scheduling', $result['unmodeled_mechanics']);
         $this->assertContains('finalization', $result['unmodeled_mechanics']);
@@ -235,14 +248,21 @@ class FreshLifecycleRunnerTest extends TestCase
         $runner = new FreshLifecycleRunner($this->safeConfig());
 
         $ref = new ReflectionClass($runner);
-        $prop = $ref->getProperty('state');
-        $prop->setValue($runner, FreshLifecycleRunner::STATE_READY);
+        $stateProp = $ref->getProperty('state');
+        $stateProp->setValue($runner, FreshLifecycleRunner::STATE_COHORT_CREATED);
+        $manifestProp = $ref->getProperty('cohortManifest');
+        $manifestProp->setValue($runner, [
+            'status' => 'created', 'total_players' => 10,
+            'archetype_count' => 10, 'archetypes' => [],
+            'player_map' => [], 'adapted_paths' => ['synthetic_player_insert'],
+            'seed' => '42', 'players_per_archetype' => 1,
+        ]);
 
         $runner->run();
         $log = $runner->getRunLog();
         $events = array_column($log, 'event');
         $this->assertContains('run_started', $events);
-        $this->assertContains('run_completed_stub', $events);
+        $this->assertContains('run_completed', $events);
     }
 
     // -----------------------------------------------------------------------
@@ -256,10 +276,28 @@ class FreshLifecycleRunnerTest extends TestCase
             FreshLifecycleRunner::STATE_VALIDATING,
             FreshLifecycleRunner::STATE_PREPARING,
             FreshLifecycleRunner::STATE_READY,
+            FreshLifecycleRunner::STATE_COHORT_CREATED,
             FreshLifecycleRunner::STATE_RUNNING,
             FreshLifecycleRunner::STATE_COMPLETED,
             FreshLifecycleRunner::STATE_FAILED,
         ];
         $this->assertCount(count($states), array_unique($states), 'All state constants must be unique');
+    }
+
+    // -----------------------------------------------------------------------
+    // Cohort creation — state gating (Milestone 3B)
+    // -----------------------------------------------------------------------
+
+    public function testCreateCohortRejectsFromIdleState(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $result = $runner->createCohort();
+        $this->assertSame('rejected', $result['status']);
+    }
+
+    public function testGetCohortManifestIsNullBeforeCreation(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $this->assertNull($runner->getCohortManifest());
     }
 }

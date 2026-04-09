@@ -8,10 +8,16 @@
  *   - run context/config initialization
  *   - minimal execution entrypoint for later sub-milestones
  *
+ * Milestone 3B: Deterministic cohort generation:
+ *   - creates synthetic players from archetype definitions
+ *   - persists them to the disposable DB
+ *   - runner can progress through: validate → prepare → cohort creation → stop
+ *
  * Responsibilities are split into bounded concerns:
  *   1. Safety/bootstrap  — delegated to FreshRunSafety + FreshRunBootstrap (Milestone 1)
  *   2. Tick-driving       — delegated to GameTime + TickEngine (Milestone 2)
- *   3. Cohort/action orchestration — deferred to Milestone 3B+
+ *   3. Cohort generation — CohortGenerator (Milestone 3B)
+ *   4. Action orchestration — deferred to Milestone 3C+
  *
  * This class owns the lifecycle shell: validate → prepare → (future: run) → finalize.
  * It does NOT own synthetic player creation, action scheduling, or tick looping yet.
@@ -19,22 +25,25 @@
 
 require_once __DIR__ . '/FreshRunSafety.php';
 require_once __DIR__ . '/FreshRunBootstrap.php';
+require_once __DIR__ . '/CohortGenerator.php';
 
 class FreshLifecycleRunner
 {
     /** Run states for lifecycle tracking. */
-    public const STATE_IDLE       = 'idle';
-    public const STATE_VALIDATING = 'validating';
-    public const STATE_PREPARING  = 'preparing';
-    public const STATE_READY      = 'ready';
-    public const STATE_RUNNING    = 'running';
-    public const STATE_COMPLETED  = 'completed';
-    public const STATE_FAILED     = 'failed';
+    public const STATE_IDLE            = 'idle';
+    public const STATE_VALIDATING      = 'validating';
+    public const STATE_PREPARING       = 'preparing';
+    public const STATE_READY           = 'ready';
+    public const STATE_COHORT_CREATED  = 'cohort_created';
+    public const STATE_RUNNING         = 'running';
+    public const STATE_COMPLETED       = 'completed';
+    public const STATE_FAILED          = 'failed';
 
     private FreshRunBootstrap $bootstrap;
     private string $state;
     private array $config;
     private array $runLog;
+    private ?array $cohortManifest = null;
 
     /**
      * @param array $config  Run configuration:
@@ -84,6 +93,12 @@ class FreshLifecycleRunner
     public function getConfig(): array
     {
         return $this->config;
+    }
+
+    /** Cohort manifest from the most recent createCohort() call, or null. */
+    public function getCohortManifest(): ?array
+    {
+        return $this->cohortManifest;
     }
 
     /**
@@ -158,20 +173,73 @@ class FreshLifecycleRunner
     }
 
     /**
+     * Create the synthetic player cohort in the disposable DB.
+     *
+     * Requires state READY (after prepare()). Generates players from archetypes
+     * and persists them. Moves state to COHORT_CREATED on success.
+     *
+     * @return array  Cohort manifest (same shape as CohortGenerator::generate()).
+     */
+    public function createCohort(): array
+    {
+        if ($this->state !== self::STATE_READY) {
+            $this->log('cohort_rejected', ['state' => $this->state]);
+            return [
+                'status'  => 'rejected',
+                'message' => "Cannot create cohort: state is '{$this->state}', expected 'ready'. Call prepare() first.",
+            ];
+        }
+
+        $this->log('cohort_generation_started', [
+            'seed'        => $this->config['seed'],
+            'cohort_size' => $this->config['cohort_size'],
+        ]);
+
+        try {
+            $pdo = $this->bootstrap->getConnection();
+            $generator = new CohortGenerator(
+                $pdo,
+                (string)$this->config['seed'],
+                (int)$this->config['cohort_size']
+            );
+
+            $manifest = $generator->generate();
+            $this->cohortManifest = $manifest;
+
+            $this->log('cohort_generation_completed', [
+                'total_players'   => $manifest['total_players'],
+                'archetype_count' => $manifest['archetype_count'],
+            ]);
+
+            $this->setState(self::STATE_COHORT_CREATED);
+            return $manifest;
+
+        } catch (\Throwable $e) {
+            $this->log('cohort_generation_error', ['message' => $e->getMessage()]);
+            $this->setState(self::STATE_FAILED);
+            return [
+                'status'  => 'failed',
+                'message' => 'Cohort generation failed: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Execute the fresh lifecycle run.
      *
-     * Milestone 3A: skeleton only — validates readiness and returns a stub result.
-     * Milestone 3B+ will add cohort generation, tick loop, and finalization here.
+     * Milestone 3B: validates readiness, creates cohort, then returns.
+     * Milestone 3C+ will add season join, tick loop, and finalization.
      *
-     * @return array{status: string, message: string, adapted_paths: string[], unmodeled_mechanics: string[]}
+     * @return array{status: string, message: string, cohort: ?array, adapted_paths: string[], unmodeled_mechanics: string[]}
      */
     public function run(): array
     {
-        if ($this->state !== self::STATE_READY) {
+        if ($this->state !== self::STATE_READY && $this->state !== self::STATE_COHORT_CREATED) {
             $this->log('run_rejected', ['state' => $this->state]);
             return [
                 'status'              => 'rejected',
-                'message'             => "Cannot run: state is '{$this->state}', expected 'ready'. Call prepare() first.",
+                'message'             => "Cannot run: state is '{$this->state}', expected 'ready' or 'cohort_created'. Call prepare() first.",
+                'cohort'              => null,
                 'adapted_paths'       => [],
                 'unmodeled_mechanics' => [],
             ];
@@ -183,16 +251,36 @@ class FreshLifecycleRunner
             'cohort_size' => $this->config['cohort_size'],
         ]);
 
-        // --- Milestone 3B+ will insert cohort generation, tick loop, finalization here ---
+        // --- Cohort generation (Milestone 3B) ---
+        if ($this->cohortManifest === null) {
+            // Reset to READY so createCohort() accepts
+            $this->setState(self::STATE_READY);
+            $cohortResult = $this->createCohort();
+            if (($cohortResult['status'] ?? '') !== 'created') {
+                return [
+                    'status'              => 'failed',
+                    'message'             => $cohortResult['message'] ?? 'Cohort generation failed.',
+                    'cohort'              => $cohortResult,
+                    'adapted_paths'       => [],
+                    'unmodeled_mechanics' => [],
+                ];
+            }
+            $this->setState(self::STATE_RUNNING);
+        }
+
+        // --- Milestone 3C+ will insert season join, tick loop, finalization here ---
 
         $this->setState(self::STATE_COMPLETED);
-        $this->log('run_completed_stub');
+        $this->log('run_completed', [
+            'total_players' => $this->cohortManifest['total_players'] ?? 0,
+        ]);
 
         return [
-            'status'              => 'completed_stub',
-            'message'             => 'Lifecycle runner shell executed successfully. Cohort generation and tick orchestration will be added in Milestone 3B.',
-            'adapted_paths'       => [],
-            'unmodeled_mechanics' => ['cohort_generation', 'tick_loop', 'action_scheduling', 'finalization'],
+            'status'              => 'completed',
+            'message'             => 'Lifecycle run completed through cohort generation. Season join and tick orchestration will be added in Milestone 3C.',
+            'cohort'              => $this->cohortManifest,
+            'adapted_paths'       => $this->cohortManifest['adapted_paths'] ?? [],
+            'unmodeled_mechanics' => ['season_join', 'tick_loop', 'action_scheduling', 'finalization'],
         ];
     }
 
