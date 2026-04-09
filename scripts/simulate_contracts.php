@@ -15,7 +15,24 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (str_starts_with($arg, '--output=')) {
         $options['output'] = substr($arg, 9);
     } elseif ($arg === '--help') {
-        echo 'Usage: php scripts/simulate_contracts.php [--seed=VALUE] [--output=DIR]' . PHP_EOL;
+        $help = <<<'HELP'
+Simulation A — Contract Simulator
+
+Usage:
+  php scripts/simulate_contracts.php [OPTIONS]
+
+Options:
+  --seed=VALUE   Run identifier (default: phase1)
+  --output=DIR   Output directory (default: simulation_output/contracts)
+  --help         Show this help
+
+Outputs:
+  simulation_output/contracts/contract_<seed>.json    Contract check results
+
+Example:
+  php scripts/simulate_contracts.php --seed=verify-20260408
+HELP;
+        echo $help;
         exit(0);
     }
 }

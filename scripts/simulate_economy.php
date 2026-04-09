@@ -25,7 +25,31 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
     } elseif ($arg === '--help') {
-        echo 'Usage: php scripts/simulate_economy.php [--seed=VALUE] [--players-per-archetype=N] [--output=DIR] [--season-config=FILE]' . PHP_EOL;
+        $help = <<<'HELP'
+Simulation B — Single-Season Population Simulator
+
+Usage:
+  php scripts/simulate_economy.php [OPTIONS]
+
+Options:
+  --seed=VALUE                Run identifier (default: phase1)
+  --players-per-archetype=N   Players per archetype cohort (default: 5)
+  --output=DIR                Output directory (default: simulation_output/season)
+  --season-config=FILE        JSON file with season config overrides
+  --help                      Show this help
+
+Outputs:
+  simulation_output/season/season_<seed>_ppa<N>.json    Season metrics payload
+  simulation_output/season/season_<seed>_ppa<N>.csv     Per-archetype CSV
+
+Export/import workflow:
+  php tools/export-season-config.php --output=simulation_output/live_season.json
+  php scripts/simulate_economy.php --seed=live-test --season-config=simulation_output/live_season.json
+
+Example:
+  php scripts/simulate_economy.php --seed=run1 --players-per-archetype=5
+HELP;
+        echo $help;
         exit(0);
     }
 }

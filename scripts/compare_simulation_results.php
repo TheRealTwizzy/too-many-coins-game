@@ -23,7 +23,41 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (str_starts_with($arg, '--output=')) {
         $options['output'] = substr($arg, 9);
     } elseif ($arg === '--help') {
-        echo 'Usage: php scripts/compare_simulation_results.php --sweep-manifest=FILE [--baseline-b=FILE] [--baseline-c=FILE] [--seed=VALUE] [--output=DIR]' . PHP_EOL;
+        $help = <<<'HELP'
+Simulation E — Result Comparator
+
+Usage:
+  php scripts/compare_simulation_results.php --sweep-manifest=FILE [OPTIONS]
+
+Required:
+  --sweep-manifest=FILE   Sweep manifest JSON produced by Simulation D
+
+Options:
+  --seed=VALUE            Run identifier for this comparison artifact (default: phase1-comparator)
+  --baseline-b=FILE       Additional standalone Sim B baseline JSON (repeatable)
+  --baseline-c=FILE       Additional standalone Sim C baseline JSON (repeatable)
+  --output=DIR            Output directory (default: simulation_output/comparator)
+  --help                  Show this help
+
+Outputs:
+  simulation_output/comparator/comparison_<seed>.json    Comparison artifact with
+    wins/losses, delta_flags, regression_flags, disposition per scenario
+
+Workflow:
+  1. Run Sim D to produce a sweep manifest:
+     php scripts/simulate_policy_sweep.php --seed=run1 --scenarios=hoarder-pressure-v1 --include-baseline=1
+  2. Compare results:
+     php scripts/compare_simulation_results.php --seed=run1 --sweep-manifest=simulation_output/sweep/policy_sweep_run1_ppa5_s12.json
+
+Dispositions:
+  candidate for production tuning   wins >= losses+2, no regression flags
+  mixed / revisit                    no regression flags but not clearly winning
+  reject                             one or more regression flags present
+
+Example:
+  php scripts/compare_simulation_results.php --seed=fullpass --sweep-manifest=simulation_output/sweep/policy_sweep_fullpass_ppa3_s8.json
+HELP;
+        echo $help;
         exit(0);
     }
 }

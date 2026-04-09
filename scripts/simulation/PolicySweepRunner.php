@@ -18,6 +18,10 @@ class PolicySweepRunner
         $playersPerArchetype = max(1, (int)($options['players_per_archetype'] ?? 5));
         $seasonCount = max(2, (int)($options['season_count'] ?? 12));
         $outputDir = (string)($options['output_dir'] ?? (__DIR__ . '/../../simulation_output/sweep'));
+        $baseSeasonConfigPath = isset($options['base_season_config_path']) && $options['base_season_config_path'] !== ''
+            ? (string)$options['base_season_config_path']
+            : null;
+        $baseSeasonOverrides = self::loadBaseSeasonOverrides($baseSeasonConfigPath);
 
         if (!is_dir($outputDir)) {
             mkdir($outputDir, 0777, true);
@@ -46,8 +50,11 @@ class PolicySweepRunner
                 $runSeed = $seed . '|scenario|' . (string)$scenario['name'] . '|sim|' . $simulator;
                 $seasonConfigPath = null;
 
-                if (!$isBaseline) {
-                    $seasonConfigPath = self::writeScenarioConfig($runDir, (string)$scenario['name'], $scenario['overrides']);
+                if ($isBaseline && !empty($baseSeasonOverrides)) {
+                    $seasonConfigPath = self::writeScenarioConfig($runDir, 'base', $baseSeasonOverrides);
+                } elseif (!$isBaseline) {
+                    $mergedOverrides = array_merge($baseSeasonOverrides, (array)($scenario['overrides'] ?? []));
+                    $seasonConfigPath = self::writeScenarioConfig($runDir, (string)$scenario['name'], $mergedOverrides);
                 }
 
                 try {
@@ -121,6 +128,7 @@ class PolicySweepRunner
                 'players_per_archetype' => $playersPerArchetype,
                 'season_count' => $seasonCount,
                 'scenario_names' => array_map(static fn($s) => (string)$s['name'], $scenarios),
+                'base_season_config_path' => $baseSeasonConfigPath,
             ],
             'runs' => $runEntries,
             'supported_override_categories' => array_keys(PolicyScenarioCatalog::categoryAllowlist()),
@@ -156,6 +164,21 @@ class PolicySweepRunner
 
         sort($keys);
         return $keys;
+    }
+
+    private static function loadBaseSeasonOverrides(?string $path): array
+    {
+        if ($path === null || $path === '') {
+            return [];
+        }
+        if (!is_file($path)) {
+            throw new InvalidArgumentException('Base season config file not found: ' . $path);
+        }
+        $decoded = json_decode((string)file_get_contents($path), true);
+        if (!is_array($decoded)) {
+            throw new InvalidArgumentException('Base season config must be a JSON object: ' . $path);
+        }
+        return $decoded;
     }
 
     private static function writeScenarioConfig(string $runDir, string $scenarioName, array $overrides): string

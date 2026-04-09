@@ -29,7 +29,35 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
     } elseif ($arg === '--help') {
-        echo 'Usage: php scripts/simulate_lifetime.php [--seed=VALUE] [--players-per-archetype=N] [--seasons=N] [--output=DIR] [--season-config=FILE]' . PHP_EOL;
+        $help = <<<'HELP'
+Simulation C — Lifetime Overlapping-Season Population Simulator
+
+Usage:
+  php scripts/simulate_lifetime.php [OPTIONS]
+
+Options:
+  --seed=VALUE                Run identifier (default: phase1-lifetime)
+  --players-per-archetype=N   Players per archetype cohort (default: 5)
+  --seasons=N                 Number of seasons to simulate (default: 12, min 2)
+  --output=DIR                Output directory (default: simulation_output/lifetime)
+  --season-config=FILE        JSON file with season config overrides (applied to all seasons)
+  --help                      Show this help
+
+Env:
+  TMC_TICK_REAL_SECONDS=3600  Set this to speed simulation (1 real second = 1 game tick)
+
+Outputs:
+  simulation_output/lifetime/lifetime_<seed>_s<N>_ppa<N>.json    Lifetime metrics payload
+  simulation_output/lifetime/lifetime_<seed>_s<N>_ppa<N>.csv     Per-player CSV
+
+Export/import workflow:
+  php tools/export-season-config.php --output=simulation_output/live_season.json
+  $env:TMC_TICK_REAL_SECONDS=3600; php scripts/simulate_lifetime.php --seed=live-test --season-config=simulation_output/live_season.json
+
+Example:
+  $env:TMC_TICK_REAL_SECONDS=3600; php scripts/simulate_lifetime.php --seed=run1 --players-per-archetype=5 --seasons=12
+HELP;
+        echo $help;
         exit(0);
     }
 }

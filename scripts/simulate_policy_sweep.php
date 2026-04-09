@@ -20,6 +20,7 @@ $options = [
     'scenarios' => [],
     'include-baseline' => true,
     'list-scenarios' => false,
+    'season-config' => null,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -40,10 +41,40 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (str_starts_with($arg, '--include-baseline=')) {
         $value = strtolower(trim(substr($arg, 19)));
         $options['include-baseline'] = !in_array($value, ['0', 'false', 'no'], true);
+    } elseif (str_starts_with($arg, '--season-config=')) {
+        $options['season-config'] = substr($arg, 16);
     } elseif ($arg === '--list-scenarios') {
         $options['list-scenarios'] = true;
     } elseif ($arg === '--help') {
-        echo 'Usage: php scripts/simulate_policy_sweep.php [--seed=VALUE] [--players-per-archetype=N] [--seasons=N] [--output=DIR] [--simulators=B,C] [--scenario=NAME] [--scenarios=A,B] [--include-baseline=0|1] [--list-scenarios]' . PHP_EOL;
+        $help = <<<'HELP'
+Simulation D — Policy Sweep Runner
+
+Usage:
+  php scripts/simulate_policy_sweep.php [OPTIONS]
+
+Options:
+  --seed=VALUE              Run identifier (default: phase1-sweep)
+  --players-per-archetype=N Players per archetype cohort (default: 5)
+  --seasons=N               Season count for Sim C runs (default: 12)
+  --simulators=B,C          Comma-separated list of simulators to use (default: B,C)
+  --scenario=NAME           Add one named scenario (repeatable)
+  --scenarios=A,B,C         Comma-separated list of scenarios
+  --include-baseline=0|1    Include a baseline (no-override) run (default: 1)
+  --season-config=FILE      JSON file to use as base season config for all runs
+  --output=DIR              Output directory (default: simulation_output/sweep)
+  --list-scenarios          Print available scenario names and exit
+  --help                    Show this help
+
+Outputs:
+  simulation_output/sweep/runs/          Individual run JSON + CSV files
+  simulation_output/sweep/policy_sweep_<seed>_ppa<N>_s<N>.json    Sweep manifest
+
+Examples:
+  php scripts/simulate_policy_sweep.php --seed=run1 --players-per-archetype=3 --seasons=8 --simulators=B,C --include-baseline=1 --scenarios=hoarder-pressure-v1,boost-payoff-relief-v1
+  php scripts/simulate_policy_sweep.php --list-scenarios
+  php scripts/simulate_policy_sweep.php --seed=run1 --season-config=simulation_output/exported_season.json --scenarios=hoarder-pressure-v1
+HELP;
+        echo $help;
         exit(0);
     }
 }
@@ -64,6 +95,7 @@ $result = PolicySweepRunner::run([
     'simulators' => (array)$options['simulators'],
     'scenarios' => (array)$options['scenarios'],
     'include_baseline' => (bool)$options['include-baseline'],
+    'base_season_config_path' => $options['season-config'],
 ]);
 
 $manifest = (array)$result['manifest'];
