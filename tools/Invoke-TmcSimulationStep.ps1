@@ -1,13 +1,14 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('export', 'sim-b', 'sim-c', 'sim-d', 'sim-e')]
+    [ValidateSet('export', 'sim-b', 'sim-c', 'sim-d', 'sim-e', 'fresh-bootstrap', 'fresh-teardown', 'fresh-status')]
     [string]$Step,
 
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'local/tmc-sim.current.ps1'),
     [string]$Seed = 'current-db',
     [int]$PlayersPerArchetype = 5,
     [int]$Seasons = 12,
-    [string]$Scenarios = 'hoarder-pressure-v1'
+    [string]$Scenarios = 'hoarder-pressure-v1',
+    [switch]$DropFirst
 )
 
 $ErrorActionPreference = 'Stop'
@@ -196,6 +197,73 @@ try {
                 "--seed=$Seed",
                 "--sweep-manifest=$manifestPath",
                 "--output=$comparatorDir"
+            )
+        }
+        'fresh-bootstrap' {
+            # Fresh-run bootstrap requires dedicated config keys
+            $freshDbHost = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbHost', 'FreshDbHost') -Label 'TmcFreshDbHost'
+            $freshDbPort = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbPort', 'FreshDbPort') -Label 'TmcFreshDbPort'
+            $freshDbName = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbName', 'FreshDbName') -Label 'TmcFreshDbName'
+            $freshDbUser = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbUser', 'FreshDbUser') -Label 'TmcFreshDbUser'
+            $freshDbPass = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbPass', 'FreshDbPass') -Label 'TmcFreshDbPass'
+
+            $env:DB_HOST = $freshDbHost
+            $env:DB_PORT = $freshDbPort
+            $env:DB_NAME = $freshDbName
+            $env:DB_USER = $freshDbUser
+            $env:DB_PASS = $freshDbPass
+            $env:TMC_SIMULATION_MODE = 'fresh-run'
+
+            $phpArgs = @(
+                (Join-Path $PSScriptRoot '..\scripts\simulate_fresh_lifecycle.php'),
+                '--action=bootstrap'
+            )
+            if ($DropFirst) {
+                $env:TMC_FRESH_RUN_DESTRUCTIVE_RESET = '1'
+                $phpArgs += '--drop-first'
+            }
+            Write-Host "Fresh-run bootstrap: $freshDbName on $freshDbHost`:$freshDbPort"
+            Invoke-PhpScript -Arguments $phpArgs
+        }
+        'fresh-teardown' {
+            $freshDbHost = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbHost', 'FreshDbHost') -Label 'TmcFreshDbHost'
+            $freshDbPort = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbPort', 'FreshDbPort') -Label 'TmcFreshDbPort'
+            $freshDbName = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbName', 'FreshDbName') -Label 'TmcFreshDbName'
+            $freshDbUser = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbUser', 'FreshDbUser') -Label 'TmcFreshDbUser'
+            $freshDbPass = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbPass', 'FreshDbPass') -Label 'TmcFreshDbPass'
+
+            $env:DB_HOST = $freshDbHost
+            $env:DB_PORT = $freshDbPort
+            $env:DB_NAME = $freshDbName
+            $env:DB_USER = $freshDbUser
+            $env:DB_PASS = $freshDbPass
+            $env:TMC_SIMULATION_MODE = 'fresh-run'
+            $env:TMC_FRESH_RUN_DESTRUCTIVE_RESET = '1'
+
+            Write-Host "Fresh-run teardown: $freshDbName on $freshDbHost`:$freshDbPort"
+            Invoke-PhpScript -Arguments @(
+                (Join-Path $PSScriptRoot '..\scripts\simulate_fresh_lifecycle.php'),
+                '--action=teardown'
+            )
+        }
+        'fresh-status' {
+            $freshDbHost = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbHost', 'FreshDbHost') -Label 'TmcFreshDbHost'
+            $freshDbPort = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbPort', 'FreshDbPort') -Label 'TmcFreshDbPort'
+            $freshDbName = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbName', 'FreshDbName') -Label 'TmcFreshDbName'
+            $freshDbUser = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbUser', 'FreshDbUser') -Label 'TmcFreshDbUser'
+            $freshDbPass = Require-AnyConfigValue -Config $config -Names @('TmcFreshDbPass', 'FreshDbPass') -Label 'TmcFreshDbPass'
+
+            $env:DB_HOST = $freshDbHost
+            $env:DB_PORT = $freshDbPort
+            $env:DB_NAME = $freshDbName
+            $env:DB_USER = $freshDbUser
+            $env:DB_PASS = $freshDbPass
+            $env:TMC_SIMULATION_MODE = 'fresh-run'
+
+            Write-Host "Fresh-run status: $freshDbName on $freshDbHost`:$freshDbPort"
+            Invoke-PhpScript -Arguments @(
+                (Join-Path $PSScriptRoot '..\scripts\simulate_fresh_lifecycle.php'),
+                '--action=status'
             )
         }
     }
