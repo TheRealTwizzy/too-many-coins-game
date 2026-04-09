@@ -1,0 +1,119 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-09T06:40:55+00:00",
+    "seed": "m7-d",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 1,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "hoarder-pressure-v1"
+        ],
+        "base_season_config_path": null
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "m7-d|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_baseline_B_m7-d_scenario_baseline_sim_B_ppa1.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_baseline_B_m7-d_scenario_baseline_sim_B_ppa1.csv"
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "m7-d|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_baseline_C_m7-d_scenario_baseline_sim_C_ppa1_s4.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_baseline_C_m7-d_scenario_baseline_sim_C_ppa1_s4.csv"
+        },
+        {
+            "scenario_name": "hoarder-pressure-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "m7-d|scenario|hoarder-pressure-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "hoarding_tier1_rate_hourly_fp",
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_sink_cap_ratio_fp"
+            ],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_hoarder-pressure-v1_B_m7-d_scenario_hoarder-pressure-v1_sim_B_ppa1.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_hoarder-pressure-v1_B_m7-d_scenario_hoarder-pressure-v1_sim_B_ppa1.csv"
+        },
+        {
+            "scenario_name": "hoarder-pressure-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "m7-d|scenario|hoarder-pressure-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 1,
+                "total_players": 10
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "hoarding_tier1_rate_hourly_fp",
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_sink_cap_ratio_fp"
+            ],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_hoarder-pressure-v1_C_m7-d_scenario_hoarder-pressure-v1_sim_C_ppa1_s4.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run2\\runs\\sweep_hoarder-pressure-v1_C_m7-d_scenario_hoarder-pressure-v1_sim_C_ppa1_s4.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}

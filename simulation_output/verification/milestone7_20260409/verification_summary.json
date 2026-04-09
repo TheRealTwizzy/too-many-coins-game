@@ -1,0 +1,21 @@
+{
+    "deterministic":  {
+                          "A":  true,
+                          "B":  true,
+                          "C":  true,
+                          "D":  {
+                                    "manifest":  true,
+                                    "payloads":  true
+                                },
+                          "E":  true
+                      },
+    "export_import":  {
+                          "export_command_exit_code":  255,
+                          "export_path":  "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\live_season_export.json",
+                          "export_exists":  false
+                      },
+    "notes":  [
+                  "Live export command did not produce a JSON file; export/import run commands were skipped.",
+                  "Normalized determinism comparison removes generated_at timestamps. Simulation D manifest comparison also removes json/csv path fields because output directories differ across reruns."
+              ]
+}

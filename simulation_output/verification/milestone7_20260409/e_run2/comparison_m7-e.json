@@ -1,0 +1,205 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "comparator_schema_version": "tmc-sim-comparator.v1",
+    "generated_at": "2026-04-09T06:40:55+00:00",
+    "seed": "m7-e",
+    "inputs": {
+        "sweep_manifest": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\verification\\milestone7_20260409\\d_run1\\policy_sweep_m7-d_ppa1_s4.json",
+        "baseline_b_paths": [],
+        "baseline_c_paths": []
+    },
+    "summary": {
+        "scenario_count": 1,
+        "baseline_group_count": 2,
+        "scenario_group_count": 1
+    },
+    "scenarios": [
+        {
+            "scenario_name": "hoarder-pressure-v1",
+            "wins": 5,
+            "losses": 9,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=1|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -1,
+                            "natural_expiry_delta": 1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.09999999999999998
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -63
+                        },
+                        "star_focused_dominance": {
+                            "delta": 486
+                        },
+                        "hoarder_performance": {
+                            "delta": 981
+                        },
+                        "boost_focused_payoff": {
+                            "delta": -410
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.07384806764503166,
+                            "top10_share_delta": 0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": false
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": 0,
+                        "Late Deployer": 0,
+                        "Early Locker": -1,
+                        "Boost-Focused": -6,
+                        "Hoarder": 2,
+                        "Regular": 1,
+                        "Mostly Idle": 0,
+                        "Hardcore": 0,
+                        "Aggressive Sigil User": 0,
+                        "Casual": 4
+                    },
+                    "wins": 1,
+                    "losses": 5,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "hoarding_tier1_rate_hourly_fp",
+                            "hoarding_tier2_rate_hourly_fp",
+                            "hoarding_tier3_rate_hourly_fp",
+                            "hoarding_sink_cap_ratio_fp"
+                        ],
+                        "scenario_name": "hoarder-pressure-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Star-Focused"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=1|seasons=4",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -0.05555555555555558,
+                            "natural_expiry_delta": 1
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.012896825396825407
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 0,
+                            "t6_drop_delta": 0,
+                            "t6_combine_delta": 0,
+                            "t6_theft_delta": 0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -1104
+                        },
+                        "star_focused_dominance": {
+                            "delta": -1531
+                        },
+                        "hoarder_performance": {
+                            "delta": -4217
+                        },
+                        "boost_focused_payoff": {
+                            "delta": -3649
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": -0.01674241234733842
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 2887.3777777777777
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.01674241234733842,
+                            "top10_share_delta": -0.01674241234733842
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": false
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Hoarder": 0,
+                        "Early Locker": -3,
+                        "Boost-Focused": -6,
+                        "Casual": 2,
+                        "Hardcore": 2,
+                        "Star-Focused": -2,
+                        "Late Deployer": -3,
+                        "Mostly Idle": 1,
+                        "Aggressive Sigil User": 5,
+                        "Regular": 4
+                    },
+                    "wins": 4,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "lock_in_down_but_expiry_dominance_up",
+                        "skip_rejoin_exploit_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "hoarding_tier1_rate_hourly_fp",
+                            "hoarding_tier2_rate_hourly_fp",
+                            "hoarding_tier3_rate_hourly_fp",
+                            "hoarding_sink_cap_ratio_fp"
+                        ],
+                        "scenario_name": "hoarder-pressure-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Hoarder",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "regression_flags": [
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "skip_rejoin_exploit_worsened"
+            ]
+        }
+    ]
+}

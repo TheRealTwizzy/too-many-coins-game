@@ -15,6 +15,7 @@ require_once __DIR__ . '/../scripts/simulation/SimulationPopulationSeason.php';
 require_once __DIR__ . '/../scripts/simulation/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/../scripts/simulation/PolicyScenarioCatalog.php';
 require_once __DIR__ . '/../scripts/simulation/PolicySweepRunner.php';
+require_once __DIR__ . '/../scripts/simulation/ResultComparator.php';
 
 /**
  * Verifies the live-config export/import path end-to-end without a real DB.
