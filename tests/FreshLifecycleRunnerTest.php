@@ -189,36 +189,18 @@ class FreshLifecycleRunnerTest extends TestCase
         $this->assertArrayHasKey('status', $result);
         $this->assertArrayHasKey('message', $result);
         $this->assertArrayHasKey('cohort', $result);
+        $this->assertArrayHasKey('season_id', $result);
         $this->assertArrayHasKey('adapted_paths', $result);
         $this->assertArrayHasKey('unmodeled_mechanics', $result);
+        $this->assertArrayHasKey('metrics', $result);
         $this->assertIsArray($result['adapted_paths']);
         $this->assertIsArray($result['unmodeled_mechanics']);
     }
 
-    public function testRunFromCohortCreatedAcceptsRun(): void
+    public function testRunFromCohortCreatedFailsWithoutDb(): void
     {
-        $this->setFreshRunEnv();
-        $runner = new FreshLifecycleRunner($this->safeConfig());
-
-        // Simulate a runner that already created a cohort (3B state)
-        $ref = new ReflectionClass($runner);
-        $stateProp = $ref->getProperty('state');
-        $stateProp->setValue($runner, FreshLifecycleRunner::STATE_COHORT_CREATED);
-        $manifestProp = $ref->getProperty('cohortManifest');
-        $manifestProp->setValue($runner, [
-            'status' => 'created', 'total_players' => 10,
-            'archetype_count' => 10, 'archetypes' => [],
-            'player_map' => [], 'adapted_paths' => ['synthetic_player_insert'],
-            'seed' => '42', 'players_per_archetype' => 1,
-        ]);
-
-        $result = $runner->run();
-        $this->assertSame('completed', $result['status']);
-        $this->assertSame(FreshLifecycleRunner::STATE_COMPLETED, $runner->getState());
-    }
-
-    public function testRunRecordsUnmodeledMechanicsFor3B(): void
-    {
+        // Milestone 3C: run() now attempts season setup which requires a DB.
+        // Without a real disposable DB, it should fail at the season setup stage.
         $this->setFreshRunEnv();
         $runner = new FreshLifecycleRunner($this->safeConfig());
 
@@ -234,15 +216,12 @@ class FreshLifecycleRunnerTest extends TestCase
         ]);
 
         $result = $runner->run();
-        // cohort_generation is now modeled; these remain unmodeled
-        $this->assertNotContains('cohort_generation', $result['unmodeled_mechanics']);
-        $this->assertContains('season_join', $result['unmodeled_mechanics']);
-        $this->assertContains('tick_loop', $result['unmodeled_mechanics']);
-        $this->assertContains('action_scheduling', $result['unmodeled_mechanics']);
-        $this->assertContains('finalization', $result['unmodeled_mechanics']);
+        // Without a real DB, season setup will fail
+        $this->assertSame('failed', $result['status']);
+        $this->assertStringContainsString('Season setup failed', $result['message']);
     }
 
-    public function testRunLogsStartAndCompletion(): void
+    public function testRunLogsRunStartedBeforeFailure(): void
     {
         $this->setFreshRunEnv();
         $runner = new FreshLifecycleRunner($this->safeConfig());
@@ -262,11 +241,10 @@ class FreshLifecycleRunnerTest extends TestCase
         $log = $runner->getRunLog();
         $events = array_column($log, 'event');
         $this->assertContains('run_started', $events);
-        $this->assertContains('run_completed', $events);
     }
 
     // -----------------------------------------------------------------------
-    // State constants are distinct
+    // State constants are distinct (includes 3C states)
     // -----------------------------------------------------------------------
 
     public function testStateConstantsAreDistinct(): void
@@ -277,11 +255,47 @@ class FreshLifecycleRunnerTest extends TestCase
             FreshLifecycleRunner::STATE_PREPARING,
             FreshLifecycleRunner::STATE_READY,
             FreshLifecycleRunner::STATE_COHORT_CREATED,
+            FreshLifecycleRunner::STATE_SEASON_READY,
+            FreshLifecycleRunner::STATE_PLAYERS_JOINED,
             FreshLifecycleRunner::STATE_RUNNING,
             FreshLifecycleRunner::STATE_COMPLETED,
             FreshLifecycleRunner::STATE_FAILED,
         ];
         $this->assertCount(count($states), array_unique($states), 'All state constants must be unique');
+    }
+
+    // -----------------------------------------------------------------------
+    // 3C accessor methods
+    // -----------------------------------------------------------------------
+
+    public function testSeasonIdIsNullBeforeSetup(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $this->assertNull($runner->getSeasonId());
+    }
+
+    public function testSeasonConfigIsNullBeforeSetup(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $this->assertNull($runner->getSeasonConfig());
+    }
+
+    public function testAdaptedPathsEmptyOnConstruction(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $this->assertSame([], $runner->getAdaptedPaths());
+    }
+
+    public function testUnmodeledMechanicsEmptyOnConstruction(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $this->assertSame([], $runner->getUnmodeledMechanics());
+    }
+
+    public function testRunMetricsEmptyOnConstruction(): void
+    {
+        $runner = new FreshLifecycleRunner($this->safeConfig());
+        $this->assertSame([], $runner->getRunMetrics());
     }
 
     // -----------------------------------------------------------------------

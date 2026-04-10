@@ -6,6 +6,7 @@
  * Milestone 2: Simulation clock adapter + explicit tick-driven processing.
  * Milestone 3A: Lifecycle runner shell + orchestration entrypoint.
  * Milestone 3B: Deterministic cohort generation + synthetic player creation.
+ * Milestone 3C: Season setup + join + bounded tick loop + action execution.
  *
  * Usage:
  *   php scripts/simulate_fresh_lifecycle.php --action=bootstrap [--drop-first]
@@ -47,7 +48,7 @@ $options = getopt('', [
 
 if (isset($options['help']) || !isset($options['action'])) {
     fwrite(STDOUT, <<<HELP
-Fresh Lifecycle Simulation CLI (Milestone 1-3B: Bootstrap/Safety/Tick/Lifecycle/Cohort)
+Fresh Lifecycle Simulation CLI (Milestone 1-3C: Bootstrap/Safety/Tick/Lifecycle/Cohort)
 
 Usage:
   php scripts/simulate_fresh_lifecycle.php --action=bootstrap [--drop-first]
@@ -62,7 +63,7 @@ Actions:
   teardown    Drop disposable DB for clean rerun
   status      Check if disposable DB exists
   tick        Process a single explicit game tick through TickEngine
-  lifecycle   Run fresh lifecycle orchestration (validate + prepare + cohort creation)
+  lifecycle   Run fresh lifecycle orchestration (full one-season lifecycle)
   cohort      Create synthetic player cohort only (validate + prepare + cohort, no tick loop)
 
 Required environment:
@@ -189,15 +190,38 @@ switch ($action) {
             exit(1);
         }
 
-        // Phase 2: run (validate + prepare + cohort generation)
+        // Phase 2: run (full one-season lifecycle)
         $runResult = $runner->run();
         fwrite(STDOUT, "Run status: {$runResult['status']}\n");
         fwrite(STDOUT, "  {$runResult['message']}\n");
+        if (!empty($runResult['season_id'])) {
+            fwrite(STDOUT, "  Season ID: {$runResult['season_id']}\n");
+        }
         if (!empty($runResult['cohort'])) {
             $cohort = $runResult['cohort'];
             fwrite(STDOUT, "  Cohort: {$cohort['total_players']} players across {$cohort['archetype_count']} archetypes\n");
             foreach ($cohort['archetypes'] ?? [] as $key => $info) {
                 fwrite(STDOUT, "    {$info['label']}: {$info['count']} players\n");
+            }
+        }
+        if (!empty($runResult['metrics'])) {
+            $metrics = $runResult['metrics'];
+            if (!empty($metrics['join'])) {
+                $join = $metrics['join'];
+                fwrite(STDOUT, "  Join: {$join['joined']} joined, {$join['failed']} failed ({$join['duration_ms']}ms)\n");
+            }
+            if (!empty($metrics['tick_loop'])) {
+                $tl = $metrics['tick_loop'];
+                fwrite(STDOUT, "  Tick loop: {$tl['ticks_processed']} ticks, finalized=" . ($tl['season_finalized'] ? 'yes' : 'no') . " ({$tl['duration_ms']}ms)\n");
+                if (!empty($tl['actions_executed'])) {
+                    fwrite(STDOUT, "  Actions:\n");
+                    foreach ($tl['actions_executed'] as $actionType => $ac) {
+                        fwrite(STDOUT, "    {$actionType}: {$ac['attempted']} attempted, {$ac['succeeded']} succeeded\n");
+                    }
+                }
+            }
+            if (!empty($metrics['total_duration_ms'])) {
+                fwrite(STDOUT, "  Total duration: {$metrics['total_duration_ms']}ms\n");
             }
         }
         if (!empty($runResult['adapted_paths'])) {
