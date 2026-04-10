@@ -1,0 +1,245 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-10T21:02:39+00:00",
+    "seed": "tuning-verify-v3",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 10,
+        "season_count": 12,
+        "scenario_names": [
+            "baseline",
+            "tuning-conservative-v1",
+            "tuning-balanced-v1",
+            "tuning-aggressive-v1"
+        ],
+        "base_season_config_path": "simulation_output/current-db/export/current_season_economy_only.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_baseline_B_tuning-verify-v3_scenario_baseline_sim_B_ppa10.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_baseline_B_tuning-verify-v3_scenario_baseline_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 12
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_baseline_C_tuning-verify-v3_scenario_baseline_sim_C_ppa10_s12.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_baseline_C_tuning-verify-v3_scenario_baseline_sim_C_ppa10_s12.csv"
+        },
+        {
+            "scenario_name": "tuning-conservative-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|tuning-conservative-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_idle_multiplier_fp"
+            ],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-conservative-v1_B_tuning-verify-v3_scenario_tuning-conservative-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-conservative-v1_B_tuning-verify-v3_scenario_tuning-conservative-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "tuning-conservative-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|tuning-conservative-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 12
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_idle_multiplier_fp"
+            ],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-conservative-v1_C_tuning-verify-v3_scenario_tuning-conservative-v1_sim_C_ppa10_s12.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-conservative-v1_C_tuning-verify-v3_scenario_tuning-conservative-v1_sim_C_ppa10_s12.csv"
+        },
+        {
+            "scenario_name": "tuning-balanced-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|tuning-balanced-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related",
+                "sigil_drop_tier_combine",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_idle_multiplier_fp",
+                "base_ubi_active_per_tick",
+                "vault_config",
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_window_ticks"
+            ],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-balanced-v1_B_tuning-verify-v3_scenario_tuning-balanced-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-balanced-v1_B_tuning-verify-v3_scenario_tuning-balanced-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "tuning-balanced-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|tuning-balanced-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 12
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related",
+                "sigil_drop_tier_combine",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_idle_multiplier_fp",
+                "base_ubi_active_per_tick",
+                "vault_config",
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_window_ticks"
+            ],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-balanced-v1_C_tuning-verify-v3_scenario_tuning-balanced-v1_sim_C_ppa10_s12.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-balanced-v1_C_tuning-verify-v3_scenario_tuning-balanced-v1_sim_C_ppa10_s12.csv"
+        },
+        {
+            "scenario_name": "tuning-aggressive-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|tuning-aggressive-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related",
+                "sigil_drop_tier_combine",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_idle_multiplier_fp",
+                "base_ubi_active_per_tick",
+                "vault_config",
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_window_ticks"
+            ],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-aggressive-v1_B_tuning-verify-v3_scenario_tuning-aggressive-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-aggressive-v1_B_tuning-verify-v3_scenario_tuning-aggressive-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "tuning-aggressive-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "tuning-verify-v3|scenario|tuning-aggressive-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 12
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related",
+                "sigil_drop_tier_combine",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "hoarding_idle_multiplier_fp",
+                "base_ubi_active_per_tick",
+                "vault_config",
+                "target_spend_rate_per_tick",
+                "hoarding_min_factor_fp",
+                "hoarding_window_ticks"
+            ],
+            "json": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-aggressive-v1_C_tuning-verify-v3_scenario_tuning-aggressive-v1_sim_C_ppa10_s12.json",
+            "csv": "simulation_output/current-db/verification/sweep\\runs\\sweep_tuning-aggressive-v1_C_tuning-verify-v3_scenario_tuning-aggressive-v1_sim_C_ppa10_s12.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}

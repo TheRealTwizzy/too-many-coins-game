@@ -21,6 +21,7 @@ $options = [
     'include-baseline' => true,
     'list-scenarios' => false,
     'season-config' => null,
+    'tuning-candidates' => null,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -43,6 +44,8 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['include-baseline'] = !in_array($value, ['0', 'false', 'no'], true);
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--tuning-candidates=')) {
+        $options['tuning-candidates'] = substr($arg, 20);
     } elseif ($arg === '--list-scenarios') {
         $options['list-scenarios'] = true;
     } elseif ($arg === '--help') {
@@ -61,6 +64,7 @@ Options:
   --scenarios=A,B,C         Comma-separated list of scenarios
   --include-baseline=0|1    Include a baseline (no-override) run (default: 1)
   --season-config=FILE      JSON file to use as base season config for all runs
+  --tuning-candidates=FILE  Phase C tuning_candidates.json to register tuning scenarios
   --output=DIR              Output directory (default: simulation_output/sweep)
   --list-scenarios          Print available scenario names and exit
   --help                    Show this help
@@ -80,11 +84,22 @@ HELP;
 }
 
 if (!empty($options['list-scenarios'])) {
+    if ($options['tuning-candidates'] !== null) {
+        PolicyScenarioCatalog::registerExtra(
+            PolicyScenarioCatalog::loadTuningScenarios($options['tuning-candidates'])
+        );
+    }
     echo 'Available scenarios:' . PHP_EOL;
     foreach (PolicyScenarioCatalog::all() as $scenario) {
         echo sprintf('- %s: %s', (string)$scenario['name'], (string)$scenario['description']) . PHP_EOL;
     }
     exit(0);
+}
+
+if ($options['tuning-candidates'] !== null) {
+    PolicyScenarioCatalog::registerExtra(
+        PolicyScenarioCatalog::loadTuningScenarios($options['tuning-candidates'])
+    );
 }
 
 $result = PolicySweepRunner::run([

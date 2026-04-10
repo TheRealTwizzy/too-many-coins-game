@@ -6,6 +6,20 @@ class PolicyScenarioCatalog
 {
     public const SCENARIO_SCHEMA_VERSION = 'tmc-sim-scenarios.v1';
 
+    /** @var array Extra scenarios registered at runtime (e.g. from tuning candidates). */
+    private static array $extraScenarios = [];
+
+    /**
+     * Register additional scenarios at runtime so get() and all() include them.
+     */
+    public static function registerExtra(array $scenarios): void
+    {
+        foreach ($scenarios as $name => $scenario) {
+            self::assertValidScenario($scenario);
+            self::$extraScenarios[$name] = $scenario;
+        }
+    }
+
     private const CATEGORY_KEY_ALLOWLIST = [
         'star_conversion_pricing' => [
             'starprice_table',
@@ -131,7 +145,7 @@ class PolicyScenarioCatalog
             $indexed[$scenario['name']] = $scenario;
         }
 
-        return $indexed;
+        return array_merge($indexed, self::$extraScenarios);
     }
 
     public static function get(string $name): array
