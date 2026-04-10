@@ -110,6 +110,9 @@ $scenarioToPackage = [
     'tuning-conservative-v1' => 'conservative',
     'tuning-balanced-v1' => 'balanced',
     'tuning-aggressive-v1' => 'aggressive',
+    'tuning-conservative-v2' => 'conservative',
+    'tuning-balanced-v2' => 'balanced',
+    'tuning-aggressive-v2' => 'aggressive',
 ];
 
 // ── Aggregate per-scenario across seeds ──

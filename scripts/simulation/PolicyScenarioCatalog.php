@@ -187,7 +187,8 @@ class PolicyScenarioCatalog
         }
 
         $data = json_decode(file_get_contents($candidatesJsonPath), true);
-        if (!is_array($data) || ($data['schema_version'] ?? '') !== 'tmc-tuning-candidates.v1') {
+        $schemaVersion = $data['schema_version'] ?? '';
+        if (!is_array($data) || !str_starts_with($schemaVersion, 'tmc-tuning-candidates.v')) {
             throw new InvalidArgumentException('Invalid tuning candidates format: ' . $candidatesJsonPath);
         }
 
