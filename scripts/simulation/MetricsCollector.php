@@ -63,6 +63,10 @@ class MetricsCollector
             $lockInTiming = ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0, 'NONE' => 0];
             $lateActiveActivePlayers = 0;
             $lateActiveEngagedPlayers = 0;
+            $coinsEarnedWhileBoosted = 0;
+            $ticksBoosted = 0;
+            $ticksFrozen = 0;
+            $scoreAtPhaseEnd = ['EARLY' => [], 'MID' => [], 'LATE_ACTIVE' => []];
             $actionVolumeByPhase = [
                 'EARLY' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
                 'MID' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
@@ -120,6 +124,16 @@ class MetricsCollector
                 foreach ($t6BySource as $source => $_) {
                     $t6BySource[$source] += (int)($row['metrics']['t6_by_source'][$source] ?? 0);
                 }
+
+                $coinsEarnedWhileBoosted += (int)($row['metrics']['coins_earned_while_boosted'] ?? 0);
+                $ticksBoosted += (int)($row['metrics']['ticks_boosted'] ?? 0);
+                $ticksFrozen += (int)($row['metrics']['ticks_frozen'] ?? 0);
+                foreach (['EARLY', 'MID', 'LATE_ACTIVE'] as $snapPhase) {
+                    $snapVal = $row['metrics']['score_at_phase_end'][$snapPhase] ?? null;
+                    if ($snapVal !== null) {
+                        $scoreAtPhaseEnd[$snapPhase][] = (int)$snapVal;
+                    }
+                }
             }
 
             sort($finalScores);
@@ -151,6 +165,14 @@ class MetricsCollector
                 'late_active_engaged_players' => $lateActiveEngagedPlayers,
                 'late_active_engaged_rate' => $lateActiveEngagedPlayers / $count,
                 'action_volume_by_phase' => $actionVolumeByPhase,
+                'coins_earned_while_boosted' => $coinsEarnedWhileBoosted,
+                'ticks_boosted' => $ticksBoosted,
+                'ticks_frozen' => $ticksFrozen,
+                'score_at_phase_end' => [
+                    'EARLY' => !empty($scoreAtPhaseEnd['EARLY']) ? ['mean' => round(array_sum($scoreAtPhaseEnd['EARLY']) / count($scoreAtPhaseEnd['EARLY']), 2), 'median' => self::medianInt($scoreAtPhaseEnd['EARLY'])] : null,
+                    'MID' => !empty($scoreAtPhaseEnd['MID']) ? ['mean' => round(array_sum($scoreAtPhaseEnd['MID']) / count($scoreAtPhaseEnd['MID']), 2), 'median' => self::medianInt($scoreAtPhaseEnd['MID'])] : null,
+                    'LATE_ACTIVE' => !empty($scoreAtPhaseEnd['LATE_ACTIVE']) ? ['mean' => round(array_sum($scoreAtPhaseEnd['LATE_ACTIVE']) / count($scoreAtPhaseEnd['LATE_ACTIVE']), 2), 'median' => self::medianInt($scoreAtPhaseEnd['LATE_ACTIVE'])] : null,
+                ],
             ];
 
             foreach ($lockInTiming as $phase => $phaseCount) {
@@ -165,6 +187,7 @@ class MetricsCollector
         $overallDiagnostics['natural_expiry_rate'] = $overallDiagnostics['natural_expiry_count'] / $playerCount;
         $overallDiagnostics['late_active_active_rate'] = $overallDiagnostics['late_active_active_players'] / $playerCount;
         $overallDiagnostics['late_active_engaged_rate'] = $overallDiagnostics['late_active_engaged_players'] / $playerCount;
+        $overallDiagnostics['star_price_summary'] = $season['_star_price_summary'] ?? null;
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -192,6 +215,15 @@ class MetricsCollector
                 ];
             }, $players),
         ];
+    }
+
+    private static function medianInt(array $values): int
+    {
+        if (empty($values)) return 0;
+        sort($values);
+        $n = count($values);
+        $mid = (int)floor(($n - 1) / 2);
+        return (int)$values[$mid];
     }
 
     public static function writeJson(array $payload, string $outputDir, string $baseName): string

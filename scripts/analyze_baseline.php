@@ -753,6 +753,242 @@ function analyzeCrossSeedStability(array $simBPayloads): array {
 }
 
 // ==============================================================
+// SECTION 12: Star Pricing
+// ==============================================================
+
+function analyzeStarPricing(array $simBPayloads): array {
+    $perSeed = [];
+
+    foreach ($simBPayloads as $entry) {
+        $seed = $entry['run']['seed'] ?? 'unknown';
+        $summary = $entry['data']['diagnostics']['star_price_summary'] ?? null;
+        if ($summary === null) {
+            continue;
+        }
+        if (!isset($perSeed[$seed])) {
+            $perSeed[$seed] = ['means' => [], 'cap_shares' => [], 'floor_shares' => [], 'min' => PHP_INT_MAX, 'max' => 0];
+        }
+        $perSeed[$seed]['means'][] = (float)($summary['mean'] ?? 0);
+        $perSeed[$seed]['cap_shares'][] = (float)($summary['cap_share'] ?? 0);
+        $perSeed[$seed]['floor_shares'][] = (float)($summary['floor_share'] ?? 0);
+        if ((int)($summary['min'] ?? PHP_INT_MAX) < $perSeed[$seed]['min']) $perSeed[$seed]['min'] = (int)$summary['min'];
+        if ((int)($summary['max'] ?? 0) > $perSeed[$seed]['max']) $perSeed[$seed]['max'] = (int)$summary['max'];
+    }
+
+    if (empty($perSeed)) {
+        return ['available' => false, 'reason' => 'No star_price_summary data in simulation outputs.'];
+    }
+
+    // Average mean price per seed, then compute CV across seeds
+    $seedMeans = [];
+    $allCapShares = [];
+    $allFloorShares = [];
+    foreach ($perSeed as $seed => $data) {
+        $seedMeans[] = mean($data['means']);
+        $allCapShares = array_merge($allCapShares, $data['cap_shares']);
+        $allFloorShares = array_merge($allFloorShares, $data['floor_shares']);
+    }
+
+    $priceCv = coefficientOfVariation($seedMeans);
+    $meanCapShare = mean($allCapShares);
+    $meanFloorShare = mean($allFloorShares);
+    $stuckShare = $meanCapShare + $meanFloorShare;
+
+    return [
+        'available'       => true,
+        'seed_count'      => count($perSeed),
+        'mean_price_by_seed' => array_map(fn($v) => round($v, 2), $seedMeans),
+        'price_cv_across_seeds' => round($priceCv, 4),
+        'mean_cap_share'  => round($meanCapShare, 4),
+        'mean_floor_share' => round($meanFloorShare, 4),
+        'stuck_at_cap_or_floor_share' => round($stuckShare, 4),
+        'global_min_price' => min(array_column(array_values($perSeed), 'min')),
+        'global_max_price' => max(array_column(array_values($perSeed), 'max')),
+    ];
+}
+
+// ==============================================================
+// SECTION 13: Progression Pacing (direct score at phase boundary)
+// ==============================================================
+
+function analyzeProgressionPacing(array $simBPayloads): array {
+    $byArchetype = [];
+
+    foreach ($simBPayloads as $entry) {
+        foreach ((array)($entry['data']['archetypes'] ?? []) as $key => $arch) {
+            if (!isset($byArchetype[$key])) {
+                $byArchetype[$key] = ['label' => $arch['label'] ?? $key, 'phase_end_scores' => ['EARLY' => [], 'MID' => [], 'LATE_ACTIVE' => []], 'final_scores' => []];
+            }
+            $scoreSnap = $arch['score_at_phase_end'] ?? [];
+            foreach (['EARLY', 'MID', 'LATE_ACTIVE'] as $phase) {
+                $val = $scoreSnap[$phase] ?? null;
+                if ($val !== null && isset($val['median'])) {
+                    $byArchetype[$key]['phase_end_scores'][$phase][] = (int)$val['median'];
+                }
+            }
+            $byArchetype[$key]['final_scores'][] = (int)($arch['median_final_effective_score'] ?? 0);
+        }
+    }
+
+    // Also get the overall final median from players
+    $allFinalScores = [];
+    foreach ($simBPayloads as $entry) {
+        foreach ((array)($entry['data']['players'] ?? []) as $p) {
+            $allFinalScores[] = (int)($p['final_effective_score'] ?? 0);
+        }
+    }
+    sort($allFinalScores);
+    $overallFinalMedian = median($allFinalScores);
+
+    $result = [];
+    foreach ($byArchetype as $key => $arch) {
+        $phases = [];
+        foreach (['EARLY', 'MID', 'LATE_ACTIVE'] as $phase) {
+            $vals = $arch['phase_end_scores'][$phase];
+            if (!empty($vals)) {
+                $med = median($vals);
+                $phases[$phase] = [
+                    'median_score' => round($med, 2),
+                    'ratio_to_final' => $overallFinalMedian > 0 ? round($med / $overallFinalMedian, 4) : 0,
+                ];
+            } else {
+                $phases[$phase] = null;
+            }
+        }
+        $result[$key] = [
+            'label' => $arch['label'],
+            'phase_end_scores' => $phases,
+            'archetype_final_median' => round(median($arch['final_scores']), 2),
+        ];
+    }
+
+    // Aggregate across all archetypes: median score at each phase boundary
+    $aggregated = [];
+    foreach (['EARLY', 'MID', 'LATE_ACTIVE'] as $phase) {
+        $allPhaseScores = [];
+        foreach ($byArchetype as $arch) {
+            $allPhaseScores = array_merge($allPhaseScores, $arch['phase_end_scores'][$phase]);
+        }
+        if (!empty($allPhaseScores)) {
+            $med = median($allPhaseScores);
+            $aggregated[$phase] = [
+                'median_score' => round($med, 2),
+                'ratio_to_final' => $overallFinalMedian > 0 ? round($med / $overallFinalMedian, 4) : 0,
+            ];
+        } else {
+            $aggregated[$phase] = null;
+        }
+    }
+
+    $available = !empty($aggregated['EARLY']) || !empty($aggregated['MID']);
+
+    return [
+        'available'           => $available,
+        'overall_final_median' => round($overallFinalMedian, 2),
+        'aggregated'          => $aggregated,
+        'by_archetype'        => $result,
+    ];
+}
+
+// ==============================================================
+// SECTION 14: Mechanic Attribution (boost coin contribution)
+// ==============================================================
+
+function analyzeMechanicAttribution(array $simBPayloads): array {
+    $byArchetype = [];
+    $allPlayers = [];
+
+    foreach ($simBPayloads as $entry) {
+        foreach ((array)($entry['data']['archetypes'] ?? []) as $key => $arch) {
+            if (!isset($byArchetype[$key])) {
+                $byArchetype[$key] = [
+                    'label' => $arch['label'] ?? $key,
+                    'total_coins' => [],
+                    'boosted_coins' => [],
+                    'ticks_boosted' => [],
+                    'ticks_frozen' => [],
+                ];
+            }
+            $totalCoins = array_sum($arch['coins_earned_by_phase'] ?? []);
+            $boostedCoins = (int)($arch['coins_earned_while_boosted'] ?? 0);
+            $byArchetype[$key]['total_coins'][] = $totalCoins;
+            $byArchetype[$key]['boosted_coins'][] = $boostedCoins;
+            $byArchetype[$key]['ticks_boosted'][] = (int)($arch['ticks_boosted'] ?? 0);
+            $byArchetype[$key]['ticks_frozen'][] = (int)($arch['ticks_frozen'] ?? 0);
+        }
+
+        // Collect per-player data for top-quartile analysis
+        foreach ((array)($entry['data']['players'] ?? []) as $p) {
+            $metrics = $p['metrics'] ?? [];
+            $totalCoins = 0;
+            foreach (['EARLY','MID','LATE_ACTIVE','BLACKOUT'] as $phase) {
+                $totalCoins += (int)($metrics['coins_earned_by_phase'][$phase] ?? 0);
+            }
+            $allPlayers[] = [
+                'archetype_key' => $p['archetype_key'] ?? 'unknown',
+                'final_score' => (int)($p['final_effective_score'] ?? 0),
+                'total_coins' => $totalCoins,
+                'boosted_coins' => (int)($metrics['coins_earned_while_boosted'] ?? 0),
+                'ticks_boosted' => (int)($metrics['ticks_boosted'] ?? 0),
+                'ticks_frozen' => (int)($metrics['ticks_frozen'] ?? 0),
+            ];
+        }
+    }
+
+    // Per-archetype boost contribution ratio
+    $archetypeResult = [];
+    foreach ($byArchetype as $key => $arch) {
+        $meanTotal = mean($arch['total_coins']);
+        $meanBoosted = mean($arch['boosted_coins']);
+        $archetypeResult[$key] = [
+            'label' => $arch['label'],
+            'mean_total_coins' => round($meanTotal, 2),
+            'mean_boosted_coins' => round($meanBoosted, 2),
+            'boost_coin_share' => $meanTotal > 0 ? round($meanBoosted / $meanTotal, 4) : 0,
+            'mean_ticks_boosted' => round(mean($arch['ticks_boosted']), 2),
+            'mean_ticks_frozen' => round(mean($arch['ticks_frozen']), 2),
+        ];
+    }
+
+    // Top-quartile analysis for overpowered-mechanic detection
+    if (!empty($allPlayers)) {
+        usort($allPlayers, fn($a, $b) => $b['final_score'] <=> $a['final_score']);
+        $q1Count = max(1, (int)ceil(count($allPlayers) * 0.25));
+        $topQuartile = array_slice($allPlayers, 0, $q1Count);
+        $bottomThreeQuartiles = array_slice($allPlayers, $q1Count);
+
+        $topMeanCoins = mean(array_column($topQuartile, 'total_coins'));
+        $topMeanBoosted = mean(array_column($topQuartile, 'boosted_coins'));
+        $botMeanCoins = mean(array_column($bottomThreeQuartiles, 'total_coins'));
+        $botMeanBoosted = mean(array_column($bottomThreeQuartiles, 'boosted_coins'));
+
+        $coinDelta = $topMeanCoins - $botMeanCoins;
+        $boostedDelta = $topMeanBoosted - $botMeanBoosted;
+        $boostContributionToScoreDelta = $coinDelta > 0 ? round($boostedDelta / $coinDelta, 4) : 0;
+
+        $topQuartileAnalysis = [
+            'players_in_top_quartile' => count($topQuartile),
+            'top_mean_coins' => round($topMeanCoins, 2),
+            'top_mean_boosted_coins' => round($topMeanBoosted, 2),
+            'bottom_mean_coins' => round($botMeanCoins, 2),
+            'bottom_mean_boosted_coins' => round($botMeanBoosted, 2),
+            'coin_delta_top_vs_rest' => round($coinDelta, 2),
+            'boosted_coin_delta' => round($boostedDelta, 2),
+            'boost_share_of_coin_delta' => $boostContributionToScoreDelta,
+        ];
+    } else {
+        $topQuartileAnalysis = null;
+    }
+
+    return [
+        'available'              => true,
+        'attribution_method'     => 'coins_earned_while_boosted: fraction of total coin accrual that occurred during active boost ticks',
+        'by_archetype'           => $archetypeResult,
+        'top_quartile_analysis'  => $topQuartileAnalysis,
+    ];
+}
+
+// ==============================================================
 // Build the full report
 // ==============================================================
 
@@ -789,6 +1025,15 @@ $phaseByPhase = analyzePhaseByPhase($simBPayloads);
 echo "Analyzing cross-seed stability...\n";
 $crossSeedStability = analyzeCrossSeedStability($simBPayloads);
 
+echo "Analyzing star pricing...\n";
+$starPricing = analyzeStarPricing($simBPayloads);
+
+echo "Analyzing progression pacing...\n";
+$progressionPacing = analyzeProgressionPacing($simBPayloads);
+
+echo "Analyzing mechanic attribution...\n";
+$mechanicAttribution = analyzeMechanicAttribution($simBPayloads);
+
 $report = [
     'schema_version'        => 'tmc-baseline-analysis.v1',
     'generated_at'          => gmdate('c'),
@@ -807,6 +1052,9 @@ $report = [
     'hoarding_vs_spending'  => $hoardingSpending,
     'phase_by_phase_behavior' => $phaseByPhase,
     'cross_seed_stability'  => $crossSeedStability,
+    'star_pricing'          => $starPricing,
+    'progression_pacing'    => $progressionPacing,
+    'mechanic_attribution'  => $mechanicAttribution,
 ];
 
 // --- Write JSON report ---
@@ -969,6 +1217,79 @@ function generateMarkdownSummary(array $r): string {
     if (!empty($css['unstable_metrics'])) {
         $lines[] = '';
         $lines[] = 'Unstable metrics: ' . implode(', ', $css['unstable_metrics']);
+    }
+    $lines[] = '';
+
+    // Star Pricing
+    $sp = $r['star_pricing'] ?? null;
+    $lines[] = '## 12. Star Pricing';
+    $lines[] = '';
+    if ($sp && ($sp['available'] ?? false)) {
+        $lines[] = sprintf('Seeds: %d | Price CV across seeds: **%.4f**', $sp['seed_count'], $sp['price_cv_across_seeds']);
+        $lines[] = sprintf('- Global min price: %d | Global max price: %d', $sp['global_min_price'], $sp['global_max_price']);
+        $lines[] = sprintf('- Stuck at cap share: **%.1f%%** | Stuck at floor share: **%.1f%%**', $sp['mean_cap_share'] * 100, $sp['mean_floor_share'] * 100);
+        $lines[] = sprintf('- Combined stuck share: **%.1f%%**', $sp['stuck_at_cap_or_floor_share'] * 100);
+    } else {
+        $lines[] = 'Star pricing data not available in simulation outputs.';
+    }
+    $lines[] = '';
+
+    // Progression Pacing
+    $ppg = $r['progression_pacing'] ?? null;
+    $lines[] = '## 13. Progression Pacing';
+    $lines[] = '';
+    if ($ppg && ($ppg['available'] ?? false)) {
+        $lines[] = sprintf('Overall final median score: **%.0f**', $ppg['overall_final_median']);
+        $lines[] = '';
+        $lines[] = '**Aggregated score at phase boundaries (ratio to final):**';
+        $lines[] = '';
+        $lines[] = '| Phase | Median Score | Ratio to Final |';
+        $lines[] = '|---|---|---|';
+        foreach (['EARLY', 'MID', 'LATE_ACTIVE'] as $phase) {
+            $d = $ppg['aggregated'][$phase] ?? null;
+            if ($d) {
+                $lines[] = sprintf('| %s | %.0f | %.4f |', $phase, $d['median_score'], $d['ratio_to_final']);
+            } else {
+                $lines[] = sprintf('| %s | — | — |', $phase);
+            }
+        }
+        $lines[] = '';
+        $lines[] = '**By archetype:**';
+        $lines[] = '';
+        $lines[] = '| Archetype | EARLY | MID | LATE_ACTIVE | Final |';
+        $lines[] = '|---|---|---|---|---|';
+        foreach ($ppg['by_archetype'] as $key => $a) {
+            $early = ($a['phase_end_scores']['EARLY'] ?? null) ? sprintf('%.0f', $a['phase_end_scores']['EARLY']['median_score']) : '—';
+            $mid = ($a['phase_end_scores']['MID'] ?? null) ? sprintf('%.0f', $a['phase_end_scores']['MID']['median_score']) : '—';
+            $late = ($a['phase_end_scores']['LATE_ACTIVE'] ?? null) ? sprintf('%.0f', $a['phase_end_scores']['LATE_ACTIVE']['median_score']) : '—';
+            $lines[] = sprintf('| %s | %s | %s | %s | %.0f |', $a['label'], $early, $mid, $late, $a['archetype_final_median']);
+        }
+    } else {
+        $lines[] = 'Progression pacing data not available (no phase-end score snapshots).';
+    }
+    $lines[] = '';
+
+    // Mechanic Attribution
+    $ma = $r['mechanic_attribution'] ?? null;
+    $lines[] = '## 14. Mechanic Attribution';
+    $lines[] = '';
+    if ($ma && ($ma['available'] ?? false)) {
+        $lines[] = '**Per-archetype boost contribution:**';
+        $lines[] = '';
+        $lines[] = '| Archetype | Boost Coin Share | Mean Ticks Boosted | Mean Ticks Frozen |';
+        $lines[] = '|---|---|---|---|';
+        foreach ($ma['by_archetype'] as $key => $a) {
+            $lines[] = sprintf('| %s | %.1f%% | %.0f | %.0f |', $a['label'], $a['boost_coin_share'] * 100, $a['mean_ticks_boosted'], $a['mean_ticks_frozen']);
+        }
+        $lines[] = '';
+        if ($ma['top_quartile_analysis'] ?? null) {
+            $tq = $ma['top_quartile_analysis'];
+            $lines[] = sprintf('**Top-quartile analysis** (n=%d):', $tq['players_in_top_quartile']);
+            $lines[] = sprintf('- Top coin delta vs rest: %.0f', $tq['coin_delta_top_vs_rest']);
+            $lines[] = sprintf('- Boost share of coin delta: **%.1f%%**', $tq['boost_share_of_coin_delta'] * 100);
+        }
+    } else {
+        $lines[] = 'Mechanic attribution data not available.';
     }
     $lines[] = '';
 

@@ -26,6 +26,10 @@ class SimulationPopulationSeason
             }
         }
 
+        $previousPhase = null;
+        $starPriceSummary = ['tick_count' => 0, 'sum' => 0, 'min' => PHP_INT_MAX, 'max' => 0, 'at_cap' => 0, 'at_floor' => 0];
+        $starPriceCap = (int)($season['star_price_cap'] ?? 10000);
+
         for ($tick = (int)$season['start_time']; $tick < (int)$season['end_time']; $tick++) {
             $status = SimulationSeason::updateComputedStatus($season, $tick);
             if ($status === 'Blackout' && $season['blackout_star_price_snapshot'] === null) {
@@ -39,13 +43,22 @@ class SimulationPopulationSeason
                 $playerMap[$player->snapshot()['player_id']] = $player;
             }
 
+            $currentPhase = ($status === 'Blackout')
+                ? 'BLACKOUT'
+                : (string)Economy::sigilSeasonPhase($season, $tick);
+
+            if ($previousPhase !== null && $currentPhase !== $previousPhase && $previousPhase !== 'BLACKOUT') {
+                foreach ($players as $player) {
+                    $player->snapshotPhaseEnd($previousPhase);
+                }
+            }
+            $previousPhase = $currentPhase;
+
             foreach ($players as $player) {
                 if (!$player->isParticipating()) {
                     continue;
                 }
-                $phase = ($status === 'Blackout')
-                    ? 'BLACKOUT'
-                    : (string)Economy::sigilSeasonPhase($season, $tick);
+                $phase = $currentPhase;
                 $presence = PolicyBehavior::resolvePresenceState(
                     Archetypes::get($player->snapshot()['archetype_key']),
                     $phase,
@@ -69,14 +82,38 @@ class SimulationPopulationSeason
                 if (!$player->isParticipating()) {
                     continue;
                 }
-                $phase = ($status === 'Blackout')
-                    ? 'BLACKOUT'
-                    : (string)Economy::sigilSeasonPhase($season, $tick);
+                $phase = $currentPhase;
                 $player->act($season, $phase, $tick, $snapshots, $map);
             }
 
             self::recomputeSeasonSupply($season, $players, $tick);
+
+            $price = (int)$season['current_star_price'];
+            $starPriceSummary['tick_count']++;
+            $starPriceSummary['sum'] += $price;
+            if ($price < $starPriceSummary['min']) $starPriceSummary['min'] = $price;
+            if ($price > $starPriceSummary['max']) $starPriceSummary['max'] = $price;
+            if ($price >= $starPriceCap) $starPriceSummary['at_cap']++;
+            if ($price <= 1) $starPriceSummary['at_floor']++;
         }
+
+        // Final phase-end snapshot for the last active phase before season ends
+        if ($previousPhase !== null && $previousPhase !== 'BLACKOUT') {
+            foreach ($players as $player) {
+                $player->snapshotPhaseEnd($previousPhase);
+            }
+        }
+
+        $starPriceSummary['mean'] = $starPriceSummary['tick_count'] > 0
+            ? round($starPriceSummary['sum'] / $starPriceSummary['tick_count'], 2)
+            : 0;
+        $starPriceSummary['cap_share'] = $starPriceSummary['tick_count'] > 0
+            ? round($starPriceSummary['at_cap'] / $starPriceSummary['tick_count'], 4)
+            : 0;
+        $starPriceSummary['floor_share'] = $starPriceSummary['tick_count'] > 0
+            ? round($starPriceSummary['at_floor'] / $starPriceSummary['tick_count'], 4)
+            : 0;
+        $season['_star_price_summary'] = $starPriceSummary;
 
         self::finalizeSeason($players);
 

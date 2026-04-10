@@ -103,6 +103,10 @@ class SimulationPlayer
             'blackout_global_stars_gained' => 0,
             'lock_in_phase' => null,
             'natural_expiry' => false,
+            'coins_earned_while_boosted' => 0,
+            'ticks_boosted' => 0,
+            'ticks_frozen' => 0,
+            'score_at_phase_end' => ['EARLY' => null, 'MID' => null, 'LATE_ACTIVE' => null],
         ];
     }
 
@@ -186,6 +190,13 @@ class SimulationPlayer
         }
 
         $this->metrics['coins_earned_by_phase'][$phase] += $netCoins;
+        if ($this->boost['is_active']) {
+            $this->metrics['coins_earned_while_boosted'] += $netCoins;
+            $this->metrics['ticks_boosted']++;
+        }
+        if ($this->freeze['is_active']) {
+            $this->metrics['ticks_frozen']++;
+        }
 
         return [
             'net_coins' => $netCoins,
@@ -330,6 +341,13 @@ class SimulationPlayer
     public function isParticipating(): bool
     {
         return !empty($this->player['participation_enabled']) && !empty($this->player['joined_season_id']);
+    }
+
+    public function snapshotPhaseEnd(string $phase): void
+    {
+        if (isset($this->metrics['score_at_phase_end'][$phase])) {
+            $this->metrics['score_at_phase_end'][$phase] = (int)$this->participation['seasonal_stars'];
+        }
     }
 
     public function currentPresence(): string
