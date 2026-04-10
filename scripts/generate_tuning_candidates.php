@@ -12,11 +12,12 @@
  *   --diagnosis=FILE       Path to diagnosis_report.json (required)
  *   --season-config=FILE   Path to exported season config JSON (for current_value lookup; optional)
  *   --output=DIR           Output directory (default: simulation_output/current-db/tuning/)
+ *   --version=N            Tuning version (1 or 2; default 1). v2 applies regression mitigations.
  *   --help                 Show this help
  *
  * Outputs:
- *   tuning_candidates.json   Ranked candidate packages + escalations + scenarios
- *   tuning_candidates.md     Human-readable summary
+ *   tuning_candidates[_v2].json   Ranked candidate packages + escalations + scenarios
+ *   tuning_candidates[_v2].md     Human-readable summary
  */
 
 require_once __DIR__ . '/simulation/SimulationSeason.php';
@@ -29,6 +30,7 @@ $options = [
     'diagnosis'      => null,
     'season-config'  => null,
     'output'         => __DIR__ . '/../simulation_output/current-db/tuning',
+    'version'        => 1,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -38,6 +40,8 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['season-config'] = substr($arg, 16);
     } elseif (str_starts_with($arg, '--output=')) {
         $options['output'] = substr($arg, 9);
+    } elseif (str_starts_with($arg, '--version=')) {
+        $options['version'] = (int)substr($arg, 10);
     } elseif ($arg === '--help') {
         echo <<<'HELP'
 Phase C — Candidate Tuning Package Generator
@@ -51,6 +55,7 @@ Options:
   --diagnosis=FILE       Path to diagnosis_report.json (required)
   --season-config=FILE   Path to exported season config JSON (optional; for current_value)
   --output=DIR           Output directory (default: simulation_output/current-db/tuning/)
+  --version=N            Tuning version (1 or 2; default 1). v2 applies regression mitigations.
   --help                 Show this help
 
 Outputs:
@@ -124,6 +129,99 @@ if (!is_dir($outputDir)) {
 echo "Diagnosis report: {$diagnosisPath}\n";
 echo "Total findings: " . count($findings) . "\n";
 echo "Output dir: {$outputDir}\n\n";
+
+// ================================================================
+// Version handling
+// ================================================================
+
+$tuningVersion = $options['version'];
+$versionSuffix = $tuningVersion >= 2 ? "v{$tuningVersion}" : 'v1';
+
+if ($tuningVersion >= 2) {
+    echo "=== Generating v{$tuningVersion} packages with regression mitigations ===\n\n";
+}
+
+// ================================================================
+// V2 Regression Mitigation
+//
+// v1 packages were hoarding-drain-focused and caused 5 regression classes:
+//   1. skip_rejoin_exploit_worsened — zero-tolerance threshold; hoarding drain
+//      shifts economic advantage to skip/rejoin players
+//   2. dominant_archetype_shifted — single-axis hoarding changes reshuffle rankings
+//   3. lock_in_down_but_expiry_dominance_up — more drain → fewer coins → fewer lock-ins
+//   4. long_run_concentration_worsened — hoarding drain benefits some archetypes
+//      disproportionately over 12 seasons
+//   5. reduces_lock_in_but_expiry_dominance_rises — cross-sim version of #3
+//
+// V2 strategy:
+//   a) Reduce hoarding drain magnitudes (smaller multipliers)
+//   b) Add compensating lock-in support (reactivation window, affordability bias)
+//   c) Add expiry softening (max downstep increase)
+//   d) Make packages multi-axis instead of single-category
+// ================================================================
+
+$V2_MULTIPLIER_OVERRIDES = [
+    'hoarding_advantage' => [
+        'hoarding_tier2_rate_hourly_fp'  => ['conservative' => 1.07, 'balanced' => 1.15, 'aggressive' => 1.25],
+        'hoarding_tier3_rate_hourly_fp'  => ['conservative' => 1.07, 'balanced' => 1.15, 'aggressive' => 1.25],
+        'hoarding_idle_multiplier_fp'    => ['conservative' => 1.03, 'balanced' => 1.08, 'aggressive' => 1.15],
+    ],
+    'concentrated_wealth' => [
+        'hoarding_tier1_rate_hourly_fp'  => ['conservative' => 1.05, 'balanced' => 1.12, 'aggressive' => 1.25],
+        'hoarding_tier2_rate_hourly_fp'  => ['conservative' => 1.05, 'balanced' => 1.12, 'aggressive' => 1.25],
+        'hoarding_sink_cap_ratio_fp'     => ['conservative' => 0.97, 'balanced' => 0.92, 'aggressive' => 0.80],
+    ],
+    'boost_roi_imbalance' => [
+        'target_spend_rate_per_tick'     => ['conservative' => 0.95, 'balanced' => 0.87, 'aggressive' => 0.78],
+        'hoarding_min_factor_fp'         => ['conservative' => 1.05, 'balanced' => 1.15, 'aggressive' => 1.30],
+    ],
+    'phase_dead_zones' => [
+        'hoarding_window_ticks'          => ['conservative' => 0.95, 'balanced' => 0.88, 'aggressive' => 0.80],
+    ],
+];
+
+$REGRESSION_COUNTERWEIGHTS = [
+    'lock_in_support' => [
+        'trigger_categories' => ['hoarding_advantage', 'concentrated_wealth', 'phase_dead_zones'],
+        'targets' => [
+            [
+                'key' => 'starprice_reactivation_window_ticks',
+                'direction' => 'increase',
+                'conservative' => 1.08, 'balanced' => 1.15, 'aggressive' => 1.25,
+                'mode' => 'multiply', 'type' => 'timer',
+                'mechanic' => 'star_pricing',
+                'player_effect' => 'More time to re-enter after idle before price penalty (counterweight)',
+                'economy_effect' => 'Preserves lock-in viability when hoarding drain increases',
+                'counterweight_for' => 'lock_in_down_but_expiry_dominance_up',
+            ],
+            [
+                'key' => 'market_affordability_bias_fp',
+                'direction' => 'decrease',
+                'conservative' => 0.97, 'balanced' => 0.93, 'aggressive' => 0.88,
+                'mode' => 'multiply', 'type' => 'pricing',
+                'mechanic' => 'star_pricing',
+                'player_effect' => 'Stars slightly more affordable to offset hoarding drain (counterweight)',
+                'economy_effect' => 'Maintains lock-in rates when coin supply decreases',
+                'counterweight_for' => 'lock_in_down_but_expiry_dominance_up',
+            ],
+        ],
+    ],
+    'expiry_softening' => [
+        'trigger_categories' => ['hoarding_advantage', 'concentrated_wealth'],
+        'targets' => [
+            [
+                'key' => 'starprice_max_downstep_fp',
+                'direction' => 'increase',
+                'conservative' => 1.08, 'balanced' => 1.15, 'aggressive' => 1.25,
+                'mode' => 'multiply', 'type' => 'pacing',
+                'mechanic' => 'star_pricing',
+                'player_effect' => 'Star price drops faster when demand is low (counterweight)',
+                'economy_effect' => 'Prevents price-stuck expiry when hoarding drain reduces demand',
+                'counterweight_for' => 'reduces_lock_in_but_expiry_dominance_rises',
+            ],
+        ],
+    ],
+];
 
 // ================================================================
 // Tuning Change Registry
@@ -673,6 +771,10 @@ foreach ($PACKAGE_DEFS as $pkgName => $pkgDef) {
             $proposedValue = $currentValue;
             if ($target['mode'] === 'multiply' && is_numeric($currentValue)) {
                 $factor = $target[$tier] ?? 1.0;
+                // V2: apply dampened multipliers for regression mitigation
+                if ($tuningVersion >= 2 && isset($V2_MULTIPLIER_OVERRIDES[$cat][$key][$tier])) {
+                    $factor = $V2_MULTIPLIER_OVERRIDES[$cat][$key][$tier];
+                }
                 $proposedValue = (int)round((float)$currentValue * (float)$factor);
             } elseif ($target['mode'] === 'vault_tuning') {
                 $vaultMode = $target[$tier] ?? null;
@@ -710,7 +812,7 @@ foreach ($PACKAGE_DEFS as $pkgName => $pkgDef) {
 
             // Build scenario test description
             $metricDirection = ($target['direction'] === 'increase' || $target['direction'] === 'increase_supply') ? 'should increase' : 'should decrease';
-            $scenarioName = "tuning-{$pkgName}-v1";
+            $scenarioName = "tuning-{$pkgName}-{$versionSuffix}";
 
             $changes[] = [
                 'change_id'              => "C{$changeId}",
@@ -734,9 +836,88 @@ foreach ($PACKAGE_DEFS as $pkgName => $pkgDef) {
     }
 
     if (!empty($changes)) {
+        // V2: inject regression counterweights when trigger categories are present
+        $counterweightChanges = [];
+        if ($tuningVersion >= 2) {
+            $activeCats = [];
+            foreach ($changes as $ch) {
+                // Determine which categories this change belongs to
+                foreach ($findingsByCategory as $cat2 => $_) {
+                    $reg2 = $TUNING_REGISTRY[$cat2] ?? null;
+                    if ($reg2 && $reg2['tunable']) {
+                        foreach ($reg2['targets'] as $t2) {
+                            if ($t2['key'] === $ch['target']) {
+                                $activeCats[$cat2] = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            $injectedKeys = [];
+            foreach ($REGRESSION_COUNTERWEIGHTS as $cwName => $cw) {
+                $triggered = false;
+                foreach ($cw['trigger_categories'] as $trigCat) {
+                    if (isset($activeCats[$trigCat])) {
+                        $triggered = true;
+                        break;
+                    }
+                }
+                if (!$triggered) continue;
+
+                foreach ($cw['targets'] as $cwTarget) {
+                    $cwKey = $cwTarget['key'];
+                    // Skip if already in changes from primary tuning
+                    $alreadyPresent = false;
+                    foreach ($changes as $existCh) {
+                        if ($existCh['target'] === $cwKey) {
+                            $alreadyPresent = true;
+                            break;
+                        }
+                    }
+                    if ($alreadyPresent || isset($injectedKeys[$cwKey])) continue;
+                    $injectedKeys[$cwKey] = true;
+
+                    $changeId++;
+                    $cwCurrentValue = getBaselineValue($cwKey, $seasonConfig, $baselineSeason);
+                    $cwFactor = $cwTarget[$pkgDef['tier']] ?? 1.0;
+                    $cwProposed = is_numeric($cwCurrentValue)
+                        ? (int)round((float)$cwCurrentValue * (float)$cwFactor)
+                        : $cwCurrentValue;
+
+                    $cwRisk = 'LOW';
+                    if (is_numeric($cwCurrentValue) && $cwCurrentValue != 0) {
+                        $cwRatio = abs(($cwProposed - $cwCurrentValue) / $cwCurrentValue);
+                        if ($cwRatio > 0.30) $cwRisk = 'HIGH';
+                        elseif ($cwRatio > 0.15) $cwRisk = 'MEDIUM';
+                    }
+
+                    $counterweightChanges[] = [
+                        'change_id'              => "C{$changeId}",
+                        'finding_id'             => 'regression_counterweight',
+                        'type'                   => $cwTarget['type'],
+                        'target'                 => $cwKey,
+                        'current_value'          => $cwCurrentValue,
+                        'proposed_value'         => $cwProposed,
+                        'reason'                 => "Regression counterweight ({$cwName}): mitigates " . ($cwTarget['counterweight_for'] ?? $cwName),
+                        'impacted_mechanic'      => $cwTarget['mechanic'],
+                        'expected_player_effect' => $cwTarget['player_effect'],
+                        'expected_economy_effect' => $cwTarget['economy_effect'],
+                        'risk_level'             => $cwRisk,
+                        'simulation_test'        => "tuning-{$pkgName}-{$versionSuffix}: {$cwTarget['mechanic']} counterweight",
+                        'source_file'            => 'schema.sql (seasons table column)',
+                        'source_surface'         => 'season_column',
+                        'confidence'             => 'MEDIUM',
+                        'notes'                  => 'Auto-injected counterweight to offset hoarding drain regressions',
+                    ];
+                }
+            }
+            $changes = array_merge($changes, $counterweightChanges);
+        }
+
         $packages[] = [
             'package_name'    => $pkgName,
-            'description'     => $pkgDef['description'],
+            'description'     => $pkgDef['description'] . ($tuningVersion >= 2 ? ' (v2: regression-mitigated, multi-axis)' : ''),
             'severity_filter' => $pkgDef['severity_filter'],
             'max_risk'        => $pkgDef['max_risk'],
             'changes'         => $changes,
@@ -792,8 +973,23 @@ foreach ($packages as $pkg) {
     }
 
     if (!empty($overrides)) {
+        // V2: also resolve counterweight keys from REGRESSION_COUNTERWEIGHTS
+        if ($tuningVersion >= 2) {
+            foreach ($REGRESSION_COUNTERWEIGHTS as $cw) {
+                foreach ($cw['targets'] as $cwT) {
+                    $cwK = $cwT['key'];
+                    if (!isset($categorySet['star_conversion_pricing']) && isset($overrides[$cwK])) {
+                        $categorySet['star_conversion_pricing'] = true;
+                    }
+                    if (!isset($categorySet['lock_in_expiry_incentives']) && isset($overrides[$cwK])) {
+                        $categorySet['lock_in_expiry_incentives'] = true;
+                    }
+                }
+            }
+        }
+
         $scenarios[] = [
-            'name'        => "tuning-{$pkg['package_name']}-v1",
+            'name'        => "tuning-{$pkg['package_name']}-{$versionSuffix}",
             'description' => "Phase C tuning scenario ({$pkg['package_name']}): " . $pkg['description'],
             'categories'  => array_keys($categorySet),
             'overrides'   => $overrides,
@@ -806,9 +1002,10 @@ foreach ($packages as $pkg) {
 // ================================================================
 
 $output = [
-    'schema_version'       => 'tmc-tuning-candidates.v1',
+    'schema_version'       => "tmc-tuning-candidates.{$versionSuffix}",
     'generated_at'         => gmdate('c'),
     'diagnosis_report_path' => $diagnosisPath,
+    'tuning_version'       => $tuningVersion,
     'packages'             => $packages,
     'escalations'          => $escalations,
     'scenarios'            => $scenarios,
@@ -822,7 +1019,27 @@ $output = [
     ],
 ];
 
-$jsonPath = $outputDir . DIRECTORY_SEPARATOR . 'tuning_candidates.json';
+if ($tuningVersion >= 2) {
+    $output['regression_mitigation_notes'] = [
+        'strategy' => 'Dampened hoarding drain multipliers + multi-axis counterweights for lock-in/expiry support',
+        'v1_regression_classes' => [
+            'skip_rejoin_exploit_worsened' => 'Triggered 7/9 SimC runs. Zero-tolerance threshold (>0.0). Hoarding drain benefits skip/rejoin players. Mitigation: smaller drain deltas reduce economic landscape shift.',
+            'dominant_archetype_shifted' => 'Triggered 9/18 comparisons. Single-axis hoarding changes reshuffle rankings. Mitigation: smaller changes + multi-axis approach reduces reshuffling.',
+            'lock_in_down_but_expiry_dominance_up' => 'Triggered 5/9 SimB runs. More drain → fewer coins → fewer lock-ins. Mitigation: counterweight affordability bias + reactivation window.',
+            'long_run_concentration_worsened' => 'Triggered 3/9 SimC runs (seed-specific). Mitigation: smaller hoarding drain reduces disproportionate benefit.',
+            'reduces_lock_in_but_expiry_dominance_rises' => 'Cross-sim version of lock_in_down. Mitigation: expiry softening via max_downstep counterweight.',
+        ],
+        'expected_flag_reduction_targets' => [
+            'skip_rejoin_exploit_worsened' => 'Reduce from 7/9 to ≤3/9 via smaller drain deltas',
+            'dominant_archetype_shifted' => 'Reduce from 9/18 to ≤4/18 via multi-axis balancing',
+            'lock_in_down_but_expiry_dominance_up' => 'Reduce from 5/9 to ≤1/9 via lock-in counterweights',
+            'long_run_concentration_worsened' => 'Reduce from 3/9 to 0/9 via smaller drain magnitude',
+        ],
+    ];
+}
+
+$fileSuffix = $tuningVersion >= 2 ? "_v{$tuningVersion}" : '';
+$jsonPath = $outputDir . DIRECTORY_SEPARATOR . "tuning_candidates{$fileSuffix}.json";
 file_put_contents($jsonPath, json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
 echo "=== Phase C Complete ===\n";
@@ -835,10 +1052,11 @@ echo "JSON: {$jsonPath}\n";
 // Generate human-readable summary
 // ================================================================
 
-$mdPath = $outputDir . DIRECTORY_SEPARATOR . 'tuning_candidates.md';
-$md = "# Economy Tuning Candidates\n\n";
+$mdPath = $outputDir . DIRECTORY_SEPARATOR . "tuning_candidates{$fileSuffix}.md";
+$md = "# Economy Tuning Candidates" . ($tuningVersion >= 2 ? " (v{$tuningVersion})" : '') . "\n\n";
 $md .= "Generated: " . gmdate('Y-m-d H:i:s') . " UTC\n";
-$md .= "Diagnosis source: `{$diagnosisPath}`\n\n";
+$md .= "Diagnosis source: `{$diagnosisPath}`\n";
+$md .= "Tuning version: {$versionSuffix}\n\n";
 $md .= "## Summary\n\n";
 $md .= "| Metric | Value |\n|---|---|\n";
 $md .= "| Findings processed | {$findingsProcessed} |\n";
@@ -847,6 +1065,22 @@ $md .= "| Findings escalated | {$findingsEscalated} |\n";
 $md .= "| Findings skipped | {$findingsSkipped} |\n";
 $md .= "| Packages generated | " . count($packages) . " |\n";
 $md .= "| Scenarios generated | " . count($scenarios) . " |\n\n";
+
+if ($tuningVersion >= 2) {
+    $md .= "## Regression Mitigation Strategy (v2)\n\n";
+    $md .= "All v1 packages were REJECTED on all seeds due to regression flags.\n";
+    $md .= "v2 applies the following mitigations:\n\n";
+    $md .= "1. **Dampened hoarding drain** — multipliers reduced ~50% from v1 magnitudes\n";
+    $md .= "2. **Lock-in counterweights** — `starprice_reactivation_window_ticks` ↑ and `market_affordability_bias_fp` ↓\n";
+    $md .= "3. **Expiry softening** — `starprice_max_downstep_fp` ↑ so prices can drop faster when demand falls\n";
+    $md .= "4. **Multi-axis approach** — packages bundle hoarding drain with compensating lock-in/pricing changes\n\n";
+    $md .= "| Regression Flag | v1 Rate | v2 Target |\n";
+    $md .= "|---|---|---|\n";
+    $md .= "| skip_rejoin_exploit_worsened | 7/9 SimC | ≤3/9 |\n";
+    $md .= "| dominant_archetype_shifted | 9/18 | ≤4/18 |\n";
+    $md .= "| lock_in_down_but_expiry_dominance_up | 5/9 SimB | ≤1/9 |\n";
+    $md .= "| long_run_concentration_worsened | 3/9 SimC | 0/9 |\n\n";
+}
 
 foreach ($packages as $pkg) {
     $md .= "---\n\n## Package: {$pkg['package_name']}\n\n";
@@ -897,8 +1131,8 @@ $md .= "1. Review packages and escalations\n";
 $md .= "2. Run Phase D verification sweep:\n";
 $md .= "   ```\n";
 $md .= "   php scripts/simulate_policy_sweep.php \\\n";
-$md .= "     --seed=tuning-verify-v1 \\\n";
-$md .= "     --scenarios=tuning-conservative-v1,tuning-balanced-v1,tuning-aggressive-v1 \\\n";
+$md .= "     --seed=tuning-verify-{$versionSuffix} \\\n";
+$md .= "     --scenarios=tuning-conservative-{$versionSuffix},tuning-balanced-{$versionSuffix},tuning-aggressive-{$versionSuffix} \\\n";
 $md .= "     --include-baseline=1 --simulators=B,C --players-per-archetype=10 --seasons=12\n";
 $md .= "   ```\n";
 $md .= "3. Compare results with `compare_simulation_results.php`\n";
