@@ -163,9 +163,18 @@ class GameTime {
     }
     
     /**
-     * Ensure seasons exist for the current time window
+     * Ensure seasons exist for the current time window.
+     *
+     * In fresh-run simulation mode, season creation is handled by the runner
+     * via direct INSERT (adapted path: season_setup_direct_insert).
+     * Skipping ensureSeasons() in simulation mode prevents incidental
+     * phantom seasons from polluting the disposable DB.
      */
     public static function ensureSeasons() {
+        if (self::$simulationTick !== null) {
+            return;
+        }
+
         $db = Database::getInstance();
         self::maybeMigrateLegacyTickScale($db);
         self::maybeMigrateMinuteTickScaleToSecond($db);

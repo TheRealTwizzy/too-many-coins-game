@@ -188,12 +188,27 @@ class RunArtifactBuilder
      */
     private static function buildSeasonSummary(?array $seasonConfig, array $extraSeasons): array
     {
+        // Safely serialize season_seed: it is BINARY(32) in the DB and may be
+        // raw bytes. Always store as hex in the artifact to prevent unsafe
+        // binary data from appearing in JSON output.
+        $rawSeed = $seasonConfig['season_seed'] ?? null;
+        $seedHex = null;
+        if ($rawSeed !== null) {
+            if (is_string($rawSeed) && !ctype_print($rawSeed)) {
+                $seedHex = bin2hex($rawSeed);
+            } elseif (is_string($rawSeed) && strlen($rawSeed) === 64 && ctype_xdigit($rawSeed)) {
+                $seedHex = $rawSeed;
+            } else {
+                $seedHex = bin2hex((string)$rawSeed);
+            }
+        }
+
         $summary = [
             'target_season_id'      => $seasonConfig ? (int)($seasonConfig['season_id'] ?? 0) : null,
             'start_time'            => $seasonConfig['start_time'] ?? null,
             'end_time'              => $seasonConfig['end_time'] ?? null,
             'blackout_time'         => $seasonConfig['blackout_time'] ?? null,
-            'season_seed'           => $seasonConfig['season_seed'] ?? null,
+            'season_seed_hex'       => $seedHex,
             'setup_method'          => 'direct_insert',
             'extra_seasons_present' => count($extraSeasons) > 0,
             'extra_season_ids'      => $extraSeasons,
@@ -269,7 +284,11 @@ class RunArtifactBuilder
             ],
             'simulated_player_keepalive' => [
                 'label'       => 'Simulated player keepalive',
-                'description' => 'Synthetic players get periodic last_activity_tick updates to prevent idle timeout. Production players refresh this via HTTP requests.',
+                'description' => 'Synthetic players get periodic last_activity_tick + online_current updates to prevent idle timeout. '
+                               . 'Production players refresh these via HTTP auth middleware. '
+                               . 'This is the smallest viable adapter: TickEngine reads last_activity_tick for idle checks '
+                               . 'and online_current for economic presence state. No narrower approach exists without '
+                               . 'modifying the production idle-timeout path.',
                 'classification' => 'Adapted',
             ],
         ];

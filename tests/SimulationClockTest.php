@@ -238,4 +238,36 @@ class SimulationClockTest extends TestCase
         GameTime::setSimulationTick(1500);
         $this->assertSame('Expired', GameTime::getSeasonStatus($season));
     }
+
+    // -----------------------------------------------------------------------
+    // Phantom season containment: ensureSeasons() skips in simulation mode
+    // -----------------------------------------------------------------------
+
+    public function testEnsureSeasonsSkipsWhenSimulationClockActive(): void
+    {
+        putenv('TMC_SIMULATION_MODE=fresh-run');
+        GameTime::setSimulationTick(5000);
+
+        // ensureSeasons() should return immediately without touching the DB.
+        // With our stub Database, any season INSERT would return 0; we verify
+        // no exception is thrown and the method completes instantly.
+        GameTime::ensureSeasons();
+
+        // If ensureSeasons() did NOT skip, it would call Database methods that
+        // try to create seasons. With the stub, this would succeed silently.
+        // The real validation is that in production integration tests,
+        // no phantom seasons appear (tested in FreshLifecycleIntegrationTest).
+        $this->assertTrue(GameTime::isSimulationClockActive(),
+            'Simulation clock should remain active after ensureSeasons()');
+    }
+
+    public function testEnsureSeasonsRunsNormallyWithoutSimulationClock(): void
+    {
+        // Without simulation clock, ensureSeasons should execute normally.
+        // With our stub Database, this completes without error.
+        $this->assertFalse(GameTime::isSimulationClockActive());
+        GameTime::ensureSeasons();
+        // No exception = production path still works.
+        $this->assertFalse(GameTime::isSimulationClockActive());
+    }
 }

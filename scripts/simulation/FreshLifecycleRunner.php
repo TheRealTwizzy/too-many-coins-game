@@ -1060,6 +1060,11 @@ class FreshLifecycleRunner
      * Milestone 4A: Explicitly isolates the target season from incidental extra
      * seasons that may have been created by ensureSeasons() or prior runs.
      *
+     * Stabilization: ensureSeasons() now skips when simulation clock is active,
+     * so phantom seasons should no longer appear. This detection remains as a
+     * safety net: if extra seasons are found, the artifact records them and the
+     * run log emits a warning.
+     *
      * @return int[]  Season IDs other than $this->seasonId found in the DB.
      */
     private function detectExtraSeasons(): array
@@ -1076,6 +1081,14 @@ class FreshLifecycleRunner
                 if ((int)$id !== $this->seasonId) {
                     $extra[] = (int)$id;
                 }
+            }
+            if (!empty($extra)) {
+                $this->log('phantom_seasons_detected', [
+                    'target_season_id' => $this->seasonId,
+                    'extra_season_ids' => $extra,
+                    'note' => 'ensureSeasons() should be skipped in simulation mode. '
+                            . 'Extra seasons may indicate a containment bypass.',
+                ]);
             }
             return $extra;
         } catch (\Throwable $e) {

@@ -209,10 +209,51 @@ class RunArtifactBuilderTest extends TestCase
         $this->assertArrayHasKey('start_time', $season);
         $this->assertArrayHasKey('end_time', $season);
         $this->assertArrayHasKey('blackout_time', $season);
+        $this->assertArrayHasKey('season_seed_hex', $season);
         $this->assertArrayHasKey('extra_seasons_present', $season);
         $this->assertArrayHasKey('extra_season_ids', $season);
         $this->assertSame(1, $season['target_season_id']);
         $this->assertFalse($season['extra_seasons_present']);
+    }
+
+    public function testSeasonSeedSerializedAsHex(): void
+    {
+        // Build with raw binary season_seed (as produced by hash('sha256', ..., true))
+        $rawSeed = hash('sha256', 'test_seed|season|1', true);
+        $artifact = RunArtifactBuilder::build(
+            $this->sampleRunResult(),
+            $this->sampleConfig(),
+            $this->samplePhaseTimings(),
+            array_merge($this->sampleSeasonConfig(), ['season_seed' => $rawSeed]),
+            [],
+            []
+        );
+
+        $seedHex = $artifact['metadata']['season']['season_seed_hex'];
+        $this->assertIsString($seedHex);
+        $this->assertSame(64, strlen($seedHex), 'season_seed_hex must be 64 hex chars for SHA-256');
+        $this->assertTrue(ctype_xdigit($seedHex), 'season_seed_hex must be valid hex');
+        $this->assertSame(bin2hex($rawSeed), $seedHex);
+    }
+
+    public function testSeasonSeedArtifactJsonIsSafe(): void
+    {
+        // Verify that the artifact JSON does not contain raw binary
+        $rawSeed = random_bytes(32);
+        $artifact = RunArtifactBuilder::build(
+            $this->sampleRunResult(),
+            $this->sampleConfig(),
+            $this->samplePhaseTimings(),
+            array_merge($this->sampleSeasonConfig(), ['season_seed' => $rawSeed]),
+            [],
+            []
+        );
+
+        $json = json_encode($artifact, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->assertNotFalse($json, 'Artifact with binary seed must produce valid JSON');
+        $decoded = json_decode($json, true);
+        $this->assertIsArray($decoded, 'Round-tripped artifact must decode successfully');
+        $this->assertSame(bin2hex($rawSeed), $decoded['metadata']['season']['season_seed_hex']);
     }
 
     public function testExtraSeasonsReportedWhenPresent(): void
