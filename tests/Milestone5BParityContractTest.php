@@ -38,6 +38,9 @@ class Milestone5BParityContractTest extends TestCase
     protected function tearDown(): void
     {
         GameTime::clearSimulationTick();
+        // Restore the deterministic bootstrap epoch so subsequent tests never
+        // fall through to Database::getInstance() via getServerEpoch().
+        GameTime::setServerEpoch(TMC_TEST_EPOCH);
     }
 
     // -----------------------------------------------------------------------
@@ -346,7 +349,7 @@ class Milestone5BParityContractTest extends TestCase
                 'Player seen at tick 200 must be stale at tick 2000 under simulation clock');
         } finally {
             GameTime::clearSimulationTick();
-            GameTime::setServerEpoch(null);
+            GameTime::setServerEpoch(TMC_TEST_EPOCH);
             if ($origMode !== '') {
                 putenv("TMC_SIMULATION_MODE=$origMode");
             } else {
@@ -465,7 +468,7 @@ class Milestone5BParityContractTest extends TestCase
                 'Player must transition to Offline when idle long enough AND presence is stale under simulation clock');
         } finally {
             GameTime::clearSimulationTick();
-            GameTime::setServerEpoch(null);
+            GameTime::setServerEpoch(TMC_TEST_EPOCH);
             if ($origMode !== '') {
                 putenv("TMC_SIMULATION_MODE=$origMode");
             } else {
@@ -506,7 +509,7 @@ class Milestone5BParityContractTest extends TestCase
                 'Player with fresh simulated presence must stay Idle even past hold threshold');
         } finally {
             GameTime::clearSimulationTick();
-            GameTime::setServerEpoch(null);
+            GameTime::setServerEpoch(TMC_TEST_EPOCH);
             if ($origMode !== '') {
                 putenv("TMC_SIMULATION_MODE=$origMode");
             } else {
