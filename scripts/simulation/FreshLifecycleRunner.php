@@ -37,6 +37,7 @@ require_once __DIR__ . '/CohortGenerator.php';
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/PolicyBehavior.php';
 require_once __DIR__ . '/SimulationRandom.php';
+require_once __DIR__ . '/RunArtifactBuilder.php';
 
 class FreshLifecycleRunner
 {
@@ -62,6 +63,8 @@ class FreshLifecycleRunner
     private array $adaptedPaths = [];
     private array $unmodeledMechanics = [];
     private array $runMetrics = [];
+    private array $phaseTimings = [];
+    private ?array $runArtifact = null;
     private bool $productionRuntimeLoaded = false;
 
     /**
@@ -148,6 +151,18 @@ class FreshLifecycleRunner
     public function getRunMetrics(): array
     {
         return $this->runMetrics;
+    }
+
+    /** Per-phase timing measurements from the run. */
+    public function getPhaseTimings(): array
+    {
+        return $this->phaseTimings;
+    }
+
+    /** The structured run artifact, or null if not yet built. */
+    public function getRunArtifact(): ?array
+    {
+        return $this->runArtifact;
     }
 
     /**
@@ -305,6 +320,7 @@ class FreshLifecycleRunner
         ]);
 
         // --- Cohort generation (Milestone 3B) ---
+        $cohortStartTime = microtime(true);
         if ($this->cohortManifest === null) {
             // Reset to READY so createCohort() accepts
             $this->setState(self::STATE_READY);
@@ -322,8 +338,10 @@ class FreshLifecycleRunner
             }
             $this->setState(self::STATE_RUNNING);
         }
+        $this->phaseTimings['cohort_creation_duration_ms'] = round((microtime(true) - $cohortStartTime) * 1000, 1);
 
         // --- Season setup (Milestone 3C) ---
+        $seasonSetupStartTime = microtime(true);
         try {
             $this->setupSeason();
         } catch (\Throwable $e) {
@@ -339,6 +357,7 @@ class FreshLifecycleRunner
                 'metrics'             => [],
             ];
         }
+        $this->phaseTimings['season_setup_duration_ms'] = round((microtime(true) - $seasonSetupStartTime) * 1000, 1);
 
         // --- Load production runtime (Milestone 3C) ---
         try {
@@ -398,6 +417,7 @@ class FreshLifecycleRunner
         GameTime::clearSimulationTick();
 
         $this->runMetrics['total_duration_ms'] = round((microtime(true) - $runStartTime) * 1000, 1);
+        $this->phaseTimings['total_run_duration_ms'] = $this->runMetrics['total_duration_ms'];
 
         $this->setState(self::STATE_COMPLETED);
         $this->log('run_completed', [
@@ -406,7 +426,7 @@ class FreshLifecycleRunner
             'ticks_processed' => $this->runMetrics['tick_loop']['ticks_processed'] ?? 0,
         ]);
 
-        return [
+        $runResult = [
             'status'              => 'completed',
             'message'             => 'Lifecycle run completed: one-season fresh-run with production action paths.',
             'cohort'              => $this->cohortManifest,
@@ -415,6 +435,19 @@ class FreshLifecycleRunner
             'unmodeled_mechanics' => $this->unmodeledMechanics,
             'metrics'             => $this->runMetrics,
         ];
+
+        // --- Milestone 4A: Build structured run artifact ---
+        $extraSeasons = $this->detectExtraSeasons();
+        $this->runArtifact = RunArtifactBuilder::build(
+            $runResult,
+            $this->config,
+            $this->phaseTimings,
+            $this->seasonConfig,
+            $this->runLog,
+            $extraSeasons
+        );
+
+        return $runResult;
     }
 
     // --- Milestone 3C: Season setup ---
@@ -1020,6 +1053,36 @@ class FreshLifecycleRunner
     }
 
     // --- Internal helpers ---
+
+    /**
+     * Detect any extra seasons in the disposable DB beyond the target simulated season.
+     *
+     * Milestone 4A: Explicitly isolates the target season from incidental extra
+     * seasons that may have been created by ensureSeasons() or prior runs.
+     *
+     * @return int[]  Season IDs other than $this->seasonId found in the DB.
+     */
+    private function detectExtraSeasons(): array
+    {
+        if ($this->seasonId === null) {
+            return [];
+        }
+
+        try {
+            $pdo = $this->bootstrap->getConnection();
+            $rows = $pdo->query("SELECT season_id FROM seasons")->fetchAll(PDO::FETCH_COLUMN);
+            $extra = [];
+            foreach ($rows as $id) {
+                if ((int)$id !== $this->seasonId) {
+                    $extra[] = (int)$id;
+                }
+            }
+            return $extra;
+        } catch (\Throwable $e) {
+            $this->log('detect_extra_seasons_error', ['message' => $e->getMessage()]);
+            return [];
+        }
+    }
 
     private function setState(string $state): void
     {

@@ -180,7 +180,9 @@ switch ($action) {
         fwrite(STDOUT, "Fresh lifecycle run: $dbName on $dbHost:$dbPort (seed=$seed, cohort_size=$cohortSize)\n");
 
         // Phase 1: prepare (validate + bootstrap)
+        $bootstrapStartTime = microtime(true);
         $prepResult = $runner->prepare();
+        $bootstrapDurationMs = round((microtime(true) - $bootstrapStartTime) * 1000, 1);
         fwrite(STDOUT, "Prepare status: {$prepResult['status']}\n");
         foreach ($prepResult['steps'] as $step) {
             fwrite(STDOUT, "  • $step\n");
@@ -232,6 +234,24 @@ switch ($action) {
         }
 
         fwrite(STDOUT, "Runner state: {$runner->getState()}\n");
+
+        // --- Milestone 4A: Persist run artifact ---
+        $artifact = $runner->getRunArtifact();
+        if ($artifact !== null) {
+            // Inject bootstrap duration from CLI-level timing (prepare() runs
+            // outside the runner's run() method).
+            $artifact['execution_metrics']['phase_durations_ms']['bootstrap'] = $bootstrapDurationMs;
+
+            // Re-compute fingerprint after injecting bootstrap timing (timing
+            // is excluded from the fingerprint, so this is a no-op for the hash
+            // but keeps the artifact internally consistent).
+            $artifact['determinism_fingerprint'] = RunArtifactBuilder::computeDeterminismFingerprint($artifact);
+
+            $outputDir = __DIR__ . '/../simulation_output/fresh_lifecycle';
+            $baseName = 'fresh_run_artifact_seed' . $seed . '_ppa' . $cohortSize . '_' . gmdate('Ymd_His');
+            $artifactPath = RunArtifactBuilder::writeArtifact($artifact, $outputDir, $baseName);
+            fwrite(STDOUT, "Run artifact written: $artifactPath\n");
+        }
         break;
 
     case 'cohort':
