@@ -93,6 +93,14 @@ class GameTime {
     }
 
     /**
+     * Override the server epoch for testing without a database connection.
+     * Pass null to clear and resume DB-derived epoch.
+     */
+    public static function setServerEpoch(?int $epoch): void {
+        self::$serverEpoch = $epoch;
+    }
+
+    /**
      * Check whether a simulation tick override is currently active.
      */
     public static function isSimulationClockActive(): bool {

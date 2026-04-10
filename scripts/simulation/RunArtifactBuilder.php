@@ -18,6 +18,7 @@
 require_once __DIR__ . '/SimulationRandom.php';
 require_once __DIR__ . '/StakeholderSummaryBuilder.php';
 require_once __DIR__ . '/ParityLedger.php';
+require_once __DIR__ . '/PlayabilityGateValidator.php';
 
 class RunArtifactBuilder
 {
@@ -101,6 +102,12 @@ class RunArtifactBuilder
 
         // --- Section 11: Determinism fingerprint ---
         $artifact['determinism_fingerprint'] = self::computeDeterminismFingerprint($artifact);
+
+        // --- Section 12 (5B): Playability gates ---
+        $artifact['playability_gates'] = PlayabilityGateValidator::evaluate(
+            (string)($config['seed'] ?? 'gate-check'),
+            $artifact
+        );
 
         return $artifact;
     }
@@ -283,12 +290,17 @@ class RunArtifactBuilder
                 'classification' => 'Adapted',
             ],
             'simulated_player_keepalive' => [
-                'label'       => 'Simulated player keepalive',
-                'description' => 'Synthetic players get periodic last_activity_tick + online_current updates to prevent idle timeout. '
-                               . 'Production players refresh these via HTTP auth middleware. '
-                               . 'This is the smallest viable adapter: TickEngine reads last_activity_tick for idle checks '
-                               . 'and online_current for economic presence state. No narrower approach exists without '
-                               . 'modifying the production idle-timeout path.',
+                'label'       => 'Simulated player keepalive (deprecated)',
+                'description' => 'Legacy blanket keepalive replaced by archetype-aware presence in 5B. '
+                               . 'If this key appears, the runner is using pre-5B keepalive behavior.',
+                'classification' => 'Adapted',
+            ],
+            'simulated_player_presence_archetype_aware' => [
+                'label'       => 'Archetype-aware simulated presence',
+                'description' => 'Synthetic player presence is driven per-tick by archetype activity profiles via '
+                               . 'PolicyBehavior::resolvePresenceState(). Active players refresh last_activity_tick '
+                               . 'and last_seen_at; Idle players refresh only last_seen_at; Offline players receive '
+                               . 'no refresh. TickEngine idle-timeout and presenceIsStale() then fire naturally.',
                 'classification' => 'Adapted',
             ],
         ];
@@ -369,8 +381,9 @@ class RunArtifactBuilder
                 'description' => 'Season lifecycle is driven tick-by-tick. No fast-forward or batch-skip mechanics are used.',
             ],
             [
-                'key'         => 'synthetic_keepalive',
-                'description' => 'Synthetic players receive periodic activity refreshes to prevent idle timeout, unlike production where HTTP requests drive keepalive.',
+                'key'         => 'archetype_driven_presence',
+                'description' => 'Synthetic player presence is driven by archetype activity profiles per tick. '
+                               . 'Active/Idle/Offline transitions mirror production idle-timeout and presenceIsStale paths.',
             ],
         ];
 
@@ -515,10 +528,12 @@ class RunArtifactBuilder
             ],
             [
                 'mechanic'       => 'Player keepalive',
-                'classification' => isset($adaptedSet['simulated_player_keepalive']) ? 'Adapted' : 'Modeled faithfully',
-                'note'           => isset($adaptedSet['simulated_player_keepalive'])
-                    ? 'Synthetic players receive periodic keepalive updates instead of HTTP-driven activity.'
-                    : 'Player keepalive uses default path.',
+                'classification' => isset($adaptedSet['simulated_player_presence_archetype_aware']) ? 'Adapted' : (isset($adaptedSet['simulated_player_keepalive']) ? 'Adapted' : 'Modeled faithfully'),
+                'note'           => isset($adaptedSet['simulated_player_presence_archetype_aware'])
+                    ? 'Archetype-aware presence simulation drives per-tick Active/Idle/Offline state via PolicyBehavior.'
+                    : (isset($adaptedSet['simulated_player_keepalive'])
+                        ? 'Legacy blanket keepalive (pre-5B).'
+                        : 'Player keepalive uses default path.'),
             ],
             [
                 'mechanic'       => 'Boost purchase/activation',

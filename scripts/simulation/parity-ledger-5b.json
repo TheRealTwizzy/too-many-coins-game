@@ -1,0 +1,38 @@
+{
+  "schema": "tmc-parity-ledger.v1",
+  "milestone": "5B",
+  "generated_at": "2026-04-10T00:00:00+00:00",
+  "run_context": {
+    "simulator_version": "0.5.0-alpha",
+    "production_commit": null,
+    "seed": null,
+    "cohort_size": null
+  },
+  "total_issues": 2,
+  "entries": [
+    {
+      "parity_issue_id": "TMC-5B-001",
+      "severity": "Major",
+      "classification": "simulator_only_bug",
+      "mechanic_area": "presence / keepalive / idle_transitions",
+      "expected_behavior": "Synthetic players should exhibit realistic idle/offline transitions based on their archetype activity profile. 'Mostly Idle' players should go idle naturally; 'Hardcore' players should stay active.",
+      "observed_behavior": "FreshLifecycleRunner blanket-updated last_activity_tick for ALL players every tick, preventing any player from ever going idle or offline.",
+      "status": "fixed",
+      "linked_fix": "scripts/simulation/FreshLifecycleRunner.php — replaced blanket keepalive with updatePlayerPresence() using PolicyBehavior::resolvePresenceState() per-player per-tick. Active players refresh last_activity_tick + last_seen_at; Idle players refresh only last_seen_at; Offline players get no refresh.",
+      "owner": "simulator",
+      "resolves": "TMC-5A-002"
+    },
+    {
+      "parity_issue_id": "TMC-5B-002",
+      "severity": "Major",
+      "classification": "simulator_only_bug",
+      "mechanic_area": "presence / presenceIsStale / wall_clock",
+      "expected_behavior": "presenceIsStale() should detect stale presence in simulation using simulated wall-clock time so fast-forwarded game time correctly ages last_seen_at.",
+      "observed_behavior": "presenceIsStale() used time() (real wall-clock) which barely advances during fast simulation, so presenceIsStale() always returned false in simulation mode.",
+      "status": "fixed",
+      "linked_fix": "includes/economy.php — presenceIsStale() now uses GameTime::tickStartRealUnix(GameTime::now()) when GameTime::isSimulationClockActive() is true. Production behavior unchanged (uses time() when simulation is off).",
+      "owner": "simulator",
+      "resolves": "TMC-5A-003"
+    }
+  ]
+}

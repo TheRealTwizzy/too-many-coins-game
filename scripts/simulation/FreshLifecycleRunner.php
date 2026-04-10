@@ -602,6 +602,14 @@ class FreshLifecycleRunner
             }
         }
 
+        // Set last_seen_at to simulated wall-clock time for all joined players
+        // so archetype-aware presence starts from a consistent baseline.
+        $simulatedDatetime = gmdate('Y-m-d H:i:s', GameTime::tickStartRealUnix($joinTick));
+        $db->query(
+            "UPDATE players SET last_seen_at = ? WHERE joined_season_id = ?",
+            [$simulatedDatetime, $seasonId]
+        );
+
         $this->log('season_join_completed', [
             'season_id' => $seasonId,
             'joined'    => $joined,
@@ -669,23 +677,24 @@ class FreshLifecycleRunner
             'max_tick'     => $maxTick,
         ]);
 
-        // Adapted path: simulated player keepalive.
-        // In production, players refresh last_activity_tick via HTTP requests.
-        // Without this, all players hit IDLE_TIMEOUT_TICKS after ~15 ticks
-        // and get idle_modal_active=1, blocking all action execution.
-        // This UPDATE simulates constant player engagement.
-        $this->adaptedPaths[] = 'simulated_player_keepalive';
+        // Adapted path: archetype-aware simulated presence.
+        // In production, players refresh last_activity_tick and last_seen_at
+        // via HTTP requests. The simulator uses archetype activity profiles
+        // to decide which players are Active / Idle / Offline each tick,
+        // updating presence fields accordingly so TickEngine's idle-timeout
+        // and resolveEconomicPresenceState paths fire realistically.
+        $this->adaptedPaths[] = 'simulated_player_presence_archetype_aware';
+
+        // Build archetype lookup from cohort manifest for presence decisions.
+        $archetypes = Archetypes::all();
+        $playerMap = $this->cohortManifest['player_map'] ?? [];
 
         // Skip the first tick (join tick) — players were joined at start_time.
         // Begin processing at start_time + 1 so players accumulate at least
         // one participation tick before any action decisions.
         for ($tick = $seasonStart + 1; $tick <= $maxTick; $tick++) {
-            // 0. Refresh player activity to prevent idle timeout (adapted keepalive).
-            $db->query(
-                "UPDATE players SET last_activity_tick = ?, online_current = 1 "
-                . "WHERE joined_season_id = ? AND participation_enabled = 1",
-                [$tick, $seasonId]
-            );
+            // 0. Archetype-aware presence simulation.
+            $this->updatePlayerPresence($tick, $seasonId, $season, $seed, $db, $archetypes, $playerMap);
 
             // 1. Process this tick through production TickEngine.
             TickEngine::processTickAt($tick);
@@ -1050,6 +1059,103 @@ class FreshLifecycleRunner
 
         $result = Actions::attemptSigilTheft($attackerId, $targetId, $spent, $requested);
         return !empty($result['success']);
+    }
+
+    // --- Milestone 5B: Archetype-aware presence simulation ---
+
+    /**
+     * Update player presence fields per-tick based on archetype activity profiles.
+     *
+     * Replaces the blanket keepalive (TMC-5A-002) with archetype-driven presence:
+     *   - Active players: refresh last_activity_tick, online_current=1, last_seen_at=simulated time
+     *   - Idle players (present but inactive): refresh online_current=1, last_seen_at=simulated time
+     *     but do NOT refresh last_activity_tick so TickEngine's idle timeout fires naturally
+     *   - Offline players: set online_current=0, do NOT refresh last_seen_at or last_activity_tick
+     *     so presenceIsStale() returns true after enough simulated time elapses
+     *
+     * Uses PolicyBehavior::resolvePresenceState() with the deterministic simulation RNG
+     * so presence patterns are seed-stable.
+     */
+    private function updatePlayerPresence(
+        int $tick,
+        int $seasonId,
+        array $season,
+        string $seed,
+        Database $db,
+        array $archetypes,
+        array $playerMap
+    ): void {
+        // Compute the economy phase for this tick.
+        $computedStatus = GameTime::getSeasonStatus($season, $tick);
+        if ($computedStatus === 'Blackout') {
+            $phase = 'BLACKOUT';
+        } else {
+            $phase = (string)Economy::sigilSeasonPhase($season, $tick);
+        }
+
+        // Simulated wall-clock timestamp for this tick.
+        $simulatedDatetime = gmdate('Y-m-d H:i:s', GameTime::tickStartRealUnix($tick));
+
+        $activeIds = [];
+        $idleIds = [];
+        $offlineIds = [];
+
+        foreach ($playerMap as $playerId => $info) {
+            $archetypeKey = $info['archetype_key'] ?? null;
+            $archetype = $archetypeKey ? ($archetypes[$archetypeKey] ?? null) : null;
+            if ($archetype === null) {
+                // Unknown archetype — default to Active for safety.
+                $activeIds[] = (int)$playerId;
+                continue;
+            }
+
+            $presenceState = PolicyBehavior::resolvePresenceState(
+                $archetype, $phase, $seed, (int)$playerId, $tick
+            );
+
+            if ($presenceState === 'Active') {
+                $activeIds[] = (int)$playerId;
+            } elseif ($presenceState === 'Idle') {
+                $idleIds[] = (int)$playerId;
+            } else {
+                $offlineIds[] = (int)$playerId;
+            }
+        }
+
+        // Batch UPDATE for Active players: simulate HTTP activity.
+        if (!empty($activeIds)) {
+            $placeholders = implode(',', array_fill(0, count($activeIds), '?'));
+            $db->query(
+                "UPDATE players SET last_activity_tick = ?, online_current = 1, "
+                . "last_seen_at = ?, activity_state = 'Active', idle_modal_active = 0, idle_since_tick = NULL "
+                . "WHERE player_id IN ($placeholders) AND joined_season_id = ?",
+                array_merge([$tick, $simulatedDatetime], $activeIds, [$seasonId])
+            );
+        }
+
+        // Batch UPDATE for Idle players: browser open, not interacting.
+        // last_activity_tick NOT refreshed → TickEngine will set activity_state='Idle'
+        // after IDLE_TIMEOUT_TICKS. last_seen_at IS refreshed (simulating browser ping).
+        if (!empty($idleIds)) {
+            $placeholders = implode(',', array_fill(0, count($idleIds), '?'));
+            $db->query(
+                "UPDATE players SET online_current = 1, last_seen_at = ? "
+                . "WHERE player_id IN ($placeholders) AND joined_season_id = ?",
+                array_merge([$simulatedDatetime], $idleIds, [$seasonId])
+            );
+        }
+
+        // Batch UPDATE for Offline players: disconnected.
+        // Neither last_activity_tick nor last_seen_at refreshed.
+        // presenceIsStale() will return true after enough simulated time elapses.
+        if (!empty($offlineIds)) {
+            $placeholders = implode(',', array_fill(0, count($offlineIds), '?'));
+            $db->query(
+                "UPDATE players SET online_current = 0 "
+                . "WHERE player_id IN ($placeholders) AND joined_season_id = ?",
+                array_merge($offlineIds, [$seasonId])
+            );
+        }
     }
 
     // --- Internal helpers ---

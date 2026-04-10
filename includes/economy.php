@@ -528,6 +528,11 @@ class Economy {
 
     /**
      * Whether a player's presence is stale enough to be treated as absent.
+     *
+     * In production, compares wall-clock time() against last_seen_at.
+     * In simulation (GameTime::isSimulationClockActive()), uses the simulated
+     * wall-clock derived from the current simulation tick so that fast-forwarded
+     * game time still ages last_seen_at correctly.
      */
     public static function presenceIsStale($player, $staleAfterSeconds = null) {
         if (!is_array($player)) {
@@ -552,7 +557,13 @@ class Economy {
             return true;
         }
 
-        return (time() - $lastSeenTs) >= $threshold;
+        // In simulation mode, derive "now" from the simulation tick's real-time
+        // equivalent so that presence ages correctly in fast-forwarded time.
+        $now = (GameTime::isSimulationClockActive())
+            ? GameTime::tickStartRealUnix(GameTime::now())
+            : time();
+
+        return ($now - $lastSeenTs) >= $threshold;
     }
 
     /**

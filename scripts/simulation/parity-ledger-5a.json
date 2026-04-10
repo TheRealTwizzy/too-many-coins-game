@@ -28,10 +28,10 @@
       "mechanic_area": "presence / keepalive / idle_transitions",
       "expected_behavior": "Synthetic players should exhibit realistic idle/offline transitions based on their archetype activity profile. 'Mostly Idle' players should go idle naturally; 'Hardcore' players should stay active.",
       "observed_behavior": "FreshLifecycleRunner blanket-updates last_activity_tick for ALL players every tick (simulated_player_keepalive adapted path), preventing any player from ever going idle or offline. All players stay permanently Active regardless of archetype.",
-      "status": "deferred",
-      "linked_fix": null,
+      "status": "fixed",
+      "linked_fix": "scripts/simulation/FreshLifecycleRunner.php — updatePlayerPresence() replaces blanket keepalive with archetype-aware presence via PolicyBehavior::resolvePresenceState(). See parity-ledger-5b.json TMC-5B-001.",
       "owner": "simulator",
-      "notes": "The keepalive is documented as an adapted path. Making it archetype-aware requires reading archetype activity profiles from the cohort manifest and selectively refreshing. Deferred to 5B or later."
+      "notes": "Fixed in Milestone 5B."
     },
     {
       "parity_issue_id": "TMC-5A-003",
@@ -40,10 +40,10 @@
       "mechanic_area": "presence / presenceIsStale / wall_clock",
       "expected_behavior": "presenceIsStale() should detect stale presence in simulation the same way it does in production.",
       "observed_behavior": "presenceIsStale() uses time() (wall-clock) to compare against last_seen_at. In fast simulation, wall-clock barely advances so presenceIsStale() always returns false. Players can never transition to Offline via the presenceIsStale gate in simulation.",
-      "status": "deferred",
-      "linked_fix": null,
+      "status": "fixed",
+      "linked_fix": "includes/economy.php — presenceIsStale() uses GameTime::tickStartRealUnix(GameTime::now()) when simulation clock is active. See parity-ledger-5b.json TMC-5B-002.",
       "owner": "simulator",
-      "notes": "Production behavior is correct. The wall-clock dependency is the right metric for real HTTP traffic. In simulation, the keepalive (TMC-5A-002) already prevents idle transitions, so this is a secondary concern. A simulation-time-aware presenceIsStale adapter could be introduced if idle parity is needed."
+      "notes": "Fixed in Milestone 5B."
     },
     {
       "parity_issue_id": "TMC-5A-004",
