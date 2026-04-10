@@ -604,4 +604,166 @@ class RunArtifactBuilderTest extends TestCase
         $keys = array_column($artifact['unmodeled_mechanics'], 'key');
         $this->assertSame(array_values(array_unique($keys)), $keys);
     }
+
+    // -----------------------------------------------------------------------
+    // Milestone 4B: Stakeholder summary in artifact
+    // -----------------------------------------------------------------------
+
+    public function testArtifactContains4BTopLevelKeys(): void
+    {
+        $artifact = $this->buildArtifact();
+        $this->assertArrayHasKey('stakeholder_summary', $artifact);
+        $this->assertArrayHasKey('mechanic_classifications', $artifact);
+        $this->assertArrayHasKey('parity_ledger', $artifact);
+    }
+
+    public function testStakeholderSummarySectionsPresent(): void
+    {
+        $artifact = $this->buildArtifact();
+        $ss = $artifact['stakeholder_summary'];
+
+        $this->assertArrayHasKey('run_summary', $ss);
+        $this->assertArrayHasKey('economy_phase_summary', $ss);
+        $this->assertArrayHasKey('lock_in_vs_expiry', $ss);
+        $this->assertArrayHasKey('archetype_comparison', $ss);
+        $this->assertArrayHasKey('outcome_distribution', $ss);
+        $this->assertArrayHasKey('limitations_and_parity', $ss);
+    }
+
+    // -----------------------------------------------------------------------
+    // Milestone 4B: Mechanic classifications
+    // -----------------------------------------------------------------------
+
+    public function testMechanicClassificationsStructure(): void
+    {
+        $artifact = $this->buildArtifact();
+        $mc = $artifact['mechanic_classifications'];
+
+        $this->assertArrayHasKey('classification_labels', $mc);
+        $this->assertArrayHasKey('counts', $mc);
+        $this->assertArrayHasKey('mechanics', $mc);
+
+        $this->assertSame(
+            ['Modeled faithfully', 'Adapted', 'Approximated', 'Not modeled'],
+            $mc['classification_labels']
+        );
+    }
+
+    public function testMechanicClassificationsEntriesHaveRequiredFields(): void
+    {
+        $artifact = $this->buildArtifact();
+        foreach ($artifact['mechanic_classifications']['mechanics'] as $m) {
+            $this->assertArrayHasKey('mechanic', $m);
+            $this->assertArrayHasKey('classification', $m);
+            $this->assertArrayHasKey('note', $m);
+            $this->assertContains($m['classification'], [
+                'Modeled faithfully', 'Adapted', 'Approximated', 'Not modeled',
+            ]);
+        }
+    }
+
+    public function testMechanicClassificationsCountsMatchEntries(): void
+    {
+        $artifact = $this->buildArtifact();
+        $mc = $artifact['mechanic_classifications'];
+
+        $expected = ['Modeled faithfully' => 0, 'Adapted' => 0, 'Approximated' => 0, 'Not modeled' => 0];
+        foreach ($mc['mechanics'] as $m) {
+            $expected[$m['classification']]++;
+        }
+
+        $this->assertSame($expected, $mc['counts']);
+    }
+
+    public function testMechanicClassificationsReflectAdaptedPaths(): void
+    {
+        $artifact = $this->buildArtifact();
+        $mc = $artifact['mechanic_classifications'];
+
+        // With default sample data, adapted paths include season_setup_direct_insert
+        $seasonSetup = null;
+        foreach ($mc['mechanics'] as $m) {
+            if ($m['mechanic'] === 'Season setup') {
+                $seasonSetup = $m;
+            }
+        }
+        $this->assertNotNull($seasonSetup);
+        $this->assertSame('Adapted', $seasonSetup['classification']);
+    }
+
+    public function testMechanicClassificationsReflectUnmodeledMechanics(): void
+    {
+        $artifact = $this->buildArtifact();
+        $mc = $artifact['mechanic_classifications'];
+
+        $boostPurchase = null;
+        foreach ($mc['mechanics'] as $m) {
+            if ($m['mechanic'] === 'Boost purchase/activation') {
+                $boostPurchase = $m;
+            }
+        }
+        $this->assertNotNull($boostPurchase);
+        $this->assertSame('Not modeled', $boostPurchase['classification']);
+    }
+
+    // -----------------------------------------------------------------------
+    // Milestone 4B: Parity ledger in artifact
+    // -----------------------------------------------------------------------
+
+    public function testParityLedgerStructureInArtifact(): void
+    {
+        $artifact = $this->buildArtifact();
+        $pl = $artifact['parity_ledger'];
+
+        $this->assertArrayHasKey('schema', $pl);
+        $this->assertArrayHasKey('generated_at', $pl);
+        $this->assertArrayHasKey('run_context', $pl);
+        $this->assertArrayHasKey('total_issues', $pl);
+        $this->assertArrayHasKey('by_severity', $pl);
+        $this->assertArrayHasKey('by_classification', $pl);
+        $this->assertArrayHasKey('entries', $pl);
+    }
+
+    public function testParityLedgerDefaultsToEmpty(): void
+    {
+        $artifact = $this->buildArtifact();
+        $pl = $artifact['parity_ledger'];
+
+        $this->assertSame(0, $pl['total_issues']);
+        $this->assertEmpty($pl['entries']);
+        $this->assertSame('tmc-parity-ledger.v1', $pl['schema']);
+    }
+
+    public function testParityLedgerRunContextReflectsConfig(): void
+    {
+        $artifact = $this->buildArtifact();
+        $ctx = $artifact['parity_ledger']['run_context'];
+
+        $this->assertSame(42, $ctx['seed']);
+        $this->assertSame(10, $ctx['cohort_size']);
+        $this->assertNotEmpty($ctx['simulator_version']);
+    }
+
+    // -----------------------------------------------------------------------
+    // Milestone 4B: Fingerprint stability with new sections
+    // -----------------------------------------------------------------------
+
+    public function testFingerprintIncludesMechanicClassifications(): void
+    {
+        // Build two artifacts with different adapted paths to verify
+        // mechanic_classifications (which depend on adapted_paths) affect
+        // the fingerprint.
+        $a1 = $this->buildArtifact([
+            'adapted_paths' => ['season_setup_direct_insert'],
+        ]);
+        $a2 = $this->buildArtifact([
+            'adapted_paths' => [],
+        ]);
+
+        $this->assertNotSame(
+            $a1['determinism_fingerprint'],
+            $a2['determinism_fingerprint'],
+            'Different adapted paths (affecting mechanic_classifications) should change fingerprint'
+        );
+    }
 }

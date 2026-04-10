@@ -251,6 +251,34 @@ switch ($action) {
             $baseName = 'fresh_run_artifact_seed' . $seed . '_ppa' . $cohortSize . '_' . gmdate('Ymd_His');
             $artifactPath = RunArtifactBuilder::writeArtifact($artifact, $outputDir, $baseName);
             fwrite(STDOUT, "Run artifact written: $artifactPath\n");
+
+            // --- Milestone 4B: Stakeholder summary output ---
+            $summary = $artifact['stakeholder_summary'] ?? null;
+            if ($summary && !empty($summary['run_summary']['narrative'])) {
+                fwrite(STDOUT, "\n--- Stakeholder Summary ---\n");
+                fwrite(STDOUT, $summary['run_summary']['narrative'] . "\n");
+                $lockIn = $summary['lock_in_vs_expiry'] ?? [];
+                if ($lockIn) {
+                    fwrite(STDOUT, "  Lock-in: {$lockIn['locked_in']} / Expired: {$lockIn['expired']}"
+                        . " (rate: " . round(($lockIn['lock_in_rate'] ?? 0) * 100, 1) . "%)\n");
+                }
+                $lim = $summary['limitations_and_parity'] ?? [];
+                if (!empty($lim['items'])) {
+                    fwrite(STDOUT, "  Limitations: " . count($lim['items']) . " item(s) noted\n");
+                }
+            }
+            $mc = $artifact['mechanic_classifications'] ?? null;
+            if ($mc) {
+                $counts = $mc['counts'] ?? [];
+                fwrite(STDOUT, "  Mechanic classifications: "
+                    . ($counts['Modeled faithfully'] ?? 0) . " faithful, "
+                    . ($counts['Adapted'] ?? 0) . " adapted, "
+                    . ($counts['Not modeled'] ?? 0) . " not modeled\n");
+            }
+            $pl = $artifact['parity_ledger'] ?? null;
+            if ($pl !== null) {
+                fwrite(STDOUT, "  Parity ledger: " . ($pl['total_issues'] ?? 0) . " issue(s)\n");
+            }
         }
         break;
 

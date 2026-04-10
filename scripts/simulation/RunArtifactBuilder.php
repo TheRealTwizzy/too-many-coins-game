@@ -4,6 +4,7 @@
  * for fresh-lifecycle simulation runs.
  *
  * Milestone 4A: Core run artifact and metrics collection.
+ * Milestone 4B: Stakeholder summaries, mechanic classifications, parity ledger.
  *
  * The artifact captures:
  *   - authoritative run metadata (version, seed, cohort, season)
@@ -15,11 +16,13 @@
  */
 
 require_once __DIR__ . '/SimulationRandom.php';
+require_once __DIR__ . '/StakeholderSummaryBuilder.php';
+require_once __DIR__ . '/ParityLedger.php';
 
 class RunArtifactBuilder
 {
     public const ARTIFACT_SCHEMA_VERSION = 'tmc-fresh-run-artifact.v1';
-    public const SIMULATOR_VERSION = '0.4.0-alpha';
+    public const SIMULATOR_VERSION = '0.4.1-alpha';
 
     /**
      * Build a complete fresh-run artifact from runner state.
@@ -72,9 +75,31 @@ class RunArtifactBuilder
 
             // --- Section 7: Lifecycle termination ---
             'termination' => self::buildTermination($runResult),
+
+            // --- Section 8 (4B): Stakeholder summary ---
+            'stakeholder_summary' => StakeholderSummaryBuilder::build(
+                $runResult,
+                $config,
+                $phaseTimings,
+                $seasonConfig
+            ),
+
+            // --- Section 9 (4B): Mechanic classifications ---
+            'mechanic_classifications' => self::buildMechanicClassifications(
+                $runResult['adapted_paths'] ?? [],
+                $runResult['unmodeled_mechanics'] ?? []
+            ),
+
+            // --- Section 10 (4B): Parity ledger ---
+            'parity_ledger' => ParityLedger::buildEmpty(
+                self::SIMULATOR_VERSION,
+                self::resolveProductionCommit(),
+                $config['seed'] ?? 42,
+                (int)($config['cohort_size'] ?? 100)
+            ),
         ];
 
-        // --- Section 8: Determinism fingerprint ---
+        // --- Section 11: Determinism fingerprint ---
         $artifact['determinism_fingerprint'] = self::computeDeterminismFingerprint($artifact);
 
         return $artifact;
@@ -402,6 +427,123 @@ class RunArtifactBuilder
     }
 
     /**
+     * Build mechanic classification labels (Milestone 4B).
+     *
+     * Each mechanic area is labeled with one of:
+     *   - Modeled faithfully
+     *   - Adapted
+     *   - Approximated
+     *   - Not modeled
+     *
+     * The list covers the major runtime mechanics and their classification
+     * based on how the simulator handles them.
+     */
+    private static function buildMechanicClassifications(array $adaptedPaths, array $unmodeledMechanics): array
+    {
+        $adaptedSet = array_flip(array_unique($adaptedPaths));
+        $unmodeledSet = array_flip(array_unique($unmodeledMechanics));
+
+        // Define all major mechanic areas and their classifications.
+        $mechanics = [
+            [
+                'mechanic'       => 'UBI coin accrual',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'TickEngine processes UBI accrual via production path.',
+            ],
+            [
+                'mechanic'       => 'Star purchase',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'Actions::purchaseStars() called via production path.',
+            ],
+            [
+                'mechanic'       => 'Lock-in',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'Actions::lockIn() called via production path.',
+            ],
+            [
+                'mechanic'       => 'Sigil drops',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'TickEngine processes deterministic sigil drops via production path.',
+            ],
+            [
+                'mechanic'       => 'Sigil combine',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'Actions::combineSigils() called via production path.',
+            ],
+            [
+                'mechanic'       => 'Sigil theft',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'Actions::attemptSigilTheft() called via production path.',
+            ],
+            [
+                'mechanic'       => 'Freeze',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'Actions::freezePlayerUbi() called via production path.',
+            ],
+            [
+                'mechanic'       => 'Season setup',
+                'classification' => isset($adaptedSet['season_setup_direct_insert']) ? 'Adapted' : 'Modeled faithfully',
+                'note'           => isset($adaptedSet['season_setup_direct_insert'])
+                    ? 'Season row inserted directly; bypasses ensureSeasons() for deterministic timing.'
+                    : 'Season created via production path.',
+            ],
+            [
+                'mechanic'       => 'Database singleton',
+                'classification' => isset($adaptedSet['database_singleton_redirect']) ? 'Adapted' : 'Modeled faithfully',
+                'note'           => isset($adaptedSet['database_singleton_redirect'])
+                    ? 'Database singleton redirected to disposable DB.'
+                    : 'Database uses default singleton.',
+            ],
+            [
+                'mechanic'       => 'Player keepalive',
+                'classification' => isset($adaptedSet['simulated_player_keepalive']) ? 'Adapted' : 'Modeled faithfully',
+                'note'           => isset($adaptedSet['simulated_player_keepalive'])
+                    ? 'Synthetic players receive periodic keepalive updates instead of HTTP-driven activity.'
+                    : 'Player keepalive uses default path.',
+            ],
+            [
+                'mechanic'       => 'Boost purchase/activation',
+                'classification' => isset($unmodeledSet['boost_purchase_not_dispatched']) ? 'Not modeled' : 'Modeled faithfully',
+                'note'           => isset($unmodeledSet['boost_purchase_not_dispatched'])
+                    ? 'No production endpoint for standalone boost activation. TickEngine processes existing active_boosts faithfully.'
+                    : 'Boost purchase via production path.',
+            ],
+            [
+                'mechanic'       => 'Self-melt freeze',
+                'classification' => isset($unmodeledSet['self_melt_freeze_no_policy_decision']) ? 'Not modeled' : 'Modeled faithfully',
+                'note'           => isset($unmodeledSet['self_melt_freeze_no_policy_decision'])
+                    ? 'PolicyBehavior lacks a decision function for self-melt. No synthetic player will self-melt.'
+                    : 'Self-melt via production path.',
+            ],
+            [
+                'mechanic'       => 'Expiry settlement',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'TickEngine processes season expiration and settlement via production path.',
+            ],
+            [
+                'mechanic'       => 'Effective score / ranking',
+                'classification' => 'Modeled faithfully',
+                'note'           => 'Effective score and ranking computed via production settlement path.',
+            ],
+        ];
+
+        // Count by classification.
+        $counts = ['Modeled faithfully' => 0, 'Adapted' => 0, 'Approximated' => 0, 'Not modeled' => 0];
+        foreach ($mechanics as $m) {
+            $c = $m['classification'];
+            if (isset($counts[$c])) {
+                $counts[$c]++;
+            }
+        }
+
+        return [
+            'classification_labels' => ['Modeled faithfully', 'Adapted', 'Approximated', 'Not modeled'],
+            'counts'                => $counts,
+            'mechanics'             => $mechanics,
+        ];
+    }
+
+    /**
      * Compute a determinism fingerprint / reproducibility hash.
      *
      * Hashes the stable parts of the artifact (excluding generated_at and the
@@ -413,12 +555,13 @@ class RunArtifactBuilder
     {
         // Extract the stable subset of the artifact for hashing.
         $stable = [
-            'schema_version'     => $artifact['schema_version'],
-            'metadata'           => $artifact['metadata'],
-            'execution_metrics'  => $artifact['execution_metrics'],
-            'adapted_paths'      => $artifact['adapted_paths'],
-            'unmodeled_mechanics'=> $artifact['unmodeled_mechanics'],
-            'termination'        => $artifact['termination'],
+            'schema_version'           => $artifact['schema_version'],
+            'metadata'                 => $artifact['metadata'],
+            'execution_metrics'        => $artifact['execution_metrics'],
+            'adapted_paths'            => $artifact['adapted_paths'],
+            'unmodeled_mechanics'      => $artifact['unmodeled_mechanics'],
+            'termination'              => $artifact['termination'],
+            'mechanic_classifications' => $artifact['mechanic_classifications'] ?? null,
         ];
 
         // Remove non-deterministic fields from the stable subset.
