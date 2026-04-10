@@ -112,9 +112,23 @@ function runVerification(PDO $pdo): void {
         $pdo,
         "SELECT
             COALESCE((SELECT SUM(global_stars) FROM players), 0) AS total_global_stars,
+            COALESCE((SELECT SUM(global_stars_fractional_fp) FROM players), 0) AS total_global_stars_fractional_fp,
             (SELECT COUNT(*) FROM player_cosmetics) AS player_cosmetics_count"
     );
     echo json_encode($globalEconomy, JSON_PRETTY_PRINT) . "\n";
+
+    echo "[verify] social/notification/badge wipe\n";
+    $socialCounts = fetchRows(
+        $pdo,
+        "SELECT
+            (SELECT COUNT(*) FROM badges) AS badges_count,
+            (SELECT COUNT(*) FROM chat_messages) AS chat_messages_count,
+            (SELECT COUNT(*) FROM player_notifications) AS player_notifications_count,
+            (SELECT COUNT(*) FROM friendships) AS friendships_count,
+            (SELECT COUNT(*) FROM friend_requests) AS friend_requests_count,
+            (SELECT COUNT(*) FROM blocks) AS blocks_count"
+    );
+    echo json_encode($socialCounts, JSON_PRETTY_PRINT) . "\n";
 
     echo "[verify] playability snapshot\n";
     $playability = fetchRows(

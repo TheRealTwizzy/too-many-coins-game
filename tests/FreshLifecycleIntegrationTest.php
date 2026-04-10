@@ -181,7 +181,7 @@ class FreshLifecycleIntegrationTest extends TestCase
         // Validate adapted paths are recorded
         $this->assertContains('season_setup_direct_insert', $result['adapted_paths']);
         $this->assertContains('database_singleton_redirect', $result['adapted_paths']);
-        $this->assertContains('simulated_player_keepalive', $result['adapted_paths']);
+        $this->assertContains('simulated_player_presence_archetype_aware', $result['adapted_paths']);
 
         // Validate run artifact was built
         $artifact = $runner->getRunArtifact();
