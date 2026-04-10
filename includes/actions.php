@@ -254,10 +254,13 @@ class Actions {
             }
             
             // Update player state
+            // Clear idle_since_tick to avoid stale idle-hold values persisting
+            // after a rejoin (matches idleAck cleanup pattern).
             $db->query(
                 "UPDATE players SET 
                  joined_season_id = ?, participation_enabled = 1,
                  idle_modal_active = 0, activity_state = 'Active',
+                 idle_since_tick = NULL,
                  last_activity_tick = ?, online_current = 1, last_seen_at = NOW()
                  WHERE player_id = ?",
                 [$seasonId, $gameTime, $playerId]

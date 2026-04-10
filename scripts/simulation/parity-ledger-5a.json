@@ -1,0 +1,108 @@
+{
+  "schema": "tmc-parity-ledger.v1",
+  "milestone": "5A",
+  "generated_at": "2026-04-10T00:00:00+00:00",
+  "run_context": {
+    "simulator_version": "0.5.0-alpha",
+    "production_commit": null,
+    "seed": null,
+    "cohort_size": null
+  },
+  "total_issues": 8,
+  "entries": [
+    {
+      "parity_issue_id": "TMC-5A-001",
+      "severity": "Minor",
+      "classification": "shared_runtime_bug",
+      "mechanic_area": "season_join / idle_state_hygiene",
+      "expected_behavior": "seasonJoin() clears idle_since_tick to NULL, matching the idleAck() cleanup pattern, so no stale idle-hold value persists after a rejoin.",
+      "observed_behavior": "seasonJoin() set activity_state='Active' and idle_modal_active=0 but left idle_since_tick stale from a prior idle transition. The stale value has no functional impact (resolveEconomicPresenceState short-circuits on activity_state='Active'), but is inconsistent with idleAck.",
+      "status": "fixed",
+      "linked_fix": "includes/actions.php — seasonJoin() now sets idle_since_tick = NULL",
+      "owner": "runtime"
+    },
+    {
+      "parity_issue_id": "TMC-5A-002",
+      "severity": "Major",
+      "classification": "simulator_only_bug",
+      "mechanic_area": "presence / keepalive / idle_transitions",
+      "expected_behavior": "Synthetic players should exhibit realistic idle/offline transitions based on their archetype activity profile. 'Mostly Idle' players should go idle naturally; 'Hardcore' players should stay active.",
+      "observed_behavior": "FreshLifecycleRunner blanket-updates last_activity_tick for ALL players every tick (simulated_player_keepalive adapted path), preventing any player from ever going idle or offline. All players stay permanently Active regardless of archetype.",
+      "status": "deferred",
+      "linked_fix": null,
+      "owner": "simulator",
+      "notes": "The keepalive is documented as an adapted path. Making it archetype-aware requires reading archetype activity profiles from the cohort manifest and selectively refreshing. Deferred to 5B or later."
+    },
+    {
+      "parity_issue_id": "TMC-5A-003",
+      "severity": "Major",
+      "classification": "simulator_only_bug",
+      "mechanic_area": "presence / presenceIsStale / wall_clock",
+      "expected_behavior": "presenceIsStale() should detect stale presence in simulation the same way it does in production.",
+      "observed_behavior": "presenceIsStale() uses time() (wall-clock) to compare against last_seen_at. In fast simulation, wall-clock barely advances so presenceIsStale() always returns false. Players can never transition to Offline via the presenceIsStale gate in simulation.",
+      "status": "deferred",
+      "linked_fix": null,
+      "owner": "simulator",
+      "notes": "Production behavior is correct. The wall-clock dependency is the right metric for real HTTP traffic. In simulation, the keepalive (TMC-5A-002) already prevents idle transitions, so this is a secondary concern. A simulation-time-aware presenceIsStale adapter could be introduced if idle parity is needed."
+    },
+    {
+      "parity_issue_id": "TMC-5A-004",
+      "severity": "Minor",
+      "classification": "parity_risk_no_fix_yet",
+      "mechanic_area": "presence / action_gating_vs_economic_presence",
+      "expected_behavior": "Action eligibility gating (idle_modal_active) and economic presence resolution (resolveEconomicPresenceState) use the same logical state.",
+      "observed_behavior": "These are intentionally separate layers: idle_modal_active is a UI-level action gate (player can't act until they acknowledge the idle modal), while economic_presence_state is the tick-level economic gate (determines UBI rates and drop eligibility). A player who dismissed the modal but is still Idle economically can act but receives Idle-rate UBI. This is by design but creates a simulator parity challenge since the simulator bypasses the UI layer entirely.",
+      "status": "wontfix",
+      "linked_fix": null,
+      "owner": "design",
+      "notes": "Not a bug. Classified as parity_risk because the simulator cannot exercise the idle_modal UI flow."
+    },
+    {
+      "parity_issue_id": "TMC-5A-005",
+      "severity": "Minor",
+      "classification": "parity_risk_no_fix_yet",
+      "mechanic_area": "presence / drop_vs_ubi_offline_resolution",
+      "expected_behavior": "resolveSigilDropActivityState and resolveEconomicPresenceState resolve consistently for all presence states.",
+      "observed_behavior": "When online_current=0 but activity_state='Active' (stale from before disconnect), drop resolution returns Offline (checks online_current first) while UBI resolution returns Active (checks activity_state first). In practice this state rarely occurs since TickEngine clears online_current and sets activity_state when it detects Offline. But the code paths have different resolution order.",
+      "status": "open",
+      "linked_fix": null,
+      "owner": "runtime",
+      "notes": "Low-impact in practice because TickEngine synchronizes both fields. The divergence only matters in an edge case where online_current is cleared by a different code path than TickEngine (e.g., auth layer connection tracking). Test added to document this behavior: testOfflinePlayerConsistentAcrossPresenceResolvers."
+    },
+    {
+      "parity_issue_id": "TMC-5A-006",
+      "severity": "Minor",
+      "classification": "simulator_only_bug",
+      "mechanic_area": "boost_purchase / action_dispatch",
+      "expected_behavior": "Boost purchases should be dispatched through production Actions paths during simulation.",
+      "observed_behavior": "Boost purchases are not dispatched in FreshLifecycleRunner because the production boost activation path is tightly coupled to HTTP/session sigil spending UI calls. Already recorded as unmodeled mechanic 'boost_purchase_not_dispatched'.",
+      "status": "deferred",
+      "linked_fix": null,
+      "owner": "simulator",
+      "notes": "TickEngine processes existing active_boosts faithfully; only boost creation is not exercised. Deferred to a future milestone when boost purchase can be adapted."
+    },
+    {
+      "parity_issue_id": "TMC-5A-007",
+      "severity": "Minor",
+      "classification": "simulator_only_bug",
+      "mechanic_area": "self_melt_freeze / action_dispatch",
+      "expected_behavior": "Self-melt freeze should be dispatched through production Actions::selfMeltFreeze during simulation.",
+      "observed_behavior": "PolicyBehavior does not implement a decision function for self-melt. No synthetic player will self-melt in the current milestone. Already recorded as unmodeled mechanic 'self_melt_freeze_no_policy_decision'.",
+      "status": "deferred",
+      "linked_fix": null,
+      "owner": "simulator"
+    },
+    {
+      "parity_issue_id": "TMC-5A-008",
+      "severity": "Minor",
+      "classification": "parity_risk_no_fix_yet",
+      "mechanic_area": "rebalanceExistingSeasons / config_mutation",
+      "expected_behavior": "rebalanceExistingSeasons should not silently rewrite economy config on seasons during simulation.",
+      "observed_behavior": "rebalanceExistingSeasons is correctly guarded — ensureSeasons() bails early when simulationTick is set, so rebalanceExistingSeasons never runs in simulation. In production, it runs every tick but is idempotent (WHERE clause matches only legacy-config seasons with base_ubi_active_per_tick=100 AND target_spend_rate_per_tick=50). No fix needed.",
+      "status": "wontfix",
+      "linked_fix": null,
+      "owner": "runtime",
+      "notes": "Verified correct: simulation guard is in place. Production behavior is idempotent migration logic."
+    }
+  ]
+}

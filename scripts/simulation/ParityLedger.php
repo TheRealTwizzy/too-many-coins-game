@@ -24,6 +24,12 @@ class ParityLedger
     public const CLASS_PARITY_BUG       = 'parity_bug';
     public const CLASS_UNMODELED        = 'unmodeled_mechanic';
 
+    /** Extended 5A bug-hunt classification values (beyond parity_bug / unmodeled_mechanic). */
+    public const CLASS_SHARED_RUNTIME_BUG   = 'shared_runtime_bug';
+    public const CLASS_SIMULATOR_ONLY_BUG   = 'simulator_only_bug';
+    public const CLASS_ARTIFACT_ONLY_BUG    = 'artifact_only_bug';
+    public const CLASS_PARITY_RISK_NO_FIX   = 'parity_risk_no_fix_yet';
+
     /** Allowed status values. */
     public const STATUS_OPEN       = 'open';
     public const STATUS_INVESTIGATING = 'investigating';
@@ -168,6 +174,8 @@ class ParityLedger
 
         if (isset($entry['classification']) && !in_array($entry['classification'], [
             self::CLASS_PARITY_BUG, self::CLASS_UNMODELED,
+            self::CLASS_SHARED_RUNTIME_BUG, self::CLASS_SIMULATOR_ONLY_BUG,
+            self::CLASS_ARTIFACT_ONLY_BUG, self::CLASS_PARITY_RISK_NO_FIX,
         ], true)) {
             $missing[] = 'classification (invalid value)';
         }
@@ -209,8 +217,12 @@ class ParityLedger
     private static function countByClassification(array $entries): array
     {
         $counts = [
-            self::CLASS_PARITY_BUG => 0,
-            self::CLASS_UNMODELED  => 0,
+            self::CLASS_PARITY_BUG          => 0,
+            self::CLASS_UNMODELED           => 0,
+            self::CLASS_SHARED_RUNTIME_BUG  => 0,
+            self::CLASS_SIMULATOR_ONLY_BUG  => 0,
+            self::CLASS_ARTIFACT_ONLY_BUG   => 0,
+            self::CLASS_PARITY_RISK_NO_FIX  => 0,
         ];
         foreach ($entries as $e) {
             $cls = $e['classification'] ?? 'unknown';
