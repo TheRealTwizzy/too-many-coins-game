@@ -1,0 +1,287 @@
+{
+    "schema_version": "tmc-diagnosis.v1",
+    "generated_at": "2026-04-10T20:43:52+00:00",
+    "source_report": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\current-db\\baseline-batch\\baseline_analysis_report.json",
+    "source_schema": "tmc-baseline-analysis.v1",
+    "sim_b_runs": 15,
+    "sim_c_runs": 6,
+    "total_findings": 12,
+    "findings_by_severity": {
+        "HIGH": 3,
+        "MEDIUM": 9,
+        "LOW": 0
+    },
+    "findings": [
+        {
+            "id": "B8",
+            "severity": "HIGH",
+            "category": "non_viable_archetype",
+            "description": "Archetype 'hardcore' (Hardcore) has median score at 28.5% of overall median (threshold: <50%).",
+            "metric_evidence": {
+                "archetype": "hardcore",
+                "label": "Hardcore",
+                "cross_seed_mean": 313.67,
+                "ratio_to_overall": 0.2847,
+                "overall_mean": 1101.81
+            },
+            "affected_archetypes": [
+                "hardcore"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "any archetype with median final score <50% of overall median",
+            "threshold": 0.5,
+            "observed_value": 0.2847,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B9",
+            "severity": "HIGH",
+            "category": "non_viable_archetype",
+            "description": "Archetype 'boost_focused' (Boost-Focused) has median score at 24.5% of overall median (threshold: <50%).",
+            "metric_evidence": {
+                "archetype": "boost_focused",
+                "label": "Boost-Focused",
+                "cross_seed_mean": 270.07,
+                "ratio_to_overall": 0.2451,
+                "overall_mean": 1101.81
+            },
+            "affected_archetypes": [
+                "boost_focused"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "any archetype with median final score <50% of overall median",
+            "threshold": 0.5,
+            "observed_value": 0.2451,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B11",
+            "severity": "HIGH",
+            "category": "hoarding_advantage",
+            "description": "Hoarder final score is 212.3% of regular (threshold: >150%).",
+            "metric_evidence": {
+                "hoarder_vs_regular_ratio": 2.1226
+            },
+            "affected_archetypes": [
+                "hoarder"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "hoarder final score >150% of regular final score",
+            "threshold": 1.5,
+            "observed_value": 2.1226,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B1",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'freeze' has only 0% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "freeze",
+                "count": 5,
+                "grand_total": 19153,
+                "share": 0.0003
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0003,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B2",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'theft' has only 2.3% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "theft",
+                "count": 437,
+                "grand_total": 19153,
+                "share": 0.0228
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0228,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B3",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Hardcore earns 66.4% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "hardcore",
+                "boost_coin_share": 0.6639,
+                "mean_ticks_boosted": 1644
+            },
+            "affected_archetypes": [
+                "hardcore"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.6639,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B4",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Boost-Focused earns 69.7% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "boost_focused",
+                "boost_coin_share": 0.6973,
+                "mean_ticks_boosted": 1841
+            },
+            "affected_archetypes": [
+                "boost_focused"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.6973,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B5",
+            "severity": "MEDIUM",
+            "category": "weak_progression_pacing",
+            "description": "Median cumulative stars at EARLY phase boundary is only 7.7% of final median score (threshold: <20%).",
+            "metric_evidence": {
+                "phase": "EARLY",
+                "median_cumulative_stars": 79,
+                "final_median_score": 1023.5,
+                "ratio": 0.0772
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY"
+            ],
+            "trigger_rule": "median score at phase boundary <20% of final median",
+            "threshold": 0.2,
+            "observed_value": 0.0772,
+            "confidence": "LOW",
+            "notes": "Fallback: uses cumulative star purchases as proxy \u2014 progression_pacing section not available."
+        },
+        {
+            "id": "B6",
+            "severity": "MEDIUM",
+            "category": "weak_progression_pacing",
+            "description": "Median cumulative stars at MID phase boundary is only 12.3% of final median score (threshold: <20%).",
+            "metric_evidence": {
+                "phase": "MID",
+                "median_cumulative_stars": 126,
+                "final_median_score": 1023.5,
+                "ratio": 0.1231
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "MID"
+            ],
+            "trigger_rule": "median score at phase boundary <20% of final median",
+            "threshold": 0.2,
+            "observed_value": 0.1231,
+            "confidence": "LOW",
+            "notes": "Fallback: uses cumulative star purchases as proxy \u2014 progression_pacing section not available."
+        },
+        {
+            "id": "B7",
+            "severity": "MEDIUM",
+            "category": "sigil_scarcity",
+            "description": "Median T4+ sigil acquisition is 0.26 per player per season (threshold: <1.0).",
+            "metric_evidence": {
+                "median_t4_plus_per_player": 0.26,
+                "per_archetype": {
+                    "casual": 0.1,
+                    "regular": 0.17,
+                    "hardcore": 0.62,
+                    "hoarder": 0.24,
+                    "early_locker": 0.06,
+                    "late_deployer": 0.27,
+                    "boost_focused": 0.57,
+                    "star_focused": 0.29,
+                    "aggressive_sigil_user": 0.4,
+                    "mostly_idle": 0.02
+                }
+            },
+            "affected_archetypes": [
+                "casual",
+                "regular",
+                "hardcore",
+                "hoarder",
+                "early_locker",
+                "late_deployer",
+                "boost_focused",
+                "star_focused",
+                "aggressive_sigil_user",
+                "mostly_idle"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "median T4+ acquisition <1.0 per player per season",
+            "threshold": 1,
+            "observed_value": 0.26,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B10",
+            "severity": "MEDIUM",
+            "category": "boost_roi_imbalance",
+            "description": "Boost-focused archetype payoff is 51.3% of regular archetype (threshold: <80%).",
+            "metric_evidence": {
+                "boost_focused_vs_regular_ratio": 0.5128
+            },
+            "affected_archetypes": [
+                "boost_focused"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "boost_focused payoff <80% of regular archetype payoff",
+            "threshold": 0.8,
+            "observed_value": 0.5128,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B12",
+            "severity": "MEDIUM",
+            "category": "phase_dead_zones",
+            "description": "BLACKOUT phase has only 0.2% of total actions (threshold: <10%).",
+            "metric_evidence": {
+                "phase": "BLACKOUT",
+                "phase_total": 45,
+                "share": 0.0023,
+                "grand_total": 19153
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any phase with <10% of total actions",
+            "threshold": 0.1,
+            "observed_value": 0.0023,
+            "confidence": "HIGH",
+            "notes": ""
+        }
+    ],
+    "unsupported_rules": []
+}

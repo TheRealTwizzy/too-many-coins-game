@@ -159,6 +159,50 @@ class PolicyScenarioCatalog
         return self::CATEGORY_KEY_ALLOWLIST;
     }
 
+    /**
+     * Load tuning scenarios from a Phase C tuning_candidates.json file.
+     * Returns indexed array of validated scenario entries.
+     *
+     * @param string $candidatesJsonPath Path to tuning_candidates.json
+     * @return array Indexed by scenario name
+     */
+    public static function loadTuningScenarios(string $candidatesJsonPath): array
+    {
+        if (!is_file($candidatesJsonPath)) {
+            throw new InvalidArgumentException('Tuning candidates file not found: ' . $candidatesJsonPath);
+        }
+
+        $data = json_decode(file_get_contents($candidatesJsonPath), true);
+        if (!is_array($data) || ($data['schema_version'] ?? '') !== 'tmc-tuning-candidates.v1') {
+            throw new InvalidArgumentException('Invalid tuning candidates format: ' . $candidatesJsonPath);
+        }
+
+        $scenarios = [];
+        foreach (($data['scenarios'] ?? []) as $scenario) {
+            if (!is_array($scenario) || empty($scenario['name'])) {
+                continue;
+            }
+            self::assertValidScenario($scenario);
+            $scenarios[$scenario['name']] = $scenario;
+        }
+
+        return $scenarios;
+    }
+
+    /**
+     * Return all built-in scenarios merged with tuning scenarios from a candidates file.
+     * Phase D sweep runners should use this when tuning scenarios are available.
+     *
+     * @param string $candidatesJsonPath Path to tuning_candidates.json
+     * @return array Indexed by scenario name
+     */
+    public static function allWithTuning(string $candidatesJsonPath): array
+    {
+        $all = self::all();
+        $tuning = self::loadTuningScenarios($candidatesJsonPath);
+        return array_merge($all, $tuning);
+    }
+
     public static function normalizeScenarioNames(array $names): array
     {
         $normalized = [];
