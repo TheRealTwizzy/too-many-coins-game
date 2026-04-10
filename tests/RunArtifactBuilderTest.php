@@ -5,7 +5,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../scripts/simulation/RunArtifactBuilder.php';
 
 /**
- * Tests for RunArtifactBuilder (Milestone 4A).
+ * Tests for RunArtifactBuilder (Milestone 4A + 4B).
  *
  * Validates that the structured run artifact contains all required fields,
  * maintains correct section boundaries, and that the determinism fingerprint
@@ -130,6 +130,9 @@ class RunArtifactBuilderTest extends TestCase
             'assumptions',
             'parity_status',
             'termination',
+            'stakeholder_summary',
+            'mechanic_classifications',
+            'parity_ledger',
             'determinism_fingerprint',
         ];
 
@@ -764,6 +767,18 @@ class RunArtifactBuilderTest extends TestCase
             $a1['determinism_fingerprint'],
             $a2['determinism_fingerprint'],
             'Different adapted paths (affecting mechanic_classifications) should change fingerprint'
+        );
+    }
+
+    public function testFingerprintExcludesExtraSeasonIds(): void
+    {
+        $a1 = $this->buildArtifact([], []);
+        $a2 = $this->buildArtifact([], [2, 3]);
+
+        $this->assertSame(
+            $a1['determinism_fingerprint'],
+            $a2['determinism_fingerprint'],
+            'Extra season IDs (non-deterministic auto-increment) must not affect the fingerprint'
         );
     }
 }

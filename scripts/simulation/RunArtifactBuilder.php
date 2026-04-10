@@ -567,10 +567,18 @@ class RunArtifactBuilder
         // Remove non-deterministic fields from the stable subset.
         unset($stable['metadata']['production_commit']);
 
+        // Remove non-deterministic season fields: extra_season_ids are auto-
+        // increment values that can drift between identical-seed runs.
+        unset($stable['metadata']['season']['extra_season_ids']);
+        unset($stable['metadata']['season']['extra_seasons_present']);
+        unset($stable['metadata']['season']['extra_seasons_note']);
+
         // Remove timing measurements (these vary between runs even with same seed).
         unset($stable['execution_metrics']['phase_durations_ms']);
 
-        $json = json_encode($stable, JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK);
+        // Use JSON_UNESCAPED_SLASHES only — JSON_NUMERIC_CHECK can convert
+        // numeric-looking strings to numbers, causing false fingerprint drift.
+        $json = json_encode($stable, JSON_UNESCAPED_SLASHES);
         return hash('sha256', $json);
     }
 
