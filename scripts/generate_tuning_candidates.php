@@ -12,7 +12,7 @@
  *   --diagnosis=FILE       Path to diagnosis_report.json (required)
  *   --season-config=FILE   Path to exported season config JSON (for current_value lookup; optional)
  *   --output=DIR           Output directory (default: simulation_output/current-db/tuning/)
- *   --version=N            Tuning version (1 or 2; default 1). v2 applies regression mitigations.
+ *   --version=N            Tuning version (1, 2, or 3; default 1). v2/v3 apply regression mitigations.
  *   --help                 Show this help
  *
  * Outputs:
@@ -55,7 +55,7 @@ Options:
   --diagnosis=FILE       Path to diagnosis_report.json (required)
   --season-config=FILE   Path to exported season config JSON (optional; for current_value)
   --output=DIR           Output directory (default: simulation_output/current-db/tuning/)
-  --version=N            Tuning version (1 or 2; default 1). v2 applies regression mitigations.
+    --version=N            Tuning version (1, 2, or 3; default 1). v2/v3 apply regression mitigations.
   --help                 Show this help
 
 Outputs:
@@ -222,6 +222,76 @@ $REGRESSION_COUNTERWEIGHTS = [
         ],
     ],
 ];
+
+$activeMultiplierOverrides = $V2_MULTIPLIER_OVERRIDES;
+$activeCounterweights = $REGRESSION_COUNTERWEIGHTS;
+
+if ($tuningVersion >= 3) {
+    // v3 is stability-first: minimize archetype-rank reshuffling while preserving
+    // anti-hoarding pressure with stronger lock-in affordability counterweights.
+    $activeMultiplierOverrides = [
+        'hoarding_advantage' => [
+            'hoarding_tier2_rate_hourly_fp'  => ['conservative' => 1.04, 'balanced' => 1.08, 'aggressive' => 1.14],
+            'hoarding_tier3_rate_hourly_fp'  => ['conservative' => 1.05, 'balanced' => 1.10, 'aggressive' => 1.16],
+            'hoarding_idle_multiplier_fp'    => ['conservative' => 1.01, 'balanced' => 1.04, 'aggressive' => 1.08],
+        ],
+        'concentrated_wealth' => [
+            'hoarding_tier1_rate_hourly_fp'  => ['conservative' => 1.03, 'balanced' => 1.06, 'aggressive' => 1.10],
+            'hoarding_tier2_rate_hourly_fp'  => ['conservative' => 1.04, 'balanced' => 1.08, 'aggressive' => 1.14],
+            'hoarding_sink_cap_ratio_fp'     => ['conservative' => 0.985, 'balanced' => 0.965, 'aggressive' => 0.93],
+        ],
+        'boost_roi_imbalance' => [
+            'target_spend_rate_per_tick'     => ['conservative' => 0.97, 'balanced' => 0.93, 'aggressive' => 0.88],
+            'hoarding_min_factor_fp'         => ['conservative' => 1.04, 'balanced' => 1.08, 'aggressive' => 1.15],
+        ],
+        'phase_dead_zones' => [
+            'hoarding_window_ticks'          => ['conservative' => 0.98, 'balanced' => 0.94, 'aggressive' => 0.90],
+        ],
+    ];
+
+    $activeCounterweights = [
+        'lock_in_support' => [
+            'trigger_categories' => ['hoarding_advantage', 'concentrated_wealth', 'phase_dead_zones'],
+            'targets' => [
+                [
+                    'key' => 'starprice_reactivation_window_ticks',
+                    'direction' => 'increase',
+                    'conservative' => 1.15, 'balanced' => 1.24, 'aggressive' => 1.34,
+                    'mode' => 'multiply', 'type' => 'timer',
+                    'mechanic' => 'star_pricing',
+                    'player_effect' => 'Longer grace window after idle before reactivation penalties',
+                    'economy_effect' => 'Stabilizes lock-in rate under anti-hoarding pressure',
+                    'counterweight_for' => 'lock_in_down_but_expiry_dominance_up',
+                ],
+                [
+                    'key' => 'market_affordability_bias_fp',
+                    'direction' => 'decrease',
+                    'conservative' => 0.94, 'balanced' => 0.90, 'aggressive' => 0.85,
+                    'mode' => 'multiply', 'type' => 'pricing',
+                    'mechanic' => 'star_pricing',
+                    'player_effect' => 'Slightly cheaper star conversion to protect lock-in accessibility',
+                    'economy_effect' => 'Offsets lock-in suppression from tighter hoarding drains',
+                    'counterweight_for' => 'lock_in_down_but_expiry_dominance_up',
+                ],
+            ],
+        ],
+        'expiry_softening' => [
+            'trigger_categories' => ['hoarding_advantage', 'concentrated_wealth'],
+            'targets' => [
+                [
+                    'key' => 'starprice_max_downstep_fp',
+                    'direction' => 'increase',
+                    'conservative' => 1.12, 'balanced' => 1.22, 'aggressive' => 1.32,
+                    'mode' => 'multiply', 'type' => 'pacing',
+                    'mechanic' => 'star_pricing',
+                    'player_effect' => 'Price recovers downward faster after demand drops',
+                    'economy_effect' => 'Reduces expiry dominance and improves conversion consistency',
+                    'counterweight_for' => 'reduces_lock_in_but_expiry_dominance_rises',
+                ],
+            ],
+        ],
+    ];
+}
 
 // ================================================================
 // Tuning Change Registry
@@ -772,8 +842,8 @@ foreach ($PACKAGE_DEFS as $pkgName => $pkgDef) {
             if ($target['mode'] === 'multiply' && is_numeric($currentValue)) {
                 $factor = $target[$tier] ?? 1.0;
                 // V2: apply dampened multipliers for regression mitigation
-                if ($tuningVersion >= 2 && isset($V2_MULTIPLIER_OVERRIDES[$cat][$key][$tier])) {
-                    $factor = $V2_MULTIPLIER_OVERRIDES[$cat][$key][$tier];
+                if ($tuningVersion >= 2 && isset($activeMultiplierOverrides[$cat][$key][$tier])) {
+                    $factor = $activeMultiplierOverrides[$cat][$key][$tier];
                 }
                 $proposedValue = (int)round((float)$currentValue * (float)$factor);
             } elseif ($target['mode'] === 'vault_tuning') {
@@ -855,7 +925,7 @@ foreach ($PACKAGE_DEFS as $pkgName => $pkgDef) {
             }
 
             $injectedKeys = [];
-            foreach ($REGRESSION_COUNTERWEIGHTS as $cwName => $cw) {
+            foreach ($activeCounterweights as $cwName => $cw) {
                 $triggered = false;
                 foreach ($cw['trigger_categories'] as $trigCat) {
                     if (isset($activeCats[$trigCat])) {
@@ -975,7 +1045,7 @@ foreach ($packages as $pkg) {
     if (!empty($overrides)) {
         // V2: also resolve counterweight keys from REGRESSION_COUNTERWEIGHTS
         if ($tuningVersion >= 2) {
-            foreach ($REGRESSION_COUNTERWEIGHTS as $cw) {
+            foreach ($activeCounterweights as $cw) {
                 foreach ($cw['targets'] as $cwT) {
                     $cwK = $cwT['key'];
                     if (!isset($categorySet['star_conversion_pricing']) && isset($overrides[$cwK])) {
@@ -1067,14 +1137,22 @@ $md .= "| Packages generated | " . count($packages) . " |\n";
 $md .= "| Scenarios generated | " . count($scenarios) . " |\n\n";
 
 if ($tuningVersion >= 2) {
-    $md .= "## Regression Mitigation Strategy (v2)\n\n";
+    $md .= "## Regression Mitigation Strategy (v{$tuningVersion})\n\n";
     $md .= "All v1 packages were REJECTED on all seeds due to regression flags.\n";
-    $md .= "v2 applies the following mitigations:\n\n";
-    $md .= "1. **Dampened hoarding drain** — multipliers reduced ~50% from v1 magnitudes\n";
-    $md .= "2. **Lock-in counterweights** — `starprice_reactivation_window_ticks` ↑ and `market_affordability_bias_fp` ↓\n";
-    $md .= "3. **Expiry softening** — `starprice_max_downstep_fp` ↑ so prices can drop faster when demand falls\n";
-    $md .= "4. **Multi-axis approach** — packages bundle hoarding drain with compensating lock-in/pricing changes\n\n";
-    $md .= "| Regression Flag | v1 Rate | v2 Target |\n";
+    if ($tuningVersion >= 3) {
+        $md .= "v{$tuningVersion} applies a stability-first mitigation profile:\n\n";
+        $md .= "1. **Minimal hoarding drain deltas** — reduce archetype-rank reshuffling risk\n";
+        $md .= "2. **Stronger lock-in support** — larger `starprice_reactivation_window_ticks` increase and stronger affordability bias reduction\n";
+        $md .= "3. **Smoother expiry recovery** — larger `starprice_max_downstep_fp` increase to prevent price-stuck expiry\n";
+        $md .= "4. **Controlled multi-axis tuning** — preserve anti-hoarding intent without single-axis overcorrection\n\n";
+    } else {
+        $md .= "v{$tuningVersion} applies the following mitigations:\n\n";
+        $md .= "1. **Dampened hoarding drain** — multipliers reduced ~50% from v1 magnitudes\n";
+        $md .= "2. **Lock-in counterweights** — `starprice_reactivation_window_ticks` ↑ and `market_affordability_bias_fp` ↓\n";
+        $md .= "3. **Expiry softening** — `starprice_max_downstep_fp` ↑ so prices can drop faster when demand falls\n";
+        $md .= "4. **Multi-axis approach** — packages bundle hoarding drain with compensating lock-in/pricing changes\n\n";
+    }
+    $md .= "| Regression Flag | v1 Rate | v{$tuningVersion} Target |\n";
     $md .= "|---|---|---|\n";
     $md .= "| skip_rejoin_exploit_worsened | 7/9 SimC | ≤3/9 |\n";
     $md .= "| dominant_archetype_shifted | 9/18 | ≤4/18 |\n";

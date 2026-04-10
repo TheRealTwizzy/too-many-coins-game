@@ -105,7 +105,8 @@ if ($options['tuning-candidates'] !== null && is_file($options['tuning-candidate
     }
 }
 
-// Map scenario names to package names
+// Map scenario names to package names.
+// Supports tuning-<package>-vN patterns for all tuning generations.
 $scenarioToPackage = [
     'tuning-conservative-v1' => 'conservative',
     'tuning-balanced-v1' => 'balanced',
@@ -114,6 +115,16 @@ $scenarioToPackage = [
     'tuning-balanced-v2' => 'balanced',
     'tuning-aggressive-v2' => 'aggressive',
 ];
+
+function resolvePackageNameFromScenario(string $scenarioName, array $scenarioToPackage): string {
+    if (isset($scenarioToPackage[$scenarioName])) {
+        return $scenarioToPackage[$scenarioName];
+    }
+    if (preg_match('/^tuning-(conservative|balanced|aggressive)-v\d+$/', $scenarioName, $m) === 1) {
+        return (string)$m[1];
+    }
+    return $scenarioName;
+}
 
 // ── Aggregate per-scenario across seeds ──
 
@@ -199,7 +210,7 @@ function flagAffectsHigh(string $flag, array $packageFindingIds, array $findingS
 $packageResults = [];
 
 foreach ($scenarioAgg as $scName => $agg) {
-    $pkgName = $scenarioToPackage[$scName] ?? $scName;
+    $pkgName = resolvePackageNameFromScenario($scName, $scenarioToPackage);
     $pkgFindingIds = $packageFindings[$pkgName] ?? [];
     $flags = array_keys($agg['all_regression_flags']);
     $flagCount = count($flags);

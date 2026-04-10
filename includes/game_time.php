@@ -213,10 +213,10 @@ class GameTime {
                 
                 $inflationTable = json_encode([
                     ['x' => 0, 'factor_fp' => 1000000],
-                    ['x' => 50000, 'factor_fp' => 620000],
-                    ['x' => 200000, 'factor_fp' => 280000],
-                    ['x' => 800000, 'factor_fp' => 110000],
-                    ['x' => 3000000, 'factor_fp' => 50000]
+                    ['x' => 50000, 'factor_fp' => 700000],
+                    ['x' => 200000, 'factor_fp' => 350000],
+                    ['x' => 800000, 'factor_fp' => 150000],
+                    ['x' => 3000000, 'factor_fp' => 70000]
                 ]);
                 
                 $starpriceTable = json_encode([
@@ -256,11 +256,11 @@ class GameTime {
                      pending_star_burn_coins, star_burn_ema_fp, net_mint_ema_fp, market_pressure_fp,
                      coins_offline_total,
                      vault_config, current_star_price, last_processed_tick)
-                     VALUES (?, ?, ?, ?, 'Scheduled', 30, 250000, 1, ?, ?, 18, 90000,
-                     0, 12, 20000, 50000, 200000, 200, 500, 1000, 350000, 1250000,
-                     ?, 6000, 0, 1, 1000, 12000,
+                     VALUES (?, ?, ?, ?, 'Scheduled', 30, 250000, 1, ?, ?, 15, 100000,
+                     0, 12, 20000, 50000, 200000, 200, 535, 1070, 350000, 1287500,
+                     ?, 6000, 0, 1, 1000, 12960,
                      ?, ?, ?,
-                     1000000, 100,
+                     970000, 100,
                      0, 0, 0, 1000000,
                      0,
                      ?, 100, ?)",
@@ -696,10 +696,10 @@ class GameTime {
     private static function rebalanceExistingSeasons($db) {
         $inflationTable = json_encode([
             ['x' => 0, 'factor_fp' => 1000000],
-            ['x' => 50000, 'factor_fp' => 620000],
-            ['x' => 200000, 'factor_fp' => 280000],
-            ['x' => 800000, 'factor_fp' => 110000],
-            ['x' => 3000000, 'factor_fp' => 50000]
+            ['x' => 50000, 'factor_fp' => 700000],
+            ['x' => 200000, 'factor_fp' => 350000],
+            ['x' => 800000, 'factor_fp' => 150000],
+            ['x' => 3000000, 'factor_fp' => 70000]
         ]);
 
         $starpriceTable = json_encode([
@@ -713,31 +713,32 @@ class GameTime {
         $db->query(
             "UPDATE seasons
              SET base_ubi_active_per_tick = 30,
-                 target_spend_rate_per_tick = 18,
-                 hoarding_min_factor_fp = 90000,
+                 target_spend_rate_per_tick = 15,
+                 hoarding_min_factor_fp = 100000,
                  hoarding_sink_enabled = 0,
                  hoarding_safe_hours = 12,
                  hoarding_safe_min_coins = 20000,
                  hoarding_tier1_excess_cap = 50000,
                  hoarding_tier2_excess_cap = 200000,
                  hoarding_tier1_rate_hourly_fp = 200,
-                 hoarding_tier2_rate_hourly_fp = 500,
-                 hoarding_tier3_rate_hourly_fp = 1000,
+                 hoarding_tier2_rate_hourly_fp = 535,
+                 hoarding_tier3_rate_hourly_fp = 1070,
                  hoarding_sink_cap_ratio_fp = 350000,
-                 hoarding_idle_multiplier_fp = 1250000,
+                 hoarding_idle_multiplier_fp = 1287500,
                  hoarding_window_ticks = ?,
                  inflation_table = ?,
                  starprice_table = ?,
                  starprice_model_version = COALESCE(NULLIF(starprice_model_version, 0), ?),
                  starprice_reactivation_window_ticks = GREATEST(1, COALESCE(starprice_reactivation_window_ticks, ?)),
                  starprice_demand_table = COALESCE(starprice_demand_table, ?),
-                 market_affordability_bias_fp = COALESCE(NULLIF(market_affordability_bias_fp, 0), 1000000),
+                 market_affordability_bias_fp = COALESCE(NULLIF(market_affordability_bias_fp, 0), 970000),
                  market_anchor_price = GREATEST(100, LEAST(COALESCE(NULLIF(market_anchor_price, 0), current_star_price), 6000)),
                  pending_star_burn_coins = COALESCE(pending_star_burn_coins, 0),
                  star_burn_ema_fp = COALESCE(star_burn_ema_fp, 0),
                  net_mint_ema_fp = COALESCE(net_mint_ema_fp, 0),
                  market_pressure_fp = COALESCE(NULLIF(market_pressure_fp, 0), 1000000),
                  coins_offline_total = COALESCE(coins_offline_total, 0),
+                 starprice_max_downstep_fp = 12960,
                                  star_price_cap = 6000,
                                  current_star_price = LEAST(6000, GREATEST(current_star_price, 100))
              WHERE base_ubi_active_per_tick = 100

@@ -98,7 +98,7 @@ define('TMC_PRESENCE_STALE_OFFLINE_SECONDS', max((int)TMC_PRESENCE_TOUCH_SECONDS
 
 // Economy v2 scaffolding
 define('STARPRICE_MODEL_VERSION_DEFAULT', max(1, (int)(getenv('TMC_STARPRICE_MODEL_VERSION_DEFAULT') ?: 1)));
-define('STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT', ticks_from_real_seconds(4500)); // 75 real minutes
+define('STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT', ticks_from_real_seconds(4860)); // 81 real minutes (conservative-v2)
 
 // Economy tuning windows
 define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hours
