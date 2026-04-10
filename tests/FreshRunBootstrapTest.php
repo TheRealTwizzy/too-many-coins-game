@@ -140,6 +140,11 @@ class FreshRunBootstrapTest extends TestCase
         $dbUser = getenv('TMC_FRESHDB_TEST_USER') ?: 'root';
         $dbPass = getenv('TMC_FRESHDB_TEST_PASS') ?: '';
 
+        // Fail-closed: freshdb tests must only target local hosts
+        $localHosts = ['127.0.0.1', 'localhost', '::1'];
+        $this->assertContains($dbHost, $localHosts,
+            sprintf('freshdb tests require a local DB host. Got "%s" — refusing to connect to non-local target.', $dbHost));
+
         putenv(FreshRunSafety::ENV_SIMULATION_MODE . '=fresh-run');
         putenv(FreshRunSafety::ENV_DESTRUCTIVE_RESET . '=1');
 

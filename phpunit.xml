@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap.php"
          colors="true"
          testdox="true">
+    <php>
+        <!-- Defense-in-depth: stub DB env vars so config.php never falls
+             through to HOSTINGER_DB_* or other remote/tunneled aliases.
+             tests/bootstrap.php also sets these via putenv(); this block
+             ensures coverage even if $_ENV is used instead of getenv(). -->
+        <env name="DB_HOST" value="stub" force="false"/>
+        <env name="DB_PORT" value="stub" force="false"/>
+        <env name="DB_NAME" value="stub" force="false"/>
+        <env name="DB_USER" value="stub" force="false"/>
+        <env name="DB_PASS" value="stub" force="false"/>
+    </php>
     <testsuites>
         <testsuite name="Too Many Coins">
             <directory>tests</directory>

@@ -128,8 +128,15 @@ class SimulationClockTest extends TestCase
         $this->assertSame(0, GameTime::now());
     }
 
+    /**
+     * @group freshdb
+     */
     public function testClearSimulationTickRestoresWallClock(): void
     {
+        if (getenv('TMC_FRESHDB_TEST_ENABLED') !== '1') {
+            $this->markTestSkipped('Requires local DB (wall-clock path hits Database::getInstance)');
+        }
+
         putenv('TMC_SIMULATION_MODE=fresh-run');
 
         GameTime::setSimulationTick(999);
@@ -176,16 +183,30 @@ class SimulationClockTest extends TestCase
     // Production default behavior preserved
     // -----------------------------------------------------------------------
 
+    /**
+     * @group freshdb
+     */
     public function testNowReturnsNonNegativeWhenNoOverride(): void
     {
+        if (getenv('TMC_FRESHDB_TEST_ENABLED') !== '1') {
+            $this->markTestSkipped('Requires local DB (wall-clock path hits Database::getInstance)');
+        }
+
         $this->assertFalse(GameTime::isSimulationClockActive());
         $now = GameTime::now();
         $this->assertIsInt($now);
         $this->assertGreaterThanOrEqual(0, $now);
     }
 
+    /**
+     * @group freshdb
+     */
     public function testGlobalTickMatchesNowWhenNoOverride(): void
     {
+        if (getenv('TMC_FRESHDB_TEST_ENABLED') !== '1') {
+            $this->markTestSkipped('Requires local DB (wall-clock path hits Database::getInstance)');
+        }
+
         $this->assertSame(GameTime::now(), GameTime::globalTick());
     }
 
@@ -261,10 +282,16 @@ class SimulationClockTest extends TestCase
             'Simulation clock should remain active after ensureSeasons()');
     }
 
+    /**
+     * @group freshdb
+     */
     public function testEnsureSeasonsRunsNormallyWithoutSimulationClock(): void
     {
+        if (getenv('TMC_FRESHDB_TEST_ENABLED') !== '1') {
+            $this->markTestSkipped('Requires local DB (ensureSeasons hits Database::getInstance)');
+        }
+
         // Without simulation clock, ensureSeasons should execute normally.
-        // With our stub Database, this completes without error.
         $this->assertFalse(GameTime::isSimulationClockActive());
         GameTime::ensureSeasons();
         // No exception = production path still works.

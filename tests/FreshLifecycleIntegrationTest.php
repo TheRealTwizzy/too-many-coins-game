@@ -48,6 +48,11 @@ class FreshLifecycleIntegrationTest extends TestCase
         $dbHost = getenv('TMC_FRESHDB_TEST_HOST') ?: '127.0.0.1';
         $dbPort = getenv('TMC_FRESHDB_TEST_PORT') ?: '3306';
         $dbUser = getenv('TMC_FRESHDB_TEST_USER') ?: 'root';
+
+        // Fail-closed: freshdb tests must only target local hosts
+        $localHosts = ['127.0.0.1', 'localhost', '::1'];
+        $this->assertContains($dbHost, $localHosts,
+            sprintf('freshdb tests require a local DB host. Got "%s" — refusing to connect to non-local target.', $dbHost));
         $dbPass = getenv('TMC_FRESHDB_TEST_PASS') ?: '';
 
         $this->dbName = 'tmc_sim_integ_' . getmypid() . '_' . mt_rand(1000, 9999);
