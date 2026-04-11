@@ -349,17 +349,50 @@ Codex should implement Milestone 1 first.
 - one season
 - requires at least one join, one purchase, one lock-in, one expiry, and one finalization output
 
-## Future Enhancements
+## Phase 6 — Simulation Optimization and Expansion
 
-Post-v1 candidates:
-- multi-season simulation with carryover effects and migration modeling
-- richer behavior modeling with more complex archetypes and policy interactions
-- integration of isolated real external endpoints for specific parity validation cases
-- optional fast-forward mechanics for later phases after parity is established
-- more granular performance optimizations once parity is validated
-- enhanced output visualizations and stakeholder-friendly summaries
-- deeper CI gating and drift prevention workflows
-- formalized discrepancy triage/reporting automation
+### 6.1 Output intelligence
+- Add run-to-run delta comparison summaries
+- Add automated imbalance detection heuristics
+- Add recommendation generation based on target economy health metrics
+- Add stakeholder summaries for tuning decisions
+
+### 6.2 Safe performance optimization
+- Introduce selective fast-forward for low-interaction phases only
+- Add action-density-aware tick skipping safeguards
+- Profile and reduce slow query groups and per-tick overhead
+- Preserve full-fidelity simulation for lock-in, expiry, blackout, and finalization windows
+
+### 6.3 Behavior model expansion
+- Add adaptive archetype decision logic based on economy state, rankings, scarcity, and timing
+- Add bounded deterministic stochastic variation within archetype envelopes
+- Add configurable policy-interaction layers for aggression, hoarding, deployment timing, and risk response
+
+### 6.4 Batch balancing workflows
+- Add parameter sweep orchestration for economy tuning experiments
+- Add A/B/C scenario comparison output
+- Add ranked recommendations against declared balance goals
+- Export machine-readable and stakeholder-friendly comparison reports
+
+### 6.5 Extended lifecycle modeling
+- Add optional multi-season simulation with carryover effects
+- Add migration/retention modeling between seasons
+- Add longitudinal economy health metrics across repeated seasons
+
+### 6.6 Drift prevention and discrepancy automation
+- Add CI parity gates for shared runtime surfaces
+- Add automated discrepancy triage/report generation
+- Add simulator drift alarms tied to production mechanic changes
+
+### Future Implementations
+- Add support for optional fast-forward mechanics in low-interaction phases while preserving full fidelity during critical windows.
+- Expand behavior modeling with adaptive archetype logic and bounded stochastic variation.
+-  Build parameter sweep orchestration for systematic economy tuning experiments.
+- Add multi-season simulation support with migration and retention modeling.
+- Implement CI parity gates and automated discrepancy triage to prevent simulator drift.
+- Exploration of additional use cases for the fresh lifecycle simulator beyond tuning, such as design space exploration for new mechanics, player behavior research, and educational purposes, while maintaining a focus on parity and safety.
+- Continuous refinement of outputs and interpretation guidance to maximize actionable insights for economy tuning and design decisions, while clearly communicating assumptions, limitations, and parity status.
+
 
 ## Final Note
 
