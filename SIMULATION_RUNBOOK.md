@@ -285,6 +285,7 @@ This workflow runs the existing export and simulation scripts from VS Code on Wi
 - Windows OpenSSH client available as `ssh.exe`
 - PHP CLI available in the VS Code integrated terminal
 - SSH key-based access to the current VPS endpoint
+- SSH host key already trusted in your `known_hosts` file (strict host key checking is enforced)
 - The current database host, port, name, user, and password from Hostinger
 - A local secret config file at `tools/local/tmc-sim.current.ps1`
 
@@ -297,13 +298,28 @@ Expected variables:
 - `TmcSshHost`
 - `TmcSshPort`
 - `TmcSshUser`
-- `TmcSshKeyPath` (full private key file path, not just `.ssh` folder)
+- `TmcSshIdentityFile` (preferred; full private key file path, not just `.ssh` folder)
+- `TmcSshKeyPath` (legacy alias still supported)
+- `TmcSshConnectTimeoutSeconds` (optional, default `10`)
+- `TmcSshKnownHostsPath` (optional explicit `known_hosts` file path)
 - `TmcRemoteDbHost`
 - `TmcRemoteDbPort`
 - `TmcDbName`
 - `TmcDbUser`
 - `TmcDbPass`
 - `TmcLocalForwardPort`
+
+The tunnel script runs SSH in non-interactive batch mode and uses key-only auth. It fails fast instead of prompting for passwords.
+
+### Verify SSH auth before running export
+
+Run this once to confirm non-interactive key auth is working for your configured endpoint:
+
+```powershell
+ssh.exe -i C:\Users\YOUR_USER\.ssh\id_ed25519 -p 22 -o BatchMode=yes -o PreferredAuthentications=publickey -o NumberOfPasswordPrompts=0 -o StrictHostKeyChecking=yes root@YOUR_HOST exit
+```
+
+Expected result: command exits with code 0 and does not prompt for a password.
 
 The local config file is ignored by Git and should never be committed.
 
@@ -318,12 +334,14 @@ The workspace provides these tasks:
 - `Sim D Current DB`
 - `Sim E Current DB`
 
-`Tunnel Current DB` keeps an SSH port forward open in its own terminal, using `TmcSshKeyPath`:
+`Tunnel Current DB` keeps an SSH port forward open in its own terminal, using `TmcSshIdentityFile` (or legacy alias `TmcSshKeyPath`):
 
 - `127.0.0.1:<LocalForwardPort>` on your machine
 - forwarded to `<RemoteDbHost>:<RemoteDbPort>` through `<SshUser>@<SshHost>`
 
 Keep that tunnel terminal running while export and simulation tasks execute.
+
+The tunnel command intentionally uses non-interactive SSH options (`BatchMode=yes`, key-only authentication, zero password prompts). If auth is missing or invalid, it fails immediately.
 
 ### Usage flow in VS Code
 
@@ -355,6 +373,10 @@ Keep the `seed`, `players-per-archetype`, and `seasons` inputs aligned between S
 
 - `Config file not found`: create `tools/local/tmc-sim.current.ps1` from the example file first.
 - `Missing required config value`: fill in the missing SSH or DB value in the local config file.
-- `ssh.exe exited with code ...`: verify the VPS SSH host, port, user, key path, and that the VPS can reach the Hostinger MySQL host.
+- `SSH identity file not found`: verify `TmcSshIdentityFile` (or `TmcSshKeyPath`) points to a readable private key file.
+- `SSH preflight authentication check failed ... Permission denied`: the key was rejected. Confirm the private key is correct and the corresponding public key is installed for `TmcSshUser` on `TmcSshHost`.
+- `SSH preflight authentication check failed ... strict host key verification`: trust/update the server host key in `known_hosts` (or set `TmcSshKnownHostsPath` to the correct file) and retry.
+- `SSH preflight authentication check failed ... connectivity`: verify `TmcSshHost`, `TmcSshPort`, DNS, and firewall/network access.
+- `SSH tunnel startup failed ...`: SSH connected but could not establish the tunnel; verify remote DB host/port reachability from the VPS.
 - `Database connection failed`: confirm the tunnel is still running and that `LocalForwardPort`, `DbName`, `DbUser`, and `DbPass` match the current database.
 - `Expected sweep manifest not found`: run Sim D first, or re-run Sim E with the same seed, player count, and season count used for Sim D.
