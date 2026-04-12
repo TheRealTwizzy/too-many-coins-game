@@ -13,6 +13,8 @@ $options = [
     'players-per-archetype' => 5,
     'output' => __DIR__ . '/../simulation_output/season',
     'season-config' => null,
+  'archetypes' => null,
+  'phase-stop' => null,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -24,6 +26,10 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['output'] = substr($arg, 9);
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--archetypes=')) {
+      $options['archetypes'] = substr($arg, 13);
+    } elseif (str_starts_with($arg, '--phase-stop=')) {
+      $options['phase-stop'] = substr($arg, 13);
     } elseif ($arg === '--help') {
         $help = <<<'HELP'
 Simulation B — Single-Season Population Simulator
@@ -36,6 +42,9 @@ Options:
   --players-per-archetype=N   Players per archetype cohort (default: 5)
   --output=DIR                Output directory (default: simulation_output/season)
   --season-config=FILE        JSON file with season config overrides
+  --archetypes=A,B,C          Optional archetype key subset for focused harness runs
+  --phase-stop=EARLY|MID|LATE_ACTIVE|BLACKOUT
+                              Optional phase-limited stop for proxy harnesses
   --help                      Show this help
 
 Outputs:
@@ -57,7 +66,13 @@ HELP;
 $payload = SimulationPopulationSeason::run(
     (string)$options['seed'],
     (int)$options['players-per-archetype'],
-    $options['season-config'] ? (string)$options['season-config'] : null
+  $options['season-config'] ? (string)$options['season-config'] : null,
+  [
+    'archetype_keys' => $options['archetypes'] !== null
+      ? array_values(array_filter(array_map('trim', explode(',', (string)$options['archetypes']))))
+      : [],
+    'phase_stop' => $options['phase-stop'] !== null ? (string)$options['phase-stop'] : null,
+  ]
 );
 $baseName = 'season_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string)$options['seed']) . '_ppa' . (int)$options['players-per-archetype'];
 $jsonPath = MetricsCollector::writeJson($payload, (string)$options['output'], $baseName);

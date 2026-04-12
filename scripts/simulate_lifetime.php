@@ -15,6 +15,7 @@ $options = [
     'seasons' => 12,
     'output' => __DIR__ . '/../simulation_output/lifetime',
     'season-config' => null,
+  'archetypes' => null,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -28,6 +29,8 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['output'] = substr($arg, 9);
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--archetypes=')) {
+      $options['archetypes'] = substr($arg, 13);
     } elseif ($arg === '--help') {
         $help = <<<'HELP'
 Simulation C — Lifetime Overlapping-Season Population Simulator
@@ -41,6 +44,7 @@ Options:
   --seasons=N                 Number of seasons to simulate (default: 12, min 2)
   --output=DIR                Output directory (default: simulation_output/lifetime)
   --season-config=FILE        JSON file with season config overrides (applied to all seasons)
+  --archetypes=A,B,C          Optional archetype key subset for focused harness runs
   --help                      Show this help
 
 Env:
@@ -66,7 +70,12 @@ $payload = SimulationPopulationLifetime::run(
     (string)$options['seed'],
     (int)$options['players-per-archetype'],
     (int)$options['seasons'],
-    $options['season-config'] ? (string)$options['season-config'] : null
+  $options['season-config'] ? (string)$options['season-config'] : null,
+  [
+    'archetype_keys' => $options['archetypes'] !== null
+      ? array_values(array_filter(array_map('trim', explode(',', (string)$options['archetypes']))))
+      : [],
+  ]
 );
 
 $baseName = 'lifetime_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string)$options['seed']) . '_s' . (int)$options['seasons'] . '_ppa' . (int)$options['players-per-archetype'];

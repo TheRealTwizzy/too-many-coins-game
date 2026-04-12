@@ -218,6 +218,42 @@ php scripts/compare_simulation_results.php `
 
 ---
 
+## Agentic Hierarchical Optimization Workflow
+
+Use this when broad monolithic package sweeps are not converging. It runs a staged subsystem-first search:
+
+- Tier 1: cheap local subsystem harness screening
+- Tier 2: cross-subsystem integration validation
+- Tier 3: full-lifecycle acceptance validation on promoted candidates only
+
+### Direct CLI
+
+```powershell
+php scripts/agentic_optimize_economy.php \
+  --seed=agentic-current-db \
+  --season-config=simulation_output/current-db/export/current_season.json \
+  --output=simulation_output/current-db/agentic-optimization
+```
+
+### Via existing PowerShell wrapper
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/Invoke-TmcSimulationStep.ps1 \
+  -Step agentic-opt \
+  -ConfigPath tools/local/tmc-sim.current.ps1 \
+  -Seed agentic-current-db
+```
+
+### Key outputs
+
+- `simulation_output/current-db/agentic-optimization/<run-id>/decomposition/economy_decomposition_map.json`
+- `simulation_output/current-db/agentic-optimization/<run-id>/audit/rejected_iteration_audit.json`
+- `simulation_output/current-db/agentic-optimization/<run-id>/search-memory/run_cache_index.json`
+- `simulation_output/current-db/agentic-optimization/<run-id>/reports/final_integration_report.json`
+- `simulation_output/current-db/agentic-optimization/<run-id>/best_composed_config.json`
+
+---
+
 ## Available scenarios
 
 ```

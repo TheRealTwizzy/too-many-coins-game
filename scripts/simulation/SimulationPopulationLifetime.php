@@ -12,13 +12,17 @@ require_once __DIR__ . '/MetricsCollector.php';
 
 class SimulationPopulationLifetime
 {
-    public static function run(string $seed = 'phase1-lifetime', int $playersPerArchetype = 5, int $seasonCount = 12, ?string $seasonConfigPath = null): array
+    public static function run(string $seed = 'phase1-lifetime', int $playersPerArchetype = 5, int $seasonCount = 12, ?string $seasonConfigPath = null, array $options = []): array
     {
         $seasonCount = max(2, $seasonCount);
         $playersPerArchetype = max(1, $playersPerArchetype);
         $seasonOverrides = self::loadSeasonOverrides($seasonConfigPath);
 
-        $archetypes = Archetypes::all();
+        $archetypes = self::filterArchetypes(Archetypes::all(), (array)($options['archetype_keys'] ?? []));
+        if ($archetypes === []) {
+            throw new InvalidArgumentException('SimulationPopulationLifetime requires at least one archetype in scope.');
+        }
+
         $players = self::buildPopulation($archetypes, $playersPerArchetype, $seed);
 
         $seasonSummaries = [];
@@ -636,5 +640,30 @@ class SimulationPopulationLifetime
             'throughput_lock_in_rate' => $throughputLockRate,
             'seed_checksum' => hash('sha256', $seed . '|lifetime-output'),
         ];
+    }
+
+    private static function filterArchetypes(array $allArchetypes, array $requestedKeys): array
+    {
+        $normalized = [];
+        foreach ($requestedKeys as $key) {
+            $trimmed = trim((string)$key);
+            if ($trimmed === '') {
+                continue;
+            }
+            $normalized[$trimmed] = true;
+        }
+
+        if ($normalized === []) {
+            return $allArchetypes;
+        }
+
+        $filtered = [];
+        foreach ($allArchetypes as $key => $archetype) {
+            if (isset($normalized[$key])) {
+                $filtered[$key] = $archetype;
+            }
+        }
+
+        return $filtered;
     }
 }

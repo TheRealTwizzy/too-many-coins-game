@@ -1,0 +1,929 @@
+{
+    "schema_version": "tmc-agentic-decomposition.v1",
+    "generated_at": "2026-04-12T07:48:57+00:00",
+    "profiles": {
+        "tier1_hoarding": {
+            "id": "tier1_hoarding",
+            "tier": "tier1",
+            "description": "Cheap local screening for anti-safe-strategy pressure.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 4,
+            "season_duration_ticks": 1440,
+            "blackout_duration_ticks": 360,
+            "archetype_keys": [
+                "hoarder",
+                "mostly_idle",
+                "regular",
+                "hardcore"
+            ],
+            "seeds": [
+                "tier1-hoarding-a"
+            ]
+        },
+        "tier1_blackout": {
+            "id": "tier1_blackout",
+            "tier": "tier1",
+            "description": "Blackout and lock-in pressure micro-harness.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 4,
+            "season_duration_ticks": 1440,
+            "blackout_duration_ticks": 480,
+            "archetype_keys": [
+                "early_locker",
+                "late_deployer",
+                "aggressive_sigil_user",
+                "hardcore",
+                "regular"
+            ],
+            "seeds": [
+                "tier1-blackout-a"
+            ]
+        },
+        "tier1_boost": {
+            "id": "tier1_boost",
+            "tier": "tier1",
+            "description": "Boost-focused local screening with reduced cohorts.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 4,
+            "season_duration_ticks": 1440,
+            "blackout_duration_ticks": 360,
+            "archetype_keys": [
+                "boost_focused",
+                "hardcore",
+                "regular",
+                "casual"
+            ],
+            "seeds": [
+                "tier1-boost-a"
+            ]
+        },
+        "tier1_concentration": {
+            "id": "tier1_concentration",
+            "tier": "tier1",
+            "description": "Short lifecycle concentration stress harness.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 5,
+            "season_duration_ticks": 1800,
+            "blackout_duration_ticks": 450,
+            "archetype_keys": [],
+            "seeds": [
+                "tier1-concentration-a"
+            ]
+        },
+        "tier1_sigil": {
+            "id": "tier1_sigil",
+            "tier": "tier1",
+            "description": "Sigil acquisition/combine/theft local harness.",
+            "simulators": [
+                "B"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 1,
+            "season_duration_ticks": 1200,
+            "blackout_duration_ticks": 300,
+            "archetype_keys": [
+                "aggressive_sigil_user",
+                "regular",
+                "hardcore",
+                "casual"
+            ],
+            "seeds": [
+                "tier1-sigil-a"
+            ]
+        },
+        "tier1_onboarding": {
+            "id": "tier1_onboarding",
+            "tier": "tier1",
+            "description": "Onboarding-only phase-limited harness.",
+            "simulators": [
+                "B"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 1,
+            "season_duration_ticks": 960,
+            "blackout_duration_ticks": 240,
+            "archetype_keys": [
+                "casual",
+                "regular",
+                "mostly_idle",
+                "early_locker"
+            ],
+            "phase_stop": "EARLY",
+            "seeds": [
+                "tier1-onboarding-a"
+            ]
+        },
+        "tier1_star_pricing": {
+            "id": "tier1_star_pricing",
+            "tier": "tier1",
+            "description": "Star market and purchasing local harness.",
+            "simulators": [
+                "B"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 1,
+            "season_duration_ticks": 1200,
+            "blackout_duration_ticks": 300,
+            "archetype_keys": [
+                "star_focused",
+                "regular",
+                "casual",
+                "late_deployer"
+            ],
+            "seeds": [
+                "tier1-star-pricing-a"
+            ]
+        },
+        "tier1_expiry": {
+            "id": "tier1_expiry",
+            "tier": "tier1",
+            "description": "Expiry pressure and lock-in gradient harness.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 4,
+            "season_duration_ticks": 1440,
+            "blackout_duration_ticks": 420,
+            "archetype_keys": [],
+            "seeds": [
+                "tier1-expiry-a"
+            ]
+        },
+        "tier1_lockin": {
+            "id": "tier1_lockin",
+            "tier": "tier1",
+            "description": "Lock-in incentive and timing harness.",
+            "simulators": [
+                "B"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 1,
+            "season_duration_ticks": 1200,
+            "blackout_duration_ticks": 360,
+            "archetype_keys": [
+                "early_locker",
+                "late_deployer",
+                "regular",
+                "casual"
+            ],
+            "seeds": [
+                "tier1-lockin-a"
+            ]
+        },
+        "tier1_retention": {
+            "id": "tier1_retention",
+            "tier": "tier1",
+            "description": "Repeated-season retention proxy harness.",
+            "simulators": [
+                "C"
+            ],
+            "players_per_archetype": 2,
+            "season_count": 4,
+            "season_duration_ticks": 1440,
+            "blackout_duration_ticks": 360,
+            "archetype_keys": [],
+            "seeds": [
+                "tier1-retention-a"
+            ]
+        },
+        "tier2_integration": {
+            "id": "tier2_integration",
+            "tier": "tier2",
+            "description": "Cross-subsystem integration validation.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 3,
+            "season_count": 8,
+            "season_duration_ticks": 4320,
+            "blackout_duration_ticks": 1080,
+            "archetype_keys": [],
+            "seeds": [
+                "tier2-integration-a"
+            ]
+        },
+        "tier3_full": {
+            "id": "tier3_full",
+            "tier": "tier3",
+            "description": "Full lifecycle acceptance gate.",
+            "simulators": [
+                "B",
+                "C"
+            ],
+            "players_per_archetype": 5,
+            "season_count": 12,
+            "archetype_keys": [],
+            "seeds": [
+                "tier3-full-a",
+                "tier3-full-b"
+            ]
+        }
+    },
+    "subsystems": [
+        {
+            "id": "hoarding_pressure",
+            "label": "Hoarding pressure and anti-safe-strategy controls",
+            "priority": 1,
+            "local_profile": "tier1_hoarding",
+            "owned_parameters": [
+                {
+                    "key": "hoarding_tier2_rate_hourly_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.04,
+                        1.08
+                    ]
+                },
+                {
+                    "key": "hoarding_tier3_rate_hourly_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.04,
+                        1.08
+                    ]
+                },
+                {
+                    "key": "hoarding_idle_multiplier_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.02,
+                        1.05
+                    ]
+                },
+                {
+                    "key": "hoarding_sink_cap_ratio_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.97,
+                        0.93
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "hoarder_advantage_gap",
+                    "direction": "down",
+                    "weight": 2,
+                    "scale": 5000
+                },
+                {
+                    "metric": "dominant_strategy_pressure",
+                    "direction": "down",
+                    "weight": 1.5,
+                    "scale": 0.05
+                },
+                {
+                    "metric": "strategic_diversity",
+                    "direction": "up",
+                    "weight": 1,
+                    "scale": 0.05
+                }
+            ],
+            "adjacent_subsystems": [
+                "blackout_lockin",
+                "concentration_control",
+                "star_pricing"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.25,
+                "tier2_min_global_delta": -0.15,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "blackout_lockin",
+            "label": "Blackout PvP pressure and lock-in timing logic",
+            "priority": 2,
+            "local_profile": "tier1_blackout",
+            "owned_parameters": [
+                {
+                    "key": "starprice_reactivation_window_ticks",
+                    "mode": "multiply",
+                    "values": [
+                        1.1,
+                        1.18
+                    ]
+                },
+                {
+                    "key": "hoarding_window_ticks",
+                    "mode": "multiply",
+                    "values": [
+                        0.95,
+                        0.9
+                    ]
+                },
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.97,
+                        0.93
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "blackout_action_density",
+                    "direction": "up",
+                    "weight": 1.8,
+                    "scale": 0.25
+                },
+                {
+                    "metric": "lock_in_timing_entropy",
+                    "direction": "up",
+                    "weight": 1.2,
+                    "scale": 0.08
+                },
+                {
+                    "metric": "expiry_rate_mean",
+                    "direction": "down",
+                    "weight": 1.3,
+                    "scale": 0.04
+                }
+            ],
+            "adjacent_subsystems": [
+                "hoarding_pressure",
+                "lockin_incentives",
+                "expiry_pressure"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.2,
+                "tier2_min_global_delta": -0.1,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "boost_viability",
+            "label": "Boost viability and deployment timing",
+            "priority": 3,
+            "local_profile": "tier1_boost",
+            "owned_parameters": [
+                {
+                    "key": "target_spend_rate_per_tick",
+                    "mode": "multiply",
+                    "values": [
+                        0.95,
+                        0.9
+                    ]
+                },
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.05,
+                        1.1
+                    ]
+                },
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "values": [
+                        1.05,
+                        1.1
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "boost_roi",
+                    "direction": "up",
+                    "weight": 1.7,
+                    "scale": 6
+                },
+                {
+                    "metric": "boost_mid_late_share",
+                    "direction": "up",
+                    "weight": 1.1,
+                    "scale": 0.08
+                },
+                {
+                    "metric": "boost_focused_gap",
+                    "direction": "down",
+                    "weight": 1,
+                    "scale": 4500
+                }
+            ],
+            "adjacent_subsystems": [
+                "onboarding_economy",
+                "star_pricing",
+                "hoarding_pressure"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.18,
+                "tier2_min_global_delta": -0.08,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "concentration_control",
+            "label": "Concentration and runaway leader control",
+            "priority": 4,
+            "local_profile": "tier1_concentration",
+            "owned_parameters": [
+                {
+                    "key": "hoarding_sink_cap_ratio_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.96,
+                        0.92
+                    ]
+                },
+                {
+                    "key": "hoarding_tier3_rate_hourly_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.03,
+                        1.06
+                    ]
+                },
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.98,
+                        0.95
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "concentration_top10_share",
+                    "direction": "down",
+                    "weight": 2,
+                    "scale": 0.03
+                },
+                {
+                    "metric": "concentration_top1_share",
+                    "direction": "down",
+                    "weight": 1.5,
+                    "scale": 0.02
+                },
+                {
+                    "metric": "archetype_viability_min_ratio",
+                    "direction": "up",
+                    "weight": 1.2,
+                    "scale": 0.08
+                }
+            ],
+            "adjacent_subsystems": [
+                "hoarding_pressure",
+                "blackout_lockin",
+                "retention_repeat_season"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.22,
+                "tier2_min_global_delta": -0.08,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "sigil_loop",
+            "label": "Sigil acquisition/combine/theft/melt/denial loop",
+            "priority": 5,
+            "local_profile": "tier1_sigil",
+            "owned_parameters": [
+                {
+                    "key": "vault_config",
+                    "mode": "vault_supply_cost",
+                    "values": [
+                        {
+                            "supply_mult": 1.08,
+                            "cost_mult": 0.95
+                        },
+                        {
+                            "supply_mult": 1.16,
+                            "cost_mult": 0.9
+                        }
+                    ]
+                },
+                {
+                    "key": "hoarding_window_ticks",
+                    "mode": "multiply",
+                    "values": [
+                        0.96,
+                        0.92
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "sigil_counterplay_density",
+                    "direction": "up",
+                    "weight": 1.7,
+                    "scale": 0.1
+                },
+                {
+                    "metric": "t6_theft_share",
+                    "direction": "up",
+                    "weight": 1.1,
+                    "scale": 0.03
+                },
+                {
+                    "metric": "dead_mechanic_penalty",
+                    "direction": "down",
+                    "weight": 1.3,
+                    "scale": 0.2
+                }
+            ],
+            "adjacent_subsystems": [
+                "blackout_lockin",
+                "boost_viability",
+                "concentration_control"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.16,
+                "tier2_min_global_delta": -0.08,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "onboarding_economy",
+            "label": "Onboarding and early acquisition economy",
+            "priority": 6,
+            "local_profile": "tier1_onboarding",
+            "owned_parameters": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "values": [
+                        1.06,
+                        1.12
+                    ]
+                },
+                {
+                    "key": "base_ubi_idle_factor_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.04,
+                        1.08
+                    ]
+                },
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.97,
+                        0.93
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "onboarding_liquidity",
+                    "direction": "up",
+                    "weight": 1.8,
+                    "scale": 1000
+                },
+                {
+                    "metric": "first_choice_viability",
+                    "direction": "up",
+                    "weight": 1.2,
+                    "scale": 0.08
+                },
+                {
+                    "metric": "archetype_viability_min_ratio",
+                    "direction": "up",
+                    "weight": 1,
+                    "scale": 0.08
+                }
+            ],
+            "adjacent_subsystems": [
+                "star_pricing",
+                "boost_viability",
+                "lockin_incentives"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.16,
+                "tier2_min_global_delta": -0.12,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "star_pricing",
+            "label": "Star pricing and purchasing economy",
+            "priority": 7,
+            "local_profile": "tier1_star_pricing",
+            "owned_parameters": [
+                {
+                    "key": "starprice_idle_weight_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.92,
+                        0.85
+                    ]
+                },
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.95,
+                        0.9
+                    ]
+                },
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.05,
+                        1.1
+                    ]
+                },
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.97,
+                        0.94
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "star_purchase_density",
+                    "direction": "up",
+                    "weight": 1.6,
+                    "scale": 0.2
+                },
+                {
+                    "metric": "lock_in_total",
+                    "direction": "up",
+                    "weight": 1,
+                    "scale": 6
+                },
+                {
+                    "metric": "expiry_rate_mean",
+                    "direction": "down",
+                    "weight": 1.1,
+                    "scale": 0.04
+                }
+            ],
+            "adjacent_subsystems": [
+                "onboarding_economy",
+                "lockin_incentives",
+                "blackout_lockin"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.16,
+                "tier2_min_global_delta": -0.1,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "lockin_incentives",
+            "label": "Lock-in incentives and timing",
+            "priority": 8,
+            "local_profile": "tier1_lockin",
+            "owned_parameters": [
+                {
+                    "key": "starprice_reactivation_window_ticks",
+                    "mode": "multiply",
+                    "values": [
+                        1.1,
+                        1.2
+                    ]
+                },
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "values": [
+                        0.97,
+                        0.92
+                    ]
+                },
+                {
+                    "key": "target_spend_rate_per_tick",
+                    "mode": "multiply",
+                    "values": [
+                        0.96,
+                        0.9
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "lock_in_total",
+                    "direction": "up",
+                    "weight": 1.8,
+                    "scale": 6
+                },
+                {
+                    "metric": "lock_in_timing_entropy",
+                    "direction": "up",
+                    "weight": 1.2,
+                    "scale": 0.08
+                },
+                {
+                    "metric": "expiry_rate_mean",
+                    "direction": "down",
+                    "weight": 1.3,
+                    "scale": 0.04
+                }
+            ],
+            "adjacent_subsystems": [
+                "blackout_lockin",
+                "expiry_pressure",
+                "star_pricing"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.2,
+                "tier2_min_global_delta": -0.08,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "expiry_pressure",
+            "label": "Expiry pressure and punishment/reward gradients",
+            "priority": 9,
+            "local_profile": "tier1_expiry",
+            "owned_parameters": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.05,
+                        1.12
+                    ]
+                },
+                {
+                    "key": "target_spend_rate_per_tick",
+                    "mode": "multiply",
+                    "values": [
+                        0.96,
+                        0.92
+                    ]
+                },
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.04,
+                        1.08
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "expiry_rate_mean",
+                    "direction": "down",
+                    "weight": 1.8,
+                    "scale": 0.04
+                },
+                {
+                    "metric": "lock_in_total",
+                    "direction": "up",
+                    "weight": 1.2,
+                    "scale": 6
+                },
+                {
+                    "metric": "repeat_season_viability",
+                    "direction": "up",
+                    "weight": 1,
+                    "scale": 0.08
+                }
+            ],
+            "adjacent_subsystems": [
+                "lockin_incentives",
+                "retention_repeat_season",
+                "hoarding_pressure"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.18,
+                "tier2_min_global_delta": -0.08,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        },
+        {
+            "id": "retention_repeat_season",
+            "label": "Repeated-season carryover/retention/adaptation",
+            "priority": 10,
+            "local_profile": "tier1_retention",
+            "owned_parameters": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "values": [
+                        1.05,
+                        1.1
+                    ]
+                },
+                {
+                    "key": "starprice_reactivation_window_ticks",
+                    "mode": "multiply",
+                    "values": [
+                        1.08,
+                        1.15
+                    ]
+                },
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "values": [
+                        1.04,
+                        1.08
+                    ]
+                }
+            ],
+            "local_objectives": [
+                {
+                    "metric": "repeat_season_viability",
+                    "direction": "up",
+                    "weight": 1.7,
+                    "scale": 0.08
+                },
+                {
+                    "metric": "skip_strategy_edge",
+                    "direction": "down",
+                    "weight": 1.6,
+                    "scale": 6000
+                },
+                {
+                    "metric": "concentration_top10_share",
+                    "direction": "down",
+                    "weight": 1.2,
+                    "scale": 0.02
+                }
+            ],
+            "adjacent_subsystems": [
+                "concentration_control",
+                "expiry_pressure",
+                "onboarding_economy"
+            ],
+            "promotion_gates": {
+                "tier1_min_local_score": 0.18,
+                "tier2_min_global_delta": -0.08,
+                "tier3_min_global_delta": 0
+            },
+            "search_limits": {
+                "max_candidates": 4,
+                "max_accepted": 1
+            }
+        }
+    ],
+    "global_metrics": [
+        "archetype_viability_min_ratio",
+        "concentration_top10_share",
+        "ranking_churn_proxy",
+        "strategic_diversity",
+        "dominant_strategy_pressure",
+        "blackout_action_density",
+        "repeat_season_viability",
+        "lifecycle_coherence",
+        "skip_strategy_edge",
+        "expiry_rate_mean"
+    ]
+}

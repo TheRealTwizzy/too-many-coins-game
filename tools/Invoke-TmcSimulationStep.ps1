@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('export', 'sim-b', 'sim-c', 'sim-d', 'sim-e', 'fresh-bootstrap', 'fresh-teardown', 'fresh-status')]
+    [ValidateSet('export', 'sim-b', 'sim-c', 'sim-d', 'sim-e', 'agentic-opt', 'fresh-bootstrap', 'fresh-teardown', 'fresh-status')]
     [string]$Step,
 
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'local/tmc-sim.current.ps1'),
@@ -121,8 +121,9 @@ $lifetimeDir = Join-Path $outputRoot 'lifetime'
 $sweepDir = Join-Path $outputRoot 'sweep'
 $sweepRunsDir = Join-Path $sweepDir 'runs'
 $comparatorDir = Join-Path $outputRoot 'comparator'
+$agenticDir = Join-Path $outputRoot 'agentic-optimization'
 
-$null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $sweepRunsDir, $comparatorDir
+$null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $sweepRunsDir, $comparatorDir, $agenticDir
 
 $exportPath = Join-Path $exportDir 'current_season.json'
 $manifestPath = Join-Path $sweepDir ("policy_sweep_{0}_ppa{1}_s{2}.json" -f $Seed, $PlayersPerArchetype, $Seasons)
@@ -197,6 +198,23 @@ try {
                 "--seed=$Seed",
                 "--sweep-manifest=$manifestPath",
                 "--output=$comparatorDir"
+            )
+        }
+        'agentic-opt' {
+            if (-not (Test-Path -LiteralPath $exportPath)) {
+                Write-Host "Export file missing for agentic optimizer; exporting current season first..."
+                Invoke-PhpScript -Arguments @(
+                    (Join-Path $PSScriptRoot 'export-season-config.php'),
+                    "--output=$exportPath"
+                )
+            }
+
+            Write-Host "Running agentic hierarchical optimizer with baseline $exportPath"
+            Invoke-PhpScript -Arguments @(
+                (Join-Path $PSScriptRoot '..\scripts\agentic_optimize_economy.php'),
+                "--seed=$Seed",
+                "--season-config=$exportPath",
+                "--output=$agenticDir"
             )
         }
         'fresh-bootstrap' {

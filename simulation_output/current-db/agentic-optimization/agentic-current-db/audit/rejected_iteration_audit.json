@@ -1,0 +1,213 @@
+{
+    "schema_version": "tmc-agentic-reject-audit.v1",
+    "generated_at": "2026-04-12T07:20:46+00:00",
+    "audited_events_count": 8,
+    "audited_events": [
+        {
+            "source": "verification-v3-fast",
+            "event_id": "v3-fast-tuning-aggressive-v3",
+            "package": "tuning-aggressive-v3",
+            "seed": "tuning-verify-v3-fast-1",
+            "wins": 6,
+            "losses": 9,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "local_weakness",
+                "cross_system_regression",
+                "full_economy_regression",
+                "over_broad_change",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v3-fast",
+            "event_id": "v3-fast-tuning-balanced-v3",
+            "package": "tuning-balanced-v3",
+            "seed": "tuning-verify-v3-fast-1",
+            "wins": 6,
+            "losses": 9,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "skip_rejoin_exploit_worsened"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "local_weakness",
+                "cross_system_regression",
+                "full_economy_regression",
+                "over_broad_change",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v3-fast",
+            "event_id": "v3-fast-tuning-conservative-v3",
+            "package": "tuning-conservative-v3",
+            "seed": "tuning-verify-v3-fast-1",
+            "wins": 10,
+            "losses": 5,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "skip_rejoin_exploit_worsened"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "cross_system_regression",
+                "full_economy_regression",
+                "bad_metric_targeting",
+                "over_broad_change",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v2",
+            "event_id": "v2-aggressive-tuning-verify-v2-1",
+            "package": "aggressive",
+            "seed": "tuning-verify-v2-1",
+            "wins": 10,
+            "losses": 5,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "cross_system_regression",
+                "full_economy_regression",
+                "bad_metric_targeting",
+                "over_broad_change",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v2",
+            "event_id": "v2-aggressive-tuning-verify-v2-2",
+            "package": "aggressive",
+            "seed": "tuning-verify-v2-2",
+            "wins": 8,
+            "losses": 7,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "cross_system_regression",
+                "full_economy_regression",
+                "bad_metric_targeting",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v2",
+            "event_id": "v2-balanced-tuning-verify-v2-1",
+            "package": "balanced",
+            "seed": "tuning-verify-v2-1",
+            "wins": 8,
+            "losses": 6,
+            "regression_flags": [
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "cross_system_regression",
+                "full_economy_regression",
+                "bad_metric_targeting",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v2",
+            "event_id": "v2-balanced-tuning-verify-v2-2",
+            "package": "balanced",
+            "seed": "tuning-verify-v2-2",
+            "wins": 9,
+            "losses": 6,
+            "regression_flags": [
+                "candidate_improves_B_but_worsens_C",
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "cross_system_regression",
+                "full_economy_regression",
+                "bad_metric_targeting",
+                "over_broad_change",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        },
+        {
+            "source": "verification-v2",
+            "event_id": "v2-balanced-tuning-verify-v2-3",
+            "package": "balanced",
+            "seed": "tuning-verify-v2-3",
+            "wins": 7,
+            "losses": 8,
+            "regression_flags": [
+                "candidate_improves_B_but_worsens_C",
+                "lock_in_down_but_expiry_dominance_up",
+                "long_run_concentration_worsened",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "skip_rejoin_exploit_worsened"
+            ],
+            "disposition": "reject",
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "classifications": [
+                "local_weakness",
+                "cross_system_regression",
+                "full_economy_regression",
+                "over_broad_change",
+                "insufficient_signal",
+                "search_inefficiency"
+            ]
+        }
+    ],
+    "flag_histogram": {
+        "lock_in_down_but_expiry_dominance_up": 8,
+        "reduces_lock_in_but_expiry_dominance_rises": 8,
+        "dominant_archetype_shifted": 6,
+        "reduced_one_dominant_but_created_new_dominant": 3,
+        "skip_rejoin_exploit_worsened": 3,
+        "candidate_improves_B_but_worsens_C": 2,
+        "long_run_concentration_worsened": 1
+    },
+    "key_failure_patterns": [
+        "lock_in_down_but_expiry_dominance_up",
+        "reduces_lock_in_but_expiry_dominance_rises",
+        "dominant_archetype_shifted",
+        "reduced_one_dominant_but_created_new_dominant",
+        "skip_rejoin_exploit_worsened",
+        "candidate_improves_B_but_worsens_C"
+    ]
+}

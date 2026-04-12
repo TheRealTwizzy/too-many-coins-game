@@ -11,13 +11,20 @@ require_once __DIR__ . '/MetricsCollector.php';
 
 class SimulationPopulationSeason
 {
-    public static function run(string $seed = 'phase1', int $playersPerArchetype = 5, ?string $seasonConfigPath = null): array
+    public static function run(string $seed = 'phase1', int $playersPerArchetype = 5, ?string $seasonConfigPath = null, array $options = []): array
     {
         $season = $seasonConfigPath
             ? SimulationSeason::fromJsonFile($seasonConfigPath, 1, $seed)
             : SimulationSeason::build(1, $seed);
 
-        $archetypes = Archetypes::all();
+        $archetypes = self::filterArchetypes(Archetypes::all(), (array)($options['archetype_keys'] ?? []));
+        if ($archetypes === []) {
+            throw new InvalidArgumentException('SimulationPopulationSeason requires at least one archetype in scope.');
+        }
+
+        $phaseStop = self::normalizePhaseStop($options['phase_stop'] ?? null);
+        $phaseStopOrder = $phaseStop !== null ? self::phaseOrder($phaseStop) : null;
+
         $players = [];
         $nextPlayerId = 1;
         foreach ($archetypes as $key => $archetype) {
@@ -46,6 +53,15 @@ class SimulationPopulationSeason
             $currentPhase = ($status === 'Blackout')
                 ? 'BLACKOUT'
                 : (string)Economy::sigilSeasonPhase($season, $tick);
+
+            if ($phaseStopOrder !== null && self::phaseOrder($currentPhase) > $phaseStopOrder) {
+                if ($previousPhase !== null && $previousPhase !== 'BLACKOUT') {
+                    foreach ($players as $player) {
+                        $player->snapshotPhaseEnd($previousPhase);
+                    }
+                }
+                break;
+            }
 
             if ($previousPhase !== null && $currentPhase !== $previousPhase && $previousPhase !== 'BLACKOUT') {
                 foreach ($players as $player) {
@@ -186,6 +202,62 @@ class SimulationPopulationSeason
 
         foreach ($rankable as $index => $entry) {
             $entry['player']->applyNaturalExpiry($index + 1, $award);
+        }
+    }
+
+    private static function filterArchetypes(array $allArchetypes, array $requestedKeys): array
+    {
+        $normalized = [];
+        foreach ($requestedKeys as $key) {
+            $trimmed = trim((string)$key);
+            if ($trimmed === '') {
+                continue;
+            }
+            $normalized[$trimmed] = true;
+        }
+
+        if ($normalized === []) {
+            return $allArchetypes;
+        }
+
+        $filtered = [];
+        foreach ($allArchetypes as $key => $archetype) {
+            if (isset($normalized[$key])) {
+                $filtered[$key] = $archetype;
+            }
+        }
+
+        return $filtered;
+    }
+
+    private static function normalizePhaseStop($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = strtoupper(trim((string)$value));
+        if ($normalized === '') {
+            return null;
+        }
+
+        $allowed = ['EARLY', 'MID', 'LATE_ACTIVE', 'BLACKOUT'];
+        return in_array($normalized, $allowed, true) ? $normalized : null;
+    }
+
+    private static function phaseOrder(string $phase): int
+    {
+        switch ($phase) {
+            case 'EARLY':
+                return 1;
+            case 'MID':
+                return 2;
+            case 'LATE_ACTIVE':
+                return 3;
+            case 'BLACKOUT':
+                return 4;
+            default:
+                return 999;
         }
     }
 }
