@@ -224,6 +224,16 @@ class PolicyScenarioCatalog
                     'base_ubi_idle_factor_fp' => 220000,
                 ],
             ],
+            [
+                'name' => 'hoarding-sink-phase-gated-v1',
+                'description' => 'Enables hoarding sink at baseline rates with phase gating active '
+                               . '(drain in EARLY/MID only; suppressed in LATE_ACTIVE and BLACKOUT). '
+                               . 'Validation scenario for B11 structural fix.',
+                'categories' => ['hoarding_preservation_pressure'],
+                'overrides' => [
+                    'hoarding_sink_enabled' => 1,
+                ],
+            ],
         ];
 
         $indexed = [];
