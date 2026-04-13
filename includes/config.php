@@ -105,6 +105,11 @@ define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hou
 
 // Lock-In
 define('MIN_PARTICIPATION_TICKS', 1);
+// Minimum TOTAL ticks across all season runs required before a player can lock in.
+// Prevents skip-rejoin-quick-lockin exploit: a player cannot leave mid-season and
+// re-enter to immediately lock in — they must accumulate this many cumulative ticks.
+// Set to 12 real hours of ticks. At 1 tick/second: 43,200 ticks.
+define('MIN_SEASONAL_LOCK_IN_TICKS', ticks_from_real_seconds(43200));
 
 // Sigil drops
 // Deterministic per-tick drop model:
