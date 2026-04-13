@@ -136,6 +136,8 @@ class TickEngine {
         
         $isBlackout = ($gameTime >= $blackoutTime);
         $isLastValid = ($currentSeasonTick >= $seasonDurationTicks - 1);
+        // Compute season phase once per tick batch for phase-gated mechanics.
+        $seasonPhase = Economy::sigilSeasonPhase($season, $gameTime);
         $participantIds = array_map(static function ($row) {
             return (int)$row['player_id'];
         }, $participants);
@@ -202,7 +204,7 @@ class TickEngine {
                 // so that fractional precision is preserved at the effective rate and no phantom
                 // drain occurs when net is zero.  The sink amount is still tracked separately for
                 // hoarding_sink_total and season-supply accounting.
-                $rates = Economy::calculateRateBreakdown($season, $p, $p, $boostModFp, $isFrozen);
+                $rates = Economy::calculateRateBreakdown($season, $p, $p, $boostModFp, $isFrozen, false, $seasonPhase);
                 $netRateFp   = (int)$rates['net_rate_fp'];
                 $sinkPerTick = (int)$rates['sink_per_tick'];
 
@@ -239,12 +241,13 @@ class TickEngine {
                 // Update participation tracking
                 $activeTicks = ($presenceState === 'Active') ? $ticksToProcess : 0;
                 $db->query(
-                    "UPDATE season_participation SET 
+                    "UPDATE season_participation SET
                      participation_time_total = participation_time_total + ?,
                      participation_ticks_since_join = participation_ticks_since_join + ?,
-                     active_ticks_total = active_ticks_total + ?
+                     active_ticks_total = active_ticks_total + ?,
+                     total_season_participation_ticks = total_season_participation_ticks + ?
                      WHERE player_id = ? AND season_id = ?",
-                    [$ticksToProcess, $ticksToProcess, $activeTicks, $playerId, $seasonId]
+                    [$ticksToProcess, $ticksToProcess, $activeTicks, $ticksToProcess, $playerId, $seasonId]
                 );
                 
                 // Phase 7: Activity evaluation (idle check)

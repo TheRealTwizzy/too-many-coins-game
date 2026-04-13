@@ -669,10 +669,17 @@ class Economy {
     /**
      * Calculate explicit hoarding sink in whole coins per tick.
      */
-    public static function calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRatePerTickFp) {
+    public static function calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRatePerTickFp, $seasonPhase = null) {
         if (!self::hoardingSinkEnabled($season)) return 0;
         if (!$participation) return 0;
         if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) return 0;
+
+        // Phase gate: sink applies only in EARLY and MID phases.
+        // During LATE_ACTIVE, players are evaluating lock-in — draining their coins
+        // destroys the strategic tradeoff window. BLACKOUT is already suppressed above.
+        if ($seasonPhase !== null && !in_array($seasonPhase, [SIGIL_SEASON_PHASE_EARLY, SIGIL_SEASON_PHASE_MID], true)) {
+            return 0;
+        }
 
         $presenceState = self::resolveEconomicPresenceState($player, $season, $player['current_game_time'] ?? null);
         if ($presenceState === 'Offline') return 0;
@@ -732,7 +739,7 @@ class Economy {
     /**
      * Compute gross/sink/net rates used by tick processing and API presentation.
      */
-    public static function calculateRateBreakdown($season, $player, $participation, $boostModFp, $isFrozen = false, $isLockInTick = false) {
+    public static function calculateRateBreakdown($season, $player, $participation, $boostModFp, $isFrozen = false, $isLockInTick = false, $seasonPhase = null) {
         if ($isFrozen) {
             return [
                 'gross_rate_fp' => 0,
@@ -750,7 +757,7 @@ class Economy {
         }
 
         $grossRateFp = self::calculateGrossRatePerTickFp($season, $player, $participation, $boostModFp, $isLockInTick);
-        $sinkPerTick = self::calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRateFp);
+        $sinkPerTick = self::calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRateFp, $seasonPhase);
         $netRateFp = max(0, $grossRateFp - self::toFixedPoint($sinkPerTick));
 
         return [

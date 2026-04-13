@@ -74,6 +74,7 @@ class Actions {
              sigil_drops_total = 0, eligible_ticks_since_last_drop = 0,
              pending_rng_sigil_drops = 0, pending_pity_sigil_drops = 0, sigil_next_delivery_tick = 0,
              participation_time_total = 0, participation_ticks_since_join = 0, active_ticks_total = 0,
+             total_season_participation_ticks = total_season_participation_ticks + participation_ticks_since_join,
              first_joined_at = ?, last_exit_at = NULL,
              spend_window_total = 0, hoarding_sink_total = 0,
              reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
@@ -386,9 +387,22 @@ class Actions {
             [$playerId, $seasonId]
         );
         
-        // Minimum participation check
+        // Minimum participation check (current run)
         if ($participation['participation_ticks_since_join'] < MIN_PARTICIPATION_TICKS) {
             return ['error' => 'Must participate for at least 1 tick before Lock-In'];
+        }
+
+        // Seasonal participation floor: cumulative total across all runs in this season.
+        // Prevents skip-rejoin-quick-lockin exploit where a player leaves and re-enters
+        // to immediately lock in after 1 tick, bypassing the season participation intent.
+        $totalSeasonTicks = (int)($participation['total_season_participation_ticks'] ?? 0)
+                          + (int)($participation['participation_ticks_since_join'] ?? 0);
+        if ($totalSeasonTicks < MIN_SEASONAL_LOCK_IN_TICKS) {
+            return [
+                'error'       => 'Must participate for at least ' . MIN_SEASONAL_LOCK_IN_TICKS
+                               . ' total ticks across the season before locking in',
+                'reason_code' => 'insufficient_seasonal_participation',
+            ];
         }
         
         $gameTime = GameTime::now();
