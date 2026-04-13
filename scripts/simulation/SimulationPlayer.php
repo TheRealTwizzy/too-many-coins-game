@@ -172,7 +172,9 @@ class SimulationPlayer
             $this->player,
             $this->participation,
             $this->currentBoostModifier(),
-            $this->isFrozen()
+            $this->isFrozen(),
+            false,
+            $phase
         );
         $carryFp = max(0, (int)$this->participation['coins_fractional_fp']);
         $totalNetFp = (int)$rates['net_rate_fp'] + $carryFp;
