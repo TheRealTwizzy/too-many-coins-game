@@ -181,6 +181,30 @@ class PolicyScenarioCatalog
                     'base_ubi_active_per_tick' => 38,
                 ],
             ],
+            [
+                'name' => 'hoarding-ubi-squeeze-v1',
+                'description' => 'Suppress hoarder UBI accumulation (not existing coin balance) by raising spend target and lowering min UBI factor. Avoids lock-in regression by not draining coin reserves.',
+                'categories' => ['lock_in_expiry_incentives', 'boost_related'],
+                'overrides' => [
+                    'target_spend_rate_per_tick' => 22,
+                    'hoarding_min_factor_fp' => 75000,
+                    'base_ubi_active_per_tick' => 36,
+                    'base_ubi_idle_factor_fp' => 220000,
+                ],
+            ],
+            [
+                'name' => 'hoarding-sink-ultra-gentle-v1',
+                'description' => 'Enable hoarding sink at half the current rates (100/250/500 fp/hour) with extended reactivation window. Minimal drain may not trigger lock-in regression while still pressuring excess hoarding.',
+                'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives'],
+                'overrides' => [
+                    'hoarding_sink_enabled' => 1,
+                    'hoarding_tier1_rate_hourly_fp' => 100,
+                    'hoarding_tier2_rate_hourly_fp' => 250,
+                    'hoarding_tier3_rate_hourly_fp' => 500,
+                    'starprice_reactivation_window_ticks' => 120,
+                    'market_affordability_bias_fp' => 975000,
+                ],
+            ],
         ];
 
         $indexed = [];
