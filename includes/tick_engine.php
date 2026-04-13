@@ -136,6 +136,8 @@ class TickEngine {
         
         $isBlackout = ($gameTime >= $blackoutTime);
         $isLastValid = ($currentSeasonTick >= $seasonDurationTicks - 1);
+        // Compute season phase once per tick batch for phase-gated mechanics.
+        $seasonPhase = Economy::sigilSeasonPhase($season, $gameTime);
         $participantIds = array_map(static function ($row) {
             return (int)$row['player_id'];
         }, $participants);
@@ -202,7 +204,7 @@ class TickEngine {
                 // so that fractional precision is preserved at the effective rate and no phantom
                 // drain occurs when net is zero.  The sink amount is still tracked separately for
                 // hoarding_sink_total and season-supply accounting.
-                $rates = Economy::calculateRateBreakdown($season, $p, $p, $boostModFp, $isFrozen);
+                $rates = Economy::calculateRateBreakdown($season, $p, $p, $boostModFp, $isFrozen, false, $seasonPhase);
                 $netRateFp   = (int)$rates['net_rate_fp'];
                 $sinkPerTick = (int)$rates['sink_per_tick'];
 
