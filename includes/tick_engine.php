@@ -241,12 +241,13 @@ class TickEngine {
                 // Update participation tracking
                 $activeTicks = ($presenceState === 'Active') ? $ticksToProcess : 0;
                 $db->query(
-                    "UPDATE season_participation SET 
+                    "UPDATE season_participation SET
                      participation_time_total = participation_time_total + ?,
                      participation_ticks_since_join = participation_ticks_since_join + ?,
-                     active_ticks_total = active_ticks_total + ?
+                     active_ticks_total = active_ticks_total + ?,
+                     total_season_participation_ticks = total_season_participation_ticks + ?
                      WHERE player_id = ? AND season_id = ?",
-                    [$ticksToProcess, $ticksToProcess, $activeTicks, $playerId, $seasonId]
+                    [$ticksToProcess, $ticksToProcess, $activeTicks, $ticksToProcess, $playerId, $seasonId]
                 );
                 
                 // Phase 7: Activity evaluation (idle check)
