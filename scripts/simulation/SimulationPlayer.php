@@ -57,6 +57,7 @@ class SimulationPlayer
             'participation_time_total' => 0,
             'participation_ticks_since_join' => 0,
             'active_ticks_total' => 0,
+            'total_season_participation_ticks' => 0,
             'spend_window_total' => 0,
             'hoarding_sink_total' => 0,
             'lock_in_effect_tick' => null,
@@ -185,6 +186,7 @@ class SimulationPlayer
         $this->participation['hoarding_sink_total'] += (int)$rates['sink_per_tick'];
         $this->participation['participation_time_total']++;
         $this->participation['participation_ticks_since_join']++;
+        $this->participation['total_season_participation_ticks']++;
         $this->metrics['presence_ticks_by_phase'][$phase]++;
         if ($this->player['economic_presence_state'] === 'Active') {
             $this->participation['active_ticks_total']++;
@@ -560,6 +562,13 @@ class SimulationPlayer
 
     private function lockIn(string $status, int $tick, string $phase): void
     {
+        // Enforce MIN_SEASONAL_LOCK_IN_TICKS (mirrors production lockIn gate).
+        $totalSeasonTicks = (int)($this->participation['total_season_participation_ticks'] ?? 0)
+                          + (int)($this->participation['participation_ticks_since_join'] ?? 0);
+        if ($totalSeasonTicks < MIN_SEASONAL_LOCK_IN_TICKS) {
+            return; // Not yet eligible — suppress lock-in
+        }
+
         $tierCosts = [
             (int)(SIGIL_REFERENCE_STARS_BY_TIER[1] ?? 0),
             (int)(SIGIL_REFERENCE_STARS_BY_TIER[2] ?? 0),
