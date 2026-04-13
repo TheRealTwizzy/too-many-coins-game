@@ -168,6 +168,19 @@ class PolicyScenarioCatalog
                     'base_ubi_idle_factor_fp' => 200000,
                 ],
             ],
+            [
+                'name' => 'combined-sink-ubi-v1',
+                'description' => 'Enable hoarding sink with conservative rates AND a moderate active-UBI buff so multiple archetypes become more competitive, preventing Star-Focused from concentrating advantage.',
+                'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives', 'boost_related'],
+                'overrides' => [
+                    'hoarding_sink_enabled' => 1,
+                    'hoarding_tier2_rate_hourly_fp' => 520,
+                    'hoarding_tier3_rate_hourly_fp' => 1050,
+                    'starprice_reactivation_window_ticks' => 100,
+                    'market_affordability_bias_fp' => 970000,
+                    'base_ubi_active_per_tick' => 38,
+                ],
+            ],
         ];
 
         $indexed = [];
