@@ -37,6 +37,7 @@ class PolicyScenarioCatalog
             'base_ubi_active_per_tick',
             'base_ubi_idle_factor_fp',
             'ubi_min_per_tick',
+            'inflation_table',
         ],
         'sigil_drop_tier_combine' => [
             'vault_config',
@@ -203,6 +204,24 @@ class PolicyScenarioCatalog
                     'hoarding_tier3_rate_hourly_fp' => 500,
                     'starprice_reactivation_window_ticks' => 120,
                     'market_affordability_bias_fp' => 975000,
+                ],
+            ],
+            [
+                'name' => 'inflation-tighten-v1',
+                'description' => 'Tighten inflation table at mid-to-high supply to reduce hoarder UBI via market pressure (not coin drain). Derived from agentic v4 tier3 candidate. No lock-in or skip-rejoin coupling.',
+                'categories' => ['boost_related'],
+                'overrides' => [
+                    'inflation_table' => '[{"x": 0, "factor_fp": 1000000}, {"x": 50000, "factor_fp": 620000}, {"x": 200000, "factor_fp": 280000}, {"x": 800000, "factor_fp": 110000}, {"x": 3000000, "factor_fp": 50000}]',
+                ],
+            ],
+            [
+                'name' => 'inflation-tighten-plus-ubi-v1',
+                'description' => 'Tighten inflation table AND buff active UBI to simultaneously reduce hoarder advantage and improve Hardcore/Boost-Focused viability.',
+                'categories' => ['boost_related'],
+                'overrides' => [
+                    'inflation_table' => '[{"x": 0, "factor_fp": 1000000}, {"x": 50000, "factor_fp": 620000}, {"x": 200000, "factor_fp": 280000}, {"x": 800000, "factor_fp": 110000}, {"x": 3000000, "factor_fp": 50000}]',
+                    'base_ubi_active_per_tick' => 36,
+                    'base_ubi_idle_factor_fp' => 220000,
                 ],
             ],
         ];
