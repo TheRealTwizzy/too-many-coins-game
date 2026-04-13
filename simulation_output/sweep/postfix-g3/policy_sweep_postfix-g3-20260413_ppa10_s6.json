@@ -1,0 +1,170 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-13T21:39:38+00:00",
+    "seed": "postfix-g3-20260413",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": false,
+        "players_per_archetype": 10,
+        "season_count": 6,
+        "scenario_names": [
+            "active-ubi-buff-v1",
+            "inflation-tighten-v1",
+            "inflation-tighten-plus-ubi-v1"
+        ],
+        "base_season_config_path": null
+    },
+    "runs": [
+        {
+            "scenario_name": "active-ubi-buff-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g3-20260413|scenario|active-ubi-buff-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "boost_related"
+            ],
+            "override_keys": [
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "simulation_output/sweep/postfix-g3\\runs\\sweep_active-ubi-buff-v1_B_postfix-g3-20260413_scenario_active-ubi-buff-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/postfix-g3\\runs\\sweep_active-ubi-buff-v1_B_postfix-g3-20260413_scenario_active-ubi-buff-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "active-ubi-buff-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g3-20260413|scenario|active-ubi-buff-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "boost_related"
+            ],
+            "override_keys": [
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "simulation_output/sweep/postfix-g3\\runs\\sweep_active-ubi-buff-v1_C_postfix-g3-20260413_scenario_active-ubi-buff-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/postfix-g3\\runs\\sweep_active-ubi-buff-v1_C_postfix-g3-20260413_scenario_active-ubi-buff-v1_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "inflation-tighten-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g3-20260413|scenario|inflation-tighten-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "boost_related"
+            ],
+            "override_keys": [
+                "inflation_table"
+            ],
+            "json": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-v1_B_postfix-g3-20260413_scenario_inflation-tighten-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-v1_B_postfix-g3-20260413_scenario_inflation-tighten-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "inflation-tighten-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g3-20260413|scenario|inflation-tighten-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "boost_related"
+            ],
+            "override_keys": [
+                "inflation_table"
+            ],
+            "json": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-v1_C_postfix-g3-20260413_scenario_inflation-tighten-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-v1_C_postfix-g3-20260413_scenario_inflation-tighten-v1_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "inflation-tighten-plus-ubi-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g3-20260413|scenario|inflation-tighten-plus-ubi-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "boost_related"
+            ],
+            "override_keys": [
+                "inflation_table",
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-plus-ubi-v1_B_postfix-g3-20260413_scenario_inflation-tighten-plus-ubi-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-plus-ubi-v1_B_postfix-g3-20260413_scenario_inflation-tighten-plus-ubi-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "inflation-tighten-plus-ubi-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g3-20260413|scenario|inflation-tighten-plus-ubi-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "boost_related"
+            ],
+            "override_keys": [
+                "inflation_table",
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-plus-ubi-v1_C_postfix-g3-20260413_scenario_inflation-tighten-plus-ubi-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/postfix-g3\\runs\\sweep_inflation-tighten-plus-ubi-v1_C_postfix-g3-20260413_scenario_inflation-tighten-plus-ubi-v1_sim_C_ppa10_s6.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}

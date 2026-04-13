@@ -1,0 +1,46 @@
+{
+    "schema_version": "tmc-tuning-candidates.v1",
+    "description": "Follow-up sweep: address phase-gated B single-season expiry regression by raising safe buffer. Based on post-fix sweep analysis 2026-04-13.",
+    "scenarios": [
+        {
+            "name": "phase-gated-safe-24h-v1",
+            "description": "Phase-gated sink at baseline rates with safe buffer raised to 24h gross earnings (vs default 12h). Targets the B single-season expiry regression where EARLY drain reduces coins below lock-in threshold.",
+            "categories": ["hoarding_preservation_pressure"],
+            "overrides": {
+                "hoarding_sink_enabled": 1,
+                "hoarding_safe_hours": 24
+            }
+        },
+        {
+            "name": "phase-gated-safe-48h-v1",
+            "description": "Phase-gated sink at baseline rates with safe buffer raised to 48h gross earnings. Aggressive protection for early-game accumulation; tests upper bound of safe buffer effectiveness.",
+            "categories": ["hoarding_preservation_pressure"],
+            "overrides": {
+                "hoarding_sink_enabled": 1,
+                "hoarding_safe_hours": 48
+            }
+        },
+        {
+            "name": "phase-gated-high-floor-v1",
+            "description": "Phase-gated sink with 24h safe hours AND raised absolute floor (40000 coins vs default 20000). Dual protection: safe hours guard active players, floor guards low-earner joiners.",
+            "categories": ["hoarding_preservation_pressure"],
+            "overrides": {
+                "hoarding_sink_enabled": 1,
+                "hoarding_safe_hours": 24,
+                "hoarding_safe_min_coins": 40000
+            }
+        },
+        {
+            "name": "phase-gated-plus-inflation-tighten-v1",
+            "description": "Phase-gated sink combined with inflation-tighten-plus-ubi overrides. Tests whether sink + inflation market pressure together produce a stable combined effect without the perverse single-season inflation-tighten behavior.",
+            "categories": ["hoarding_preservation_pressure", "boost_related"],
+            "overrides": {
+                "hoarding_sink_enabled": 1,
+                "hoarding_safe_hours": 24,
+                "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+                "base_ubi_active_per_tick": 36,
+                "base_ubi_idle_factor_fp": 220000
+            }
+        }
+    ]
+}

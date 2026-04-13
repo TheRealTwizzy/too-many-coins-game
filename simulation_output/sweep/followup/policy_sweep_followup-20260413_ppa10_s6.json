@@ -1,0 +1,264 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-13T21:50:28+00:00",
+    "seed": "followup-20260413",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 10,
+        "season_count": 6,
+        "scenario_names": [
+            "baseline",
+            "phase-gated-safe-24h-v1",
+            "phase-gated-safe-48h-v1",
+            "phase-gated-high-floor-v1",
+            "phase-gated-plus-inflation-tighten-v1"
+        ],
+        "base_season_config_path": null
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_baseline_B_followup-20260413_scenario_baseline_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_baseline_B_followup-20260413_scenario_baseline_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_baseline_C_followup-20260413_scenario_baseline_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_baseline_C_followup-20260413_scenario_baseline_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-safe-24h-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-24h-v1_B_followup-20260413_scenario_phase-gated-safe-24h-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-24h-v1_B_followup-20260413_scenario_phase-gated-safe-24h-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-safe-24h-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-24h-v1_C_followup-20260413_scenario_phase-gated-safe-24h-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-24h-v1_C_followup-20260413_scenario_phase-gated-safe-24h-v1_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "phase-gated-safe-48h-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-safe-48h-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-48h-v1_B_followup-20260413_scenario_phase-gated-safe-48h-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-48h-v1_B_followup-20260413_scenario_phase-gated-safe-48h-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "phase-gated-safe-48h-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-safe-48h-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-48h-v1_C_followup-20260413_scenario_phase-gated-safe-48h-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-safe-48h-v1_C_followup-20260413_scenario_phase-gated-safe-48h-v1_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "phase-gated-high-floor-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-high-floor-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "hoarding_safe_min_coins"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-high-floor-v1_B_followup-20260413_scenario_phase-gated-high-floor-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-high-floor-v1_B_followup-20260413_scenario_phase-gated-high-floor-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "phase-gated-high-floor-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-high-floor-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "hoarding_safe_min_coins"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-high-floor-v1_C_followup-20260413_scenario_phase-gated-high-floor-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-high-floor-v1_C_followup-20260413_scenario_phase-gated-high-floor-v1_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "phase-gated-plus-inflation-tighten-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-plus-inflation-tighten-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "inflation_table",
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_B_followup-20260413_scenario_phase-gated-plus-inflation-tighten-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_B_followup-20260413_scenario_phase-gated-plus-inflation-tighten-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "phase-gated-plus-inflation-tighten-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "followup-20260413|scenario|phase-gated-plus-inflation-tighten-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "inflation_table",
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_C_followup-20260413_scenario_phase-gated-plus-inflation-tighten-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/followup\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_C_followup-20260413_scenario_phase-gated-plus-inflation-tighten-v1_sim_C_ppa10_s6.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}

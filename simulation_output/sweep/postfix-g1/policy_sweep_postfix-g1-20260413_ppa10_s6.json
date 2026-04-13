@@ -1,0 +1,168 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-13T21:39:34+00:00",
+    "seed": "postfix-g1-20260413",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 10,
+        "season_count": 6,
+        "scenario_names": [
+            "baseline",
+            "hoarding-sink-phase-gated-v1",
+            "hoarding-sink-ultra-gentle-v1"
+        ],
+        "base_season_config_path": null
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g1-20260413|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep/postfix-g1\\runs\\sweep_baseline_B_postfix-g1-20260413_scenario_baseline_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/postfix-g1\\runs\\sweep_baseline_B_postfix-g1-20260413_scenario_baseline_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g1-20260413|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/sweep/postfix-g1\\runs\\sweep_baseline_C_postfix-g1-20260413_scenario_baseline_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/postfix-g1\\runs\\sweep_baseline_C_postfix-g1-20260413_scenario_baseline_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "hoarding-sink-phase-gated-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g1-20260413|scenario|hoarding-sink-phase-gated-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled"
+            ],
+            "json": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-phase-gated-v1_B_postfix-g1-20260413_scenario_hoarding-sink-phase-gated-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-phase-gated-v1_B_postfix-g1-20260413_scenario_hoarding-sink-phase-gated-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "hoarding-sink-phase-gated-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g1-20260413|scenario|hoarding-sink-phase-gated-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled"
+            ],
+            "json": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-phase-gated-v1_C_postfix-g1-20260413_scenario_hoarding-sink-phase-gated-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-phase-gated-v1_C_postfix-g1-20260413_scenario_hoarding-sink-phase-gated-v1_sim_C_ppa10_s6.csv"
+        },
+        {
+            "scenario_name": "hoarding-sink-ultra-gentle-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g1-20260413|scenario|hoarding-sink-ultra-gentle-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_tier1_rate_hourly_fp",
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "starprice_reactivation_window_ticks",
+                "market_affordability_bias_fp"
+            ],
+            "json": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-ultra-gentle-v1_B_postfix-g1-20260413_scenario_hoarding-sink-ultra-gentle-v1_sim_B_ppa10.json",
+            "csv": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-ultra-gentle-v1_B_postfix-g1-20260413_scenario_hoarding-sink-ultra-gentle-v1_sim_B_ppa10.csv"
+        },
+        {
+            "scenario_name": "hoarding-sink-ultra-gentle-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "postfix-g1-20260413|scenario|hoarding-sink-ultra-gentle-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 10,
+                "total_players": 100
+            },
+            "horizon": {
+                "season_count": 6
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "lock_in_expiry_incentives"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_tier1_rate_hourly_fp",
+                "hoarding_tier2_rate_hourly_fp",
+                "hoarding_tier3_rate_hourly_fp",
+                "starprice_reactivation_window_ticks",
+                "market_affordability_bias_fp"
+            ],
+            "json": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-ultra-gentle-v1_C_postfix-g1-20260413_scenario_hoarding-sink-ultra-gentle-v1_sim_C_ppa10_s6.json",
+            "csv": "simulation_output/sweep/postfix-g1\\runs\\sweep_hoarding-sink-ultra-gentle-v1_C_postfix-g1-20260413_scenario_hoarding-sink-ultra-gentle-v1_sim_C_ppa10_s6.csv"
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ]
+}
