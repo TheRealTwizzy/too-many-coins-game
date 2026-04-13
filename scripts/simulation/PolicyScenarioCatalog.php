@@ -137,6 +137,37 @@ class PolicyScenarioCatalog
                     'hoarding_sink_cap_ratio_fp' => 500000,
                 ],
             ],
+            [
+                'name' => 'hoarding-sink-minimal-v1',
+                'description' => 'Enable hoarding sink (previously disabled in live config) with unchanged rates and extended reactivation window to isolate the sink-enable effect on hoarder dominance.',
+                'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives'],
+                'overrides' => [
+                    'hoarding_sink_enabled' => 1,
+                    'starprice_reactivation_window_ticks' => 100,
+                    'market_affordability_bias_fp' => 980000,
+                ],
+            ],
+            [
+                'name' => 'hoarding-sink-conservative-v1',
+                'description' => 'Enable hoarding sink with conservative tier2/tier3 rate increases and a strong lock-in counterweight to prevent expiry regression.',
+                'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives'],
+                'overrides' => [
+                    'hoarding_sink_enabled' => 1,
+                    'hoarding_tier2_rate_hourly_fp' => 520,
+                    'hoarding_tier3_rate_hourly_fp' => 1050,
+                    'starprice_reactivation_window_ticks' => 100,
+                    'market_affordability_bias_fp' => 960000,
+                ],
+            ],
+            [
+                'name' => 'active-ubi-buff-v1',
+                'description' => 'Increase active-play UBI and reduce idle UBI factor to improve Hardcore and Boost-Focused archetype viability without touching hoarding or star pricing.',
+                'categories' => ['boost_related'],
+                'overrides' => [
+                    'base_ubi_active_per_tick' => 42,
+                    'base_ubi_idle_factor_fp' => 200000,
+                ],
+            ],
         ];
 
         $indexed = [];
