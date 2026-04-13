@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS season_participation (
     -- Spend tracking for hoarding suppression
     spend_window_total BIGINT NOT NULL DEFAULT 0,
     hoarding_sink_total BIGINT NOT NULL DEFAULT 0,
+    total_season_participation_ticks BIGINT NOT NULL DEFAULT 0,
     reactivation_balance_snapshot BIGINT NOT NULL DEFAULT 0,
     reactivation_start_tick BIGINT DEFAULT NULL,
     -- Lock-In snapshot
