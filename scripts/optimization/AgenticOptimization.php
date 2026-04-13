@@ -344,6 +344,8 @@ class AgenticEconomyDecomposition
                 'simulators' => ['B', 'C'],
                 'players_per_archetype' => 5,
                 'season_count' => 12,
+                'season_duration_ticks' => 14400,
+                'blackout_duration_ticks' => 3600,
                 'archetype_keys' => [],
                 'seeds' => ['tier3-full-a', 'tier3-full-b'],
             ],
@@ -1138,6 +1140,9 @@ class AgenticHarnessRunner
     {
         $durationTicks = (int)($profile['season_duration_ticks'] ?? 0);
         if ($durationTicks <= 1) {
+            // WARNING: No season_duration_ticks set — returns the raw DB config unchanged,
+            // which may have end_time in the millions of ticks. Every profile must set
+            // season_duration_ticks explicitly or this will cause a multi-hour hang.
             return $seasonConfig;
         }
 
