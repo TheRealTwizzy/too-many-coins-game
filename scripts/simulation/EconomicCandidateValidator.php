@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/SimulationSeason.php';
+require_once __DIR__ . '/CanonicalEconomyConfigContract.php';
 
 class EconomicCandidateValidationException extends InvalidArgumentException
 {
@@ -74,36 +75,6 @@ class EconomicCandidateValidator
         'starprice_model_version' => 'Deprecated tuning knob. Star pricing model selection is runtime-owned and no longer candidate-configurable.',
     ];
 
-    private const SURFACE_META = [
-        'base_ubi_active_per_tick' => ['type' => 'int', 'min' => 0, 'max' => 1000000, 'subsystem' => 'boost_related'],
-        'base_ubi_idle_factor_fp' => ['type' => 'int', 'min' => 0, 'max' => 1000000, 'subsystem' => 'boost_related'],
-        'ubi_min_per_tick' => ['type' => 'int', 'min' => 0, 'max' => 1000000, 'subsystem' => 'boost_related'],
-        'inflation_table' => ['type' => 'inflation_table', 'subsystem' => 'boost_related'],
-        'hoarding_window_ticks' => ['type' => 'int', 'min' => 1, 'max_from_context' => 'season_duration_ticks', 'subsystem' => 'phase_timing'],
-        'target_spend_rate_per_tick' => ['type' => 'int', 'min' => 1, 'max' => 1000000, 'subsystem' => 'boost_related'],
-        'hoarding_min_factor_fp' => ['type' => 'int', 'min' => 0, 'max' => 1000000, 'subsystem' => 'hoarding_preservation_pressure'],
-        'hoarding_sink_enabled' => ['type' => 'bool_int', 'subsystem' => 'hoarding_preservation_pressure'],
-        'hoarding_safe_hours' => ['type' => 'int', 'min' => 0, 'max' => 2160, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_safe_min_coins' => ['type' => 'int', 'min' => 0, 'max' => 1000000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_tier1_excess_cap' => ['type' => 'int', 'min' => 0, 'max' => 1000000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_tier2_excess_cap' => ['type' => 'int', 'min' => 0, 'max' => 1000000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_tier1_rate_hourly_fp' => ['type' => 'int', 'min' => 0, 'max' => 5000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_tier2_rate_hourly_fp' => ['type' => 'int', 'min' => 0, 'max' => 5000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_tier3_rate_hourly_fp' => ['type' => 'int', 'min' => 0, 'max' => 5000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_sink_cap_ratio_fp' => ['type' => 'int', 'min' => 0, 'max' => 1000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'hoarding_idle_multiplier_fp' => ['type' => 'int', 'min' => 0, 'max' => 5000000, 'subsystem' => 'hoarding_preservation_pressure', 'feature_flag' => 'season.hoarding_sink_enabled'],
-        'starprice_table' => ['type' => 'starprice_table', 'subsystem' => 'star_conversion_pricing'],
-        'star_price_cap' => ['type' => 'int', 'min' => 1, 'max' => 1000000000, 'subsystem' => 'star_conversion_pricing'],
-        'starprice_idle_weight_fp' => ['type' => 'int', 'min' => 0, 'max' => 1000000, 'subsystem' => 'star_conversion_pricing'],
-        'starprice_active_only' => ['type' => 'bool_int', 'subsystem' => 'star_conversion_pricing'],
-        'starprice_max_upstep_fp' => ['type' => 'int', 'min' => 1, 'max' => 1000000, 'subsystem' => 'star_conversion_pricing'],
-        'starprice_max_downstep_fp' => ['type' => 'int', 'min' => 1, 'max' => 1000000, 'subsystem' => 'star_conversion_pricing'],
-        'starprice_reactivation_window_ticks' => ['type' => 'int', 'min' => 1, 'max_from_context' => 'season_duration_ticks', 'subsystem' => 'lock_in_expiry_incentives'],
-        'starprice_demand_table' => ['type' => 'starprice_demand_table', 'subsystem' => 'star_conversion_pricing'],
-        'market_affordability_bias_fp' => ['type' => 'int', 'min' => 1, 'max' => 5000000, 'subsystem' => 'lock_in_expiry_incentives'],
-        'vault_config' => ['type' => 'vault_config', 'subsystem' => 'sigil_drop_tier_combine'],
-    ];
-
     public static function categoryAllowlist(): array
     {
         return self::CATEGORY_KEY_ALLOWLIST;
@@ -116,7 +87,7 @@ class EconomicCandidateValidator
 
     public static function allowedSurface(): array
     {
-        return self::SURFACE_META;
+        return CanonicalEconomyConfigContract::validatorSurfaceMeta();
     }
 
     public static function assertNormalizedChanges(array $changes, array $options = []): void
@@ -131,6 +102,7 @@ class EconomicCandidateValidator
     {
         $baseSeason = self::resolveBaseSeason($options);
         $effectiveSeason = self::resolveEffectiveSeason($changes, $baseSeason);
+        $surfaceMeta = self::allowedSurface();
         $seenKeys = [];
         $failures = [];
 
@@ -190,7 +162,7 @@ class EconomicCandidateValidator
                 continue;
             }
 
-            if (!array_key_exists($key, self::SURFACE_META)) {
+            if (!array_key_exists($key, $surfaceMeta)) {
                 $reason = in_array($key, SimulationSeason::SEASON_ECONOMY_COLUMNS, true)
                     ? [
                         'code' => 'candidate_out_of_surface',
@@ -224,7 +196,7 @@ class EconomicCandidateValidator
             }
             $seenKeys[$key] = true;
 
-            $meta = self::SURFACE_META[$key];
+            $meta = $surfaceMeta[$key];
             $featureFlag = (string)($meta['feature_flag'] ?? '');
             if ($featureFlag !== '') {
                 $feature = self::resolveFeatureFlag($featureFlag, $effectiveSeason);

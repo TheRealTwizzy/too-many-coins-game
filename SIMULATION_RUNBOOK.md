@@ -101,6 +101,12 @@ Rules:
 - a failed required stage blocks later required stages
 - developer-only bypasses are explicit and always keep the candidate ineligible for patch-ready promotion
 - promotion eligibility is only marked after stages 1-7 all return `pass`
+- stage 7 now validates the shared simulator/play-test schema contract in `CanonicalEconomyConfigContract`
+- stage 7 writes both `play_test_repo_compatibility.json` and `play_test_repo_compatibility.md`
+
+Reference:
+
+- [ECONOMY_CONFIG_COMPATIBILITY.md](ECONOMY_CONFIG_COMPATIBILITY.md)
 
 CLI:
 

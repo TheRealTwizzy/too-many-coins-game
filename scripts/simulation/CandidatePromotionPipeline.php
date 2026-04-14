@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/SimulationSeason.php';
+require_once __DIR__ . '/CanonicalEconomyConfigContract.php';
 require_once __DIR__ . '/EconomicCandidateValidator.php';
 require_once __DIR__ . '/SimulationConfigPreflight.php';
 require_once __DIR__ . '/SimulationPopulationSeason.php';
@@ -729,20 +730,41 @@ class CandidatePromotionPipeline
 
         $manifest = (array)$sweepResult['manifest'];
         $runCount = count((array)($manifest['runs'] ?? []));
-        $compatible = ($candidateHash === $importHash) && ($runCount >= 2);
+        $report = CanonicalEconomyConfigContract::buildCompatibilityReport(
+            self::filterCanonicalChangesByScope($context['canonical_changes'], 'season')
+        );
+        $report['candidate_id'] = $context['candidate_id'];
+        $report['candidate_surface_hash'] = $candidateHash;
+        $report['imported_surface_hash'] = $importHash;
+        $report['exported_candidate_config_path'] = $exportPath;
+        $report['sweep_manifest_path'] = (string)$sweepResult['manifest_path'];
+        $report['run_count'] = $runCount;
 
-        $report = [
-            'schema_version' => 'tmc-candidate-play-test-compatibility.v1',
-            'generated_at' => gmdate('c'),
-            'candidate_id' => $context['candidate_id'],
-            'candidate_surface_hash' => $candidateHash,
-            'imported_surface_hash' => $importHash,
-            'compatible' => $compatible,
-            'sweep_manifest_path' => (string)$sweepResult['manifest_path'],
-            'run_count' => $runCount,
-        ];
-        $reportPath = $stageDir . DIRECTORY_SEPARATOR . 'play_test_repo_compatibility.json';
-        file_put_contents($reportPath, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        if ($candidateHash !== $importHash) {
+            $report['issues'][] = [
+                'code' => 'lossy_conversion',
+                'key' => '',
+                'detail' => 'Exported play-test season config did not round-trip through import with the same season surface hash.',
+                'candidate_surface_hash' => $candidateHash,
+                'imported_surface_hash' => $importHash,
+            ];
+        }
+
+        if ($runCount < 2) {
+            $report['issues'][] = [
+                'code' => 'missing_mapping',
+                'key' => '',
+                'detail' => 'Compatibility sweep did not produce the expected baseline B/C validation runs.',
+                'run_count' => $runCount,
+            ];
+        }
+
+        $report['compatible'] = ($report['issues'] === []);
+        $report['status'] = $report['compatible'] ? 'pass' : 'fail';
+        $report['round_trip_equal'] = !empty($report['round_trip_equal']) && ($candidateHash === $importHash);
+
+        $artifacts = CanonicalEconomyConfigContract::writeCompatibilityArtifacts($stageDir, $report);
+        $compatible = (bool)$report['compatible'];
 
         if (!$compatible) {
             return [
@@ -756,11 +778,10 @@ class CandidatePromotionPipeline
                     'imported_surface_hash' => $importHash,
                     'run_count' => $runCount,
                 ],
-                'artifacts' => [
+                'artifacts' => array_merge([
                     'candidate_effective_season_json' => $exportPath,
                     'sweep_manifest_json' => (string)$sweepResult['manifest_path'],
-                    'play_test_repo_compatibility_json' => $reportPath,
-                ],
+                ], $artifacts),
             ];
         }
 
@@ -772,11 +793,10 @@ class CandidatePromotionPipeline
                 'imported_surface_hash' => $importHash,
                 'run_count' => $runCount,
             ],
-            'artifacts' => [
+            'artifacts' => array_merge([
                 'candidate_effective_season_json' => $exportPath,
                 'sweep_manifest_json' => (string)$sweepResult['manifest_path'],
-                'play_test_repo_compatibility_json' => $reportPath,
-            ],
+            ], $artifacts),
         ];
     }
 

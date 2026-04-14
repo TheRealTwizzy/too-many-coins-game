@@ -46,6 +46,10 @@ class CandidatePromotionPipelineTest extends TestCase
             $this->assertSame('pass', (string)$stage['status'], 'Stage did not pass: ' . (string)$stage['id']);
         }
 
+        $compatStage = (array)$state['stages'][6];
+        $this->assertFileExists((string)$compatStage['artifacts']['play_test_repo_compatibility_json']);
+        $this->assertFileExists((string)$compatStage['artifacts']['play_test_repo_compatibility_md']);
+
         $this->assertFileExists((string)$result['artifact_paths']['promotion_state_json']);
         $this->assertFileExists((string)$result['artifact_paths']['promotion_report_json']);
         $this->assertFileExists((string)$result['artifact_paths']['promotion_report_md']);

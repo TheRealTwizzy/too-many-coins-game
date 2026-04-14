@@ -88,6 +88,7 @@ Phase C candidate generation is now staged to keep first-pass tuning isolated an
 Every generated candidate and scenario now carries `stage` plus `lineage` metadata so reports show where a candidate came from and which earlier-stage candidates validated it. Low-signal or unstable knobs stay in stage 1 for learning, but do not auto-promote.
 
 See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
+The shared simulator/play-test economy contract is documented in [ECONOMY_CONFIG_COMPATIBILITY.md](ECONOMY_CONFIG_COMPATIBILITY.md).
 
 ## Project Structure
 
