@@ -76,6 +76,25 @@ Optional base season context:
 php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json --season-config=simulation_output/current-db/export/current_season.json
 ```
 
+### Phase C staged candidate generation
+
+`generate_tuning_candidates.php` now emits staged experiment candidates instead of first-pass bundled packages:
+
+- `stage_1_single_knob`: exactly one knob per candidate
+- `stage_2_pairwise`: only knobs validated for promotion in stage 1 may pair
+- `stage_3_constrained_bundle`: only knobs proven in eligible stage-2 pairs may bundle
+- `stage_4_full_confirmation`: only promoted stage-3 bundles advance to full confirmation
+
+Every package and scenario includes:
+
+- `stage`
+- `stage_order`
+- `lineage.parent_candidate_ids`
+- `lineage.ancestor_candidate_ids`
+- `lineage.validated_candidate_ids`
+
+Advancement controls are explicit in `stage_controls`. Knobs flagged as low-signal or unstable remain available for isolated stage-1 learning, but they do not auto-advance into pairwise or bundled candidates.
+
 ---
 
 ## Simulation A — Contract Simulator

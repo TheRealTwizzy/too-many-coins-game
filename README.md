@@ -78,6 +78,15 @@ Lint candidate JSON without running simulations:
 php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json
 ```
 
+Phase C candidate generation is now staged to keep first-pass tuning isolated and interpretable:
+
+- `stage_1_single_knob`: one knob per candidate only
+- `stage_2_pairwise`: only stage-1-validated knobs may combine
+- `stage_3_constrained_bundle`: only pairwise-validated knobs may bundle, capped to small bundles
+- `stage_4_full_confirmation`: only promoted stage-3 bundles advance
+
+Every generated candidate and scenario now carries `stage` plus `lineage` metadata so reports show where a candidate came from and which earlier-stage candidates validated it. Low-signal or unstable knobs stay in stage 1 for learning, but do not auto-promote.
+
 See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
 
 ## Project Structure
