@@ -19,6 +19,42 @@ All output goes to `simulation_output/` by default.
 
 ---
 
+## Effective Config Preflight
+
+Simulation B, C, and D now run a mandatory preflight audit before execution begins.
+
+Canonical resolution chain:
+
+- Season scope: `SimulationSeason::build()` defaults -> optional base season JSON/import -> candidate patch -> scenario override
+- Runtime scope: code defaults in `includes/config.php` -> environment variables
+- Feature activity: evaluated from the final resolved config, not from the requested change list
+
+Mandatory artifacts per attempted run:
+
+- `<run>.audit/effective_config.json`
+- `<run>.audit/effective_config_audit.md`
+
+Hard gate behavior:
+
+- any inactive candidate key aborts the run before simulation unless explicitly bypassed
+- debug-only bypass: `--allow-inactive-candidate-config` or env `TMC_SIMULATION_AUDIT_BYPASS=1`
+
+Inactive reason codes:
+
+- `inactive_feature_disabled`
+- `inactive_shadowed`
+- `inactive_unreferenced`
+- `inactive_invalid_path`
+- `inactive_out_of_scope`
+
+Notes:
+
+- unknown keys are not silently ignored
+- unreferenced knobs now fail fast instead of generating misleading candidate runs
+- the audit reflects the actual B/C simulator code paths, including known unreferenced season fields such as `vault_config`
+
+---
+
 ## Simulation A — Contract Simulator
 
 Verifies that economy invariants hold under the canonical season config. Run first.

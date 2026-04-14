@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/economy.php';
 require_once __DIR__ . '/../../includes/game_time.php';
+require_once __DIR__ . '/SimulationConfigPreflight.php';
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/SimulationPlayer.php';
 require_once __DIR__ . '/Archetypes.php';
@@ -16,7 +17,21 @@ class SimulationPopulationLifetime
     {
         $seasonCount = max(2, $seasonCount);
         $playersPerArchetype = max(1, $playersPerArchetype);
-        $seasonOverrides = self::loadSeasonOverrides($seasonConfigPath);
+        $preflight = SimulationConfigPreflight::resolve([
+            'seed' => $seed,
+            'season_id' => 1,
+            'simulator' => 'C',
+            'players_per_archetype' => $playersPerArchetype,
+            'season_count' => $seasonCount,
+            'run_label' => $options['run_label'] ?? null,
+            'base_season_config_path' => $seasonConfigPath,
+            'base_season_overrides' => $options['base_season_overrides'] ?? [],
+            'candidate_patch' => $options['candidate_patch'] ?? [],
+            'scenario_overrides' => $options['scenario_overrides'] ?? [],
+            'artifact_dir' => $options['preflight_artifact_dir'] ?? '',
+            'debug_allow_inactive_candidate' => !empty($options['debug_allow_inactive_candidate']),
+        ]);
+        $seasonOverrides = self::loadSeasonOverrides($preflight['season']);
 
         $archetypes = self::filterArchetypes(Archetypes::all(), (array)($options['archetype_keys'] ?? []));
         if ($archetypes === []) {
@@ -150,6 +165,11 @@ class SimulationPopulationLifetime
                 'season_cadence_ticks' => (int)SEASON_CADENCE,
                 'expected_overlap' => (int)max(1, (int)ceil((float)SEASON_DURATION / max(1.0, (float)SEASON_CADENCE))),
             ],
+            'config_audit' => [
+                'status' => (string)$preflight['report']['status'],
+                'artifact_paths' => (array)$preflight['artifact_paths'],
+                'requested_candidate_changes' => (array)$preflight['report']['requested_candidate_changes'],
+            ],
             'season_timeline' => $seasonSummaries,
             'players' => $playerRows,
             'archetypes' => $archetypeStats,
@@ -159,26 +179,14 @@ class SimulationPopulationLifetime
         ];
     }
 
-    private static function loadSeasonOverrides(?string $seasonConfigPath): array
+    private static function loadSeasonOverrides(array $season): array
     {
-        if ($seasonConfigPath === null || $seasonConfigPath === '') {
-            return [];
-        }
-        if (!is_file($seasonConfigPath)) {
-            throw new InvalidArgumentException('Season config file not found: ' . $seasonConfigPath);
-        }
-
-        $decoded = json_decode((string)file_get_contents($seasonConfigPath), true);
-        if (!is_array($decoded)) {
-            throw new InvalidArgumentException('Season config JSON must decode to an object');
-        }
-
         $stripKeys = ['season_id', 'start_time', 'end_time', 'blackout_time', 'season_seed'];
         foreach ($stripKeys as $key) {
-            unset($decoded[$key]);
+            unset($season[$key]);
         }
 
-        return SimulationSeason::normalizeImportedRow($decoded);
+        return SimulationSeason::normalizeImportedRow($season);
     }
 
     private static function buildPopulation(array $archetypes, int $playersPerArchetype, string $seed): array

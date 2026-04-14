@@ -21,7 +21,8 @@ class PolicySweepRunner
         $baseSeasonConfigPath = isset($options['base_season_config_path']) && $options['base_season_config_path'] !== ''
             ? (string)$options['base_season_config_path']
             : null;
-        $baseSeasonOverrides = self::loadBaseSeasonOverrides($baseSeasonConfigPath);
+        $debugAllowInactive = !empty($options['debug_allow_inactive_candidate']);
+        self::assertReadableBaseSeasonConfig($baseSeasonConfigPath);
 
         if (!is_dir($outputDir)) {
             mkdir($outputDir, 0777, true);
@@ -48,27 +49,37 @@ class PolicySweepRunner
             foreach ($simulators as $simulator) {
                 $isBaseline = ((string)$scenario['name'] === 'baseline');
                 $runSeed = $seed . '|scenario|' . (string)$scenario['name'] . '|sim|' . $simulator;
-                $seasonConfigPath = null;
+                $seasonConfigPath = $baseSeasonConfigPath;
+                $baseName = self::buildBaseName((string)$scenario['name'], $simulator, $runSeed, $playersPerArchetype, $seasonCount);
+                $auditDir = $runDir . DIRECTORY_SEPARATOR . $baseName . '.audit';
 
-                if ($isBaseline && !empty($baseSeasonOverrides)) {
-                    $seasonConfigPath = self::writeScenarioConfig($runDir, 'base', $baseSeasonOverrides);
-                } elseif (!$isBaseline) {
-                    $mergedOverrides = array_merge($baseSeasonOverrides, (array)($scenario['overrides'] ?? []));
-                    $seasonConfigPath = self::writeScenarioConfig($runDir, (string)$scenario['name'], $mergedOverrides);
-                }
-
-                try {
-                    if ($simulator === 'B') {
-                        $payload = SimulationPopulationSeason::run($runSeed, $playersPerArchetype, $seasonConfigPath);
-                        $simulatorLabel = 'B';
-                    } else {
-                        $payload = SimulationPopulationLifetime::run($runSeed, $playersPerArchetype, $seasonCount, $seasonConfigPath);
-                        $simulatorLabel = 'C';
-                    }
-                } finally {
-                    if ($seasonConfigPath !== null && is_file($seasonConfigPath)) {
-                        @unlink($seasonConfigPath);
-                    }
+                if ($simulator === 'B') {
+                    $payload = SimulationPopulationSeason::run(
+                        $runSeed,
+                        $playersPerArchetype,
+                        $seasonConfigPath,
+                        [
+                            'run_label' => $baseName,
+                            'preflight_artifact_dir' => $auditDir,
+                            'candidate_patch' => $isBaseline ? [] : (array)($scenario['overrides'] ?? []),
+                            'debug_allow_inactive_candidate' => $debugAllowInactive,
+                        ]
+                    );
+                    $simulatorLabel = 'B';
+                } else {
+                    $payload = SimulationPopulationLifetime::run(
+                        $runSeed,
+                        $playersPerArchetype,
+                        $seasonCount,
+                        $seasonConfigPath,
+                        [
+                            'run_label' => $baseName,
+                            'preflight_artifact_dir' => $auditDir,
+                            'candidate_patch' => $isBaseline ? [] : (array)($scenario['overrides'] ?? []),
+                            'debug_allow_inactive_candidate' => $debugAllowInactive,
+                        ]
+                    );
+                    $simulatorLabel = 'C';
                 }
 
                 $payload['sweep'] = [
@@ -89,7 +100,6 @@ class PolicySweepRunner
                     'override_categories' => (array)($scenario['categories'] ?? []),
                 ];
 
-                $baseName = self::buildBaseName((string)$scenario['name'], $simulatorLabel, $runSeed, $playersPerArchetype, $seasonCount);
                 $jsonPath = MetricsCollector::writeJson($payload, $runDir, $baseName);
                 $csvPath = ($simulatorLabel === 'B')
                     ? MetricsCollector::writeSeasonCsv($payload, $runDir, $baseName)
@@ -112,6 +122,7 @@ class PolicySweepRunner
                     'override_keys' => array_keys((array)($scenario['overrides'] ?? [])),
                     'json' => $jsonPath,
                     'csv' => $csvPath,
+                    'config_audit' => (array)($payload['config_audit']['artifact_paths'] ?? []),
                 ];
             }
         }
@@ -166,10 +177,10 @@ class PolicySweepRunner
         return $keys;
     }
 
-    private static function loadBaseSeasonOverrides(?string $path): array
+    private static function assertReadableBaseSeasonConfig(?string $path): void
     {
         if ($path === null || $path === '') {
-            return [];
+            return;
         }
         if (!is_file($path)) {
             throw new InvalidArgumentException('Base season config file not found: ' . $path);
@@ -178,17 +189,6 @@ class PolicySweepRunner
         if (!is_array($decoded)) {
             throw new InvalidArgumentException('Base season config must be a JSON object: ' . $path);
         }
-        return $decoded;
-    }
-
-    private static function writeScenarioConfig(string $runDir, string $scenarioName, array $overrides): string
-    {
-        $path = rtrim($runDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
-            . 'season_override_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $scenarioName) . '_'
-            . substr(hash('sha256', json_encode($overrides, JSON_UNESCAPED_SLASHES)), 0, 12) . '.json';
-
-        file_put_contents($path, json_encode($overrides, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        return $path;
     }
 
     private static function buildBaseName(string $scenarioName, string $simulator, string $seed, int $ppa, int $seasonCount): string

@@ -1006,7 +1006,7 @@ class AgenticHarnessRunner
         }
     }
 
-    public function evaluate(array $seasonConfig, array $profile, string $label): array
+    public function evaluate(array $seasonConfig, array $profile, string $label, array $candidateChanges = [], ?array $baseSeasonConfig = null): array
     {
         $effectiveSeasonConfig = self::applySeasonSlice($seasonConfig, $profile);
 
@@ -1066,34 +1066,42 @@ class AgenticHarnessRunner
             $_ENV['TMC_TICK_REAL_SECONDS'] = (string)$tickRealSeconds;
             try {
                 if (in_array('B', $simulators, true)) {
+                    $baseName = 'season_' . $contextSeed;
                     $seasonPayload = SimulationPopulationSeason::run(
                         $seedName,
                         (int)$profile['players_per_archetype'],
-                        $configPath,
+                        null,
                         [
                             'archetype_keys' => (array)($profile['archetype_keys'] ?? []),
                             'phase_stop' => $profile['phase_stop'] ?? null,
+                            'run_label' => $baseName,
+                            'preflight_artifact_dir' => $tierDir . DIRECTORY_SEPARATOR . $baseName . '.audit',
+                            'base_season_overrides' => $baseSeasonConfig ?? $effectiveSeasonConfig,
+                            'candidate_patch' => $candidateChanges,
                         ]
                     );
 
-                    $baseName = 'season_' . $contextSeed;
                     $seasonJsonPath = MetricsCollector::writeJson($seasonPayload, $tierDir, $baseName);
                     MetricsCollector::writeSeasonCsv($seasonPayload, $tierDir, $baseName);
                     $seasonPaths[] = $seasonJsonPath;
                 }
 
                 if (in_array('C', $simulators, true)) {
+                    $baseName = 'lifetime_' . $contextSeed;
                     $lifetimePayload = SimulationPopulationLifetime::run(
                         $seedName,
                         (int)$profile['players_per_archetype'],
                         (int)($profile['season_count'] ?? 4),
-                        $configPath,
+                        null,
                         [
                             'archetype_keys' => (array)($profile['archetype_keys'] ?? []),
+                            'run_label' => $baseName,
+                            'preflight_artifact_dir' => $tierDir . DIRECTORY_SEPARATOR . $baseName . '.audit',
+                            'base_season_overrides' => $baseSeasonConfig ?? $effectiveSeasonConfig,
+                            'candidate_patch' => $candidateChanges,
                         ]
                     );
 
-                    $baseName = 'lifetime_' . $contextSeed;
                     $lifetimeJsonPath = MetricsCollector::writeJson($lifetimePayload, $tierDir, $baseName);
                     MetricsCollector::writeLifetimeCsv($lifetimePayload, $tierDir, $baseName);
                     $lifetimePaths[] = $lifetimeJsonPath;
@@ -1493,7 +1501,7 @@ class AgenticSubsystemAgent
             $this->memory->markCandidateHash($candidateHash);
 
             $label = $this->runLabelPrefix . '-' . $this->subsystem['id'] . '-cand-' . ($index + 1);
-            $localEval = $this->harness->evaluate($candidate['config'], $localProfile, $label . '-tier1');
+            $localEval = $this->harness->evaluate($candidate['config'], $localProfile, $label . '-tier1', (array)$candidate['changes'], $currentConfig);
 
             $localMetrics = (array)$localEval['metrics'];
             $localScoring = AgenticMetricEvaluator::localScore(
@@ -1558,7 +1566,7 @@ class AgenticSubsystemAgent
                 'local_score' => $localScore,
             ]);
 
-            $integrationEval = $this->harness->evaluate($candidate['config'], $integrationProfile, $label . '-tier2');
+            $integrationEval = $this->harness->evaluate($candidate['config'], $integrationProfile, $label . '-tier2', (array)$candidate['changes'], $currentConfig);
             $integrationMetrics = (array)$integrationEval['metrics'];
             $integrationGlobalDelta = AgenticMetricEvaluator::globalScore($integrationMetrics)
                 - AgenticMetricEvaluator::globalScore($baselineIntegrationMetrics);
@@ -1587,7 +1595,7 @@ class AgenticSubsystemAgent
                 continue;
             }
 
-            $fullEval = $this->harness->evaluate($candidate['config'], $fullProfile, $label . '-tier3');
+            $fullEval = $this->harness->evaluate($candidate['config'], $fullProfile, $label . '-tier3', (array)$candidate['changes'], $currentConfig);
             $fullMetrics = (array)$fullEval['metrics'];
             $fullGlobalDelta = AgenticMetricEvaluator::globalScore($fullMetrics)
                 - AgenticMetricEvaluator::globalScore($baselineFullMetrics);

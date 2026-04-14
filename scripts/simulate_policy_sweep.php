@@ -22,6 +22,7 @@ $options = [
     'list-scenarios' => false,
     'season-config' => null,
     'tuning-candidates' => null,
+    'allow-inactive-candidate-config' => false,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -46,6 +47,11 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['season-config'] = substr($arg, 16);
     } elseif (str_starts_with($arg, '--tuning-candidates=')) {
         $options['tuning-candidates'] = substr($arg, 20);
+    } elseif (str_starts_with($arg, '--allow-inactive-candidate-config=')) {
+        $value = strtolower(trim(substr($arg, 34)));
+        $options['allow-inactive-candidate-config'] = in_array($value, ['1', 'true', 'yes'], true);
+    } elseif ($arg === '--allow-inactive-candidate-config') {
+        $options['allow-inactive-candidate-config'] = true;
     } elseif ($arg === '--list-scenarios') {
         $options['list-scenarios'] = true;
     } elseif ($arg === '--help') {
@@ -66,6 +72,8 @@ Options:
   --season-config=FILE      JSON file to use as base season config for all runs
   --tuning-candidates=FILE  Phase C tuning_candidates.json to register tuning scenarios
   --output=DIR              Output directory (default: simulation_output/sweep)
+  --allow-inactive-candidate-config
+                            Debug-only bypass for failed effective-config preflight
   --list-scenarios          Print available scenario names and exit
   --help                    Show this help
 
@@ -102,16 +110,22 @@ if ($options['tuning-candidates'] !== null) {
     );
 }
 
-$result = PolicySweepRunner::run([
-    'seed' => (string)$options['seed'],
-    'players_per_archetype' => (int)$options['players-per-archetype'],
-    'season_count' => (int)$options['seasons'],
-    'output_dir' => (string)$options['output'],
-    'simulators' => (array)$options['simulators'],
-    'scenarios' => (array)$options['scenarios'],
-    'include_baseline' => (bool)$options['include-baseline'],
-    'base_season_config_path' => $options['season-config'],
-]);
+try {
+    $result = PolicySweepRunner::run([
+        'seed' => (string)$options['seed'],
+        'players_per_archetype' => (int)$options['players-per-archetype'],
+        'season_count' => (int)$options['seasons'],
+        'output_dir' => (string)$options['output'],
+        'simulators' => (array)$options['simulators'],
+        'scenarios' => (array)$options['scenarios'],
+        'include_baseline' => (bool)$options['include-baseline'],
+        'base_season_config_path' => $options['season-config'],
+        'debug_allow_inactive_candidate' => (bool)$options['allow-inactive-candidate-config'],
+    ]);
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Policy sweep failed: ' . $e->getMessage() . PHP_EOL);
+    exit(2);
+}
 
 $manifest = (array)$result['manifest'];
 echo 'Policy Sweep Runner' . PHP_EOL;

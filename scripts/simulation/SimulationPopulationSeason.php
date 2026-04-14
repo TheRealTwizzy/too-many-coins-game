@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/economy.php';
 require_once __DIR__ . '/../../includes/game_time.php';
+require_once __DIR__ . '/SimulationConfigPreflight.php';
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/SimulationPlayer.php';
 require_once __DIR__ . '/Archetypes.php';
@@ -13,9 +14,20 @@ class SimulationPopulationSeason
 {
     public static function run(string $seed = 'phase1', int $playersPerArchetype = 5, ?string $seasonConfigPath = null, array $options = []): array
     {
-        $season = $seasonConfigPath
-            ? SimulationSeason::fromJsonFile($seasonConfigPath, 1, $seed)
-            : SimulationSeason::build(1, $seed);
+        $preflight = SimulationConfigPreflight::resolve([
+            'seed' => $seed,
+            'season_id' => 1,
+            'simulator' => 'B',
+            'players_per_archetype' => $playersPerArchetype,
+            'run_label' => $options['run_label'] ?? null,
+            'base_season_config_path' => $seasonConfigPath,
+            'base_season_overrides' => $options['base_season_overrides'] ?? [],
+            'candidate_patch' => $options['candidate_patch'] ?? [],
+            'scenario_overrides' => $options['scenario_overrides'] ?? [],
+            'artifact_dir' => $options['preflight_artifact_dir'] ?? '',
+            'debug_allow_inactive_candidate' => !empty($options['debug_allow_inactive_candidate']),
+        ]);
+        $season = $preflight['season'];
 
         $archetypes = self::filterArchetypes(Archetypes::all(), (array)($options['archetype_keys'] ?? []));
         if ($archetypes === []) {
@@ -134,7 +146,13 @@ class SimulationPopulationSeason
         self::finalizeSeason($players);
 
         $results = array_map(static fn($player) => $player->exportResult(), $players);
-        return MetricsCollector::buildSeasonOutput($seed, $season, $results, $archetypes, $playersPerArchetype);
+        $payload = MetricsCollector::buildSeasonOutput($seed, $season, $results, $archetypes, $playersPerArchetype);
+        $payload['config_audit'] = [
+            'status' => (string)$preflight['report']['status'],
+            'artifact_paths' => (array)$preflight['artifact_paths'],
+            'requested_candidate_changes' => (array)$preflight['report']['requested_candidate_changes'],
+        ];
+        return $payload;
     }
 
     private static function recomputeSeasonSupply(array &$season, array $players, int $tick): void

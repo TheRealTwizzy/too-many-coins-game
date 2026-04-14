@@ -2,14 +2,23 @@
 
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/economy.php';
+require_once __DIR__ . '/SimulationConfigPreflight.php';
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/MetricsCollector.php';
 
 class ContractSimulator
 {
-    public static function run(string $seed = 'phase1'): array
+    public static function run(string $seed = 'phase1', array $options = []): array
     {
-        $season = SimulationSeason::build(1, $seed);
+        $preflight = SimulationConfigPreflight::resolve([
+            'seed' => $seed,
+            'season_id' => 1,
+            'simulator' => 'A',
+            'run_label' => $options['run_label'] ?? null,
+            'artifact_dir' => $options['preflight_artifact_dir'] ?? '',
+            'debug_allow_inactive_candidate' => !empty($options['debug_allow_inactive_candidate']),
+        ]);
+        $season = $preflight['season'];
         $player = [
             'player_id' => 1,
             'participation_enabled' => 1,
@@ -106,6 +115,13 @@ class ContractSimulator
             'details' => ['locked' => $effectiveLocked, 'end' => $effectiveEnd],
         ];
 
-        return MetricsCollector::buildContractOutput($seed, $checks);
+        $payload = MetricsCollector::buildContractOutput($seed, $checks);
+        $payload['config_audit'] = [
+            'status' => (string)$preflight['report']['status'],
+            'artifact_paths' => (array)$preflight['artifact_paths'],
+            'requested_candidate_changes' => (array)$preflight['report']['requested_candidate_changes'],
+        ];
+
+        return $payload;
     }
 }

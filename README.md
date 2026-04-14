@@ -55,6 +55,17 @@ Guaranteed floor policy (hybrid scaling):
 | Database | MySQL 8.x |
 | Architecture | Tick-based deterministic game engine |
 
+## Simulation Preflight Audit
+
+Simulation B, C, and D now resolve a canonical effective configuration before each run and persist:
+
+- `effective_config.json`
+- `effective_config_audit.md`
+
+The audit records requested candidate changes, final effective values, source attribution, and whether each changed key is active. Runs abort before execution if a candidate touches an inactive key unless a developer explicitly bypasses the gate with `--allow-inactive-candidate-config` or `TMC_SIMULATION_AUDIT_BYPASS=1`.
+
+See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
+
 ## Project Structure
 
 ```

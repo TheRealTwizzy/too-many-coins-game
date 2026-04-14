@@ -13,8 +13,9 @@ $options = [
     'players-per-archetype' => 5,
     'output' => __DIR__ . '/../simulation_output/season',
     'season-config' => null,
-  'archetypes' => null,
-  'phase-stop' => null,
+    'archetypes' => null,
+    'phase-stop' => null,
+    'allow-inactive-candidate-config' => false,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -27,12 +28,17 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
     } elseif (str_starts_with($arg, '--archetypes=')) {
-      $options['archetypes'] = substr($arg, 13);
+        $options['archetypes'] = substr($arg, 13);
     } elseif (str_starts_with($arg, '--phase-stop=')) {
-      $options['phase-stop'] = substr($arg, 13);
+        $options['phase-stop'] = substr($arg, 13);
+    } elseif (str_starts_with($arg, '--allow-inactive-candidate-config=')) {
+        $value = strtolower(trim(substr($arg, 34)));
+        $options['allow-inactive-candidate-config'] = in_array($value, ['1', 'true', 'yes'], true);
+    } elseif ($arg === '--allow-inactive-candidate-config') {
+        $options['allow-inactive-candidate-config'] = true;
     } elseif ($arg === '--help') {
         $help = <<<'HELP'
-Simulation B — Single-Season Population Simulator
+Simulation B â€” Single-Season Population Simulator
 
 Usage:
   php scripts/simulate_economy.php [OPTIONS]
@@ -45,11 +51,15 @@ Options:
   --archetypes=A,B,C          Optional archetype key subset for focused harness runs
   --phase-stop=EARLY|MID|LATE_ACTIVE|BLACKOUT
                               Optional phase-limited stop for proxy harnesses
+  --allow-inactive-candidate-config
+                              Debug-only bypass for failed effective-config preflight
   --help                      Show this help
 
 Outputs:
   simulation_output/season/season_<seed>_ppa<N>.json    Season metrics payload
   simulation_output/season/season_<seed>_ppa<N>.csv     Per-archetype CSV
+  simulation_output/season/season_<seed>_ppa<N>.audit/effective_config.json
+  simulation_output/season/season_<seed>_ppa<N>.audit/effective_config_audit.md
 
 Export/import workflow:
   php tools/export-season-config.php --output=simulation_output/live_season.json
@@ -63,22 +73,35 @@ HELP;
     }
 }
 
-$payload = SimulationPopulationSeason::run(
-    (string)$options['seed'],
-    (int)$options['players-per-archetype'],
-  $options['season-config'] ? (string)$options['season-config'] : null,
-  [
-    'archetype_keys' => $options['archetypes'] !== null
-      ? array_values(array_filter(array_map('trim', explode(',', (string)$options['archetypes']))))
-      : [],
-    'phase_stop' => $options['phase-stop'] !== null ? (string)$options['phase-stop'] : null,
-  ]
-);
 $baseName = 'season_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string)$options['seed']) . '_ppa' . (int)$options['players-per-archetype'];
+
+try {
+    $payload = SimulationPopulationSeason::run(
+        (string)$options['seed'],
+        (int)$options['players-per-archetype'],
+        $options['season-config'] ? (string)$options['season-config'] : null,
+        [
+            'archetype_keys' => $options['archetypes'] !== null
+                ? array_values(array_filter(array_map('trim', explode(',', (string)$options['archetypes']))))
+                : [],
+            'phase_stop' => $options['phase-stop'] !== null ? (string)$options['phase-stop'] : null,
+            'run_label' => $baseName,
+            'preflight_artifact_dir' => rtrim((string)$options['output'], DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $baseName . '.audit',
+            'debug_allow_inactive_candidate' => (bool)$options['allow-inactive-candidate-config'],
+        ]
+    );
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Simulation B failed: ' . $e->getMessage() . PHP_EOL);
+    exit(2);
+}
+
 $jsonPath = MetricsCollector::writeJson($payload, (string)$options['output'], $baseName);
 $csvPath = MetricsCollector::writeSeasonCsv($payload, (string)$options['output'], $baseName);
 MetricsCollector::printSeasonSummary($payload);
 echo 'JSON: ' . $jsonPath . PHP_EOL;
 if ($csvPath !== null) {
     echo 'CSV: ' . $csvPath . PHP_EOL;
+}
+if (!empty($payload['config_audit']['artifact_paths']['effective_config_json'])) {
+    echo 'Effective Config: ' . (string)$payload['config_audit']['artifact_paths']['effective_config_json'] . PHP_EOL;
 }
