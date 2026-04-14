@@ -92,21 +92,25 @@ Fixed stage order:
 4. `full_single_season_validation`
 5. `multi_season_exploit_regression_validation`
 6. `patch_serialization_validation`
-7. `play_test_repo_compatibility_validation`
-8. `promotion_eligibility_marking`
+7. `play_test_runtime_parity_certification`
+8. `play_test_repo_compatibility_validation`
+9. `promotion_eligibility_marking`
 
 Rules:
 
 - stage order is mandatory in normal workflows
 - a failed required stage blocks later required stages
 - developer-only bypasses are explicit and always keep the candidate ineligible for patch-ready promotion
-- promotion eligibility is only marked after stages 1-7 all return `pass`
-- stage 7 now validates the shared simulator/play-test schema contract in `CanonicalEconomyConfigContract`
-- stage 7 writes both `play_test_repo_compatibility.json` and `play_test_repo_compatibility.md`
+- promotion eligibility is only marked after stages 1-8 all return `pass`
+- stage 7 certifies simulator/runtime mechanic parity across hoarding sink, boost, lock-in, expiry, star pricing, rejoin, and blackout/finalization domains
+- stage 7 writes both `runtime_parity_certification.json` and `runtime_parity_certification.md`
+- stage 8 validates the shared simulator/play-test schema contract in `CanonicalEconomyConfigContract`
+- stage 8 writes both `play_test_repo_compatibility.json` and `play_test_repo_compatibility.md`
 
 Reference:
 
 - [ECONOMY_CONFIG_COMPATIBILITY.md](ECONOMY_CONFIG_COMPATIBILITY.md)
+- [PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md](PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md)
 
 CLI:
 
@@ -163,7 +167,7 @@ Direct canonical-config input is also supported when you already have the verifi
 
 ```powershell
 php scripts/generate_promotion_patch.php `
-  --canonical-config=simulation_output/promotion/hoarding-safe-v1/07_play_test_repo_compatibility_validation/candidate_effective_season.json `
+  --canonical-config=simulation_output/promotion/hoarding-safe-v1/08_play_test_repo_compatibility_validation/candidate_effective_season.json `
   --base-season-config=simulation_output/current-db/export/current_season.json `
   --candidate-id=hoarding-safe-v1 `
   --output=simulation_output/promotion-bundles `

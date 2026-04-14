@@ -8,6 +8,7 @@ require_once __DIR__ . '/SimulationPopulationSeason.php';
 require_once __DIR__ . '/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/MetricsCollector.php';
 require_once __DIR__ . '/PolicySweepRunner.php';
+require_once __DIR__ . '/RuntimeParityCertification.php';
 require_once __DIR__ . '/../optimization/AgenticOptimization.php';
 
 class CandidatePromotionPipeline
@@ -24,8 +25,9 @@ class CandidatePromotionPipeline
         ['index' => 4, 'id' => 'full_single_season_validation', 'label' => 'full single-season validation'],
         ['index' => 5, 'id' => 'multi_season_exploit_regression_validation', 'label' => 'multi-season exploit/regression validation'],
         ['index' => 6, 'id' => 'patch_serialization_validation', 'label' => 'patch serialization validation'],
-        ['index' => 7, 'id' => 'play_test_repo_compatibility_validation', 'label' => 'play-test repo compatibility validation'],
-        ['index' => 8, 'id' => 'promotion_eligibility_marking', 'label' => 'promotion eligibility marking'],
+        ['index' => 7, 'id' => 'play_test_runtime_parity_certification', 'label' => 'play-test runtime parity certification'],
+        ['index' => 8, 'id' => 'play_test_repo_compatibility_validation', 'label' => 'play-test repo compatibility validation'],
+        ['index' => 9, 'id' => 'promotion_eligibility_marking', 'label' => 'promotion eligibility marking'],
     ];
 
     public static function run(array $options): array
@@ -80,7 +82,7 @@ class CandidatePromotionPipeline
         ];
 
         $pipelineBlocked = false;
-        foreach (array_slice(self::STAGES, 0, 7) as $stageDef) {
+        foreach (array_slice(self::STAGES, 0, 8) as $stageDef) {
             if ($pipelineBlocked) {
                 $state['stages'][] = self::blockedStage($stageDef, 'blocked by failed prior required stage');
                 continue;
@@ -141,6 +143,7 @@ class CandidatePromotionPipeline
                 'full_single_season_validation' => self::stageFullSingleSeasonValidation($context, $stageDir, $bypassRequested),
                 'multi_season_exploit_regression_validation' => self::stageMultiSeasonValidation($context, $stageDir, $bypassRequested),
                 'patch_serialization_validation' => self::stagePatchSerializationValidation($context, $stageDir),
+                'play_test_runtime_parity_certification' => self::stagePlayTestRuntimeParityCertification($context, $stageDir, $bypassRequested),
                 'play_test_repo_compatibility_validation' => self::stagePlayTestCompatibilityValidation($context, $stageDir, $bypassRequested),
                 default => throw new InvalidArgumentException('Unsupported promotion stage: ' . $stageId),
             };
@@ -184,14 +187,14 @@ class CandidatePromotionPipeline
 
     private static function runEligibilityStage(array $state): array
     {
-        $requiredStages = array_slice($state['stages'], 0, 7);
+        $requiredStages = array_slice($state['stages'], 0, 8);
         $nonPassing = array_values(array_filter($requiredStages, static function (array $stage): bool {
             return (string)$stage['status'] !== 'pass';
         }));
 
         if ($nonPassing === []) {
             return [
-                'index' => 8,
+                'index' => 9,
                 'id' => 'promotion_eligibility_marking',
                 'label' => 'promotion eligibility marking',
                 'required' => true,
@@ -218,7 +221,7 @@ class CandidatePromotionPipeline
         }, $nonPassing);
 
         return [
-            'index' => 8,
+            'index' => 9,
             'id' => 'promotion_eligibility_marking',
             'label' => 'promotion eligibility marking',
             'required' => true,
@@ -698,6 +701,49 @@ class CandidatePromotionPipeline
                 'serialized_change_count' => count($expected),
             ],
             'artifacts' => ['serialized_patch_json' => $jsonPath],
+        ];
+    }
+
+    private static function stagePlayTestRuntimeParityCertification(array &$context, string $stageDir, bool $bypassRequested): array
+    {
+        $result = RuntimeParityCertification::run([
+            'candidate_id' => $context['candidate_id'],
+            'seed' => $context['seed'] . '|promotion|runtime-parity',
+            'season' => $context['candidate_season'],
+            'output_dir' => $stageDir,
+        ]);
+
+        $report = (array)$result['report'];
+        $artifacts = (array)$result['artifact_paths'];
+        $status = (string)($report['certification_status'] ?? 'fail');
+
+        if ($status !== 'pass') {
+            return [
+                'status' => $bypassRequested ? 'bypassed' : 'fail',
+                'summary' => 'Play-test runtime parity certification detected material simulator/runtime drift.',
+                'warnings' => $bypassRequested
+                    ? ['Developer debug bypass applied to `play_test_runtime_parity_certification`; parity drift was retained for diagnostics only.']
+                    : [],
+                'details' => [
+                    'certification_status' => $status,
+                    'material_drift_count' => (int)($report['material_drift_count'] ?? 0),
+                    'tolerated_difference_count' => (int)($report['tolerated_difference_count'] ?? 0),
+                    'required_domain_ids' => (array)($report['required_domain_ids'] ?? []),
+                ],
+                'artifacts' => $artifacts,
+            ];
+        }
+
+        return [
+            'status' => 'pass',
+            'summary' => 'Play-test runtime parity certification passed for every promotion-critical mechanic domain.',
+            'details' => [
+                'certification_status' => $status,
+                'material_drift_count' => (int)($report['material_drift_count'] ?? 0),
+                'tolerated_difference_count' => (int)($report['tolerated_difference_count'] ?? 0),
+                'required_domain_ids' => (array)($report['required_domain_ids'] ?? []),
+            ],
+            'artifacts' => $artifacts,
         ];
     }
 

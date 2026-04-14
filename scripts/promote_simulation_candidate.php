@@ -57,8 +57,9 @@ Stages:
   4. full_single_season_validation
   5. multi_season_exploit_regression_validation
   6. patch_serialization_validation
-  7. play_test_repo_compatibility_validation
-  8. promotion_eligibility_marking
+  7. play_test_runtime_parity_certification
+  8. play_test_repo_compatibility_validation
+  9. promotion_eligibility_marking
 HELP;
         exit(0);
     }

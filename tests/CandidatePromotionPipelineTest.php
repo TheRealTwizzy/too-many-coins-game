@@ -41,12 +41,16 @@ class CandidatePromotionPipelineTest extends TestCase
         $this->assertTrue((bool)$state['patch_ready']);
         $this->assertTrue((bool)$state['promotion_eligible']);
         $this->assertFalse((bool)$state['debug_bypass_used']);
-        $this->assertCount(8, (array)$state['stages']);
+        $this->assertCount(9, (array)$state['stages']);
         foreach ((array)$state['stages'] as $stage) {
             $this->assertSame('pass', (string)$stage['status'], 'Stage did not pass: ' . (string)$stage['id']);
         }
 
-        $compatStage = (array)$state['stages'][6];
+        $parityStage = (array)$state['stages'][6];
+        $this->assertFileExists((string)$parityStage['artifacts']['runtime_parity_certification_json']);
+        $this->assertFileExists((string)$parityStage['artifacts']['runtime_parity_certification_md']);
+
+        $compatStage = (array)$state['stages'][7];
         $this->assertFileExists((string)$compatStage['artifacts']['play_test_repo_compatibility_json']);
         $this->assertFileExists((string)$compatStage['artifacts']['play_test_repo_compatibility_md']);
 
@@ -74,8 +78,8 @@ class CandidatePromotionPipelineTest extends TestCase
         $this->assertFalse((bool)$state['promotion_eligible']);
         $this->assertSame('fail', (string)$state['stages'][0]['status']);
         $this->assertSame('blocked', (string)$state['stages'][1]['status']);
-        $this->assertSame('blocked', (string)$state['stages'][6]['status']);
-        $this->assertSame('fail', (string)$state['stages'][7]['status']);
+        $this->assertSame('blocked', (string)$state['stages'][7]['status']);
+        $this->assertSame('fail', (string)$state['stages'][8]['status']);
     }
 
     public function testDebugBypassAllowsDiagnosticContinuationButNeverMarksPatchReady(): void
@@ -103,7 +107,7 @@ class CandidatePromotionPipelineTest extends TestCase
         $this->assertSame('bypassed', (string)$state['stages'][0]['status']);
         $this->assertSame('bypassed', (string)$state['stages'][1]['status']);
         $this->assertSame('pass', (string)$state['stages'][2]['status']);
-        $this->assertSame('fail', (string)$state['stages'][7]['status']);
+        $this->assertSame('fail', (string)$state['stages'][8]['status']);
     }
 
     private function deleteDir(string $path): void

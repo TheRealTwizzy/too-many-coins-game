@@ -89,6 +89,7 @@ Every generated candidate and scenario now carries `stage` plus `lineage` metada
 
 See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
 The shared simulator/play-test economy contract is documented in [ECONOMY_CONFIG_COMPATIBILITY.md](ECONOMY_CONFIG_COMPATIBILITY.md).
+Promotion-critical simulator/runtime mechanic certification is documented in [PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md](PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md).
 Promotion-eligible candidates can be converted into a staged play-test repo patch bundle with `php scripts/generate_promotion_patch.php --promotion-report=... --dry-run`.
 
 ## Project Structure

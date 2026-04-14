@@ -1,0 +1,880 @@
+{
+    "schema_version": "tmc-runtime-parity-certification.v1",
+    "generated_at": "2026-04-14T16:22:23+00:00",
+    "candidate_id": "smoke",
+    "seed": "runtime-parity-20260414-162223",
+    "season_surface_sha256": "ac8b66202b706eef1d572b9abe23bb72fa6b15f7b4c67934b9276eec5fbdb942",
+    "certification_status": "pass",
+    "certified": true,
+    "required_domain_ids": [
+        "hoarding_sink_behavior",
+        "boost_behavior",
+        "lock_in_timing",
+        "expiry_timing",
+        "star_pricing_affordability",
+        "rejoin_participation_effects",
+        "blackout_finalization_interactions"
+    ],
+    "material_drift_count": 0,
+    "tolerated_difference_count": 0,
+    "tolerated_differences": [
+        "Transport-only side effects are intentionally ignored: notification rows, SQL timestamps, auto-increment ids, and API envelope formatting do not affect parity certification.",
+        "Boost certification covers deterministic purchase, accrual, and expiry semantics; it does not certify client countdown rendering or HTTP/session transport."
+    ],
+    "domains": [
+        {
+            "domain_id": "hoarding_sink_behavior",
+            "label": "Hoarding Sink Behavior",
+            "status": "pass",
+            "fixture_count": 2,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [],
+            "fixtures": [
+                {
+                    "fixture_id": "hoarding-early-active-pressure",
+                    "label": "Early active sink pressure",
+                    "status": "pass",
+                    "description": "High-balance active player in EARLY phase should accrue with identical sink pressure.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "gross_rate_fp": 30000000,
+                        "sink_per_tick": 1,
+                        "net_rate_fp": 29000000,
+                        "coins_after": 300087,
+                        "carry_after": 250000,
+                        "hoarding_sink_total": 3
+                    },
+                    "runtime_output": {
+                        "gross_rate_fp": 30000000,
+                        "sink_per_tick": 1,
+                        "net_rate_fp": 29000000,
+                        "coins_after": 300087,
+                        "carry_after": 250000,
+                        "hoarding_sink_total": 3
+                    },
+                    "metrics": [
+                        {
+                            "path": "gross_rate_fp",
+                            "tolerance": 0,
+                            "simulator": 30000000,
+                            "runtime": 30000000,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "sink_per_tick",
+                            "tolerance": 0,
+                            "simulator": 1,
+                            "runtime": 1,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "net_rate_fp",
+                            "tolerance": 0,
+                            "simulator": 29000000,
+                            "runtime": 29000000,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 300087,
+                            "runtime": 300087,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "carry_after",
+                            "tolerance": 0,
+                            "simulator": 250000,
+                            "runtime": 250000,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "hoarding_sink_total",
+                            "tolerance": 0,
+                            "simulator": 3,
+                            "runtime": 3,
+                            "status": "pass"
+                        }
+                    ]
+                },
+                {
+                    "fixture_id": "hoarding-late-active-suppressed",
+                    "label": "Late-active sink suppression",
+                    "status": "pass",
+                    "description": "Hoarding sink must suppress during the late active lock-in window.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "gross_rate_fp": 30000000,
+                        "sink_per_tick": 0,
+                        "net_rate_fp": 30000000,
+                        "coins_after": 300060,
+                        "carry_after": 0,
+                        "hoarding_sink_total": 0
+                    },
+                    "runtime_output": {
+                        "gross_rate_fp": 30000000,
+                        "sink_per_tick": 0,
+                        "net_rate_fp": 30000000,
+                        "coins_after": 300060,
+                        "carry_after": 0,
+                        "hoarding_sink_total": 0
+                    },
+                    "metrics": [
+                        {
+                            "path": "gross_rate_fp",
+                            "tolerance": 0,
+                            "simulator": 30000000,
+                            "runtime": 30000000,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "sink_per_tick",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "net_rate_fp",
+                            "tolerance": 0,
+                            "simulator": 30000000,
+                            "runtime": 30000000,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 300060,
+                            "runtime": 300060,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "carry_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "hoarding_sink_total",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain_id": "boost_behavior",
+            "label": "Boost Behavior",
+            "status": "pass",
+            "fixture_count": 2,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [],
+            "fixtures": [
+                {
+                    "fixture_id": "boost-tier3-expiry-window",
+                    "label": "Tier III boost expiry window",
+                    "status": "pass",
+                    "description": "Tier III boost should apply through its expiry tick and stop immediately after.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "modifier_fp": 0,
+                        "expires_tick": 0,
+                        "applied_at_first_tick": true,
+                        "applied_at_expiry_tick": true,
+                        "applied_after_expiry": false,
+                        "ticks_boosted": 2
+                    },
+                    "runtime_output": {
+                        "modifier_fp": 0,
+                        "expires_tick": 0,
+                        "applied_at_first_tick": true,
+                        "applied_at_expiry_tick": true,
+                        "applied_after_expiry": false,
+                        "ticks_boosted": 2
+                    },
+                    "metrics": [
+                        {
+                            "path": "modifier_fp",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "expires_tick",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "applied_at_first_tick",
+                            "tolerance": 0,
+                            "simulator": true,
+                            "runtime": true,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "applied_at_expiry_tick",
+                            "tolerance": 0,
+                            "simulator": true,
+                            "runtime": true,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "applied_after_expiry",
+                            "tolerance": 0,
+                            "simulator": false,
+                            "runtime": false,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "ticks_boosted",
+                            "tolerance": 0,
+                            "simulator": 2,
+                            "runtime": 2,
+                            "status": "pass"
+                        }
+                    ]
+                },
+                {
+                    "fixture_id": "boost-time-extension-flat",
+                    "label": "Flat time extension",
+                    "status": "pass",
+                    "description": "Adding time to an active boost should extend expiry by the catalog-listed amount only.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "modifier_fp": 100000,
+                        "expires_tick": 850,
+                        "applied_at_first_tick": true,
+                        "applied_at_expiry_tick": false,
+                        "applied_after_expiry": false,
+                        "ticks_boosted": 1
+                    },
+                    "runtime_output": {
+                        "modifier_fp": 100000,
+                        "expires_tick": 850,
+                        "applied_at_first_tick": true,
+                        "applied_at_expiry_tick": false,
+                        "applied_after_expiry": false,
+                        "ticks_boosted": 1
+                    },
+                    "metrics": [
+                        {
+                            "path": "modifier_fp",
+                            "tolerance": 0,
+                            "simulator": 100000,
+                            "runtime": 100000,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "expires_tick",
+                            "tolerance": 0,
+                            "simulator": 850,
+                            "runtime": 850,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "applied_at_first_tick",
+                            "tolerance": 0,
+                            "simulator": true,
+                            "runtime": true,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain_id": "lock_in_timing",
+            "label": "Lock-In Timing",
+            "status": "pass",
+            "fixture_count": 2,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [],
+            "fixtures": [
+                {
+                    "fixture_id": "lock-in-below-season-threshold",
+                    "label": "Below threshold blocked",
+                    "status": "pass",
+                    "description": "Lock-in must fail one tick below the cumulative seasonal threshold.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "success": false,
+                        "lock_in_effect_tick": null,
+                        "lock_in_snapshot_seasonal_stars": null,
+                        "global_stars_earned": 0,
+                        "joined_season_id_after": 1,
+                        "participation_enabled_after": 1,
+                        "seasonal_stars_after": 120,
+                        "coins_after": 0,
+                        "changed": false
+                    },
+                    "runtime_output": {
+                        "success": false,
+                        "lock_in_effect_tick": null,
+                        "lock_in_snapshot_seasonal_stars": null,
+                        "global_stars_earned": 0,
+                        "joined_season_id_after": 1,
+                        "participation_enabled_after": 1,
+                        "seasonal_stars_after": 120,
+                        "coins_after": 0,
+                        "changed": false
+                    },
+                    "metrics": [
+                        {
+                            "path": "success",
+                            "tolerance": 0,
+                            "simulator": false,
+                            "runtime": false,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "joined_season_id_after",
+                            "tolerance": 0,
+                            "simulator": 1,
+                            "runtime": 1,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "participation_enabled_after",
+                            "tolerance": 0,
+                            "simulator": 1,
+                            "runtime": 1,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "seasonal_stars_after",
+                            "tolerance": 0,
+                            "simulator": 120,
+                            "runtime": 120,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        }
+                    ]
+                },
+                {
+                    "fixture_id": "lock-in-blackout-at-threshold",
+                    "label": "Blackout threshold success",
+                    "status": "pass",
+                    "description": "Lock-in must remain available during blackout when the seasonal threshold is met.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "success": true,
+                        "lock_in_effect_tick": 1200,
+                        "lock_in_snapshot_seasonal_stars": 480,
+                        "global_stars_earned": 312,
+                        "joined_season_id_after": null,
+                        "participation_enabled_after": 0,
+                        "seasonal_stars_after": 0,
+                        "coins_after": 0,
+                        "changed": true
+                    },
+                    "runtime_output": {
+                        "success": true,
+                        "lock_in_effect_tick": 1200,
+                        "lock_in_snapshot_seasonal_stars": 480,
+                        "global_stars_earned": 312,
+                        "joined_season_id_after": null,
+                        "participation_enabled_after": 0,
+                        "seasonal_stars_after": 0,
+                        "coins_after": 0,
+                        "changed": true
+                    },
+                    "metrics": [
+                        {
+                            "path": "success",
+                            "tolerance": 0,
+                            "simulator": true,
+                            "runtime": true,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "lock_in_effect_tick",
+                            "tolerance": 0,
+                            "simulator": 1200,
+                            "runtime": 1200,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "lock_in_snapshot_seasonal_stars",
+                            "tolerance": 0,
+                            "simulator": 480,
+                            "runtime": 480,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "global_stars_earned",
+                            "tolerance": 0,
+                            "simulator": 312,
+                            "runtime": 312,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "joined_season_id_after",
+                            "tolerance": 0,
+                            "simulator": null,
+                            "runtime": null,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "participation_enabled_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain_id": "expiry_timing",
+            "label": "Expiry Timing",
+            "status": "pass",
+            "fixture_count": 1,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [],
+            "fixtures": [
+                {
+                    "fixture_id": "natural-expiry-ranked-payout",
+                    "label": "Ranked natural expiry payout",
+                    "status": "pass",
+                    "description": "Natural expiry must settle with identical participation and placement bonuses.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "end_membership": 1,
+                        "final_seasonal_stars": 200,
+                        "global_stars_earned": 316,
+                        "participation_bonus": 56,
+                        "placement_bonus": 60,
+                        "seasonal_stars_after": 0,
+                        "coins_after": 0,
+                        "joined_season_id_after": null,
+                        "participation_enabled_after": 0
+                    },
+                    "runtime_output": {
+                        "end_membership": 1,
+                        "final_seasonal_stars": 200,
+                        "global_stars_earned": 316,
+                        "participation_bonus": 56,
+                        "placement_bonus": 60,
+                        "seasonal_stars_after": 0,
+                        "coins_after": 0,
+                        "joined_season_id_after": null,
+                        "participation_enabled_after": 0
+                    },
+                    "metrics": [
+                        {
+                            "path": "end_membership",
+                            "tolerance": 0,
+                            "simulator": 1,
+                            "runtime": 1,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "final_seasonal_stars",
+                            "tolerance": 0,
+                            "simulator": 200,
+                            "runtime": 200,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "global_stars_earned",
+                            "tolerance": 0,
+                            "simulator": 316,
+                            "runtime": 316,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "participation_bonus",
+                            "tolerance": 0,
+                            "simulator": 56,
+                            "runtime": 56,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "placement_bonus",
+                            "tolerance": 0,
+                            "simulator": 60,
+                            "runtime": 60,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "seasonal_stars_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "joined_season_id_after",
+                            "tolerance": 0,
+                            "simulator": null,
+                            "runtime": null,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "participation_enabled_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain_id": "star_pricing_affordability",
+            "label": "Star Pricing / Affordability",
+            "status": "pass",
+            "fixture_count": 2,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [],
+            "fixtures": [
+                {
+                    "fixture_id": "star-pricing-active-affordable",
+                    "label": "Active-price purchase",
+                    "status": "pass",
+                    "description": "Simulator and runtime must use the same live price and affordability outcome.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "computed_star_price": 181,
+                        "published_star_price": 181,
+                        "coins_after": 957,
+                        "seasonal_stars_after": 3,
+                        "spend_window_total": 543,
+                        "affordable": true
+                    },
+                    "runtime_output": {
+                        "computed_star_price": 181,
+                        "published_star_price": 181,
+                        "coins_after": 957,
+                        "seasonal_stars_after": 3,
+                        "spend_window_total": 543,
+                        "affordable": true
+                    },
+                    "metrics": [
+                        {
+                            "path": "computed_star_price",
+                            "tolerance": 0,
+                            "simulator": 181,
+                            "runtime": 181,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "published_star_price",
+                            "tolerance": 0,
+                            "simulator": 181,
+                            "runtime": 181,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 957,
+                            "runtime": 957,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "seasonal_stars_after",
+                            "tolerance": 0,
+                            "simulator": 3,
+                            "runtime": 3,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "spend_window_total",
+                            "tolerance": 0,
+                            "simulator": 543,
+                            "runtime": 543,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "affordable",
+                            "tolerance": 0,
+                            "simulator": true,
+                            "runtime": true,
+                            "status": "pass"
+                        }
+                    ]
+                },
+                {
+                    "fixture_id": "star-pricing-blackout-snapshot",
+                    "label": "Blackout snapshot purchase",
+                    "status": "pass",
+                    "description": "Blackout purchases must use the frozen snapshot price on both sides.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "computed_star_price": 406,
+                        "published_star_price": 275,
+                        "coins_after": 150,
+                        "seasonal_stars_after": 2,
+                        "spend_window_total": 550,
+                        "affordable": true
+                    },
+                    "runtime_output": {
+                        "computed_star_price": 406,
+                        "published_star_price": 275,
+                        "coins_after": 150,
+                        "seasonal_stars_after": 2,
+                        "spend_window_total": 550,
+                        "affordable": true
+                    },
+                    "metrics": [
+                        {
+                            "path": "computed_star_price",
+                            "tolerance": 0,
+                            "simulator": 406,
+                            "runtime": 406,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "published_star_price",
+                            "tolerance": 0,
+                            "simulator": 275,
+                            "runtime": 275,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 150,
+                            "runtime": 150,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "seasonal_stars_after",
+                            "tolerance": 0,
+                            "simulator": 2,
+                            "runtime": 2,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "spend_window_total",
+                            "tolerance": 0,
+                            "simulator": 550,
+                            "runtime": 550,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "affordable",
+                            "tolerance": 0,
+                            "simulator": true,
+                            "runtime": true,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain_id": "rejoin_participation_effects",
+            "label": "Rejoin Participation Effects",
+            "status": "pass",
+            "fixture_count": 1,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [
+                "Certification compares run-affecting rejoin fields only; exact `first_joined_at` formatting and other transport metadata are out of scope."
+            ],
+            "fixtures": [
+                {
+                    "fixture_id": "rejoin-fresh-start-reset",
+                    "label": "Fresh-start reset",
+                    "status": "pass",
+                    "description": "Rejoining should clear current-run state while preserving cumulative participation.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "coins_after": 0,
+                        "seasonal_stars_after": 0,
+                        "participation_ticks_since_join_after": 0,
+                        "active_ticks_total_after": 0,
+                        "total_season_participation_ticks_after": 42,
+                        "lock_in_effect_tick_after": null,
+                        "idle_since_tick_after": null,
+                        "joined_season_id_after": 1,
+                        "effective_total_lock_in_ticks": 42
+                    },
+                    "runtime_output": {
+                        "coins_after": 0,
+                        "seasonal_stars_after": 0,
+                        "participation_ticks_since_join_after": 0,
+                        "active_ticks_total_after": 0,
+                        "total_season_participation_ticks_after": 42,
+                        "lock_in_effect_tick_after": null,
+                        "idle_since_tick_after": null,
+                        "joined_season_id_after": 1,
+                        "effective_total_lock_in_ticks": 42
+                    },
+                    "metrics": [
+                        {
+                            "path": "coins_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "seasonal_stars_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "participation_ticks_since_join_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "active_ticks_total_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "total_season_participation_ticks_after",
+                            "tolerance": 0,
+                            "simulator": 42,
+                            "runtime": 42,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "lock_in_effect_tick_after",
+                            "tolerance": 0,
+                            "simulator": null,
+                            "runtime": null,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "idle_since_tick_after",
+                            "tolerance": 0,
+                            "simulator": null,
+                            "runtime": null,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "joined_season_id_after",
+                            "tolerance": 0,
+                            "simulator": 1,
+                            "runtime": 1,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "effective_total_lock_in_ticks",
+                            "tolerance": 0,
+                            "simulator": 42,
+                            "runtime": 42,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "domain_id": "blackout_finalization_interactions",
+            "label": "Blackout / Finalization Interactions",
+            "status": "pass",
+            "fixture_count": 1,
+            "material_drift_count": 0,
+            "tolerated_difference_count": 0,
+            "tolerated_differences": [],
+            "fixtures": [
+                {
+                    "fixture_id": "blackout-settlement-then-finalize",
+                    "label": "Blackout settlement then finalize",
+                    "status": "pass",
+                    "description": "Blackout must zero accrual, use snapshot pricing, and finalization must detach the player.",
+                    "tolerated_differences": [],
+                    "simulator_output": {
+                        "blackout_gross_rate_fp": 0,
+                        "blackout_net_rate_fp": 0,
+                        "published_blackout_price": 333,
+                        "joined_season_id_after": null,
+                        "participation_enabled_after": 0,
+                        "seasonal_stars_after": 0
+                    },
+                    "runtime_output": {
+                        "blackout_gross_rate_fp": 0,
+                        "blackout_net_rate_fp": 0,
+                        "published_blackout_price": 333,
+                        "joined_season_id_after": null,
+                        "participation_enabled_after": 0,
+                        "seasonal_stars_after": 0
+                    },
+                    "metrics": [
+                        {
+                            "path": "blackout_gross_rate_fp",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "blackout_net_rate_fp",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "published_blackout_price",
+                            "tolerance": 0,
+                            "simulator": 333,
+                            "runtime": 333,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "joined_season_id_after",
+                            "tolerance": 0,
+                            "simulator": null,
+                            "runtime": null,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "participation_enabled_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        },
+                        {
+                            "path": "seasonal_stars_after",
+                            "tolerance": 0,
+                            "simulator": 0,
+                            "runtime": 0,
+                            "status": "pass"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
