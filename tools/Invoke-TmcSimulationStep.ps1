@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('export', 'sim-b', 'sim-c', 'sim-d', 'sim-e', 'agentic-opt', 'fresh-bootstrap', 'fresh-teardown', 'fresh-status')]
+    [ValidateSet('export', 'sim-harness', 'sim-b', 'sim-c', 'sim-d', 'sim-e', 'agentic-opt', 'fresh-bootstrap', 'fresh-teardown', 'fresh-status')]
     [string]$Step,
 
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'local/tmc-sim.current.ps1'),
@@ -8,6 +8,8 @@ param(
     [int]$PlayersPerArchetype = 5,
     [int]$Seasons = 12,
     [string]$Scenarios = 'hoarder-pressure-v1',
+    [string]$Families = '',
+    [string]$CandidatePatchPath = '',
     [switch]$DropFirst
 )
 
@@ -121,9 +123,10 @@ $lifetimeDir = Join-Path $outputRoot 'lifetime'
 $sweepDir = Join-Path $outputRoot 'sweep'
 $sweepRunsDir = Join-Path $sweepDir 'runs'
 $comparatorDir = Join-Path $outputRoot 'comparator'
+$harnessDir = Join-Path $outputRoot 'coupling-harnesses'
 $agenticDir = Join-Path $outputRoot 'agentic-optimization'
 
-$null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $sweepRunsDir, $comparatorDir, $agenticDir
+$null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $sweepRunsDir, $comparatorDir, $harnessDir, $agenticDir
 
 $exportPath = Join-Path $exportDir 'current_season.json'
 $manifestPath = Join-Path $sweepDir ("policy_sweep_{0}_ppa{1}_s{2}.json" -f $Seed, $PlayersPerArchetype, $Seasons)
@@ -156,6 +159,23 @@ try {
                 "--season-config=$exportPath",
                 "--output=$seasonDir"
             )
+        }
+        'sim-harness' {
+            Assert-PathExists -Path $exportPath -Message "Expected export file not found: $exportPath. Run export first."
+            Write-Host "Running coupling harness suite with export $exportPath"
+            $phpArgs = @(
+                (Join-Path $PSScriptRoot '..\scripts\simulate_coupling_harnesses.php'),
+                "--seed=$Seed",
+                "--season-config=$exportPath",
+                "--output=$harnessDir"
+            )
+            if (-not [string]::IsNullOrWhiteSpace($Families)) {
+                $phpArgs += "--families=$Families"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($CandidatePatchPath)) {
+                $phpArgs += "--candidate-patch=$CandidatePatchPath"
+            }
+            Invoke-PhpScript -Arguments $phpArgs
         }
         'sim-c' {
             Assert-PathExists -Path $exportPath -Message "Expected export file not found: $exportPath. Run export first."

@@ -21,7 +21,7 @@ Agentic Hierarchical Economy Optimizer
 
 Refactors tuning away from monolithic full-suite brute force into a staged
 subsystem-first search with promotion gates:
-- Tier 1: cheap local harness screening
+- Tier 1: cheap local harness screening + known coupling-family gates
 - Tier 2: cross-subsystem integration validation
 - Tier 3: full-lifecycle acceptance validation
 

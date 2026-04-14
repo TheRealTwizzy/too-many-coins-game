@@ -2,6 +2,8 @@
 
 Five simulators. Run them in order to go from contract verification to a production rebalancing candidate.
 
+The coupling harness suite is an additional early gate that runs between contracts and the broader B/C/D/E promotion ladder.
+
 ---
 
 ## Quick reference
@@ -116,6 +118,37 @@ php scripts/simulate_contracts.php [--seed=VALUE] [--output=DIR]
 ```
 php scripts/simulate_contracts.php --seed=verify-20260408
 ```
+
+---
+
+## Coupling Harness Gate
+
+Run this after contracts and before broader economy promotion. It targets the known structural coupling walls with reduced-cost profiles.
+
+```
+php scripts/simulate_coupling_harnesses.php [--seed=VALUE] [--season-config=FILE] [--candidate-patch=FILE] [--families=A,B]
+```
+
+**Key outputs**
+- `simulation_output/coupling-harnesses/<seed>/coupling_harness_report.json`
+- `simulation_output/coupling-harnesses/<seed>/coupling_harness_report.md`
+
+**Family ids**
+- `lock_in_down_but_expiry_dominance_up`
+- `skip_rejoin_exploit_worsened`
+- `hoarding_pressure_imbalance`
+- `boost_underperformance`
+- `star_affordability_pricing_instability`
+
+**Example**
+```powershell
+php scripts/simulate_coupling_harnesses.php `
+  --seed=harness-verify `
+  --season-config=simulation_output/current-db/export/current_season.json `
+  --candidate-patch=tmp/candidate_patch.json
+```
+
+See [SIMULATION_COUPLING_HARNESSES.md](SIMULATION_COUPLING_HARNESSES.md) for thresholds, what each harness proves, and what it cannot prove.
 
 ---
 
@@ -274,7 +307,13 @@ php scripts/compare_simulation_results.php `
 # 1. Verify contracts
 php scripts/simulate_contracts.php --seed=pre-run
 
-# 2. Run sweep (all scenarios, both simulators)
+# 2. Run coupling harnesses against the candidate patch
+php scripts/simulate_coupling_harnesses.php `
+  --seed=pre-run-harness `
+  --season-config=simulation_output/current-db/export/current_season.json `
+  --candidate-patch=tmp/candidate_patch.json
+
+# 3. Run sweep (all scenarios, both simulators)
 $env:TMC_TICK_REAL_SECONDS=3600
 php scripts/simulate_policy_sweep.php `
   --seed=sweep-v1 --players-per-archetype=5 --seasons=12 `
@@ -283,12 +322,12 @@ php scripts/simulate_policy_sweep.php `
   --include-baseline=1
 Remove-Item Env:TMC_TICK_REAL_SECONDS
 
-# 3. Compare
+# 4. Compare
 php scripts/compare_simulation_results.php `
   --seed=sweep-v1 `
   --sweep-manifest=simulation_output/sweep/policy_sweep_sweep-v1_ppa5_s12.json
 
-# 4. Review output
+# 5. Review output
 #    simulation_output/comparator/comparison_sweep-v1.json
 #    — scenarios with disposition "candidate for production tuning" are eligible for
 #      promotion to an actual balance change
@@ -301,6 +340,7 @@ php scripts/compare_simulation_results.php `
 Use this when broad monolithic package sweeps are not converging. It runs a staged subsystem-first search:
 
 - Tier 1: cheap local subsystem harness screening
+- Tier 1a: explicit coupling-family harness gates for known structural walls
 - Tier 2: cross-subsystem integration validation
 - Tier 3: full-lifecycle acceptance validation on promoted candidates only
 

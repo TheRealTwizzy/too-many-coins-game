@@ -1,0 +1,195 @@
+{
+    "schema_version": "tmc-coupling-harness-report.v1",
+    "generated_at": "2026-04-14T14:27:53+00:00",
+    "seed": "smoke-harness",
+    "status": "pass",
+    "selected_family_ids": [
+        "star_affordability_pricing_instability"
+    ],
+    "failed_family_ids": [],
+    "baseline_provenance": {
+        "source": "season-config-file",
+        "resolved_at": "2026-04-14T14:19:24+00:00",
+        "path": "simulation_output\\current-db\\export\\current_season.json",
+        "surface_sha256": "36a98b2e6ba5a4f8ff0ef74e68296fd1dd7d04db7b9f1158c7cfe7f006d05f39",
+        "db_errors": [
+            "Database connection failed: SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it"
+        ]
+    },
+    "candidate_patch": {
+        "source": null,
+        "raw": [],
+        "normalized_season_values": []
+    },
+    "families": [
+        {
+            "family_id": "star_affordability_pricing_instability",
+            "label": "Star affordability and pricing instability",
+            "profile_id": "coupling_star_pricing",
+            "description": "Detects candidates that make early star access worse or create unstable pricing behavior even in a reduced star-market slice.",
+            "status": "pass",
+            "metric_results": [
+                {
+                    "metric": "star_purchase_density",
+                    "label": "Star purchase density must not fall.",
+                    "direction": "up",
+                    "baseline": 158700.33333333334,
+                    "candidate": 158700.33333333334,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "star_purchase_density held by 0; goal-facing improvement=0 (need >= 0)."
+                },
+                {
+                    "metric": "first_choice_viability",
+                    "label": "Early star access must not fall.",
+                    "direction": "up",
+                    "baseline": 1,
+                    "candidate": 1,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "first_choice_viability held by 0; goal-facing improvement=0 (need >= 0)."
+                },
+                {
+                    "metric": "star_price_cap_share",
+                    "label": "Time at price cap must not rise.",
+                    "direction": "down",
+                    "baseline": 0,
+                    "candidate": 0,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "star_price_cap_share held by 0; goal-facing improvement=0 (need >= 0)."
+                },
+                {
+                    "metric": "star_price_range_ratio",
+                    "label": "Price range volatility must not rise.",
+                    "direction": "down",
+                    "baseline": 0.33710093198492963,
+                    "candidate": 0.33710093198492963,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "star_price_range_ratio held by 0; goal-facing improvement=0 (need >= 0)."
+                }
+            ],
+            "failed_metrics": [],
+            "blocking_flags": [],
+            "regression_flags": [],
+            "proves": "The focused star-market slice did not show weaker affordability or more unstable price movement.",
+            "cannot_prove": "Does not prove production star-price behavior under the full player mix or full-duration seasons.",
+            "profile": {
+                "tier": "tier1",
+                "simulators": [
+                    "B"
+                ],
+                "players_per_archetype": 1,
+                "season_count": 1,
+                "season_duration_ticks": 720,
+                "blackout_duration_ticks": 180,
+                "estimated_work_units": 2160,
+                "estimated_cost_ratio_vs_tier3_full": 6.3e-5,
+                "estimated_speedup_vs_tier3_full": 16000
+            },
+            "baseline": {
+                "runtime_secs": 509.414,
+                "cache_hit": false,
+                "metrics": {
+                    "onboarding_liquidity": 9903238,
+                    "first_choice_viability": 1,
+                    "star_purchase_density": 158700.33333333334,
+                    "boost_roi": 19.544463743414376,
+                    "boost_mid_late_share": 0.4326035369719225,
+                    "sigil_counterplay_density": 13503.666666666666,
+                    "t6_theft_share": 0,
+                    "dead_mechanic_penalty": 0,
+                    "hoarder_advantage_gap": -174115,
+                    "boost_focused_gap": -174115,
+                    "lock_in_timing_entropy": 0,
+                    "lock_in_total": 0,
+                    "expiry_rate_mean": 1,
+                    "blackout_action_density": 2.3333333333333335,
+                    "archetype_viability_min_ratio": 0.5917238606668007,
+                    "strategic_diversity": 0.5286858417284573,
+                    "dominant_strategy_pressure": 0.41833991298489515,
+                    "concentration_top10_share": 0,
+                    "concentration_top1_share": 0,
+                    "ranking_churn_proxy": 0.9681092827208813,
+                    "repeat_season_viability": 0,
+                    "lifecycle_coherence": 0,
+                    "skip_strategy_edge": 0,
+                    "throughput_lock_in_rate": 0,
+                    "star_price_cap_share": 0,
+                    "star_price_floor_share": 0,
+                    "star_price_range_ratio": 0.33710093198492963,
+                    "star_price_mean": 100.86,
+                    "dominant_archetype_label_b": "Star-Focused",
+                    "dominant_archetype_label_c": "none"
+                },
+                "season_paths": [
+                    "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\smoke-harness\\tier1\\runs\\season_smoke-harness-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.json"
+                ],
+                "lifetime_paths": [],
+                "season_audit_paths": [
+                    {
+                        "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\smoke-harness\\tier1\\runs\\season_smoke-harness-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config.json",
+                        "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\smoke-harness\\tier1\\runs\\season_smoke-harness-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config_audit.md"
+                    }
+                ],
+                "lifetime_audit_paths": []
+            },
+            "candidate": {
+                "runtime_secs": 509.414,
+                "cache_hit": true,
+                "metrics": {
+                    "onboarding_liquidity": 9903238,
+                    "first_choice_viability": 1,
+                    "star_purchase_density": 158700.33333333334,
+                    "boost_roi": 19.544463743414376,
+                    "boost_mid_late_share": 0.4326035369719225,
+                    "sigil_counterplay_density": 13503.666666666666,
+                    "t6_theft_share": 0,
+                    "dead_mechanic_penalty": 0,
+                    "hoarder_advantage_gap": -174115,
+                    "boost_focused_gap": -174115,
+                    "lock_in_timing_entropy": 0,
+                    "lock_in_total": 0,
+                    "expiry_rate_mean": 1,
+                    "blackout_action_density": 2.3333333333333335,
+                    "archetype_viability_min_ratio": 0.5917238606668007,
+                    "strategic_diversity": 0.5286858417284573,
+                    "dominant_strategy_pressure": 0.41833991298489515,
+                    "concentration_top10_share": 0,
+                    "concentration_top1_share": 0,
+                    "ranking_churn_proxy": 0.9681092827208813,
+                    "repeat_season_viability": 0,
+                    "lifecycle_coherence": 0,
+                    "skip_strategy_edge": 0,
+                    "throughput_lock_in_rate": 0,
+                    "star_price_cap_share": 0,
+                    "star_price_floor_share": 0,
+                    "star_price_range_ratio": 0.33710093198492963,
+                    "star_price_mean": 100.86,
+                    "dominant_archetype_label_b": "Star-Focused",
+                    "dominant_archetype_label_c": "none"
+                },
+                "season_paths": [
+                    "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\smoke-harness\\tier1\\runs\\season_smoke-harness-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.json"
+                ],
+                "lifetime_paths": [],
+                "season_audit_paths": [
+                    {
+                        "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\smoke-harness\\tier1\\runs\\season_smoke-harness-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config.json",
+                        "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\smoke-harness\\tier1\\runs\\season_smoke-harness-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config_audit.md"
+                    }
+                ],
+                "lifetime_audit_paths": []
+            }
+        }
+    ]
+}

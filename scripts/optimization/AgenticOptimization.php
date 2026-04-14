@@ -179,7 +179,20 @@ class AgenticBaselineConfigLoader
                 );
             }
 
-            $season = SimulationSeason::fromJsonFile($seasonConfigPath, 1, 'agentic-file-baseline');
+            $decoded = json_decode((string)file_get_contents($seasonConfigPath), true);
+            if (!is_array($decoded)) {
+                throw new RuntimeException('Season config fallback JSON must decode to an object: ' . $seasonConfigPath);
+            }
+
+            $normalized = SimulationSeason::normalizeImportedRow($decoded);
+            $filtered = [];
+            foreach (SimulationSeason::SEASON_ECONOMY_COLUMNS as $column) {
+                if (array_key_exists($column, $normalized)) {
+                    $filtered[$column] = $normalized[$column];
+                }
+            }
+
+            $season = SimulationSeason::build(1, 'agentic-file-baseline', $filtered);
             $hashInput = AgenticOptimizationUtils::convertSeasonForJson($season);
             AgenticOptimizationUtils::sortAssocRecursively($hashInput);
 
@@ -325,6 +338,66 @@ class AgenticEconomyDecomposition
                 'archetype_keys' => [],
                 'seeds' => ['tier1-retention-a'],
             ],
+            'coupling_hoarding' => [
+                'id' => 'coupling_hoarding',
+                'tier' => 'tier1',
+                'description' => 'Extra-cheap hoarding pressure harness for early promotion filtering.',
+                'simulators' => ['B', 'C'],
+                'players_per_archetype' => 1,
+                'season_count' => 3,
+                'season_duration_ticks' => 960,
+                'blackout_duration_ticks' => 240,
+                'archetype_keys' => ['hoarder', 'mostly_idle', 'regular'],
+                'seeds' => ['coupling-hoarding-a'],
+            ],
+            'coupling_lockin_expiry' => [
+                'id' => 'coupling_lockin_expiry',
+                'tier' => 'tier1',
+                'description' => 'Extra-cheap lock-in vs expiry coupling harness.',
+                'simulators' => ['B'],
+                'players_per_archetype' => 1,
+                'season_count' => 1,
+                'season_duration_ticks' => 720,
+                'blackout_duration_ticks' => 180,
+                'archetype_keys' => ['early_locker', 'late_deployer', 'regular'],
+                'seeds' => ['coupling-lockin-expiry-a'],
+            ],
+            'coupling_boost' => [
+                'id' => 'coupling_boost',
+                'tier' => 'tier1',
+                'description' => 'Extra-cheap boost viability harness.',
+                'simulators' => ['B'],
+                'players_per_archetype' => 1,
+                'season_count' => 1,
+                'season_duration_ticks' => 720,
+                'blackout_duration_ticks' => 180,
+                'archetype_keys' => ['boost_focused', 'regular', 'casual'],
+                'seeds' => ['coupling-boost-a'],
+            ],
+            'coupling_star_pricing' => [
+                'id' => 'coupling_star_pricing',
+                'tier' => 'tier1',
+                'description' => 'Extra-cheap star affordability and price stability harness.',
+                'simulators' => ['B'],
+                'players_per_archetype' => 1,
+                'season_count' => 1,
+                'season_duration_ticks' => 720,
+                'blackout_duration_ticks' => 180,
+                'archetype_keys' => ['star_focused', 'regular', 'casual'],
+                'seeds' => ['coupling-star-pricing-a'],
+            ],
+            'coupling_skip_rejoin' => [
+                'id' => 'coupling_skip_rejoin',
+                'tier' => 'tier1',
+                'description' => 'Extra-cheap repeat-season skip/rejoin exploit harness.',
+                'simulators' => ['C'],
+                'players_per_archetype' => 1,
+                'season_count' => 3,
+                'season_duration_ticks' => 960,
+                'blackout_duration_ticks' => 240,
+                'archetype_keys' => ['mostly_idle', 'regular', 'early_locker'],
+                'seeds' => ['coupling-skip-rejoin-a'],
+            ],
             'tier2_integration' => [
                 'id' => 'tier2_integration',
                 'tier' => 'tier2',
@@ -357,6 +430,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Hoarding pressure and anti-safe-strategy controls',
                 'priority' => 1,
                 'local_profile' => 'tier1_hoarding',
+                'coupling_harness_families' => ['hoarding_pressure_imbalance'],
                 'owned_parameters' => [
                     ['key' => 'hoarding_tier2_rate_hourly_fp', 'mode' => 'multiply', 'values' => [1.04, 1.08]],
                     ['key' => 'hoarding_tier3_rate_hourly_fp', 'mode' => 'multiply', 'values' => [1.04, 1.08]],
@@ -376,6 +450,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Blackout PvP pressure and lock-in timing logic',
                 'priority' => 2,
                 'local_profile' => 'tier1_blackout',
+                'coupling_harness_families' => ['lock_in_down_but_expiry_dominance_up'],
                 'owned_parameters' => [
                     ['key' => 'starprice_reactivation_window_ticks', 'mode' => 'multiply', 'values' => [1.10, 1.18]],
                     ['key' => 'hoarding_window_ticks', 'mode' => 'multiply', 'values' => [0.95, 0.90]],
@@ -394,6 +469,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Boost viability and deployment timing',
                 'priority' => 3,
                 'local_profile' => 'tier1_boost',
+                'coupling_harness_families' => ['boost_underperformance'],
                 'owned_parameters' => [
                     ['key' => 'target_spend_rate_per_tick', 'mode' => 'multiply', 'values' => [0.95, 0.90]],
                     ['key' => 'hoarding_min_factor_fp', 'mode' => 'multiply', 'values' => [1.05, 1.10]],
@@ -412,6 +488,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Concentration and runaway leader control',
                 'priority' => 4,
                 'local_profile' => 'tier1_concentration',
+                'coupling_harness_families' => ['hoarding_pressure_imbalance', 'skip_rejoin_exploit_worsened'],
                 'owned_parameters' => [
                     ['key' => 'hoarding_sink_cap_ratio_fp', 'mode' => 'multiply', 'values' => [0.96, 0.92]],
                     ['key' => 'hoarding_tier3_rate_hourly_fp', 'mode' => 'multiply', 'values' => [1.03, 1.06]],
@@ -454,6 +531,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Onboarding and early acquisition economy',
                 'priority' => 6,
                 'local_profile' => 'tier1_onboarding',
+                'coupling_harness_families' => ['star_affordability_pricing_instability'],
                 'owned_parameters' => [
                     ['key' => 'base_ubi_active_per_tick', 'mode' => 'multiply', 'values' => [1.06, 1.12]],
                     ['key' => 'base_ubi_idle_factor_fp', 'mode' => 'multiply', 'values' => [1.04, 1.08]],
@@ -472,6 +550,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Star pricing and purchasing economy',
                 'priority' => 7,
                 'local_profile' => 'tier1_star_pricing',
+                'coupling_harness_families' => ['star_affordability_pricing_instability'],
                 'owned_parameters' => [
                     ['key' => 'starprice_idle_weight_fp', 'mode' => 'multiply', 'values' => [0.92, 0.85]],
                     ['key' => 'starprice_max_upstep_fp', 'mode' => 'multiply', 'values' => [0.95, 0.90]],
@@ -491,6 +570,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Lock-in incentives and timing',
                 'priority' => 8,
                 'local_profile' => 'tier1_lockin',
+                'coupling_harness_families' => ['lock_in_down_but_expiry_dominance_up'],
                 'owned_parameters' => [
                     ['key' => 'starprice_reactivation_window_ticks', 'mode' => 'multiply', 'values' => [1.10, 1.20]],
                     ['key' => 'market_affordability_bias_fp', 'mode' => 'multiply', 'values' => [0.97, 0.92]],
@@ -509,6 +589,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Expiry pressure and punishment/reward gradients',
                 'priority' => 9,
                 'local_profile' => 'tier1_expiry',
+                'coupling_harness_families' => ['lock_in_down_but_expiry_dominance_up'],
                 'owned_parameters' => [
                     ['key' => 'starprice_max_downstep_fp', 'mode' => 'multiply', 'values' => [1.05, 1.12]],
                     ['key' => 'target_spend_rate_per_tick', 'mode' => 'multiply', 'values' => [0.96, 0.92]],
@@ -527,6 +608,7 @@ class AgenticEconomyDecomposition
                 'label' => 'Repeated-season carryover/retention/adaptation',
                 'priority' => 10,
                 'local_profile' => 'tier1_retention',
+                'coupling_harness_families' => ['skip_rejoin_exploit_worsened'],
                 'owned_parameters' => [
                     ['key' => 'hoarding_min_factor_fp', 'mode' => 'multiply', 'values' => [1.05, 1.10]],
                     ['key' => 'starprice_reactivation_window_ticks', 'mode' => 'multiply', 'values' => [1.08, 1.15]],
@@ -598,6 +680,7 @@ class AgenticEconomyDecomposition
             $lines[] = '- Promotion gates: Tier1 score >= ' . $subsystem['promotion_gates']['tier1_min_local_score']
                 . ', Tier2 global delta >= ' . $subsystem['promotion_gates']['tier2_min_global_delta']
                 . ', Tier3 global delta >= ' . $subsystem['promotion_gates']['tier3_min_global_delta'];
+            $lines[] = '- Coupling harness families: ' . implode(', ', (array)($subsystem['coupling_harness_families'] ?? []));
             $lines[] = '- Search limits: max_candidates=' . (int)$subsystem['search_limits']['max_candidates']
                 . ', max_accepted=' . (int)$subsystem['search_limits']['max_accepted'];
             $lines[] = '- Owned parameters:';
@@ -662,6 +745,10 @@ class AgenticMetricEvaluator
             'lifecycle_coherence' => 0.0,
             'skip_strategy_edge' => 0.0,
             'throughput_lock_in_rate' => 0.0,
+            'star_price_cap_share' => 0.0,
+            'star_price_floor_share' => 0.0,
+            'star_price_range_ratio' => 0.0,
+            'star_price_mean' => 0.0,
             'dominant_archetype_label_b' => 'none',
             'dominant_archetype_label_c' => 'none',
         ];
@@ -800,6 +887,15 @@ class AgenticMetricEvaluator
             }
             $metrics['blackout_action_density'] = $blackoutTotal / $players;
             $metrics['strategic_diversity'] = AgenticOptimizationUtils::entropyNormalized($actionTypeTotals);
+
+            $starPriceSummary = (array)($diagnostics['star_price_summary'] ?? []);
+            $starPriceMean = max(1.0, (float)($starPriceSummary['mean'] ?? 0.0));
+            $starPriceMin = (float)($starPriceSummary['min'] ?? 0.0);
+            $starPriceMax = (float)($starPriceSummary['max'] ?? 0.0);
+            $metrics['star_price_mean'] = $starPriceMean;
+            $metrics['star_price_cap_share'] = (float)($starPriceSummary['cap_share'] ?? 0.0);
+            $metrics['star_price_floor_share'] = (float)($starPriceSummary['floor_share'] ?? 0.0);
+            $metrics['star_price_range_ratio'] = max(0.0, ($starPriceMax - $starPriceMin) / $starPriceMean);
 
             foreach ($scores as $score) {
                 $scoreRatios[] = $score / $medianScore;
@@ -1044,6 +1140,8 @@ class AgenticHarnessRunner
         $metricsBySeed = [];
         $seasonPaths = [];
         $lifetimePaths = [];
+        $seasonAuditPaths = [];
+        $lifetimeAuditPaths = [];
         $runtimeStart = microtime(true);
 
         $seeds = (array)($profile['seeds'] ?? ['seed-a']);
@@ -1084,6 +1182,7 @@ class AgenticHarnessRunner
                     $seasonJsonPath = MetricsCollector::writeJson($seasonPayload, $tierDir, $baseName);
                     MetricsCollector::writeSeasonCsv($seasonPayload, $tierDir, $baseName);
                     $seasonPaths[] = $seasonJsonPath;
+                    $seasonAuditPaths[] = (array)($seasonPayload['config_audit']['artifact_paths'] ?? []);
                 }
 
                 if (in_array('C', $simulators, true)) {
@@ -1105,6 +1204,7 @@ class AgenticHarnessRunner
                     $lifetimeJsonPath = MetricsCollector::writeJson($lifetimePayload, $tierDir, $baseName);
                     MetricsCollector::writeLifetimeCsv($lifetimePayload, $tierDir, $baseName);
                     $lifetimePaths[] = $lifetimeJsonPath;
+                    $lifetimeAuditPaths[] = (array)($lifetimePayload['config_audit']['artifact_paths'] ?? []);
                 }
             } finally {
                 if ($previousTick === false || $previousTick === null || $previousTick === '') {
@@ -1135,6 +1235,8 @@ class AgenticHarnessRunner
             'metrics_by_seed' => $metricsBySeed,
             'season_paths' => $seasonPaths,
             'lifetime_paths' => $lifetimePaths,
+            'season_audit_paths' => $seasonAuditPaths,
+            'lifetime_audit_paths' => $lifetimeAuditPaths,
         ];
 
         $this->cache['entries'][$cacheKey] = $entry;
@@ -1169,6 +1271,273 @@ class AgenticHarnessRunner
         }
 
         return $sliced;
+    }
+}
+
+class AgenticCouplingHarnessCatalog
+{
+    public static function families(): array
+    {
+        return [
+            'lock_in_down_but_expiry_dominance_up' => [
+                'family_id' => 'lock_in_down_but_expiry_dominance_up',
+                'label' => 'Lock-in down while expiry dominance rises',
+                'profile_id' => 'coupling_lockin_expiry',
+                'description' => 'Detects the known wall where lock-ins fall and natural expiry grows instead of improving the lock-in/expiry balance.',
+                'blocking_flags' => ['lock_in_down_but_expiry_dominance_up'],
+                'metric_gates' => [
+                    ['metric' => 'lock_in_total', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Lock-in volume must not fall.'],
+                    ['metric' => 'expiry_rate_mean', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Expiry rate must not rise.'],
+                    ['metric' => 'lock_in_timing_entropy', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Lock-in timing spread must not collapse.'],
+                ],
+                'proves' => 'Short-horizon lock-in and expiry incentives did not recreate the previously observed structural failure.',
+                'cannot_prove' => 'Does not prove long-run repeat-season retention or full-economy stability.',
+            ],
+            'skip_rejoin_exploit_worsened' => [
+                'family_id' => 'skip_rejoin_exploit_worsened',
+                'label' => 'Skip/rejoin exploit worsened',
+                'profile_id' => 'coupling_skip_rejoin',
+                'description' => 'Detects repeat-season candidates that reward skipping or make healthy re-entry less attractive.',
+                'blocking_flags' => ['skip_rejoin_exploit_worsened', 'long_run_concentration_worsened'],
+                'metric_gates' => [
+                    ['metric' => 'skip_strategy_edge', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Skip-heavy players must not gain edge.'],
+                    ['metric' => 'repeat_season_viability', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Repeat participation must not degrade.'],
+                    ['metric' => 'throughput_lock_in_rate', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Throughput lock-in rate must not fall.'],
+                ],
+                'proves' => 'Short lifecycle retention dynamics did not make the skip/rejoin exploit materially stronger.',
+                'cannot_prove' => 'Does not prove final long-run concentration is globally acceptable outside this reduced harness.',
+            ],
+            'hoarding_pressure_imbalance' => [
+                'family_id' => 'hoarding_pressure_imbalance',
+                'label' => 'Hoarding pressure imbalance',
+                'profile_id' => 'coupling_hoarding',
+                'description' => 'Detects candidates that leave hoarding too safe or push the economy toward a new dominant anti-play strategy.',
+                'blocking_flags' => ['dominant_archetype_shifted', 'archetype_viability_regressed'],
+                'metric_gates' => [
+                    ['metric' => 'hoarder_advantage_gap', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Hoarder advantage must not widen.'],
+                    ['metric' => 'dominant_strategy_pressure', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Dominant strategy pressure must not rise.'],
+                    ['metric' => 'strategic_diversity', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Strategic diversity must not fall.'],
+                ],
+                'proves' => 'The cheap anti-hoarding harness did not show the candidate worsening safe-strategy dominance.',
+                'cannot_prove' => 'Does not prove cross-subsystem pricing or retention interactions remain healthy at full scale.',
+            ],
+            'boost_underperformance' => [
+                'family_id' => 'boost_underperformance',
+                'label' => 'Boost underperformance',
+                'profile_id' => 'coupling_boost',
+                'description' => 'Detects candidates where boost-focused play gets weaker, later boosts disappear, or boosts stop converting into score.',
+                'blocking_flags' => ['archetype_viability_regressed'],
+                'metric_gates' => [
+                    ['metric' => 'boost_roi', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Boost ROI must not fall.'],
+                    ['metric' => 'boost_mid_late_share', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Mid/late boost usage must not fall.'],
+                    ['metric' => 'boost_focused_gap', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Boost-focused score gap must not widen.'],
+                ],
+                'proves' => 'The reduced boost harness did not show the candidate weakening boost payoff or deployment timing.',
+                'cannot_prove' => 'Does not prove boost changes remain neutral once all other subsystems mutate together.',
+            ],
+            'star_affordability_pricing_instability' => [
+                'family_id' => 'star_affordability_pricing_instability',
+                'label' => 'Star affordability and pricing instability',
+                'profile_id' => 'coupling_star_pricing',
+                'description' => 'Detects candidates that make early star access worse or create unstable pricing behavior even in a reduced star-market slice.',
+                'blocking_flags' => ['dominant_archetype_shifted', 'lock_in_down_but_expiry_dominance_up'],
+                'metric_gates' => [
+                    ['metric' => 'star_purchase_density', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Star purchase density must not fall.'],
+                    ['metric' => 'first_choice_viability', 'direction' => 'up', 'min_improvement' => 0.0, 'label' => 'Early star access must not fall.'],
+                    ['metric' => 'star_price_cap_share', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Time at price cap must not rise.'],
+                    ['metric' => 'star_price_range_ratio', 'direction' => 'down', 'min_improvement' => 0.0, 'label' => 'Price range volatility must not rise.'],
+                ],
+                'proves' => 'The focused star-market slice did not show weaker affordability or more unstable price movement.',
+                'cannot_prove' => 'Does not prove production star-price behavior under the full player mix or full-duration seasons.',
+            ],
+        ];
+    }
+
+    public static function family(string $familyId): array
+    {
+        $families = self::families();
+        if (!isset($families[$familyId])) {
+            throw new InvalidArgumentException('Unknown coupling harness family: ' . $familyId);
+        }
+
+        return $families[$familyId];
+    }
+
+    public static function subsystemFamilyMap(): array
+    {
+        return [
+            'hoarding_pressure' => ['hoarding_pressure_imbalance'],
+            'blackout_lockin' => ['lock_in_down_but_expiry_dominance_up'],
+            'boost_viability' => ['boost_underperformance'],
+            'concentration_control' => ['hoarding_pressure_imbalance', 'skip_rejoin_exploit_worsened'],
+            'onboarding_economy' => ['star_affordability_pricing_instability'],
+            'star_pricing' => ['star_affordability_pricing_instability'],
+            'lockin_incentives' => ['lock_in_down_but_expiry_dominance_up'],
+            'expiry_pressure' => ['lock_in_down_but_expiry_dominance_up'],
+            'retention_repeat_season' => ['skip_rejoin_exploit_worsened'],
+        ];
+    }
+
+    public static function estimateWorkUnits(array $profile): float
+    {
+        $playerCount = max(1, (int)$profile['players_per_archetype']) * max(1, count((array)($profile['archetype_keys'] ?? [])) ?: 10);
+        $seasonCount = max(1, (int)($profile['season_count'] ?? (in_array('C', (array)($profile['simulators'] ?? []), true) ? 4 : 1)));
+        $duration = max(1, (int)($profile['season_duration_ticks'] ?? 1));
+        $simCount = max(1, count((array)($profile['simulators'] ?? [])));
+        $seedCount = max(1, count((array)($profile['seeds'] ?? [])));
+
+        return (float)$playerCount * $seasonCount * $duration * $simCount * $seedCount;
+    }
+}
+
+class AgenticCouplingHarnessEvaluator
+{
+    public static function evaluateFamily(array $family, array $baselineMetrics, array $candidateMetrics, array $regressionFlags = []): array
+    {
+        $gateResults = [];
+        $failedMetrics = [];
+
+        foreach ((array)$family['metric_gates'] as $gate) {
+            $metric = (string)$gate['metric'];
+            $direction = (string)$gate['direction'];
+            $baseline = (float)($baselineMetrics[$metric] ?? 0.0);
+            $candidate = (float)($candidateMetrics[$metric] ?? 0.0);
+            $delta = $candidate - $baseline;
+            $improvement = ($direction === 'down') ? ($baseline - $candidate) : $delta;
+            $threshold = (float)($gate['min_improvement'] ?? 0.0);
+            $passed = $improvement >= $threshold;
+
+            $gateResults[] = [
+                'metric' => $metric,
+                'label' => (string)($gate['label'] ?? $metric),
+                'direction' => $direction,
+                'baseline' => $baseline,
+                'candidate' => $candidate,
+                'delta' => $delta,
+                'improvement_toward_goal' => $improvement,
+                'threshold_min_improvement' => $threshold,
+                'status' => $passed ? 'pass' : 'fail',
+                'diagnostic' => self::buildMetricDiagnostic($metric, $direction, $delta, $improvement, $threshold),
+            ];
+
+            if (!$passed) {
+                $failedMetrics[] = $metric;
+            }
+        }
+
+        $blockingFlags = array_values(array_intersect((array)$family['blocking_flags'], $regressionFlags));
+        $passed = ($failedMetrics === []) && ($blockingFlags === []);
+
+        return [
+            'family_id' => (string)$family['family_id'],
+            'label' => (string)$family['label'],
+            'profile_id' => (string)$family['profile_id'],
+            'description' => (string)$family['description'],
+            'status' => $passed ? 'pass' : 'fail',
+            'metric_results' => $gateResults,
+            'failed_metrics' => $failedMetrics,
+            'blocking_flags' => $blockingFlags,
+            'regression_flags' => array_values($regressionFlags),
+            'proves' => (string)$family['proves'],
+            'cannot_prove' => (string)$family['cannot_prove'],
+        ];
+    }
+
+    public static function runFamilies(
+        AgenticHarnessRunner $runner,
+        array $decomposition,
+        array $baselineConfig,
+        array $candidateConfig,
+        array $candidateChanges,
+        array $familyIds,
+        string $labelPrefix
+    ): array {
+        $families = [];
+        $fullProfile = (array)$decomposition['profiles']['tier3_full'];
+        $fullWorkUnits = max(1.0, AgenticCouplingHarnessCatalog::estimateWorkUnits($fullProfile));
+
+        foreach ($familyIds as $familyId) {
+            $family = AgenticCouplingHarnessCatalog::family((string)$familyId);
+            $profile = (array)$decomposition['profiles'][(string)$family['profile_id']];
+
+            $baselineEval = $runner->evaluate($baselineConfig, $profile, $labelPrefix . '-baseline-' . $familyId, [], $baselineConfig);
+            $candidateEval = $runner->evaluate($candidateConfig, $profile, $labelPrefix . '-candidate-' . $familyId, $candidateChanges, $baselineConfig);
+
+            $baselineMetrics = (array)$baselineEval['metrics'];
+            $candidateMetrics = (array)$candidateEval['metrics'];
+            $regressionFlags = AgenticMetricEvaluator::regressionFlags($baselineMetrics, $candidateMetrics);
+            $familyResult = self::evaluateFamily($family, $baselineMetrics, $candidateMetrics, $regressionFlags);
+            $profileWorkUnits = max(1.0, AgenticCouplingHarnessCatalog::estimateWorkUnits($profile));
+
+            $families[] = array_merge($familyResult, [
+                'profile' => [
+                    'tier' => (string)($profile['tier'] ?? 'tier1'),
+                    'simulators' => array_values((array)($profile['simulators'] ?? [])),
+                    'players_per_archetype' => (int)($profile['players_per_archetype'] ?? 0),
+                    'season_count' => (int)($profile['season_count'] ?? 1),
+                    'season_duration_ticks' => (int)($profile['season_duration_ticks'] ?? 0),
+                    'blackout_duration_ticks' => (int)($profile['blackout_duration_ticks'] ?? 0),
+                    'estimated_work_units' => $profileWorkUnits,
+                    'estimated_cost_ratio_vs_tier3_full' => round($profileWorkUnits / $fullWorkUnits, 6),
+                    'estimated_speedup_vs_tier3_full' => round($fullWorkUnits / $profileWorkUnits, 2),
+                ],
+                'baseline' => [
+                    'runtime_secs' => (float)($baselineEval['runtime_secs'] ?? 0.0),
+                    'cache_hit' => (bool)($baselineEval['cache_hit'] ?? false),
+                    'metrics' => $baselineMetrics,
+                    'season_paths' => (array)($baselineEval['season_paths'] ?? []),
+                    'lifetime_paths' => (array)($baselineEval['lifetime_paths'] ?? []),
+                    'season_audit_paths' => (array)($baselineEval['season_audit_paths'] ?? []),
+                    'lifetime_audit_paths' => (array)($baselineEval['lifetime_audit_paths'] ?? []),
+                ],
+                'candidate' => [
+                    'runtime_secs' => (float)($candidateEval['runtime_secs'] ?? 0.0),
+                    'cache_hit' => (bool)($candidateEval['cache_hit'] ?? false),
+                    'metrics' => $candidateMetrics,
+                    'season_paths' => (array)($candidateEval['season_paths'] ?? []),
+                    'lifetime_paths' => (array)($candidateEval['lifetime_paths'] ?? []),
+                    'season_audit_paths' => (array)($candidateEval['season_audit_paths'] ?? []),
+                    'lifetime_audit_paths' => (array)($candidateEval['lifetime_audit_paths'] ?? []),
+                ],
+            ]);
+        }
+
+        $failedFamilies = array_values(array_map(
+            static fn(array $row): string => (string)$row['family_id'],
+            array_values(array_filter($families, static fn(array $row): bool => (string)$row['status'] !== 'pass'))
+        ));
+
+        return [
+            'status' => $failedFamilies === [] ? 'pass' : 'fail',
+            'families' => $families,
+            'failed_family_ids' => $failedFamilies,
+        ];
+    }
+
+    private static function buildMetricDiagnostic(string $metric, string $direction, float $delta, float $improvement, float $threshold): string
+    {
+        $roundedDelta = round($delta, 6);
+        $roundedImprovement = round($improvement, 6);
+        $roundedThreshold = round($threshold, 6);
+        $verb = $delta > 0 ? 'rose' : ($delta < 0 ? 'fell' : 'held');
+
+        if ($direction === 'down') {
+            return sprintf(
+                '%s %s; goal-facing improvement=%s (need >= %s).',
+                $metric,
+                $verb . ' by ' . abs($roundedDelta),
+                $roundedImprovement,
+                $roundedThreshold
+            );
+        }
+
+        return sprintf(
+            '%s %s; goal-facing improvement=%s (need >= %s).',
+            $metric,
+            $verb . ' by ' . abs($roundedDelta),
+            $roundedImprovement,
+            $roundedThreshold
+        );
     }
 }
 
@@ -1543,16 +1912,38 @@ class AgenticSubsystemAgent
                 ]);
             }
 
+            $couplingFamilies = array_values((array)($this->subsystem['coupling_harness_families'] ?? []));
+            if ($couplingFamilies !== []) {
+                $couplingReport = AgenticCouplingHarnessEvaluator::runFamilies(
+                    $this->harness,
+                    $this->decomposition,
+                    $currentConfig,
+                    (array)$candidate['config'],
+                    (array)$candidate['changes'],
+                    $couplingFamilies,
+                    $label . '-coupling'
+                );
+                $record['tier_results']['coupling_harnesses'] = $couplingReport;
+            }
+
             $hasHardLocalFlag = $this->hasHardRegressionFlag($localFlags);
-            if ($localScore < $gateTier1 || $hasHardLocalFlag) {
-                $record['status'] = 'tier1_reject';
+            $hasCouplingFailure = !empty($record['tier_results']['coupling_harnesses'])
+                && (string)$record['tier_results']['coupling_harnesses']['status'] === 'fail';
+            if ($localScore < $gateTier1 || $hasHardLocalFlag || $hasCouplingFailure) {
+                $record['status'] = $hasCouplingFailure ? 'tier1_coupling_reject' : 'tier1_reject';
                 $this->memory->recordReject([
                     'stage' => 'tier1',
                     'subsystem_id' => $this->subsystem['id'],
                     'candidate_id' => $label,
                     'changes' => $candidate['changes'],
                     'local_score' => $localScore,
-                    'regression_flags' => $localFlags,
+                    'regression_flags' => array_merge(
+                        $localFlags,
+                        array_map(
+                            static fn(string $familyId): string => 'coupling_harness_failed:' . $familyId,
+                            (array)($record['tier_results']['coupling_harnesses']['failed_family_ids'] ?? [])
+                        )
+                    ),
                 ]);
                 $tested[] = $record;
                 continue;
@@ -2136,6 +2527,7 @@ class AgenticOptimizationCoordinator
             'best_config_path' => $bestConfigPath,
             'notes' => [
                 'Tier1 used cheap local harnesses with reduced cohorts and/or phase-limited screening.',
+                'Known economy coupling families now run as explicit subsystem harness gates before tier2 promotion.',
                 'Tier2 validated cross-subsystem effects before any full-lifecycle promotion.',
                 'Tier3 full-lifecycle validation only ran on promoted winners and composed variants.',
             ],
