@@ -1,10 +1,12 @@
 <?php
 
 require_once __DIR__ . '/MetricsCollector.php';
+require_once __DIR__ . '/EconomicCandidateValidator.php';
 
 class ResultComparator
 {
     public const COMPARATOR_SCHEMA_VERSION = 'tmc-sim-comparator.v1';
+    public const REJECTION_ATTRIBUTION_SCHEMA_VERSION = 'tmc-sim-rejection-attribution.v1';
 
     public static function run(array $options): array
     {
@@ -14,11 +16,15 @@ class ResultComparator
         $outputDir = (string)($options['output_dir'] ?? (__DIR__ . '/../../simulation_output/comparator'));
         $seed = (string)($options['seed'] ?? 'phase1-comparator');
 
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0777, true);
+        }
+
         $dataset = self::buildDataset($sweepManifestPath, $baselineBPaths, $baselineCPaths);
         $scenarioReports = [];
 
         foreach ($dataset['scenario_groups'] as $scenarioName => $simGroups) {
-            $scenarioReport = self::compareScenario($scenarioName, $simGroups, $dataset['baseline_groups']);
+            $scenarioReport = self::compareScenario($scenarioName, $simGroups, $dataset['baseline_groups'], $outputDir, $seed);
             $scenarioReports[] = $scenarioReport;
         }
 
@@ -40,13 +46,13 @@ class ResultComparator
                 'scenario_count' => count($scenarioReports),
                 'baseline_group_count' => count($dataset['baseline_groups']),
                 'scenario_group_count' => count($dataset['scenario_groups']),
+                'rejected_scenario_count' => count(array_filter($scenarioReports, static function (array $scenario): bool {
+                    return (string)($scenario['recommended_disposition'] ?? '') === 'reject';
+                })),
             ],
             'scenarios' => $scenarioReports,
         ];
 
-        if (!is_dir($outputDir)) {
-            mkdir($outputDir, 0777, true);
-        }
         $baseName = 'comparison_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $seed);
         $jsonPath = MetricsCollector::writeJson($result, $outputDir, $baseName);
 
@@ -83,6 +89,7 @@ class ResultComparator
                     'source' => 'sweep_manifest',
                     'payload_path' => $jsonPath,
                     'payload' => $payload,
+                    'config_audit_report' => self::loadConfigAuditReport($manifestDir, (array)($run['config_audit'] ?? [])),
                 ];
 
                 if ($entry['is_baseline']) {
@@ -128,7 +135,7 @@ class ResultComparator
         ];
     }
 
-    private static function compareScenario(string $scenarioName, array $simGroups, array $baselineGroups): array
+    private static function compareScenario(string $scenarioName, array $simGroups, array $baselineGroups, string $outputDir, string $seed): array
     {
         $simulatorComparisons = [];
         $regressionFlags = [];
@@ -179,7 +186,7 @@ class ResultComparator
             $disposition = 'candidate for production tuning';
         }
 
-        return [
+        $report = [
             'scenario_name' => $scenarioName,
             'wins' => $wins,
             'losses' => $losses,
@@ -190,6 +197,19 @@ class ResultComparator
             'cross_simulator_regression_flags' => $crossFlags,
             'regression_flags' => $flags,
         ];
+
+        if ($disposition === 'reject') {
+            $attribution = self::buildRejectionAttribution($scenarioName, $report, $simGroups, $baselineGroups, $outputDir, $seed);
+            $report['rejection_attribution'] = [
+                'artifact_paths' => $attribution['artifact_paths'],
+                'primary_failed_gate' => $attribution['report']['primary_failed_gate'],
+                'secondary_regressions' => $attribution['report']['secondary_regressions'],
+                'interaction_ambiguity' => $attribution['report']['interaction_ambiguity'],
+                'confidence_notes' => $attribution['report']['confidence_notes'],
+            ];
+        }
+
+        return $report;
     }
 
     private static function compareRunGroup(string $simulator, string $signature, array $baselineRuns, array $scenarioRuns): array
@@ -665,6 +685,749 @@ class ResultComparator
             $current = $current[$segment];
         }
         return is_numeric($current) ? (float)$current : null;
+    }
+
+    private static function loadConfigAuditReport(string $baseDir, array $artifactPaths): ?array
+    {
+        $jsonPath = (string)($artifactPaths['effective_config_json'] ?? '');
+        if ($jsonPath === '') {
+            return null;
+        }
+
+        $resolved = self::resolvePath($baseDir, $jsonPath);
+        if (!is_file($resolved)) {
+            return null;
+        }
+
+        $decoded = json_decode((string)file_get_contents($resolved), true);
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private static function buildRejectionAttribution(
+        string $scenarioName,
+        array $scenarioReport,
+        array $simGroups,
+        array $baselineGroups,
+        string $outputDir,
+        string $seed
+    ): array {
+        $changedKnobs = self::collectChangedKnobs($simGroups, $baselineGroups, $scenarioReport);
+        $gateCandidates = self::collectGateCandidates($scenarioReport);
+        $primaryGate = $gateCandidates[0] ?? [
+            'flag' => 'unknown_regression',
+            'label' => 'Unclassified regression flag',
+            'source' => 'scenario',
+            'score' => 0.0,
+            'evidence' => [],
+            'rationale' => 'No regression evidence was available beyond the reject disposition.',
+        ];
+        $secondaryGates = array_slice($gateCandidates, 1);
+
+        $activeKnobs = array_values(array_filter($changedKnobs, static function (array $knob): bool {
+            return (string)($knob['classification'] ?? '') === 'active';
+        }));
+        $inactiveKnobs = array_values(array_filter($changedKnobs, static function (array $knob): bool {
+            return (string)($knob['classification'] ?? '') === 'inactive';
+        }));
+
+        $interactionAmbiguity = self::buildInteractionAmbiguity($activeKnobs, $changedKnobs);
+        $rankedKnobs = self::rankLikelyCausalKnobs($changedKnobs, $primaryGate, $secondaryGates, $interactionAmbiguity);
+        $confidenceNotes = self::buildConfidenceNotes(
+            $scenarioReport,
+            $changedKnobs,
+            $activeKnobs,
+            $inactiveKnobs,
+            $interactionAmbiguity,
+            $primaryGate
+        );
+
+        $report = [
+            'schema_version' => self::REJECTION_ATTRIBUTION_SCHEMA_VERSION,
+            'generated_at' => gmdate('c'),
+            'comparator_seed' => $seed,
+            'scenario_name' => $scenarioName,
+            'recommended_disposition' => (string)($scenarioReport['recommended_disposition'] ?? 'reject'),
+            'control_baseline_comparison' => self::buildControlComparison($scenarioReport),
+            'changed_knobs' => $changedKnobs,
+            'knob_activity_summary' => [
+                'active_count' => count($activeKnobs),
+                'inactive_count' => count($inactiveKnobs),
+                'unknown_count' => count($changedKnobs) - count($activeKnobs) - count($inactiveKnobs),
+                'active_paths' => array_values(array_map(static fn(array $knob): string => (string)$knob['path'], $activeKnobs)),
+                'inactive_paths' => array_values(array_map(static fn(array $knob): string => (string)$knob['path'], $inactiveKnobs)),
+            ],
+            'primary_failed_gate' => $primaryGate,
+            'secondary_regressions' => $secondaryGates,
+            'likely_causal_knob_ranking' => $rankedKnobs,
+            'interaction_ambiguity' => $interactionAmbiguity,
+            'confidence_notes' => $confidenceNotes,
+        ];
+
+        $artifactPaths = self::writeRejectionAttributionArtifacts($report, $outputDir, $seed, $scenarioName);
+
+        return [
+            'report' => $report,
+            'artifact_paths' => $artifactPaths,
+        ];
+    }
+
+    private static function buildControlComparison(array $scenarioReport): array
+    {
+        $simulators = [];
+        foreach ((array)($scenarioReport['simulator_comparisons'] ?? []) as $comparison) {
+            $simulators[] = [
+                'simulator_type' => (string)($comparison['simulator_type'] ?? 'unknown'),
+                'signature' => (string)($comparison['signature'] ?? 'unknown'),
+                'paired_runs' => (int)($comparison['sample_size']['paired_runs'] ?? 0),
+                'wins' => (int)($comparison['wins'] ?? 0),
+                'losses' => (int)($comparison['losses'] ?? 0),
+                'mixed_tradeoffs' => (int)($comparison['mixed_tradeoffs'] ?? 0),
+                'regression_flags' => array_values((array)($comparison['regression_flags'] ?? [])),
+                'key_deltas' => [
+                    'lock_in_delta' => self::getNestedFloat((array)($comparison['delta_flags'] ?? []), ['lock_in_vs_natural_expiry', 'lock_in_delta']),
+                    'natural_expiry_delta' => self::getNestedFloat((array)($comparison['delta_flags'] ?? []), ['lock_in_vs_natural_expiry', 'natural_expiry_delta']),
+                    'late_active_engaged_rate_delta' => self::getNestedFloat((array)($comparison['delta_flags'] ?? []), ['late_active_participation', 'late_active_engaged_rate_delta']),
+                    'concentration_top10_share_delta' => self::getNestedFloat((array)($comparison['delta_flags'] ?? []), ['concentration_drift', 'top10_share_delta']),
+                    'skip_strategy_edge_delta' => self::getNestedFloat((array)($comparison['delta_flags'] ?? []), ['skip_rejoin_exploit', 'skip_strategy_edge_delta']),
+                ],
+            ];
+        }
+
+        return [
+            'wins' => (int)($scenarioReport['wins'] ?? 0),
+            'losses' => (int)($scenarioReport['losses'] ?? 0),
+            'mixed_tradeoffs' => (int)($scenarioReport['mixed_tradeoffs'] ?? 0),
+            'confidence_summary' => (string)($scenarioReport['confidence_notes'] ?? ''),
+            'regression_flags' => array_values((array)($scenarioReport['regression_flags'] ?? [])),
+            'cross_simulator_regression_flags' => array_values((array)($scenarioReport['cross_simulator_regression_flags'] ?? [])),
+            'simulator_groups' => $simulators,
+        ];
+    }
+
+    private static function collectChangedKnobs(array $simGroups, array $baselineGroups, array $scenarioReport): array
+    {
+        $surfaceMeta = EconomicCandidateValidator::allowedSurface();
+        $knobs = [];
+
+        foreach ($simGroups as $simulator => $signatureGroups) {
+            foreach ($signatureGroups as $signature => $scenarioRuns) {
+                $candidateRun = $scenarioRuns[0] ?? null;
+                if (!is_array($candidateRun)) {
+                    continue;
+                }
+
+                $baselineRuns = $baselineGroups[$simulator][$signature] ?? [];
+                if ($baselineRuns === []) {
+                    $fallback = $baselineGroups[$simulator] ?? [];
+                    if (!empty($fallback)) {
+                        $baselineRuns = reset($fallback);
+                    }
+                }
+                $baselineRun = $baselineRuns[0] ?? null;
+                $candidateAudit = (array)($candidateRun['config_audit_report'] ?? []);
+                $baselineAudit = is_array($baselineRun) ? (array)($baselineRun['config_audit_report'] ?? []) : [];
+
+                $candidateChanges = (array)($candidateAudit['requested_candidate_changes'] ?? []);
+                foreach ($candidateChanges as $change) {
+                    $path = (string)($change['path'] ?? '');
+                    if ($path === '') {
+                        continue;
+                    }
+
+                    $key = self::extractKnobKey($path);
+                    $classification = !empty($change['is_active']) ? 'active' : 'inactive';
+                    $baselineValue = self::lookupEffectiveConfigValue($baselineAudit, $path);
+                    $candidateEffectiveValue = $change['effective_value'] ?? self::lookupEffectiveConfigValue($candidateAudit, $path);
+                    $simulatorEvidence = [
+                        'simulator_type' => $simulator,
+                        'signature' => $signature,
+                        'baseline_value' => $baselineValue,
+                        'candidate_effective_value' => $candidateEffectiveValue,
+                        'effective_source' => $change['effective_source'] ?? null,
+                    ];
+
+                    if (!isset($knobs[$path])) {
+                        $knobs[$path] = [
+                            'path' => $path,
+                            'key' => $key,
+                            'requested_value' => $change['requested_value'] ?? null,
+                            'baseline_value' => $baselineValue,
+                            'candidate_effective_value' => $candidateEffectiveValue,
+                            'classification' => $classification,
+                            'reason_code' => $change['reason_code'] ?? null,
+                            'reason_detail' => $change['reason_detail'] ?? null,
+                            'effective_source' => $change['effective_source'] ?? null,
+                            'subsystem' => (string)($surfaceMeta[$key]['subsystem'] ?? 'unknown'),
+                            'simulator_evidence' => [$simulatorEvidence],
+                        ];
+                        continue;
+                    }
+
+                    $knobs[$path]['simulator_evidence'][] = $simulatorEvidence;
+                    if ($knobs[$path]['baseline_value'] === null && $baselineValue !== null) {
+                        $knobs[$path]['baseline_value'] = $baselineValue;
+                    }
+                    if ($knobs[$path]['candidate_effective_value'] === null && $candidateEffectiveValue !== null) {
+                        $knobs[$path]['candidate_effective_value'] = $candidateEffectiveValue;
+                    }
+                    if ((string)$knobs[$path]['classification'] !== 'active' && $classification === 'active') {
+                        $knobs[$path]['classification'] = 'active';
+                        $knobs[$path]['reason_code'] = null;
+                        $knobs[$path]['reason_detail'] = null;
+                    }
+                }
+            }
+        }
+
+        if ($knobs === []) {
+            foreach ((array)($scenarioReport['simulator_comparisons'] ?? []) as $comparison) {
+                foreach ((array)($comparison['metadata']['override_keys'] ?? []) as $key) {
+                    $path = 'season.' . (string)$key;
+                    if (isset($knobs[$path])) {
+                        continue;
+                    }
+                    $knobs[$path] = [
+                        'path' => $path,
+                        'key' => (string)$key,
+                        'requested_value' => null,
+                        'baseline_value' => null,
+                        'candidate_effective_value' => null,
+                        'classification' => 'unknown',
+                        'reason_code' => 'audit_unavailable',
+                        'reason_detail' => 'No effective-config audit was available for this run group.',
+                        'effective_source' => null,
+                        'subsystem' => (string)($surfaceMeta[(string)$key]['subsystem'] ?? 'unknown'),
+                        'simulator_evidence' => [],
+                    ];
+                }
+            }
+        }
+
+        ksort($knobs);
+        return array_values($knobs);
+    }
+
+    private static function lookupEffectiveConfigValue(array $auditReport, string $path): mixed
+    {
+        if ($auditReport === []) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'season.')) {
+            $key = substr($path, 7);
+            return $auditReport['effective_config']['season'][$key] ?? null;
+        }
+        if (str_starts_with($path, 'runtime.')) {
+            $key = substr($path, 8);
+            return $auditReport['effective_config']['runtime'][$key] ?? null;
+        }
+        return null;
+    }
+
+    private static function extractKnobKey(string $path): string
+    {
+        if (str_starts_with($path, 'season.')) {
+            return substr($path, 7);
+        }
+        if (str_starts_with($path, 'runtime.')) {
+            return substr($path, 8);
+        }
+        return $path;
+    }
+
+    private static function collectGateCandidates(array $scenarioReport): array
+    {
+        $candidates = [];
+        foreach ((array)($scenarioReport['simulator_comparisons'] ?? []) as $comparison) {
+            foreach ((array)($comparison['regression_flags'] ?? []) as $flag) {
+                $candidates[] = self::buildGateCandidate((string)$flag, 'simulator', $comparison, $scenarioReport);
+            }
+        }
+        foreach ((array)($scenarioReport['cross_simulator_regression_flags'] ?? []) as $flag) {
+            $candidates[] = self::buildGateCandidate((string)$flag, 'cross_simulator', null, $scenarioReport);
+        }
+
+        usort($candidates, static function (array $left, array $right): int {
+            return ($right['score'] <=> $left['score']) ?: strcmp((string)$left['flag'], (string)$right['flag']);
+        });
+
+        $unique = [];
+        $result = [];
+        foreach ($candidates as $candidate) {
+            $flag = (string)$candidate['flag'];
+            if (isset($unique[$flag])) {
+                continue;
+            }
+            $unique[$flag] = true;
+            $result[] = $candidate;
+        }
+
+        return $result;
+    }
+
+    private static function buildGateCandidate(string $flag, string $source, ?array $comparison, array $scenarioReport): array
+    {
+        $deltaFlags = (array)($comparison['delta_flags'] ?? []);
+        $label = self::flagLabel($flag);
+        $severity = self::flagSeverity($flag);
+        $evidence = [];
+        $magnitude = 1.0;
+
+        switch ($flag) {
+            case 'lock_in_down_but_expiry_dominance_up':
+            case 'reduces_lock_in_but_expiry_dominance_rises':
+                $lockDelta = self::getNestedFloat($deltaFlags, ['lock_in_vs_natural_expiry', 'lock_in_delta']) ?? 0.0;
+                $expiryDelta = self::getNestedFloat($deltaFlags, ['lock_in_vs_natural_expiry', 'natural_expiry_delta']) ?? 0.0;
+                $magnitude = max(0.0, (-$lockDelta * 100.0)) + max(0.0, $expiryDelta);
+                $evidence = [
+                    'simulator_type' => $comparison['simulator_type'] ?? null,
+                    'lock_in_delta' => $lockDelta,
+                    'natural_expiry_delta' => $expiryDelta,
+                ];
+                break;
+            case 'long_run_concentration_worsened':
+            case 'seasonal_fairness_improves_but_long_run_concentration_worsens':
+                $top10Delta = self::getNestedFloat($deltaFlags, ['concentration_drift', 'top10_share_delta']) ?? 0.0;
+                if ($source === 'cross_simulator') {
+                    foreach ((array)($scenarioReport['simulator_comparisons'] ?? []) as $simComparison) {
+                        if ((string)($simComparison['simulator_type'] ?? '') !== 'C') {
+                            continue;
+                        }
+                        $top10Delta = self::getNestedFloat((array)($simComparison['delta_flags'] ?? []), ['concentration_drift', 'top10_share_delta']) ?? $top10Delta;
+                        break;
+                    }
+                }
+                $magnitude = max(0.0, $top10Delta * 1000.0);
+                $evidence = [
+                    'simulator_type' => $comparison['simulator_type'] ?? 'C',
+                    'top10_share_delta' => $top10Delta,
+                ];
+                break;
+            case 'skip_rejoin_exploit_worsened':
+                $skipDelta = self::getNestedFloat($deltaFlags, ['skip_rejoin_exploit', 'skip_strategy_edge_delta']) ?? 0.0;
+                $magnitude = max(0.0, $skipDelta / 100.0);
+                $evidence = [
+                    'simulator_type' => $comparison['simulator_type'] ?? 'C',
+                    'skip_strategy_edge_delta' => $skipDelta,
+                ];
+                break;
+            case 'engagement_up_but_t6_supply_spike':
+            case 'improves_engagement_but_t6_supply_spikes':
+                $engagementDelta = self::getNestedFloat($deltaFlags, ['late_active_participation', 'late_active_engaged_rate_delta']) ?? 0.0;
+                $t6Delta = self::getNestedFloat($deltaFlags, ['t6_supply_and_sourcing', 't6_total_delta']) ?? 0.0;
+                $magnitude = max(0.0, $engagementDelta * 100.0) + max(0.0, $t6Delta);
+                $evidence = [
+                    'simulator_type' => $comparison['simulator_type'] ?? null,
+                    'late_active_engaged_rate_delta' => $engagementDelta,
+                    't6_total_delta' => $t6Delta,
+                ];
+                break;
+            case 'candidate_improves_B_but_worsens_C':
+                $bComparison = null;
+                $cComparison = null;
+                foreach ((array)($scenarioReport['simulator_comparisons'] ?? []) as $simComparison) {
+                    if ((string)($simComparison['simulator_type'] ?? '') === 'B') {
+                        $bComparison = $simComparison;
+                    } elseif ((string)($simComparison['simulator_type'] ?? '') === 'C') {
+                        $cComparison = $simComparison;
+                    }
+                }
+                $magnitude = max(
+                    1.0,
+                    ((float)(($bComparison['wins'] ?? 0) - ($bComparison['losses'] ?? 0)))
+                    + ((float)(($cComparison['losses'] ?? 0) - ($cComparison['wins'] ?? 0)))
+                );
+                $evidence = [
+                    'B' => $bComparison !== null ? ['wins' => (int)$bComparison['wins'], 'losses' => (int)$bComparison['losses']] : null,
+                    'C' => $cComparison !== null ? ['wins' => (int)$cComparison['wins'], 'losses' => (int)$cComparison['losses']] : null,
+                ];
+                break;
+            case 'dominant_archetype_shifted':
+            case 'reduced_one_dominant_but_created_new_dominant':
+                $evidence = [
+                    'simulator_type' => $comparison['simulator_type'] ?? null,
+                    'dominant_archetype_transition' => (array)($comparison['metadata']['dominant_archetype_transition'] ?? []),
+                ];
+                break;
+            default:
+                $evidence = [
+                    'simulator_type' => $comparison['simulator_type'] ?? null,
+                ];
+                break;
+        }
+
+        return [
+            'flag' => $flag,
+            'label' => $label,
+            'source' => $source,
+            'score' => $severity + $magnitude,
+            'evidence' => $evidence,
+            'rationale' => self::flagRationale($flag, $source),
+        ];
+    }
+
+    private static function buildInteractionAmbiguity(array $activeKnobs, array $changedKnobs): array
+    {
+        if (count($activeKnobs) > 1) {
+            return [
+                'present' => true,
+                'type' => 'multi_knob_bundle',
+                'note' => sprintf(
+                    '%d active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated.',
+                    count($activeKnobs)
+                ),
+            ];
+        }
+
+        if (count($activeKnobs) === 1) {
+            return [
+                'present' => false,
+                'type' => 'single_active_knob',
+                'note' => 'One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual.',
+            ];
+        }
+
+        return [
+            'present' => true,
+            'type' => 'unresolved_activity',
+            'note' => sprintf(
+                'No active knob could be confirmed from the config audit across %d changed knob(s), so attribution remains highly uncertain.',
+                count($changedKnobs)
+            ),
+        ];
+    }
+
+    private static function rankLikelyCausalKnobs(array $changedKnobs, array $primaryGate, array $secondaryGates, array $interactionAmbiguity): array
+    {
+        $ranked = [];
+        $activeCount = count(array_filter($changedKnobs, static function (array $knob): bool {
+            return (string)($knob['classification'] ?? '') === 'active';
+        }));
+
+        foreach ($changedKnobs as $knob) {
+            $score = 0.0;
+            $classification = (string)($knob['classification'] ?? 'unknown');
+            if ($classification === 'active') {
+                $score += 3.0;
+            } elseif ($classification === 'inactive') {
+                $score += 0.5;
+            } else {
+                $score += 1.0;
+            }
+
+            $primaryMatch = self::flagMatchScore((string)$knob['key'], (string)($knob['subsystem'] ?? 'unknown'), (string)($primaryGate['flag'] ?? ''));
+            $score += $primaryMatch;
+
+            foreach ($secondaryGates as $gate) {
+                $score += self::flagMatchScore((string)$knob['key'], (string)($knob['subsystem'] ?? 'unknown'), (string)($gate['flag'] ?? '')) * 0.45;
+            }
+
+            if ($activeCount === 1 && $classification === 'active') {
+                $score += 2.0;
+            }
+            if (!empty($interactionAmbiguity['present'])) {
+                $score *= 0.85;
+            }
+            if ($classification === 'inactive') {
+                $score *= 0.35;
+            }
+
+            $ranked[] = [
+                'path' => (string)$knob['path'],
+                'key' => (string)$knob['key'],
+                'classification' => $classification,
+                'subsystem' => (string)($knob['subsystem'] ?? 'unknown'),
+                'score' => round($score, 3),
+                'confidence' => self::knobConfidence($classification, $activeCount, !empty($interactionAmbiguity['present']), $primaryMatch),
+                'rationale' => self::knobRationale($knob, $interactionAmbiguity, $primaryMatch),
+            ];
+        }
+
+        usort($ranked, static function (array $left, array $right): int {
+            return ($right['score'] <=> $left['score']) ?: strcmp((string)$left['path'], (string)$right['path']);
+        });
+
+        foreach ($ranked as $index => &$row) {
+            $row['rank'] = $index + 1;
+        }
+        unset($row);
+
+        return $ranked;
+    }
+
+    private static function buildConfidenceNotes(
+        array $scenarioReport,
+        array $changedKnobs,
+        array $activeKnobs,
+        array $inactiveKnobs,
+        array $interactionAmbiguity,
+        array $primaryGate
+    ): array {
+        $notes = [];
+        $notes[] = (string)($scenarioReport['confidence_notes'] ?? 'Comparator confidence note unavailable.');
+
+        $pairedGroups = count((array)($scenarioReport['simulator_comparisons'] ?? []));
+        if ($pairedGroups <= 2) {
+            $notes[] = sprintf('Evidence is sparse: only %d paired simulator group(s) contributed to this rejection.', $pairedGroups);
+        }
+        if ($changedKnobs === []) {
+            $notes[] = 'No config-audit knob evidence was available, so causal ranking falls back to regression metadata only.';
+        }
+        if ($inactiveKnobs !== []) {
+            $notes[] = 'Inactive or shadowed requested knobs are included for transparency but down-ranked as causal candidates.';
+        }
+        if (!empty($interactionAmbiguity['present'])) {
+            $notes[] = (string)$interactionAmbiguity['note'];
+        }
+        if (count($activeKnobs) === 1) {
+            $notes[] = 'A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof.';
+        }
+        if ((string)($primaryGate['source'] ?? '') === 'cross_simulator') {
+            $notes[] = 'The primary failure is cross-simulator, so the report reflects an interaction-level regression instead of a single local metric threshold.';
+        }
+
+        return array_values(array_unique(array_filter($notes, static function ($note): bool {
+            return trim((string)$note) !== '';
+        })));
+    }
+
+    private static function writeRejectionAttributionArtifacts(array $report, string $outputDir, string $seed, string $scenarioName): array
+    {
+        $dir = rtrim($outputDir, DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR . 'rejections'
+            . DIRECTORY_SEPARATOR . preg_replace('/[^A-Za-z0-9_-]/', '_', $seed)
+            . DIRECTORY_SEPARATOR . preg_replace('/[^A-Za-z0-9_-]/', '_', $scenarioName);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        $jsonPath = $dir . DIRECTORY_SEPARATOR . 'rejection_attribution.json';
+        $mdPath = $dir . DIRECTORY_SEPARATOR . 'rejection_attribution.md';
+
+        file_put_contents($jsonPath, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
+        file_put_contents($mdPath, self::buildRejectionAttributionMarkdown($report));
+
+        return [
+            'rejection_attribution_json' => $jsonPath,
+            'rejection_attribution_md' => $mdPath,
+        ];
+    }
+
+    private static function buildRejectionAttributionMarkdown(array $report): string
+    {
+        $lines = [];
+        $lines[] = '# Rejection Attribution';
+        $lines[] = '';
+        $lines[] = '- Scenario: `' . (string)$report['scenario_name'] . '`';
+        $lines[] = '- Disposition: `' . (string)$report['recommended_disposition'] . '`';
+        $lines[] = '- Generated: `' . (string)$report['generated_at'] . '`';
+        $lines[] = '';
+
+        $comparison = (array)($report['control_baseline_comparison'] ?? []);
+        $lines[] = '## Control vs Baseline';
+        $lines[] = '';
+        $lines[] = '- Wins: ' . (int)($comparison['wins'] ?? 0) . ' | Losses: ' . (int)($comparison['losses'] ?? 0) . ' | Mixed: ' . (int)($comparison['mixed_tradeoffs'] ?? 0);
+        $lines[] = '- Comparator note: ' . (string)($comparison['confidence_summary'] ?? 'n/a');
+        foreach ((array)($comparison['simulator_groups'] ?? []) as $group) {
+            $lines[] = '- `' . (string)$group['simulator_type'] . '` '
+                . (string)$group['signature']
+                . ' | wins=' . (int)$group['wins']
+                . ' losses=' . (int)$group['losses']
+                . ' flags=' . (empty($group['regression_flags']) ? 'none' : implode(', ', (array)$group['regression_flags']));
+        }
+        $lines[] = '';
+        $lines[] = '## Changed Knobs';
+        $lines[] = '';
+        if ((array)($report['changed_knobs'] ?? []) === []) {
+            $lines[] = '- No knob audit data available.';
+        } else {
+            foreach ((array)$report['changed_knobs'] as $knob) {
+                $lines[] = '- `' . (string)$knob['path'] . '` => ' . (string)$knob['classification']
+                    . ' | baseline=' . self::formatValueInline($knob['baseline_value'] ?? null)
+                    . ' | candidate=' . self::formatValueInline($knob['candidate_effective_value'] ?? null);
+                if (!empty($knob['reason_detail'])) {
+                    $lines[] = '  note=' . (string)$knob['reason_detail'];
+                }
+            }
+        }
+        $lines[] = '';
+        $lines[] = '## Failed Gate';
+        $lines[] = '';
+        $lines[] = '- Primary: `' . (string)($report['primary_failed_gate']['flag'] ?? 'unknown') . '`'
+            . ' | ' . (string)($report['primary_failed_gate']['label'] ?? 'Unclassified');
+        foreach ((array)($report['secondary_regressions'] ?? []) as $gate) {
+            $lines[] = '- Secondary: `' . (string)$gate['flag'] . '` | ' . (string)$gate['label'];
+        }
+        $lines[] = '';
+        $lines[] = '## Causal Ranking';
+        $lines[] = '';
+        foreach ((array)($report['likely_causal_knob_ranking'] ?? []) as $row) {
+            $lines[] = '- #' . (int)$row['rank'] . ' `' . (string)$row['path'] . '`'
+                . ' | confidence=' . (string)$row['confidence']
+                . ' | score=' . (string)$row['score'];
+            $lines[] = '  rationale=' . (string)$row['rationale'];
+        }
+        $lines[] = '';
+        $lines[] = '## Uncertainty';
+        $lines[] = '';
+        $lines[] = '- Interaction ambiguity: ' . (((bool)($report['interaction_ambiguity']['present'] ?? false)) ? 'present' : 'not explicit');
+        $lines[] = '- Note: ' . (string)($report['interaction_ambiguity']['note'] ?? 'n/a');
+        foreach ((array)($report['confidence_notes'] ?? []) as $note) {
+            $lines[] = '- ' . (string)$note;
+        }
+
+        return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    private static function flagSeverity(string $flag): float
+    {
+        return match ($flag) {
+            'lock_in_down_but_expiry_dominance_up' => 100.0,
+            'reduces_lock_in_but_expiry_dominance_rises' => 96.0,
+            'long_run_concentration_worsened' => 92.0,
+            'skip_rejoin_exploit_worsened' => 90.0,
+            'seasonal_fairness_improves_but_long_run_concentration_worsens' => 88.0,
+            'candidate_improves_B_but_worsens_C' => 84.0,
+            'engagement_up_but_t6_supply_spike', 'improves_engagement_but_t6_supply_spikes' => 80.0,
+            'reduced_one_dominant_but_created_new_dominant' => 74.0,
+            'dominant_archetype_shifted' => 68.0,
+            default => 60.0,
+        };
+    }
+
+    private static function flagLabel(string $flag): string
+    {
+        return match ($flag) {
+            'lock_in_down_but_expiry_dominance_up', 'reduces_lock_in_but_expiry_dominance_rises' => 'Lock-in weakened while expiry pressure rose',
+            'long_run_concentration_worsened' => 'Long-run concentration worsened',
+            'skip_rejoin_exploit_worsened' => 'Skip/rejoin edge worsened',
+            'seasonal_fairness_improves_but_long_run_concentration_worsens' => 'Seasonal fairness improved but long-run concentration regressed',
+            'candidate_improves_B_but_worsens_C' => 'Short-run gains flipped into long-run losses',
+            'engagement_up_but_t6_supply_spike', 'improves_engagement_but_t6_supply_spikes' => 'Engagement gain came with excess T6 supply',
+            'reduced_one_dominant_but_created_new_dominant' => 'One dominant strategy fell but another took over',
+            'dominant_archetype_shifted' => 'Dominant archetype changed',
+            default => str_replace('_', ' ', $flag),
+        };
+    }
+
+    private static function flagRationale(string $flag, string $source): string
+    {
+        $prefix = ($source === 'cross_simulator')
+            ? 'This gate is driven by a cross-simulator regression pattern.'
+            : 'This gate is driven by direct simulator deltas.';
+
+        return match ($flag) {
+            'lock_in_down_but_expiry_dominance_up', 'reduces_lock_in_but_expiry_dominance_rises' => $prefix . ' Candidate output reduced lock-in while raising natural expiry.',
+            'long_run_concentration_worsened' => $prefix . ' Candidate increased long-run top-share concentration.',
+            'skip_rejoin_exploit_worsened' => $prefix . ' Candidate increased the skip-heavy edge instead of pushing it toward zero.',
+            'seasonal_fairness_improves_but_long_run_concentration_worsens' => $prefix . ' Candidate improved short-run fairness but paid for it with worse long-run concentration.',
+            'candidate_improves_B_but_worsens_C' => $prefix . ' Candidate looked better in B but clearly regressed in C.',
+            'engagement_up_but_t6_supply_spike', 'improves_engagement_but_t6_supply_spikes' => $prefix . ' Engagement gain appears coupled to excess T6 supply growth.',
+            'reduced_one_dominant_but_created_new_dominant', 'dominant_archetype_shifted' => $prefix . ' Archetype leadership changed enough to trigger a stability concern.',
+            default => $prefix . ' The comparator marked this as a reject-level regression flag.',
+        };
+    }
+
+    private static function flagMatchScore(string $key, string $subsystem, string $flag): float
+    {
+        $mapping = [
+            'lock_in_down_but_expiry_dominance_up' => [
+                'subsystems' => ['lock_in_expiry_incentives', 'hoarding_preservation_pressure', 'phase_timing'],
+                'keys' => ['target_spend_rate_per_tick', 'hoarding_min_factor_fp', 'market_affordability_bias_fp', 'starprice_reactivation_window_ticks', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'hoarding_safe_min_coins', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'hoarding_window_ticks'],
+            ],
+            'reduces_lock_in_but_expiry_dominance_rises' => [
+                'subsystems' => ['lock_in_expiry_incentives', 'hoarding_preservation_pressure', 'phase_timing'],
+                'keys' => ['target_spend_rate_per_tick', 'hoarding_min_factor_fp', 'market_affordability_bias_fp', 'starprice_reactivation_window_ticks', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'hoarding_safe_min_coins', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'hoarding_window_ticks'],
+            ],
+            'long_run_concentration_worsened' => [
+                'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing'],
+                'keys' => ['inflation_table', 'base_ubi_active_per_tick', 'base_ubi_idle_factor_fp', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'starprice_table', 'star_price_cap', 'starprice_idle_weight_fp'],
+            ],
+            'seasonal_fairness_improves_but_long_run_concentration_worsens' => [
+                'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing'],
+                'keys' => ['inflation_table', 'base_ubi_active_per_tick', 'base_ubi_idle_factor_fp', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'starprice_table', 'star_price_cap', 'starprice_idle_weight_fp'],
+            ],
+            'skip_rejoin_exploit_worsened' => [
+                'subsystems' => ['lock_in_expiry_incentives', 'phase_timing', 'hoarding_preservation_pressure'],
+                'keys' => ['starprice_reactivation_window_ticks', 'target_spend_rate_per_tick', 'hoarding_min_factor_fp', 'hoarding_window_ticks', 'hoarding_sink_enabled'],
+            ],
+            'engagement_up_but_t6_supply_spike' => [
+                'subsystems' => ['sigil_drop_tier_combine'],
+                'keys' => ['vault_config'],
+            ],
+            'improves_engagement_but_t6_supply_spikes' => [
+                'subsystems' => ['sigil_drop_tier_combine'],
+                'keys' => ['vault_config'],
+            ],
+            'candidate_improves_B_but_worsens_C' => [
+                'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing', 'lock_in_expiry_incentives', 'phase_timing', 'sigil_drop_tier_combine'],
+                'keys' => [],
+            ],
+            'dominant_archetype_shifted' => [
+                'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing', 'lock_in_expiry_incentives'],
+                'keys' => [],
+            ],
+            'reduced_one_dominant_but_created_new_dominant' => [
+                'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing', 'lock_in_expiry_incentives'],
+                'keys' => [],
+            ],
+        ];
+
+        $meta = $mapping[$flag] ?? ['subsystems' => [], 'keys' => []];
+        if (in_array($key, (array)$meta['keys'], true)) {
+            return 4.0;
+        }
+        if (in_array($subsystem, (array)$meta['subsystems'], true)) {
+            return 2.0;
+        }
+        return 0.35;
+    }
+
+    private static function knobConfidence(string $classification, int $activeCount, bool $ambiguous, float $primaryMatch): string
+    {
+        if ($classification !== 'active') {
+            return 'low';
+        }
+        if ($activeCount === 1 && !$ambiguous && $primaryMatch >= 2.0) {
+            return 'moderate';
+        }
+        return 'low';
+    }
+
+    private static function knobRationale(array $knob, array $interactionAmbiguity, float $primaryMatch): string
+    {
+        $parts = [];
+        $parts[] = ((string)($knob['classification'] ?? '') === 'active')
+            ? 'Knob was active in the effective config.'
+            : 'Knob was not active in the effective config.';
+        if ($primaryMatch >= 4.0) {
+            $parts[] = 'Its key maps directly to the primary failed gate.';
+        } elseif ($primaryMatch >= 2.0) {
+            $parts[] = 'Its subsystem aligns with the primary failed gate.';
+        } else {
+            $parts[] = 'Its link to the primary gate is indirect.';
+        }
+        if (!empty($interactionAmbiguity['present'])) {
+            $parts[] = 'Bundle interaction ambiguity lowers confidence.';
+        }
+        return implode(' ', $parts);
+    }
+
+    private static function formatValueInline(mixed $value): string
+    {
+        if ($value === null) {
+            return 'null';
+        }
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_SLASHES);
+        }
+        if (is_string($value)) {
+            return json_encode($value, JSON_UNESCAPED_SLASHES);
+        }
+        return (string)$value;
     }
 
     private static function buildSignature(string $simulator, array $cohort, array $horizon, array $payload): string

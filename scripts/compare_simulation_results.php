@@ -42,6 +42,8 @@ Options:
 Outputs:
   simulation_output/comparator/comparison_<seed>.json    Comparison artifact with
     wins/losses, delta_flags, regression_flags, disposition per scenario
+  simulation_output/comparator/rejections/<seed>/<scenario>/rejection_attribution.json
+  simulation_output/comparator/rejections/<seed>/<scenario>/rejection_attribution.md
 
 Workflow:
   1. Run Sim D to produce a sweep manifest:
@@ -91,6 +93,11 @@ foreach ($scenarios as $scenario) {
     $flags = (array)($scenario['regression_flags'] ?? []);
     if (!empty($flags)) {
         echo '  regression flags: ' . implode(', ', $flags) . PHP_EOL;
+    }
+    $attribution = (array)($scenario['rejection_attribution'] ?? []);
+    $artifactPaths = (array)($attribution['artifact_paths'] ?? []);
+    if (!empty($artifactPaths['rejection_attribution_json'])) {
+        echo '  rejection attribution: ' . (string)$artifactPaths['rejection_attribution_json'] . PHP_EOL;
     }
 }
 echo 'JSON: ' . (string)$result['json_path'] . PHP_EOL;
