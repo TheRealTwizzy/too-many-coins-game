@@ -131,3 +131,28 @@ Promotion stage 7 now emits a contract-based compatibility report that includes:
 - sweep manifest path and run count
 
 Passing the report means the patch surface is covered, unit-compatible, range-compatible, and round-trips without semantic drift.
+
+## Promotion Patch Bundles
+
+Promotion-eligible canonical configs can now be converted directly into a review-first play-test repo patch bundle with:
+
+```powershell
+php scripts/generate_promotion_patch.php `
+  --promotion-report=simulation_output/promotion/<candidate-id>/promotion_report.json `
+  --output=simulation_output/promotion-bundles `
+  --dry-run
+```
+
+Bundle outputs:
+
+- staged repo file additions under `repo_files/`
+- `repo_patch.diff` unified diff preview
+- `promotion_bundle.json` metadata with touched-file hashes and changed canonical keys
+- `patched_play_test_season.json` for post-patch schema/import validation
+
+Safety rules enforced by the generator:
+
+- only approved root `migration_*.sql` files may be staged
+- existing repo files are never overwritten
+- only canonical config deltas become play-test assignments
+- the patched play-test config must round-trip through `SimulationSeason` and match the canonical config exactly

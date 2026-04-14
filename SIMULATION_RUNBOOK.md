@@ -148,6 +148,35 @@ Report semantics:
 - `promotion_report.json` is the full machine-readable report
 - `promotion_report.md` is the operator-facing summary
 
+### Promotion Patch Generator
+
+After a candidate is marked `promotion_eligible=true`, generate the play-test repo patch bundle directly from the canonical config:
+
+```powershell
+php scripts/generate_promotion_patch.php `
+  --promotion-report=simulation_output/promotion/hoarding-safe-v1/promotion_report.json `
+  --output=simulation_output/promotion-bundles `
+  --dry-run
+```
+
+Direct canonical-config input is also supported when you already have the verified season JSON:
+
+```powershell
+php scripts/generate_promotion_patch.php `
+  --canonical-config=simulation_output/promotion/hoarding-safe-v1/07_play_test_repo_compatibility_validation/candidate_effective_season.json `
+  --base-season-config=simulation_output/current-db/export/current_season.json `
+  --candidate-id=hoarding-safe-v1 `
+  --output=simulation_output/promotion-bundles `
+  --dry-run
+```
+
+Bundle guarantees:
+
+- stages exactly one approved root `migration_*.sql` repo file
+- emits a unified dry-run diff in `repo_patch.diff`
+- writes `promotion_bundle.json` with exact file metadata and hashes
+- validates that the patched play-test config re-imports cleanly and matches the canonical config exactly
+
 ### Phase C staged candidate generation
 
 `generate_tuning_candidates.php` now emits staged experiment candidates instead of first-pass bundled packages:
