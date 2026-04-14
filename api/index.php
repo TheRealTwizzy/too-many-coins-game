@@ -8,7 +8,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Session-Token');
+header('Access-Control-Allow-Headers: Content-Type, X-Session-Token, X-Tick-Secret, X-Init-Secret');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('X-XSS-Protection: 1; mode=block');
@@ -194,6 +194,7 @@ require_once __DIR__ . '/../includes/actions.php';
 require_once __DIR__ . '/../includes/tick_engine.php';
 require_once __DIR__ . '/../includes/notifications.php';
 require_once __DIR__ . '/../includes/sigil_drops_api.php';
+require_once __DIR__ . '/../includes/runtime_readiness.php';
 
 if (!defined('LEADERBOARD_MAX_LIMIT')) {
     define('LEADERBOARD_MAX_LIMIT', 200);
@@ -251,10 +252,11 @@ if ($action === 'tick') {
     }
 
     try {
-        TickEngine::processTicks();
+        $summary = TickEngine::processTicks();
         echo json_encode([
             'ok' => true,
-            'server_now' => GameTime::now()
+            'server_now' => GameTime::now(),
+            'tick_summary' => $summary
         ]);
     } catch (Exception $e) {
         http_response_code(500);
@@ -343,6 +345,20 @@ try {
                     'anon_limit_per_window' => (int)TMC_RATE_LIMIT_ANON_PER_WINDOW,
                     'auth_limit_per_window' => (int)TMC_RATE_LIMIT_AUTH_PER_WINDOW,
                 ],
+            ]);
+            break;
+
+        case 'runtime_readiness':
+            if (!tmc_rate_limit_diagnostics_authorized($input)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Forbidden']);
+                break;
+            }
+
+            $observeSeconds = isset($input['observe_seconds']) ? max(0, min(30, (int)$input['observe_seconds'])) : 0;
+            echo json_encode([
+                'ok' => true,
+                'report' => tmc_runtime_readiness_report($db, ['observe_seconds' => $observeSeconds]),
             ]);
             break;
             

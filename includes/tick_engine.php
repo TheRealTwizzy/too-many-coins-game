@@ -19,6 +19,7 @@ require_once __DIR__ . '/game_time.php';
 require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/runtime_readiness.php';
 
 class TickEngine {
     
@@ -27,11 +28,26 @@ class TickEngine {
      */
     public static function processTicks() {
         $db = Database::getInstance();
+        self::ensureRuntimeTablesReady($db);
         GameTime::ensureSeasons();
         $gameTime = GameTime::now();
+        $summary = [
+            'game_time' => $gameTime,
+            'season_count' => 0,
+            'advanced_season_count' => 0,
+            'advanced_tick_count' => 0,
+            'season_error_count' => 0,
+            'no_participant_season_count' => 0,
+            'waiting_season_count' => 0,
+            'expired_finalize_count' => 0,
+            'processed_statuses' => [],
+            'progressed' => false,
+            'seasons' => [],
+        ];
         
         // Always compute status from game time; DB status is synchronized metadata.
         $seasons = $db->fetchAll("SELECT * FROM seasons");
+        $summary['season_count'] = count($seasons);
 
         foreach ($seasons as $season) {
             $computedStatus = GameTime::getSeasonStatus($season, $gameTime);
@@ -40,7 +56,23 @@ class TickEngine {
                 in_array($computedStatus, ['Active', 'Blackout'], true)
                 || ($computedStatus === 'Expired' && !(int)$season['expiration_finalized'])
             ) {
-                self::processSeasonTick($season, $gameTime);
+                $seasonSummary = self::processSeasonTick($season, $gameTime, $computedStatus);
+                $summary['seasons'][] = $seasonSummary;
+                $statusKey = (string)($seasonSummary['status'] ?? 'unknown');
+                $summary['processed_statuses'][$statusKey] = (int)($summary['processed_statuses'][$statusKey] ?? 0) + 1;
+                if (!empty($seasonSummary['advanced'])) {
+                    $summary['advanced_season_count']++;
+                    $summary['advanced_tick_count'] += (int)($seasonSummary['advanced_ticks'] ?? 0);
+                }
+                if ($statusKey === 'error') {
+                    $summary['season_error_count']++;
+                } elseif ($statusKey === 'no_participants') {
+                    $summary['no_participant_season_count']++;
+                } elseif ($statusKey === 'waiting') {
+                    $summary['waiting_season_count']++;
+                } elseif ($statusKey === 'expired_finalized') {
+                    $summary['expired_finalize_count']++;
+                }
             }
 
             if (($season['status'] ?? null) !== $computedStatus) {
@@ -56,6 +88,20 @@ class TickEngine {
             "UPDATE server_state SET global_tick_index = ?, last_tick_processed_at = NOW() WHERE id = 1",
             [$gameTime]
         );
+
+        $summary['progressed'] = $summary['advanced_season_count'] > 0;
+        if ($summary['season_error_count'] > 0) {
+            error_log('[tick] cycle_degraded ' . json_encode(self::compactCycleSummary($summary)));
+        } elseif (
+            TMC_TICK_TRACE
+            || $summary['progressed']
+            || $summary['no_participant_season_count'] > 0
+            || $summary['expired_finalize_count'] > 0
+        ) {
+            error_log('[tick] cycle_summary ' . json_encode(self::compactCycleSummary($summary)));
+        }
+
+        return $summary;
     }
 
     /**
@@ -84,7 +130,7 @@ class TickEngine {
     /**
      * Process a single tick batch for a season
      */
-    private static function processSeasonTick($season, $gameTime) {
+    private static function processSeasonTick($season, $gameTime, $computedStatus = null) {
         $db = Database::getInstance();
         $seasonId = $season['season_id'];
         $tickStart = microtime(true);
@@ -92,12 +138,26 @@ class TickEngine {
         $endTime = (int)$season['end_time'];
         $blackoutTime = (int)$season['blackout_time'];
         $lastProcessed = (int)$season['last_processed_tick'];
+        $summary = [
+            'season_id' => (int)$seasonId,
+            'computed_status' => $computedStatus ?? GameTime::getSeasonStatus($season, $gameTime),
+            'status' => 'waiting',
+            'advanced' => false,
+            'advanced_ticks' => 0,
+            'participants' => 0,
+            'game_time' => (int)$gameTime,
+            'last_processed_tick_before' => $lastProcessed,
+            'last_processed_tick_after' => $lastProcessed,
+        ];
         
         $currentSeasonTick = GameTime::seasonTick($startTime, $gameTime);
         $seasonDurationTicks = $endTime - $startTime;
         
         // Don't process before season starts
-        if ($currentSeasonTick < 0) return;
+        if ($currentSeasonTick < 0) {
+            $summary['status'] = 'before_start';
+            return $summary;
+        }
         
         // Cap to season duration
         $currentSeasonTick = min($currentSeasonTick, $seasonDurationTicks);
@@ -105,17 +165,24 @@ class TickEngine {
         $lastSeasonTick = max(0, $lastProcessed - $startTime);
         
         // Skip if already processed
-        if ($currentSeasonTick <= $lastSeasonTick) return;
+        if ($currentSeasonTick <= $lastSeasonTick) {
+            $summary['status'] = 'waiting';
+            return $summary;
+        }
         
         // Process in batches
         $ticksToProcess = $currentSeasonTick - $lastSeasonTick;
+        $summary['advanced_ticks'] = $ticksToProcess;
         
         // Check if this is the expiration tick
         $isExpiration = ($gameTime >= $endTime && !$season['expiration_finalized']);
         
         if ($isExpiration) {
             self::processExpiration($season);
-            return;
+            $summary['status'] = 'expired_finalized';
+            $summary['advanced'] = true;
+            $summary['last_processed_tick_after'] = (int)$gameTime;
+            return $summary;
         }
         
         // Get all participating players for this season
@@ -125,13 +192,16 @@ class TickEngine {
              WHERE p.joined_season_id = ? AND p.participation_enabled = 1 AND sp.season_id = ?",
             [$seasonId, $seasonId]
         );
+        $summary['participants'] = count($participants);
         
         if (empty($participants)) {
             $db->query(
                 "UPDATE seasons SET last_processed_tick = ? WHERE season_id = ?",
                 [$gameTime, $seasonId]
             );
-            return;
+            $summary['status'] = 'no_participants';
+            $summary['last_processed_tick_after'] = (int)$gameTime;
+            return $summary;
         }
         
         $isBlackout = ($gameTime >= $blackoutTime);
@@ -339,15 +409,23 @@ class TickEngine {
             );
             
             $db->commit();
+            $summary['status'] = 'success';
+            $summary['advanced'] = true;
+            $summary['last_processed_tick_after'] = (int)$gameTime;
         } catch (Exception $e) {
             $db->rollback();
+            $summary['status'] = 'error';
+            $summary['error'] = $e->getMessage();
             error_log("Tick processing error for season {$seasonId}: " . $e->getMessage());
         } finally {
             $durationMs = (int)round((microtime(true) - $tickStart) * 1000);
+            $summary['duration_ms'] = $durationMs;
             if ($durationMs >= (int)TMC_TICK_SLOW_MS) {
                 error_log("[tick] slow_season_tick season={$seasonId} duration_ms={$durationMs} ticks_to_process={$ticksToProcess} participants=" . count($participants));
             }
         }
+
+        return $summary;
     }
     
     /**
@@ -742,5 +820,49 @@ class TickEngine {
             error_log("Expiration processing error for season {$seasonId}: " . $e->getMessage());
         }
     }
-    
+
+    private static function ensureRuntimeTablesReady(Database $db): void {
+        $missingTables = [];
+        foreach (tmc_runtime_required_tick_tables() as $tableName) {
+            if (!tmc_runtime_table_exists($db, $tableName)) {
+                $missingTables[] = $tableName;
+            }
+        }
+
+        if (!empty($missingTables)) {
+            throw new RuntimeException(
+                'Tick runtime tables missing: ' . implode(', ', $missingTables)
+                . '. Run the tick runtime compat migration / bootstrap before enabling authoritative ticking.'
+            );
+        }
+    }
+
+    private static function compactCycleSummary(array $summary): array {
+        return [
+            'game_time' => (int)($summary['game_time'] ?? 0),
+            'season_count' => (int)($summary['season_count'] ?? 0),
+            'advanced_season_count' => (int)($summary['advanced_season_count'] ?? 0),
+            'advanced_tick_count' => (int)($summary['advanced_tick_count'] ?? 0),
+            'season_error_count' => (int)($summary['season_error_count'] ?? 0),
+            'no_participant_season_count' => (int)($summary['no_participant_season_count'] ?? 0),
+            'waiting_season_count' => (int)($summary['waiting_season_count'] ?? 0),
+            'expired_finalize_count' => (int)($summary['expired_finalize_count'] ?? 0),
+            'progressed' => !empty($summary['progressed']),
+            'seasons' => array_map(static function (array $seasonSummary): array {
+                $compact = [
+                    'season_id' => (int)($seasonSummary['season_id'] ?? 0),
+                    'status' => (string)($seasonSummary['status'] ?? 'unknown'),
+                    'participants' => (int)($seasonSummary['participants'] ?? 0),
+                    'advanced_ticks' => (int)($seasonSummary['advanced_ticks'] ?? 0),
+                    'duration_ms' => (int)($seasonSummary['duration_ms'] ?? 0),
+                    'last_processed_tick_before' => (int)($seasonSummary['last_processed_tick_before'] ?? 0),
+                    'last_processed_tick_after' => (int)($seasonSummary['last_processed_tick_after'] ?? 0),
+                ];
+                if (isset($seasonSummary['error'])) {
+                    $compact['error'] = (string)$seasonSummary['error'];
+                }
+                return $compact;
+            }, (array)($summary['seasons'] ?? [])),
+        ];
+    }
 }

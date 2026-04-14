@@ -189,6 +189,8 @@ Validation checks:
 2. Worker service logs show startup line: `[tick-worker] starting ...`.
 3. Worker service logs show `time_scale=1` in `[tick-worker] timing (...)`.
 4. `server_state.last_tick_processed_at` advances every few seconds.
+5. `php /app/tools/runtime_readiness_check.php --observe-seconds=15 --pretty` returns neither `blocked` nor `degraded`.
+6. If using remote diagnostics, `/api/index.php?action=runtime_readiness&secret=<TMC_INIT_SECRET>&observe_seconds=15` shows season advancement or explicitly reports expected blackout/zero-participant state.
 
 Fallback only if worker service cannot be used:
 
@@ -212,11 +214,21 @@ Header: X-Tick-Secret: <TMC_TICK_SECRET>
   - Confirm worker service start command is `/app/docker/worker-entrypoint.sh`.
   - Confirm worker replicas are `1`.
   - Check worker logs for `[tick-worker] error` lines.
+  - Check worker logs for repeated `[tick-worker] advisory_lock_busy` lines (unexpected lock holder).
+  - Check worker logs for `[tick-worker] cycle_result` with `progressed=false` or `season_error_count>0`.
   - Confirm DB env vars are present on worker service, not only web service.
+  - Run `php /app/tools/runtime_readiness_check.php --observe-seconds=15 --pretty` inside the running container.
 
 - Tick endpoint returns forbidden/not configured:
   - This matters only for fallback HTTP scheduler mode.
   - Ensure `X-Tick-Secret` matches `TMC_TICK_SECRET`.
+
+- Runtime looks healthy but economy is still frozen:
+  - Compare `server_state.last_tick_processed_at` with each season's `last_processed_tick`.
+  - If heartbeat advances but seasons do not, inspect worker/web logs for `Tick processing error for season`.
+  - Check `schema_migrations` for `status='failed'`.
+  - Confirm `boost_catalog`, `active_boosts`, `active_freezes`, `sigil_drop_log`, and `sigil_drop_tracking` exist.
+  - Confirm the current season is not legitimately `Blackout`, `Expired`, or empty of joined participants.
 
 ## 10. Rate-Limit Diagnostics and Rollout Checklist
 

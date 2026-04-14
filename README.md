@@ -97,6 +97,7 @@ Runtime migration application is enabled by default and runs on redeploy/startup
 - Applied files are tracked in `schema_migrations` with filename + checksum.
 - Files ending with `_optional.sql` remain manual-only.
 - `migration_boosts_drops.sql` remains init/setup-only bootstrap and is excluded from runtime auto-apply.
+- `migration_20260413b_tick_runtime_compat.sql` backfills bootstrap-only tick tables for environments that skipped the original boost/drop bootstrap.
 
 Guidelines:
 
@@ -369,6 +370,7 @@ Recommended env for worker-based processing:
 Worker safety:
 
 - Uses MySQL advisory lock `GET_LOCK('tmc_tick_worker', 0)` to avoid concurrent tick execution if more than one worker replica is accidentally started.
+- Worker logs now emit explicit `advisory_lock_busy` messages on repeated lock misses and `cycle_result` summaries when progression is not advancing cleanly.
 
 ### 1 Tick/Second Cutover (Safe Procedure)
 
@@ -423,6 +425,32 @@ Then schedule a request every 1 minute (Dokploy schedule or external cron):
 curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 	-H "X-Tick-Secret: $TMC_TICK_SECRET"
 ```
+
+### Runtime Readiness Gate
+
+Simulation success is not enough to declare a deployed environment healthy. Before promoting test/live, run the runtime readiness checks:
+
+```bash
+php tools/runtime_readiness_check.php --pretty
+php tools/runtime_readiness_check.php --observe-seconds=15 --pretty
+```
+
+Protected remote check:
+
+```text
+GET /api/index.php?action=runtime_readiness&secret=<TMC_INIT_SECRET>
+GET /api/index.php?action=runtime_readiness&secret=<TMC_INIT_SECRET>&observe_seconds=15
+```
+
+What this validates:
+
+- required tick-runtime tables exist (`boost_catalog`, `active_boosts`, `active_freezes`, `sigil_drop_log`, `sigil_drop_tracking`, `player_notifications`)
+- failed `schema_migrations` are surfaced
+- current season state is distinguished between `Active`, `Blackout`, `Expired`, and zero-participant states
+- joinable season count is reported
+- optional observation mode detects the dangerous case where `server_state.last_tick_processed_at` advances but no season `last_processed_tick` advances
+
+Treat `blocked` or `degraded` results as a failed runtime gate even if simulations still pass.
 
 ### Authenticated Endpoints (require `X-Session-Token` header)
 

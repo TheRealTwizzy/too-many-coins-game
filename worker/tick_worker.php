@@ -17,6 +17,7 @@ $startDelaySeconds = max(0, (int)(getenv('TMC_WORKER_START_DELAY_SECONDS') ?: 0)
 $runOnce = filter_var(getenv('TMC_WORKER_RUN_ONCE') ?: '0', FILTER_VALIDATE_BOOLEAN);
 $errorBackoffSeconds = max(1, (int)(getenv('TMC_WORKER_ERROR_BACKOFF_SECONDS') ?: 2));
 $timing = get_timing_diagnostics($intervalSeconds);
+$lockMissCount = 0;
 
 if ($startDelaySeconds > 0) {
     error_log("[tick-worker] startup delay: {$startDelaySeconds}s");
@@ -44,8 +45,26 @@ while (true) {
         $hasLock = isset($lockRow['got_lock']) && (int)$lockRow['got_lock'] === 1;
 
         if ($hasLock) {
+            $lockMissCount = 0;
             try {
-                TickEngine::processTicks();
+                $summary = TickEngine::processTicks();
+                if (
+                    TMC_TICK_TRACE
+                    || !empty($summary['season_error_count'])
+                    || empty($summary['progressed'])
+                    || !empty($summary['no_participant_season_count'])
+                    || !empty($summary['expired_finalize_count'])
+                ) {
+                    error_log('[tick-worker] cycle_result ' . json_encode([
+                        'game_time' => (int)($summary['game_time'] ?? 0),
+                        'progressed' => !empty($summary['progressed']),
+                        'advanced_season_count' => (int)($summary['advanced_season_count'] ?? 0),
+                        'advanced_tick_count' => (int)($summary['advanced_tick_count'] ?? 0),
+                        'season_error_count' => (int)($summary['season_error_count'] ?? 0),
+                        'no_participant_season_count' => (int)($summary['no_participant_season_count'] ?? 0),
+                        'waiting_season_count' => (int)($summary['waiting_season_count'] ?? 0),
+                    ]));
+                }
             } finally {
                 try {
                     $db->fetch("SELECT RELEASE_LOCK('tmc_tick_worker') AS released_lock");
@@ -53,6 +72,11 @@ while (true) {
                     // If connection drops, MySQL releases session locks automatically.
                     error_log('[tick-worker] lock release check failed: ' . $releaseError->getMessage());
                 }
+            }
+        } else {
+            $lockMissCount++;
+            if (TMC_TICK_TRACE || ($lockMissCount % (int)TMC_TICK_LOCK_MISS_LOG_EVERY) === 0) {
+                error_log('[tick-worker] advisory_lock_busy skip_count=' . $lockMissCount);
             }
         }
     } catch (Throwable $e) {
