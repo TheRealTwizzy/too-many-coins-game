@@ -78,6 +78,70 @@ Optional base season context:
 php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json --season-config=simulation_output/current-db/export/current_season.json
 ```
 
+---
+
+## Candidate Promotion Ladder
+
+`CandidatePromotionPipeline` is now the canonical patch-ready gate for individual simulation candidates.
+
+Fixed stage order:
+
+1. `candidate_schema_validation`
+2. `effective_config_preflight`
+3. `targeted_subsystem_harnesses`
+4. `full_single_season_validation`
+5. `multi_season_exploit_regression_validation`
+6. `patch_serialization_validation`
+7. `play_test_repo_compatibility_validation`
+8. `promotion_eligibility_marking`
+
+Rules:
+
+- stage order is mandatory in normal workflows
+- a failed required stage blocks later required stages
+- developer-only bypasses are explicit and always keep the candidate ineligible for patch-ready promotion
+- promotion eligibility is only marked after stages 1-7 all return `pass`
+
+CLI:
+
+```powershell
+php scripts/promote_simulation_candidate.php `
+  --candidate=tmp/candidate_patch.json `
+  --candidate-id=hoarding-safe-v1 `
+  --season-config=simulation_output/current-db/export/current_season.json `
+  --output=simulation_output/promotion `
+  --players-per-archetype=1 `
+  --season-count=4
+```
+
+Developer-only bypass example:
+
+```powershell
+php scripts/promote_simulation_candidate.php `
+  --candidate=tmp/candidate_patch.json `
+  --debug-bypass-stages=candidate_schema_validation,effective_config_preflight
+```
+
+Per-candidate artifacts:
+
+- `simulation_output/promotion/<candidate-id>/promotion_state.json`
+- `simulation_output/promotion/<candidate-id>/promotion_report.json`
+- `simulation_output/promotion/<candidate-id>/promotion_report.md`
+
+Machine-readable state contract:
+
+- `status`: `eligible`, `ineligible`, or `debug_only`
+- `patch_ready`: final boolean patch-ready flag
+- `promotion_eligible`: final boolean eligibility flag
+- `debug_bypass_used`: whether any stage was bypassed
+- `stages[]`: ordered stage records with `status`, `summary`, `warnings`, `artifacts`, and structured `details`
+
+Report semantics:
+
+- `promotion_state.json` is the compact automation-facing record
+- `promotion_report.json` is the full machine-readable report
+- `promotion_report.md` is the operator-facing summary
+
 ### Phase C staged candidate generation
 
 `generate_tuning_candidates.php` now emits staged experiment candidates instead of first-pass bundled packages:
