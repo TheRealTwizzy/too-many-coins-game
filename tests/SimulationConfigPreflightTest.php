@@ -43,8 +43,8 @@ class SimulationConfigPreflightTest extends TestCase
             ]));
             $this->fail('Expected preflight to fail for disabled hoarding sink tuning.');
         } catch (SimulationConfigPreflightException $e) {
-            $change = $e->report()['requested_candidate_changes'][0];
-            $this->assertSame('inactive_feature_disabled', $change['reason_code']);
+            $failure = $e->report()['candidate_validation']['candidate_patch_failures'][0];
+            $this->assertSame('candidate_disabled_subsystem', $failure['reason_code']);
             $this->assertFileExists($e->artifactPaths()['effective_config_json']);
             $this->assertFileExists($e->artifactPaths()['effective_config_audit_md']);
         }
@@ -60,12 +60,10 @@ class SimulationConfigPreflightTest extends TestCase
                     ['path' => 'runtime.tick_real_seconds', 'value' => 60],
                 ],
             ]));
-            $this->fail('Expected runtime candidate path to be shadowed by env.');
+            $this->fail('Expected runtime candidate path to be rejected by strict validator.');
         } catch (SimulationConfigPreflightException $e) {
-            $change = $e->report()['requested_candidate_changes'][0];
-            $this->assertSame('inactive_shadowed', $change['reason_code']);
-            $this->assertSame(3600, $change['effective_value']);
-            $this->assertSame('environment:TMC_TICK_REAL_SECONDS', $change['effective_source']);
+            $failure = $e->report()['candidate_validation']['candidate_patch_failures'][0];
+            $this->assertSame('candidate_out_of_surface', $failure['reason_code']);
         }
     }
 
@@ -95,21 +93,21 @@ class SimulationConfigPreflightTest extends TestCase
             ]));
             $this->fail('Expected invalid config path to fail preflight.');
         } catch (SimulationConfigPreflightException $e) {
-            $change = $e->report()['requested_candidate_changes'][0];
-            $this->assertSame('inactive_invalid_path', $change['reason_code']);
+            $failure = $e->report()['candidate_validation']['candidate_patch_failures'][0];
+            $this->assertSame('candidate_unknown_key', $failure['reason_code']);
         }
     }
 
-    public function testUnreferencedConfigKeyFailsPreflight(): void
+    public function testDeprecatedConfigKeyFailsPreflight(): void
     {
         try {
             SimulationConfigPreflight::resolve($this->options([
-                'candidate_patch' => ['vault_config' => '[]'],
+                'candidate_patch' => ['starprice_model_version' => 2],
             ]));
-            $this->fail('Expected unreferenced key to fail preflight.');
+            $this->fail('Expected deprecated key to fail preflight.');
         } catch (SimulationConfigPreflightException $e) {
-            $change = $e->report()['requested_candidate_changes'][0];
-            $this->assertSame('inactive_unreferenced', $change['reason_code']);
+            $failure = $e->report()['candidate_validation']['candidate_patch_failures'][0];
+            $this->assertSame('candidate_deprecated_key', $failure['reason_code']);
         }
     }
 

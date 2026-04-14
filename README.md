@@ -64,6 +64,20 @@ Simulation B, C, and D now resolve a canonical effective configuration before ea
 
 The audit records requested candidate changes, final effective values, source attribution, and whether each changed key is active. Runs abort before execution if a candidate touches an inactive key unless a developer explicitly bypasses the gate with `--allow-inactive-candidate-config` or `TMC_SIMULATION_AUDIT_BYPASS=1`.
 
+Strict candidate validation now runs before simulation preflight. Candidate packages and scenario overrides reject:
+
+- unknown keys
+- deprecated keys
+- keys outside the canonical economic tuning surface
+- keys for disabled subsystems
+- malformed types and out-of-range values
+
+Lint candidate JSON without running simulations:
+
+```bash
+php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json
+```
+
 See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
 
 ## Project Structure

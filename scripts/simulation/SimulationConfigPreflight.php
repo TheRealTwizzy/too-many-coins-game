@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/SimulationSeason.php';
+require_once __DIR__ . '/EconomicCandidateValidator.php';
 
 class SimulationConfigPreflightException extends RuntimeException
 {
@@ -155,6 +156,17 @@ class SimulationConfigPreflight
         );
         SimulationSeason::assertArrayShape($effectiveSeason);
 
+        $candidateValidationFailures = EconomicCandidateValidator::validateNormalizedChanges($candidateLayer, [
+            'base_season' => array_replace($defaultSeason, $baseSeasonOverrides['values'], $scenarioSeasonValues),
+            'context_prefix' => 'candidate_patch',
+            'layer_name' => 'candidate_patch',
+        ]);
+        $scenarioValidationFailures = EconomicCandidateValidator::validateNormalizedChanges($scenarioLayer, [
+            'base_season' => array_replace($defaultSeason, $baseSeasonOverrides['values'], $candidateSeasonValues),
+            'context_prefix' => 'scenario_override',
+            'layer_name' => 'scenario_override',
+        ]);
+
         $effectiveSeasonForJson = self::seasonForJson($effectiveSeason);
         $seasonSources = self::buildSeasonSources(
             $defaultSeason,
@@ -174,11 +186,12 @@ class SimulationConfigPreflight
         $inactiveChanges = array_values(array_filter($candidateAudit, static function (array $row): bool {
             return !$row['is_active'];
         }));
+        $validationFailures = array_merge($candidateValidationFailures, $scenarioValidationFailures);
 
         $report = [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => gmdate('c'),
-            'status' => ($inactiveChanges === []) ? 'pass' : ($debugBypass ? 'debug_bypass' : 'fail'),
+            'status' => ($inactiveChanges === [] && $validationFailures === []) ? 'pass' : ($debugBypass ? 'debug_bypass' : 'fail'),
             'simulator' => $simulator,
             'context' => [
                 'seed' => $seed,
@@ -203,6 +216,11 @@ class SimulationConfigPreflight
                     'environment',
                 ],
             ],
+            'candidate_validation' => [
+                'schema_version' => EconomicCandidateValidator::SCHEMA_VERSION,
+                'candidate_patch_failures' => $candidateValidationFailures,
+                'scenario_override_failures' => $scenarioValidationFailures,
+            ],
             'requested_candidate_changes' => $candidateAudit,
             'effective_config' => [
                 'runtime' => $runtime['values'],
@@ -216,6 +234,14 @@ class SimulationConfigPreflight
 
         $artifactPaths = self::writeArtifacts((string)($options['artifact_dir'] ?? ''), $report);
         $report['artifact_paths'] = $artifactPaths;
+
+        if ($validationFailures !== [] && !$debugBypass) {
+            throw new SimulationConfigPreflightException(
+                self::buildValidationFailureMessage($validationFailures, $artifactPaths),
+                $report,
+                $artifactPaths
+            );
+        }
 
         if ($inactiveChanges !== [] && !$debugBypass) {
             throw new SimulationConfigPreflightException(
@@ -675,6 +701,21 @@ class SimulationConfigPreflight
         $lines[] = '- Season: ' . implode(' < ', (array)$report['precedence']['season']);
         $lines[] = '- Runtime: ' . implode(' < ', (array)$report['precedence']['runtime']);
         $lines[] = '';
+        $validation = (array)($report['candidate_validation'] ?? []);
+        $candidateFailures = (array)($validation['candidate_patch_failures'] ?? []);
+        $scenarioFailures = (array)($validation['scenario_override_failures'] ?? []);
+        if ($candidateFailures !== [] || $scenarioFailures !== []) {
+            $lines[] = '## Candidate Validation';
+            $lines[] = '';
+            foreach (array_merge($candidateFailures, $scenarioFailures) as $failure) {
+                $lines[] = '- `' . (string)($failure['path'] ?? 'unknown') . '` => ' . (string)($failure['reason_code'] ?? 'invalid');
+                if (!empty($failure['reason_detail'])) {
+                    $lines[] = '  detail=' . (string)$failure['reason_detail'];
+                }
+            }
+            $lines[] = '';
+        }
+
         $lines[] = '## Candidate Changes';
         $lines[] = '';
 
@@ -695,6 +736,15 @@ class SimulationConfigPreflight
         }
 
         return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    private static function buildValidationFailureMessage(array $failures, array $artifactPaths): string
+    {
+        $message = EconomicCandidateValidator::buildFailureMessage($failures, 'Simulation preflight failed strict candidate validation');
+        if (!empty($artifactPaths['effective_config_audit_md'])) {
+            $message .= ' See audit: ' . $artifactPaths['effective_config_audit_md'];
+        }
+        return $message;
     }
 
     private static function buildFailureMessage(array $inactiveChanges, array $artifactPaths): string

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/SimulationSeason.php';
+require_once __DIR__ . '/EconomicCandidateValidator.php';
 
 class PolicyScenarioCatalog
 {
@@ -19,80 +20,6 @@ class PolicyScenarioCatalog
             self::$extraScenarios[$name] = $scenario;
         }
     }
-
-    private const CATEGORY_KEY_ALLOWLIST = [
-        'star_conversion_pricing' => [
-            'starprice_table',
-            'star_price_cap',
-            'starprice_idle_weight_fp',
-            'starprice_active_only',
-            'starprice_max_upstep_fp',
-            'starprice_max_downstep_fp',
-            'starprice_reactivation_window_ticks',
-            'starprice_demand_table',
-            'market_affordability_bias_fp',
-        ],
-        'boost_related' => [
-            'target_spend_rate_per_tick',
-            'base_ubi_active_per_tick',
-            'base_ubi_idle_factor_fp',
-            'ubi_min_per_tick',
-            'inflation_table',
-        ],
-        'sigil_drop_tier_combine' => [
-            'vault_config',
-        ],
-        'lock_in_expiry_incentives' => [
-            'market_affordability_bias_fp',
-            'starprice_reactivation_window_ticks',
-            'target_spend_rate_per_tick',
-            'hoarding_min_factor_fp',
-        ],
-        'hoarding_preservation_pressure' => [
-            'hoarding_window_ticks',
-            'hoarding_min_factor_fp',
-            'hoarding_sink_enabled',
-            'hoarding_safe_hours',
-            'hoarding_safe_min_coins',
-            'hoarding_tier1_excess_cap',
-            'hoarding_tier2_excess_cap',
-            'hoarding_tier1_rate_hourly_fp',
-            'hoarding_tier2_rate_hourly_fp',
-            'hoarding_tier3_rate_hourly_fp',
-            'hoarding_sink_cap_ratio_fp',
-            'hoarding_idle_multiplier_fp',
-        ],
-        'phase_timing' => [
-            'hoarding_window_ticks',
-            'starprice_reactivation_window_ticks',
-        ],
-    ];
-
-    private const DISALLOWED_KEYS = [
-        'season_id',
-        'start_time',
-        'end_time',
-        'blackout_time',
-        'season_seed',
-        'status',
-        'season_expired',
-        'expiration_finalized',
-        'current_star_price',
-        'market_anchor_price',
-        'blackout_star_price_snapshot',
-        'blackout_started_tick',
-        'pending_star_burn_coins',
-        'star_burn_ema_fp',
-        'net_mint_ema_fp',
-        'market_pressure_fp',
-        'total_coins_supply',
-        'total_coins_supply_end_of_tick',
-        'coins_active_total',
-        'coins_idle_total',
-        'coins_offline_total',
-        'effective_price_supply',
-        'last_processed_tick',
-    ];
 
     public static function all(): array
     {
@@ -267,7 +194,7 @@ class PolicyScenarioCatalog
 
     public static function categoryAllowlist(): array
     {
-        return self::CATEGORY_KEY_ALLOWLIST;
+        return EconomicCandidateValidator::categoryAllowlist();
     }
 
     /**
@@ -288,6 +215,8 @@ class PolicyScenarioCatalog
         if (!is_array($data) || !str_starts_with($schemaVersion, 'tmc-tuning-candidates.v')) {
             throw new InvalidArgumentException('Invalid tuning candidates format: ' . $candidatesJsonPath);
         }
+
+        EconomicCandidateValidator::assertCandidateDocument($data);
 
         $scenarios = [];
         foreach (($data['scenarios'] ?? []) as $scenario) {
@@ -331,45 +260,6 @@ class PolicyScenarioCatalog
 
     private static function assertValidScenario(array $scenario): void
     {
-        $name = (string)($scenario['name'] ?? '');
-        if ($name === '') {
-            throw new InvalidArgumentException('Scenario name is required');
-        }
-
-        $categories = (array)($scenario['categories'] ?? []);
-        if ($categories === []) {
-            throw new InvalidArgumentException('Scenario must include at least one category: ' . $name);
-        }
-
-        $overrides = (array)($scenario['overrides'] ?? []);
-        if ($overrides === []) {
-            throw new InvalidArgumentException('Scenario must include overrides: ' . $name);
-        }
-
-        $allowedSeasonKeys = array_flip(SimulationSeason::SEASON_ECONOMY_COLUMNS);
-        $categoryAllowlist = self::CATEGORY_KEY_ALLOWLIST;
-
-        $categoryKeys = [];
-        foreach ($categories as $category) {
-            $categoryName = (string)$category;
-            if (!isset($categoryAllowlist[$categoryName])) {
-                throw new InvalidArgumentException('Unknown scenario category: ' . $categoryName);
-            }
-            foreach ($categoryAllowlist[$categoryName] as $key) {
-                $categoryKeys[$key] = true;
-            }
-        }
-
-        foreach ($overrides as $key => $_value) {
-            if (in_array($key, self::DISALLOWED_KEYS, true)) {
-                throw new InvalidArgumentException('Override key disallowed for policy sweep: ' . $key);
-            }
-            if (!isset($allowedSeasonKeys[$key])) {
-                throw new InvalidArgumentException('Override key not in shared season schema: ' . $key);
-            }
-            if (!isset($categoryKeys[$key])) {
-                throw new InvalidArgumentException('Override key is not allowed by scenario categories: ' . $key);
-            }
-        }
+        EconomicCandidateValidator::assertScenario($scenario);
     }
 }

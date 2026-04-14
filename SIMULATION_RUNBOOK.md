@@ -39,6 +39,15 @@ Hard gate behavior:
 - any inactive candidate key aborts the run before simulation unless explicitly bypassed
 - debug-only bypass: `--allow-inactive-candidate-config` or env `TMC_SIMULATION_AUDIT_BYPASS=1`
 
+Strict candidate validation now runs before the inactive-key audit. Candidate ingestion rejects:
+
+- `candidate_unknown_key`
+- `candidate_deprecated_key`
+- `candidate_out_of_surface`
+- `candidate_disabled_subsystem`
+- `candidate_type_mismatch`
+- `candidate_out_of_range`
+
 Inactive reason codes:
 
 - `inactive_feature_disabled`
@@ -52,6 +61,20 @@ Notes:
 - unknown keys are not silently ignored
 - unreferenced knobs now fail fast instead of generating misleading candidate runs
 - the audit reflects the actual B/C simulator code paths, including known unreferenced season fields such as `vault_config`
+
+### Candidate lint command
+
+Lint candidate package JSON without running any simulation:
+
+```bash
+php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json
+```
+
+Optional base season context:
+
+```bash
+php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json --season-config=simulation_output/current-db/export/current_season.json
+```
 
 ---
 
