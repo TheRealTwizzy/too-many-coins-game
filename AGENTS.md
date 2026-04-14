@@ -18,3 +18,10 @@
 - keep deployment changes minimal
 - preserve init/db behavior unless explicitly fixing it
 - do not mix sandbox and live env values
+
+## Simulation config integrity rules
+- Every simulation run must pass through the canonical effective-config resolver.
+- Any candidate change touching an inactive, unknown, shadowed, or disabled key must fail preflight.
+- No simulation may start unless `effective_config.json` and `effective_config_audit.md` are generated.
+- Unknown config keys are errors, not warnings.
+- Candidate patches must be validated against the canonical schema before execution.
