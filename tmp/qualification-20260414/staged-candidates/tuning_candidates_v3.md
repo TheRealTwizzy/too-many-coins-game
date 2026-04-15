@@ -1,6 +1,6 @@
 # Economy Tuning Candidates
 
-Generated: 2026-04-14 16:38:21 UTC
+Generated: 2026-04-15 01:20:01 UTC
 Diagnosis source: `C:\Users\trent\Documents\webgame too-many-coins\too-many-coins-game\simulation_output\current-db\diagnosis\diagnosis_report.json`
 Tuning version: v3
 
@@ -11,21 +11,41 @@ Tuning version: v3
 | Findings processed | 12 |
 | Findings tunable | 6 |
 | Findings escalated | 6 |
-| Candidates generated | 32 |
-| Scenarios generated | 32 |
+| Candidates generated | 3 |
+| Scenarios generated | 3 |
+| Suppressed candidate families | 8 |
+
+## Baseline Constraints
+
+| Feature Flag | Baseline Value | Enabled |
+|---|---|---|
+| `season.hoarding_sink_enabled` | 0 | no |
 
 ## Stage Overview
 
-| Stage | Candidates | Blocked from next stage |
-|---|---|---|
-| `stage_1_single_knob` | 11 | 1 |
-| `stage_2_pairwise` | 12 | 0 |
-| `stage_3_constrained_bundle` | 6 | 0 |
-| `stage_4_full_confirmation` | 3 | 3 |
+| Stage | Candidates | Blocked from next stage | Suppressed before generation |
+|---|---|---|---|
+| `stage_1_single_knob` | 3 | 1 | 8 |
+| `stage_2_pairwise` | 0 | 0 | 0 |
+| `stage_3_constrained_bundle` | 0 | 0 | 0 |
+| `stage_4_full_confirmation` | 0 | 0 | 0 |
+
+## Suppressed Families
+
+| Stage | Family | Target | Reason |
+|---|---|---|---|
+| `stage_1_single_knob` | `hoarding_advantage` | `hoarding_tier2_rate_hourly_fp` | Knob is outside the active search space because `season.hoarding_sink_enabled` resolves... |
+| `stage_1_single_knob` | `hoarding_advantage` | `hoarding_tier3_rate_hourly_fp` | Knob is outside the active search space because `season.hoarding_sink_enabled` resolves... |
+| `stage_1_single_knob` | `hoarding_advantage` | `hoarding_idle_multiplier_fp` | Knob is outside the active search space because `season.hoarding_sink_enabled` resolves... |
+| `stage_1_single_knob` | `boost_roi_imbalance` | `hoarding_min_factor_fp` | Subsystem is disabled in the baseline because `season.hoarding_sink_enabled` resolves t... |
+| `stage_1_single_knob` | `phase_dead_zones` | `hoarding_window_ticks` | Subsystem is disabled in the baseline because `season.hoarding_sink_enabled` resolves t... |
+| `stage_1_single_knob` | `lock_in_support` | `starprice_reactivation_window_ticks` | Counterweight dimension has no active primary trigger lane after baseline search-space ... |
+| `stage_1_single_knob` | `lock_in_support` | `market_affordability_bias_fp` | Counterweight dimension has no active primary trigger lane after baseline search-space ... |
+| `stage_1_single_knob` | `expiry_softening` | `starprice_max_downstep_fp` | Counterweight dimension has no active primary trigger lane after baseline search-space ... |
 
 ## stage_1_single_knob
 
-### `stage1-base_ubi_active_per_tick-04`
+### `stage1-base_ubi_active_per_tick-01`
 
 Single-knob learning pass for `base_ubi_active_per_tick`.
 
@@ -41,127 +61,7 @@ Single-knob learning pass for `base_ubi_active_per_tick`.
 |---|---|---|---|
 | `base_ubi_active_per_tick` | 30 | 32 | B5,B6 |
 
-### `stage1-hoarding_idle_multiplier_fp-03`
-
-Single-knob learning pass for `hoarding_idle_multiplier_fp`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-
-### `stage1-hoarding_tier2_rate_hourly_fp-01`
-
-Single-knob learning pass for `hoarding_tier2_rate_hourly_fp`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-
-### `stage1-hoarding_tier3_rate_hourly_fp-02`
-
-Single-knob learning pass for `hoarding_tier3_rate_hourly_fp`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-
-### `stage1-market_affordability_bias_fp-10`
-
-Single-knob learning pass for `market_affordability_bias_fp`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage1-starprice_max_downstep_fp-11`
-
-Single-knob learning pass for `starprice_max_downstep_fp`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
-
-### `stage1-starprice_reactivation_window_ticks-09`
-
-Single-knob learning pass for `starprice_reactivation_window_ticks`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `starprice_reactivation_window_ticks` | 81 | 100 | B11:counterweight |
-
-### `stage1-hoarding_min_factor_fp-07`
-
-Single-knob learning pass for `hoarding_min_factor_fp`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 22
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_min_factor_fp` | 90000 | 93600 | B10 |
-
-### `stage1-hoarding_window_ticks-08`
-
-Single-knob learning pass for `hoarding_window_ticks`.
-
-- Stage: `stage_1_single_knob`
-- Knobs: 1
-- Signal score: 22
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: none
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_window_ticks` | 86400 | 84672 | B12 |
-
-### `stage1-target_spend_rate_per_tick-06`
+### `stage1-target_spend_rate_per_tick-03`
 
 Single-knob learning pass for `target_spend_rate_per_tick`.
 
@@ -176,7 +76,7 @@ Single-knob learning pass for `target_spend_rate_per_tick`.
 |---|---|---|---|
 | `target_spend_rate_per_tick` | 18 | 17 | B10 |
 
-### `stage1-vault_config-05`
+### `stage1-vault_config-02`
 
 Single-knob learning pass for `vault_config`.
 
@@ -190,363 +90,6 @@ Single-knob learning pass for `vault_config`.
 | Target | Current | Proposed | Finding |
 |---|---|---|---|
 | `vault_config` | [{"tier": 1, "supply": 500,... | [{"tier":1,"supply":575,"co... | B7 |
-
-
-## stage_2_pairwise
-
-### `stage2-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp`
-
-Pairwise validation for `hoarding_idle_multiplier_fp` + `hoarding_tier2_rate_hourly_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_idle_multiplier_fp-03, stage1-hoarding_tier2_rate_hourly_fp-01
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-
-### `stage2-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp`
-
-Pairwise validation for `hoarding_idle_multiplier_fp` + `hoarding_tier3_rate_hourly_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_idle_multiplier_fp-03, stage1-hoarding_tier3_rate_hourly_fp-02
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-
-### `stage2-hoarding_idle_multiplier_fp-market_affordability_bias_fp`
-
-Pairwise validation for `hoarding_idle_multiplier_fp` + `market_affordability_bias_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_idle_multiplier_fp-03, stage1-market_affordability_bias_fp-10
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage2-hoarding_idle_multiplier_fp-starprice_max_downstep_fp`
-
-Pairwise validation for `hoarding_idle_multiplier_fp` + `starprice_max_downstep_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_idle_multiplier_fp-03, stage1-starprice_max_downstep_fp-11
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
-
-### `stage2-hoarding_idle_multiplier_fp-starprice_reactivation_window_ticks`
-
-Pairwise validation for `hoarding_idle_multiplier_fp` + `starprice_reactivation_window_ticks`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_idle_multiplier_fp-03, stage1-starprice_reactivation_window_ticks-09
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `starprice_reactivation_window_ticks` | 81 | 100 | B11:counterweight |
-
-### `stage2-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`
-
-Pairwise validation for `hoarding_tier2_rate_hourly_fp` + `hoarding_tier3_rate_hourly_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier2_rate_hourly_fp-01, stage1-hoarding_tier3_rate_hourly_fp-02
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-
-### `stage2-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`
-
-Pairwise validation for `hoarding_tier2_rate_hourly_fp` + `market_affordability_bias_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier2_rate_hourly_fp-01, stage1-market_affordability_bias_fp-10
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage2-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`
-
-Pairwise validation for `hoarding_tier2_rate_hourly_fp` + `starprice_max_downstep_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier2_rate_hourly_fp-01, stage1-starprice_max_downstep_fp-11
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
-
-### `stage2-hoarding_tier2_rate_hourly_fp-starprice_reactivation_window_ticks`
-
-Pairwise validation for `hoarding_tier2_rate_hourly_fp` + `starprice_reactivation_window_ticks`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier2_rate_hourly_fp-01, stage1-starprice_reactivation_window_ticks-09
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `starprice_reactivation_window_ticks` | 81 | 100 | B11:counterweight |
-
-### `stage2-hoarding_tier3_rate_hourly_fp-market_affordability_bias_fp`
-
-Pairwise validation for `hoarding_tier3_rate_hourly_fp` + `market_affordability_bias_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier3_rate_hourly_fp-02, stage1-market_affordability_bias_fp-10
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage2-hoarding_tier3_rate_hourly_fp-starprice_max_downstep_fp`
-
-Pairwise validation for `hoarding_tier3_rate_hourly_fp` + `starprice_max_downstep_fp`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier3_rate_hourly_fp-02, stage1-starprice_max_downstep_fp-11
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
-
-### `stage2-hoarding_tier3_rate_hourly_fp-starprice_reactivation_window_ticks`
-
-Pairwise validation for `hoarding_tier3_rate_hourly_fp` + `starprice_reactivation_window_ticks`.
-
-- Stage: `stage_2_pairwise`
-- Knobs: 2
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage1-hoarding_tier3_rate_hourly_fp-02, stage1-starprice_reactivation_window_ticks-09
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-| `starprice_reactivation_window_ticks` | 81 | 100 | B11:counterweight |
-
-
-## stage_3_constrained_bundle
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`
-
-Constrained 3-knob bundle built only from pairwise-validated knobs.
-
-- Stage: `stage_3_constrained_bundle`
-- Knobs: 3
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage2-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp, stage2-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp, stage2-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`
-
-Constrained 3-knob bundle built only from pairwise-validated knobs.
-
-- Stage: `stage_3_constrained_bundle`
-- Knobs: 3
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage2-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp, stage2-hoarding_idle_multiplier_fp-market_affordability_bias_fp, stage2-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`
-
-Constrained 3-knob bundle built only from pairwise-validated knobs.
-
-- Stage: `stage_3_constrained_bundle`
-- Knobs: 3
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage2-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp, stage2-hoarding_idle_multiplier_fp-starprice_max_downstep_fp, stage2-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_reactivation_window_ticks`
-
-Constrained 3-knob bundle built only from pairwise-validated knobs.
-
-- Stage: `stage_3_constrained_bundle`
-- Knobs: 3
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage2-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp, stage2-hoarding_idle_multiplier_fp-starprice_reactivation_window_ticks, stage2-hoarding_tier2_rate_hourly_fp-starprice_reactivation_window_ticks
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `starprice_reactivation_window_ticks` | 81 | 100 | B11:counterweight |
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp-market_affordability_bias_fp`
-
-Constrained 3-knob bundle built only from pairwise-validated knobs.
-
-- Stage: `stage_3_constrained_bundle`
-- Knobs: 3
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: yes
-- Lineage parents: stage2-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp, stage2-hoarding_idle_multiplier_fp-market_affordability_bias_fp, stage2-hoarding_tier3_rate_hourly_fp-market_affordability_bias_fp
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp-starprice_max_downstep_fp`
-
-Constrained 3-knob bundle built only from pairwise-validated knobs.
-
-- Stage: `stage_3_constrained_bundle`
-- Knobs: 3
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: yes
-- Lineage parents: stage2-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp, stage2-hoarding_idle_multiplier_fp-starprice_max_downstep_fp, stage2-hoarding_tier3_rate_hourly_fp-starprice_max_downstep_fp
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
-
-
-## stage_4_full_confirmation
-
-### `stage4-stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`
-
-Full confirmation candidate promoted from constrained bundle `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`.
-
-- Stage: `stage_4_full_confirmation`
-- Knobs: 3
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: no
-- Lineage parents: stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp
-- Advancement notes: final confirmation stage
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `hoarding_tier3_rate_hourly_fp` | 1070 | 1177 | B11 |
-
-### `stage4-stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`
-
-Full confirmation candidate promoted from constrained bundle `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`.
-
-- Stage: `stage_4_full_confirmation`
-- Knobs: 3
-- Signal score: 32
-- Risk: LOW
-- Eligible for next stage: no
-- Lineage parents: stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp
-- Advancement notes: final confirmation stage
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `market_affordability_bias_fp` | 970000 | 873000 | B11:counterweight |
-
-### `stage4-stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`
-
-Full confirmation candidate promoted from constrained bundle `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`.
-
-- Stage: `stage_4_full_confirmation`
-- Knobs: 3
-- Signal score: 32
-- Risk: MEDIUM
-- Eligible for next stage: no
-- Lineage parents: stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp
-- Advancement notes: final confirmation stage
-
-| Target | Current | Proposed | Finding |
-|---|---|---|---|
-| `hoarding_idle_multiplier_fp` | 1287500 | 1339000 | B11 |
-| `hoarding_tier2_rate_hourly_fp` | 535 | 578 | B11 |
-| `starprice_max_downstep_fp` | 12960 | 15811 | B11:counterweight |
 
 ## Escalations
 
@@ -562,7 +105,7 @@ Full confirmation candidate promoted from constrained bundle `stage3-hoarding_id
 
 ## Scenarios
 
-### `stage1-base_ubi_active_per_tick-04`
+### `stage1-base_ubi_active_per_tick-01`
 
 - Stage: `stage_1_single_knob`
 - Categories: boost_related
@@ -573,95 +116,7 @@ Full confirmation candidate promoted from constrained bundle `stage3-hoarding_id
 }
 ```
 
-### `stage1-hoarding_idle_multiplier_fp-03`
-
-- Stage: `stage_1_single_knob`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000
-}
-```
-
-### `stage1-hoarding_tier2_rate_hourly_fp-01`
-
-- Stage: `stage_1_single_knob`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_tier2_rate_hourly_fp": 578
-}
-```
-
-### `stage1-hoarding_tier3_rate_hourly_fp-02`
-
-- Stage: `stage_1_single_knob`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_tier3_rate_hourly_fp": 1177
-}
-```
-
-### `stage1-market_affordability_bias_fp-10`
-
-- Stage: `stage_1_single_knob`
-- Categories: star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage1-starprice_max_downstep_fp-11`
-
-- Stage: `stage_1_single_knob`
-- Categories: star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "starprice_max_downstep_fp": 15811
-}
-```
-
-### `stage1-starprice_reactivation_window_ticks-09`
-
-- Stage: `stage_1_single_knob`
-- Categories: star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "starprice_reactivation_window_ticks": 100
-}
-```
-
-### `stage1-hoarding_min_factor_fp-07`
-
-- Stage: `stage_1_single_knob`
-- Categories: boost_related, hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_min_factor_fp": 93600
-}
-```
-
-### `stage1-hoarding_window_ticks-08`
-
-- Stage: `stage_1_single_knob`
-- Categories: phase_timing, hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_window_ticks": 84672
-}
-```
-
-### `stage1-target_spend_rate_per_tick-06`
+### `stage1-target_spend_rate_per_tick-03`
 
 - Stage: `stage_1_single_knob`
 - Categories: boost_related, hoarding_preservation_pressure
@@ -672,7 +127,7 @@ Full confirmation candidate promoted from constrained bundle `stage3-hoarding_id
 }
 ```
 
-### `stage1-vault_config-05`
+### `stage1-vault_config-02`
 
 - Stage: `stage_1_single_knob`
 - Categories: sigil_drop_tier_combine
@@ -680,267 +135,6 @@ Full confirmation candidate promoted from constrained bundle `stage3-hoarding_id
 ```json
 {
     "vault_config": "[{\"tier\":1,\"supply\":575,\"cost_table\":[{\"cost\":48,\"remaining\":1}]},{\"tier\":2,\"supply\":288,\"cost_table\":[{\"cost\":238,\"remaining\":1}]},{\"tier\":3,\"supply\":144,\"cost_table\":[{\"cost\":950,\"remaining\":1}]}]"
-}
-```
-
-### `stage2-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578
-}
-```
-
-### `stage2-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier3_rate_hourly_fp": 1177
-}
-```
-
-### `stage2-hoarding_idle_multiplier_fp-market_affordability_bias_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage2-hoarding_idle_multiplier_fp-starprice_max_downstep_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "starprice_max_downstep_fp": 15811
-}
-```
-
-### `stage2-hoarding_idle_multiplier_fp-starprice_reactivation_window_ticks`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "starprice_reactivation_window_ticks": 100
-}
-```
-
-### `stage2-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "hoarding_tier3_rate_hourly_fp": 1177
-}
-```
-
-### `stage2-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage2-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "starprice_max_downstep_fp": 15811
-}
-```
-
-### `stage2-hoarding_tier2_rate_hourly_fp-starprice_reactivation_window_ticks`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "starprice_reactivation_window_ticks": 100
-}
-```
-
-### `stage2-hoarding_tier3_rate_hourly_fp-market_affordability_bias_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_tier3_rate_hourly_fp": 1177,
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage2-hoarding_tier3_rate_hourly_fp-starprice_max_downstep_fp`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_tier3_rate_hourly_fp": 1177,
-    "starprice_max_downstep_fp": 15811
-}
-```
-
-### `stage2-hoarding_tier3_rate_hourly_fp-starprice_reactivation_window_ticks`
-
-- Stage: `stage_2_pairwise`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_tier3_rate_hourly_fp": 1177,
-    "starprice_reactivation_window_ticks": 100
-}
-```
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`
-
-- Stage: `stage_3_constrained_bundle`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "hoarding_tier3_rate_hourly_fp": 1177
-}
-```
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`
-
-- Stage: `stage_3_constrained_bundle`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`
-
-- Stage: `stage_3_constrained_bundle`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "starprice_max_downstep_fp": 15811
-}
-```
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_reactivation_window_ticks`
-
-- Stage: `stage_3_constrained_bundle`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "starprice_reactivation_window_ticks": 100
-}
-```
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp-market_affordability_bias_fp`
-
-- Stage: `stage_3_constrained_bundle`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier3_rate_hourly_fp": 1177,
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage3-hoarding_idle_multiplier_fp-hoarding_tier3_rate_hourly_fp-starprice_max_downstep_fp`
-
-- Stage: `stage_3_constrained_bundle`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier3_rate_hourly_fp": 1177,
-    "starprice_max_downstep_fp": 15811
-}
-```
-
-### `stage4-stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-hoarding_tier3_rate_hourly_fp`
-
-- Stage: `stage_4_full_confirmation`
-- Categories: hoarding_preservation_pressure
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "hoarding_tier3_rate_hourly_fp": 1177
-}
-```
-
-### `stage4-stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-market_affordability_bias_fp`
-
-- Stage: `stage_4_full_confirmation`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "market_affordability_bias_fp": 873000
-}
-```
-
-### `stage4-stage3-hoarding_idle_multiplier_fp-hoarding_tier2_rate_hourly_fp-starprice_max_downstep_fp`
-
-- Stage: `stage_4_full_confirmation`
-- Categories: hoarding_preservation_pressure, star_conversion_pricing, lock_in_expiry_incentives
-
-```json
-{
-    "hoarding_idle_multiplier_fp": 1339000,
-    "hoarding_tier2_rate_hourly_fp": 578,
-    "starprice_max_downstep_fp": 15811
 }
 ```
 

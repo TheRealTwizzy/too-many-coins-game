@@ -97,6 +97,66 @@ class TuningCandidateGeneratorTest extends TestCase
         $this->assertSame([], $failures);
     }
 
+    public function testHoardingCandidatesAreSuppressedWhenHoardingSinkIsDisabled(): void
+    {
+        $seasonConfig = $this->seasonConfigWithHoardingSink(0);
+        $document = TuningCandidateGenerator::generate($this->sampleDiagnosis(), [
+            'baseline_season' => SimulationSeason::build(1, 'baseline-defaults'),
+            'season_config' => $seasonConfig,
+            'tuning_version' => 3,
+        ]);
+
+        $targets = $this->documentTargets($document);
+        $this->assertNotContains('hoarding_window_ticks', $targets);
+        $this->assertNotContains('hoarding_tier2_rate_hourly_fp', $targets);
+        $this->assertNotContains('hoarding_tier3_rate_hourly_fp', $targets);
+        $this->assertNotContains('hoarding_idle_multiplier_fp', $targets);
+
+        $suppressed = (array)($document['suppression_report']['entries'] ?? []);
+        $this->assertNotEmpty($suppressed);
+        $this->assertTrue($this->hasSuppression($suppressed, 'hoarding_advantage', 'hoarding_tier2_rate_hourly_fp', 'knob_out_of_active_search_space'));
+        $this->assertTrue($this->hasSuppression($suppressed, 'phase_dead_zones', 'hoarding_window_ticks', 'subsystem_disabled_in_baseline'));
+        $this->assertTrue($this->hasSuppression($suppressed, 'lock_in_support', 'market_affordability_bias_fp', 'stage_ineligible_candidate_dimension'));
+    }
+
+    public function testHoardingCandidateFamiliesReappearWhenHoardingSinkIsEnabled(): void
+    {
+        $seasonConfig = $this->seasonConfigWithHoardingSink(1);
+        $document = TuningCandidateGenerator::generate($this->sampleDiagnosis(), [
+            'baseline_season' => SimulationSeason::build(1, 'baseline-defaults'),
+            'season_config' => $seasonConfig,
+            'tuning_version' => 3,
+        ]);
+
+        $targets = $this->documentTargets($document);
+        $this->assertContains('hoarding_window_ticks', $targets);
+        $this->assertContains('hoarding_tier2_rate_hourly_fp', $targets);
+        $this->assertContains('hoarding_tier3_rate_hourly_fp', $targets);
+        $this->assertContains('hoarding_idle_multiplier_fp', $targets);
+
+        $suppressed = (array)($document['suppression_report']['entries'] ?? []);
+        $this->assertFalse($this->hasSuppression($suppressed, 'hoarding_advantage', 'hoarding_tier2_rate_hourly_fp', 'knob_out_of_active_search_space'));
+        $this->assertFalse($this->hasSuppression($suppressed, 'phase_dead_zones', 'hoarding_window_ticks', 'subsystem_disabled_in_baseline'));
+    }
+
+    public function testGenerationOutputIsStableAndBaselineAware(): void
+    {
+        $seasonConfig = $this->seasonConfigWithHoardingSink(0);
+        $options = [
+            'baseline_season' => SimulationSeason::build(1, 'baseline-defaults'),
+            'season_config' => $seasonConfig,
+            'tuning_version' => 3,
+        ];
+
+        $first = TuningCandidateGenerator::generate($this->sampleDiagnosis(), $options);
+        $second = TuningCandidateGenerator::generate($this->sampleDiagnosis(), $options);
+
+        $this->assertSame(
+            $this->normalizeGeneratedDocument($first),
+            $this->normalizeGeneratedDocument($second)
+        );
+    }
+
     private function sampleDiagnosis(): array
     {
         return [
@@ -135,6 +195,68 @@ class TuningCandidateGeneratorTest extends TestCase
                     'notes' => 'Paired samples: 2. Seed-specific variance observed.',
                 ],
             ],
+        ];
+    }
+
+    private function seasonConfigWithHoardingSink(int $enabled): array
+    {
+        return SimulationSeason::build(1, 'baseline-aware-test', [
+            'hoarding_sink_enabled' => $enabled,
+            'target_spend_rate_per_tick' => 18,
+            'hoarding_min_factor_fp' => 90000,
+            'hoarding_tier2_rate_hourly_fp' => 535,
+            'hoarding_tier3_rate_hourly_fp' => 1070,
+            'hoarding_idle_multiplier_fp' => 1287500,
+            'starprice_reactivation_window_ticks' => 81,
+            'market_affordability_bias_fp' => 970000,
+        ]);
+    }
+
+    private function documentTargets(array $document): array
+    {
+        $targets = [];
+        foreach ((array)($document['packages'] ?? []) as $candidate) {
+            foreach ((array)($candidate['changes'] ?? []) as $change) {
+                $targets[] = (string)($change['target'] ?? '');
+            }
+        }
+
+        return array_values(array_unique(array_filter($targets, static fn(string $target): bool => $target !== '')));
+    }
+
+    private function hasSuppression(array $entries, string $family, string $target, string $reasonCode): bool
+    {
+        foreach ($entries as $entry) {
+            if (
+                (string)($entry['family'] ?? '') === $family
+                && (string)($entry['target'] ?? '') === $target
+                && (string)($entry['reason_code'] ?? '') === $reasonCode
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeGeneratedDocument(array $document): array
+    {
+        $packages = [];
+        foreach ((array)($document['packages'] ?? []) as $candidate) {
+            $packages[] = [
+                'candidate_id' => (string)($candidate['candidate_id'] ?? ''),
+                'stage' => (string)($candidate['stage'] ?? ''),
+                'targets' => array_values(array_map(static fn(array $change): string => (string)($change['target'] ?? ''), (array)($candidate['changes'] ?? []))),
+                'overrides' => (array)($candidate['changes'] ?? []),
+            ];
+        }
+
+        return [
+            'packages' => $packages,
+            'stage_reports' => (array)($document['stage_reports'] ?? []),
+            'suppression_report' => (array)($document['suppression_report'] ?? []),
+            'baseline_context' => (array)($document['baseline_context'] ?? []),
+            'metadata' => (array)($document['metadata'] ?? []),
         ];
     }
 }

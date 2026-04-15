@@ -190,6 +190,14 @@ Bundle guarantees:
 - `stage_3_constrained_bundle`: only knobs proven in eligible stage-2 pairs may bundle
 - `stage_4_full_confirmation`: only promoted stage-3 bundles advance to full confirmation
 
+Generation is baseline-aware before linting. The generator resolves the effective baseline from the exported season config, intersects targets with the canonical tuning surface, and suppresses disabled or inactive families up front. Generated `tuning_candidates*.json` and `tuning_candidates*.md` now expose:
+
+- `baseline_context`
+- `suppression_report`
+- stage-level `suppressed_from_generation` counts
+
+Suppression reasons are explicit, including disabled baseline subsystems, knobs outside the active search space, and stage-ineligible dimensions such as counterweights with no surviving trigger lane.
+
 Every package and scenario includes:
 
 - `stage`

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../simulation/SimulationSeason.php';
+require_once __DIR__ . '/../simulation/CanonicalEconomyConfigContract.php';
 
 class TuningCandidateGenerator
 {
@@ -28,6 +29,7 @@ class TuningCandidateGenerator
         $seasonConfig = $options['season_config'] ?? null;
         $baselineSeason = $options['baseline_season'] ?? SimulationSeason::build(1, 'baseline-defaults');
         $diagnosisPath = $options['diagnosis_path'] ?? null;
+        $generationConstraints = self::resolveGenerationConstraints($seasonConfig, $baselineSeason);
 
         $findings = array_values((array)($diagnosis['findings'] ?? []));
         $findingsByCategory = self::indexFindingsByCategory($findings);
@@ -96,14 +98,17 @@ class TuningCandidateGenerator
             }
         }
 
-        $stage1Candidates = self::buildStage1Candidates(
+        $stage1Result = self::buildStage1Candidates(
             $findingsByCategory,
             $registry,
             $multiplierOverrides,
             $counterweights,
             $seasonConfig,
-            $baselineSeason
+            (array)$generationConstraints['effective_baseline'],
+            $generationConstraints
         );
+        $stage1Candidates = (array)($stage1Result['candidates'] ?? []);
+        $suppressions = (array)($stage1Result['suppressions'] ?? []);
         $stage2Candidates = self::buildStage2Candidates($stage1Candidates);
         $stage3Candidates = self::buildStage3Candidates($stage1Candidates, $stage2Candidates);
         $stage4Candidates = self::buildStage4Candidates($stage3Candidates);
@@ -126,13 +131,20 @@ class TuningCandidateGenerator
             self::STAGE_2 => $stage2Candidates,
             self::STAGE_3 => $stage3Candidates,
             self::STAGE_4 => $stage4Candidates,
-        ]);
+        ], $suppressions);
+
+        $suppressionReport = self::buildSuppressionReport($suppressions);
 
         return [
             'schema_version' => 'tmc-tuning-candidates.staged.v1',
             'generated_at' => gmdate('c'),
             'diagnosis_report_path' => $diagnosisPath,
             'tuning_version' => $tuningVersion,
+            'baseline_context' => [
+                'feature_flags' => (array)($generationConstraints['feature_flags'] ?? []),
+                'mechanics' => (array)($generationConstraints['mechanics'] ?? []),
+                'active_search_space_keys' => array_values((array)($generationConstraints['active_search_space'] ?? [])),
+            ],
             'packages' => $allCandidates,
             'stages' => [
                 self::STAGE_1 => $stage1Candidates,
@@ -141,6 +153,7 @@ class TuningCandidateGenerator
                 self::STAGE_4 => $stage4Candidates,
             ],
             'stage_reports' => $stageReports,
+            'suppression_report' => $suppressionReport,
             'escalations' => $escalations,
             'scenarios' => $scenarios,
             'metadata' => [
@@ -150,6 +163,7 @@ class TuningCandidateGenerator
                 'findings_skipped' => max(0, $findingsProcessed - $findingsTunable - $findingsEscalated),
                 'packages_generated' => count($allCandidates),
                 'scenarios_generated' => count($scenarios),
+                'suppressed_candidate_families' => (int)($suppressionReport['count'] ?? 0),
                 'stage_counts' => array_column($stageReports, 'candidate_count', 'stage'),
                 'advancement_blocked_counts' => array_column($stageReports, 'blocked_from_next_stage', 'stage'),
             ],
@@ -160,6 +174,8 @@ class TuningCandidateGenerator
     {
         $metadata = (array)($document['metadata'] ?? []);
         $stageReports = (array)($document['stage_reports'] ?? []);
+        $baselineContext = (array)($document['baseline_context'] ?? []);
+        $suppressionReport = (array)($document['suppression_report'] ?? []);
         $packages = (array)($document['packages'] ?? []);
         $escalations = (array)($document['escalations'] ?? []);
         $scenarios = (array)($document['scenarios'] ?? []);
@@ -182,17 +198,59 @@ class TuningCandidateGenerator
         $lines[] = '| Findings escalated | ' . (int)($metadata['findings_escalated'] ?? 0) . ' |';
         $lines[] = '| Candidates generated | ' . (int)($metadata['packages_generated'] ?? 0) . ' |';
         $lines[] = '| Scenarios generated | ' . (int)($metadata['scenarios_generated'] ?? 0) . ' |';
+        $lines[] = '| Suppressed candidate families | ' . (int)($metadata['suppressed_candidate_families'] ?? 0) . ' |';
         $lines[] = '';
+        if ($baselineContext !== []) {
+            $lines[] = '## Baseline Constraints';
+            $lines[] = '';
+            $featureFlags = (array)($baselineContext['feature_flags'] ?? []);
+            if ($featureFlags !== []) {
+                $lines[] = '| Feature Flag | Baseline Value | Enabled |';
+                $lines[] = '|---|---|---|';
+                foreach ($featureFlags as $path => $flagState) {
+                    $lines[] = '| `'
+                        . (string)$path
+                        . '` | '
+                        . self::truncateMarkdownValue($flagState['value'] ?? null)
+                        . ' | '
+                        . (!empty($flagState['enabled']) ? 'yes' : 'no')
+                        . ' |';
+                }
+                $lines[] = '';
+            }
+        }
         $lines[] = '## Stage Overview';
         $lines[] = '';
-        $lines[] = '| Stage | Candidates | Blocked from next stage |';
-        $lines[] = '|---|---|---|';
+        $lines[] = '| Stage | Candidates | Blocked from next stage | Suppressed before generation |';
+        $lines[] = '|---|---|---|---|';
         foreach ($stageReports as $report) {
             $lines[] = '| `' . $report['stage'] . '` | '
                 . (int)$report['candidate_count']
                 . ' | '
                 . (int)$report['blocked_from_next_stage']
+                . ' | '
+                . (int)($report['suppressed_from_generation'] ?? 0)
                 . ' |';
+        }
+
+        $suppressedEntries = (array)($suppressionReport['entries'] ?? []);
+        if ($suppressedEntries !== []) {
+            $lines[] = '';
+            $lines[] = '## Suppressed Families';
+            $lines[] = '';
+            $lines[] = '| Stage | Family | Target | Reason |';
+            $lines[] = '|---|---|---|---|';
+            foreach ($suppressedEntries as $entry) {
+                $lines[] = '| `'
+                    . (string)($entry['stage'] ?? self::STAGE_1)
+                    . '` | `'
+                    . (string)($entry['family'] ?? 'unknown')
+                    . '` | `'
+                    . (string)($entry['target'] ?? 'unknown')
+                    . '` | '
+                    . self::truncateMarkdownText((string)($entry['reason_detail'] ?? ''), 90)
+                    . ' |';
+            }
         }
 
         $grouped = [];
@@ -294,10 +352,13 @@ class TuningCandidateGenerator
         array $multiplierOverrides,
         array $counterweights,
         ?array $seasonConfig,
-        array $baselineSeason
+        array $baselineSeason,
+        array $generationConstraints
     ): array {
         $profiles = [];
         $changeCounter = 0;
+        $eligiblePrimaryCategories = [];
+        $suppressions = [];
 
         foreach ($findingsByCategory as $category => $categoryFindings) {
             $registryEntry = $registry[$category] ?? null;
@@ -308,11 +369,28 @@ class TuningCandidateGenerator
             foreach ($categoryFindings as $finding) {
                 foreach ((array)($registryEntry['targets'] ?? []) as $target) {
                     $key = (string)$target['key'];
+                    $feasibility = self::evaluateTargetFeasibility($target, $generationConstraints);
+                    if (!(bool)($feasibility['eligible'] ?? false)) {
+                        self::recordSuppression($suppressions, [
+                            'stage' => self::STAGE_1,
+                            'family' => $category,
+                            'target' => $key,
+                            'mechanic' => (string)($target['mechanic'] ?? 'unknown'),
+                            'source_kind' => 'primary',
+                            'reason_code' => (string)($feasibility['reason_code'] ?? 'suppressed'),
+                            'reason_detail' => (string)($feasibility['reason_detail'] ?? 'Candidate family is not baseline-feasible.'),
+                            'subsystem' => (string)($feasibility['subsystem'] ?? 'unknown'),
+                            'finding_ids' => [$finding['id'] ?? $category],
+                        ]);
+                        continue;
+                    }
+
                     $currentValue = self::getBaselineValue($key, $seasonConfig, $baselineSeason);
                     $tier = self::recommendedTier($finding);
                     $proposedValue = self::computeProposedValue($target, $currentValue, $tier, $category, $multiplierOverrides);
                     $riskLevel = self::riskLevel($target, $currentValue, $proposedValue, $tier);
                     $signalHints = self::extractSignalHints($finding);
+                    $eligiblePrimaryCategories[$category] = true;
 
                     if (!isset($profiles[$key])) {
                         $profiles[$key] = [
@@ -340,8 +418,30 @@ class TuningCandidateGenerator
         }
 
         foreach ($counterweights as $counterweightName => $counterweight) {
+            $triggerCategories = array_values(array_unique((array)($counterweight['trigger_categories'] ?? [])));
+            $eligibleTriggerCategories = array_values(array_filter($triggerCategories, static function (string $triggerCategory) use ($eligiblePrimaryCategories): bool {
+                return !empty($eligiblePrimaryCategories[$triggerCategory]);
+            }));
+
+            if ($eligibleTriggerCategories === []) {
+                foreach ((array)($counterweight['targets'] ?? []) as $target) {
+                    self::recordSuppression($suppressions, [
+                        'stage' => self::STAGE_1,
+                        'family' => (string)$counterweightName,
+                        'target' => (string)($target['key'] ?? 'unknown'),
+                        'mechanic' => (string)($target['mechanic'] ?? 'unknown'),
+                        'source_kind' => 'counterweight',
+                        'reason_code' => 'stage_ineligible_candidate_dimension',
+                        'reason_detail' => 'Counterweight dimension has no active primary trigger lane after baseline search-space filtering.',
+                        'subsystem' => (string)($target['mechanic'] ?? 'unknown'),
+                        'finding_ids' => [],
+                    ]);
+                }
+                continue;
+            }
+
             $supportingFindings = [];
-            foreach ((array)$counterweight['trigger_categories'] as $triggerCategory) {
+            foreach ($eligibleTriggerCategories as $triggerCategory) {
                 foreach ((array)($findingsByCategory[$triggerCategory] ?? []) as $finding) {
                     $supportingFindings[] = [
                         'category' => $triggerCategory,
@@ -362,6 +462,22 @@ class TuningCandidateGenerator
 
             foreach ((array)($counterweight['targets'] ?? []) as $target) {
                 $key = (string)$target['key'];
+                $feasibility = self::evaluateTargetFeasibility($target, $generationConstraints);
+                if (!(bool)($feasibility['eligible'] ?? false)) {
+                    self::recordSuppression($suppressions, [
+                        'stage' => self::STAGE_1,
+                        'family' => (string)$counterweightName,
+                        'target' => $key,
+                        'mechanic' => (string)($target['mechanic'] ?? 'unknown'),
+                        'source_kind' => 'counterweight',
+                        'reason_code' => (string)($feasibility['reason_code'] ?? 'suppressed'),
+                        'reason_detail' => (string)($feasibility['reason_detail'] ?? 'Counterweight target is not baseline-feasible.'),
+                        'subsystem' => (string)($feasibility['subsystem'] ?? 'unknown'),
+                        'finding_ids' => [$primaryFinding['id'] ?? $counterweightName],
+                    ]);
+                    continue;
+                }
+
                 $currentValue = self::getBaselineValue($key, $seasonConfig, $baselineSeason);
                 $tier = self::recommendedTier($primaryFinding);
                 $proposedValue = self::computeCounterweightValue($target, $currentValue, $tier);
@@ -410,7 +526,10 @@ class TuningCandidateGenerator
             return strcmp((string)$left['candidate_id'], (string)$right['candidate_id']);
         });
 
-        return $candidates;
+        return [
+            'candidates' => $candidates,
+            'suppressions' => array_values($suppressions),
+        ];
     }
 
     private static function finalizeStage1Candidate(array $profile, int $ordinal): ?array
@@ -809,8 +928,14 @@ class TuningCandidateGenerator
         return $confirmation;
     }
 
-    private static function buildStageReports(array $stages): array
+    private static function buildStageReports(array $stages, array $suppressions): array
     {
+        $suppressedByStage = [];
+        foreach ($suppressions as $suppression) {
+            $stage = (string)($suppression['stage'] ?? self::STAGE_1);
+            $suppressedByStage[$stage] = ($suppressedByStage[$stage] ?? 0) + 1;
+        }
+
         $reports = [];
         foreach ($stages as $stage => $candidates) {
             $blocked = 0;
@@ -824,10 +949,33 @@ class TuningCandidateGenerator
                 'stage' => $stage,
                 'candidate_count' => count($candidates),
                 'blocked_from_next_stage' => $blocked,
+                'suppressed_from_generation' => (int)($suppressedByStage[$stage] ?? 0),
             ];
         }
 
         return $reports;
+    }
+
+    private static function buildSuppressionReport(array $suppressions): array
+    {
+        $byReason = [];
+        $byStage = [];
+        foreach ($suppressions as $suppression) {
+            $reason = (string)($suppression['reason_code'] ?? 'suppressed');
+            $stage = (string)($suppression['stage'] ?? self::STAGE_1);
+            $byReason[$reason] = ($byReason[$reason] ?? 0) + 1;
+            $byStage[$stage] = ($byStage[$stage] ?? 0) + 1;
+        }
+
+        ksort($byReason);
+        ksort($byStage);
+
+        return [
+            'count' => count($suppressions),
+            'by_reason' => $byReason,
+            'by_stage' => $byStage,
+            'entries' => array_values($suppressions),
+        ];
     }
 
     private static function candidateOverrides(array $candidate): array
@@ -979,6 +1127,157 @@ class TuningCandidateGenerator
             return $baselineSeason[$key];
         }
         return null;
+    }
+
+    private static function resolveGenerationConstraints(?array $seasonConfig, array $baselineSeason): array
+    {
+        $effectiveBaseline = array_replace($baselineSeason, is_array($seasonConfig) ? $seasonConfig : []);
+        $surfaceMeta = CanonicalEconomyConfigContract::validatorSurfaceMeta();
+        $featureFlags = [];
+        $activeSearchSpace = [];
+
+        foreach ($surfaceMeta as $key => $meta) {
+            $featureFlagPath = (string)($meta['feature_flag'] ?? '');
+            if ($featureFlagPath !== '' && !isset($featureFlags[$featureFlagPath])) {
+                $featureFlags[$featureFlagPath] = self::baselineFlagState($featureFlagPath, $effectiveBaseline);
+            }
+
+            if ($featureFlagPath === '' || !empty($featureFlags[$featureFlagPath]['enabled'])) {
+                $activeSearchSpace[$key] = $key;
+            }
+        }
+
+        return [
+            'effective_baseline' => $effectiveBaseline,
+            'surface_meta' => $surfaceMeta,
+            'feature_flags' => $featureFlags,
+            'mechanics' => self::baselineMechanicStates($effectiveBaseline),
+            'active_search_space' => $activeSearchSpace,
+        ];
+    }
+
+    private static function baselineFlagState(string $path, array $baselineSeason): array
+    {
+        $key = str_starts_with($path, 'season.') ? substr($path, 7) : $path;
+        $value = $baselineSeason[$key] ?? null;
+        $enabled = false;
+
+        if (is_bool($value)) {
+            $enabled = $value;
+        } elseif (is_numeric($value)) {
+            $enabled = ((int)$value) !== 0;
+        }
+
+        return [
+            'path' => $path,
+            'key' => $key,
+            'value' => $value,
+            'enabled' => $enabled,
+        ];
+    }
+
+    private static function baselineMechanicStates(array $baselineSeason): array
+    {
+        return [
+            'hoarding_sink' => [
+                'enabled' => ((int)($baselineSeason['hoarding_sink_enabled'] ?? 0)) === 1,
+                'path' => 'season.hoarding_sink_enabled',
+                'value' => $baselineSeason['hoarding_sink_enabled'] ?? null,
+            ],
+            'ubi' => ['enabled' => true, 'path' => null, 'value' => null],
+            'boost_economy' => ['enabled' => true, 'path' => null, 'value' => null],
+            'star_pricing' => ['enabled' => true, 'path' => null, 'value' => null],
+            'sigil_vault' => ['enabled' => true, 'path' => null, 'value' => null],
+        ];
+    }
+
+    private static function evaluateTargetFeasibility(array $target, array $generationConstraints): array
+    {
+        $key = (string)($target['key'] ?? '');
+        $surfaceMeta = (array)($generationConstraints['surface_meta'] ?? []);
+        if ($key === '' || !isset($surfaceMeta[$key])) {
+            return [
+                'eligible' => false,
+                'reason_code' => 'knob_out_of_active_search_space',
+                'reason_detail' => 'Knob is not part of the canonical tuning surface.',
+                'subsystem' => 'unknown',
+            ];
+        }
+
+        $meta = (array)$surfaceMeta[$key];
+        $featureFlagPath = (string)($meta['feature_flag'] ?? '');
+        if ($featureFlagPath !== '') {
+            $flagState = (array)(($generationConstraints['feature_flags'][$featureFlagPath] ?? null)
+                ?: self::baselineFlagState($featureFlagPath, (array)($generationConstraints['effective_baseline'] ?? [])));
+            if (empty($flagState['enabled'])) {
+                return [
+                    'eligible' => false,
+                    'reason_code' => 'knob_out_of_active_search_space',
+                    'reason_detail' => sprintf(
+                        'Knob is outside the active search space because `%s` resolves to %s in the baseline.',
+                        $featureFlagPath,
+                        json_encode($flagState['value'] ?? null, JSON_UNESCAPED_SLASHES)
+                    ),
+                    'subsystem' => (string)($meta['subsystem'] ?? 'unknown'),
+                ];
+            }
+        }
+
+        $mechanic = (string)($target['mechanic'] ?? '');
+        $mechanicState = (array)(($generationConstraints['mechanics'][$mechanic] ?? null)
+            ?: ['enabled' => true, 'path' => null, 'value' => null]);
+        if (empty($mechanicState['enabled'])) {
+            return [
+                'eligible' => false,
+                'reason_code' => 'subsystem_disabled_in_baseline',
+                'reason_detail' => sprintf(
+                    'Subsystem is disabled in the baseline because `%s` resolves to %s.',
+                    (string)($mechanicState['path'] ?? 'unknown'),
+                    json_encode($mechanicState['value'] ?? null, JSON_UNESCAPED_SLASHES)
+                ),
+                'subsystem' => (string)($meta['subsystem'] ?? $mechanic ?: 'unknown'),
+            ];
+        }
+
+        return [
+            'eligible' => true,
+            'reason_code' => null,
+            'reason_detail' => null,
+            'subsystem' => (string)($meta['subsystem'] ?? 'unknown'),
+        ];
+    }
+
+    private static function recordSuppression(array &$suppressions, array $entry): void
+    {
+        $findingIds = array_values(array_unique(array_filter(array_map('strval', (array)($entry['finding_ids'] ?? [])))));
+        sort($findingIds);
+        $key = implode('|', [
+            (string)($entry['stage'] ?? self::STAGE_1),
+            (string)($entry['family'] ?? 'unknown'),
+            (string)($entry['target'] ?? 'unknown'),
+            (string)($entry['reason_code'] ?? 'suppressed'),
+        ]);
+
+        if (!isset($suppressions[$key])) {
+            $suppressions[$key] = [
+                'stage' => (string)($entry['stage'] ?? self::STAGE_1),
+                'family' => (string)($entry['family'] ?? 'unknown'),
+                'target' => (string)($entry['target'] ?? 'unknown'),
+                'mechanic' => (string)($entry['mechanic'] ?? 'unknown'),
+                'source_kind' => (string)($entry['source_kind'] ?? 'primary'),
+                'reason_code' => (string)($entry['reason_code'] ?? 'suppressed'),
+                'reason_detail' => (string)($entry['reason_detail'] ?? 'Candidate family was suppressed.'),
+                'subsystem' => (string)($entry['subsystem'] ?? 'unknown'),
+                'finding_ids' => $findingIds,
+            ];
+            return;
+        }
+
+        $suppressions[$key]['finding_ids'] = array_values(array_unique(array_merge(
+            (array)$suppressions[$key]['finding_ids'],
+            $findingIds
+        )));
+        sort($suppressions[$key]['finding_ids']);
     }
 
     private static function indexFindingsByCategory(array $findings): array

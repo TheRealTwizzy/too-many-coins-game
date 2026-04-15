@@ -87,6 +87,8 @@ Phase C candidate generation is now staged to keep first-pass tuning isolated an
 - `stage_3_constrained_bundle`: only pairwise-validated knobs may bundle, capped to small bundles
 - `stage_4_full_confirmation`: only promoted stage-3 bundles advance
 
+Generation is baseline-aware before linting: it intersects the registry with the canonical tuning surface, active baseline feature flags, and subsystem enablement. The JSON and Markdown outputs now include `baseline_context` plus a `suppression_report` section so disabled or inactive families are reported explicitly instead of relying on late preflight rejection.
+
 Every generated candidate and scenario now carries `stage` plus `lineage` metadata so reports show where a candidate came from and which earlier-stage candidates validated it. Low-signal or unstable knobs stay in stage 1 for learning, but do not auto-promote.
 
 See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.

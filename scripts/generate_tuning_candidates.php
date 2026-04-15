@@ -52,8 +52,8 @@ Options:
   --help                 Show this help
 
 Outputs:
-  tuning_candidates[_vN].json   Staged candidates + lineage + scenarios
-  tuning_candidates[_vN].md     Human-readable staged summary
+  tuning_candidates[_vN].json   Staged candidates + lineage + baseline suppression report
+  tuning_candidates[_vN].md     Human-readable staged summary with suppressed families
 
 HELP;
         exit(0);
@@ -94,7 +94,7 @@ if (!is_dir($outputDir)) {
 $document = TuningCandidateGenerator::generate($diagnosis, [
     'diagnosis_path' => $diagnosisPath,
     'season_config' => $seasonConfig,
-    'baseline_season' => SimulationSeason::build(1, 'baseline-defaults'),
+    'baseline_season' => SimulationSeason::build(1, 'baseline-defaults', is_array($seasonConfig) ? $seasonConfig : []),
     'tuning_version' => (int)$options['version'],
 ]);
 
@@ -109,6 +109,7 @@ $stageCounts = (array)($document['metadata']['stage_counts'] ?? []);
 
 echo "=== Phase C Complete ===\n";
 echo "Candidates generated: " . (int)($document['metadata']['packages_generated'] ?? 0) . "\n";
+echo "Suppressed candidate families: " . (int)($document['metadata']['suppressed_candidate_families'] ?? 0) . "\n";
 echo "Escalations: " . count((array)($document['escalations'] ?? [])) . "\n";
 echo "Scenarios: " . count((array)($document['scenarios'] ?? [])) . "\n";
 foreach ($stageCounts as $stage => $count) {
