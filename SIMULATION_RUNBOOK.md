@@ -446,6 +446,54 @@ php scripts/compare_simulation_results.php `
 
 ---
 
+## Official Sweep + Comparator Profiles
+
+Use the campaign runner when you need a supported, reproducible qualification or campaign review path instead of manually assembling sweep/comparator commands.
+
+```powershell
+php scripts/run_sweep_comparator_campaign.php --list-profiles
+```
+
+Supported profiles:
+
+- `qualification`
+  - reduced-cost proof profile
+  - runs `phase-gated-safe-24h-v1` plus baseline across Sim B and Sim C
+  - expected envelope: `2.5-4.0 minutes`
+- `full-campaign`
+  - full fixed follow-up bundle
+  - runs four follow-up scenarios plus baseline across Sim B and Sim C
+  - expected envelope: `6.5-9.0 minutes`
+
+Preferred qualification command:
+
+```powershell
+php scripts/run_sweep_comparator_campaign.php `
+  --profile=qualification `
+  --seed=qualification-proof
+```
+
+Preferred campaign command:
+
+```powershell
+php scripts/run_sweep_comparator_campaign.php `
+  --profile=full-campaign `
+  --seed=followup-campaign
+```
+
+Timing instrumentation now lives in the generated artifacts:
+
+- Simulation D manifest `timing_summary`
+- Simulation D per-run `runs[*].timings`
+- Simulation E payload `timing_summary`
+- Simulation E per-scenario `scenarios[*].timing_ms`
+- Campaign report `sweep_comparator_report.json`
+
+See [SIMULATION_SWEEP_COMPARATOR_PROFILES.md](SIMULATION_SWEEP_COMPARATOR_PROFILES.md) for the rationale behind each profile and the measured completion envelopes.
+Pass `--season-config=FILE` only when the file comes from the current canonical exporter; legacy season snapshots with metadata keys still fail strict preflight by design.
+
+---
+
 ## Agentic Hierarchical Optimization Workflow
 
 Use this when broad monolithic package sweeps are not converging. It runs a staged subsystem-first search:

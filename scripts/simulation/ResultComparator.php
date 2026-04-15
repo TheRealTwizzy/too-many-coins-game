@@ -10,6 +10,7 @@ class ResultComparator
 
     public static function run(array $options): array
     {
+        $startedAt = microtime(true);
         $sweepManifestPath = isset($options['sweep_manifest']) ? (string)$options['sweep_manifest'] : null;
         $baselineBPaths = (array)($options['baseline_b_paths'] ?? []);
         $baselineCPaths = (array)($options['baseline_c_paths'] ?? []);
@@ -20,13 +21,17 @@ class ResultComparator
             mkdir($outputDir, 0777, true);
         }
 
+        $datasetStartedAt = microtime(true);
         $dataset = self::buildDataset($sweepManifestPath, $baselineBPaths, $baselineCPaths);
+        $datasetDurationMs = self::msSince($datasetStartedAt);
         $scenarioReports = [];
 
+        $scenarioCompareStartedAt = microtime(true);
         foreach ($dataset['scenario_groups'] as $scenarioName => $simGroups) {
             $scenarioReport = self::compareScenario($scenarioName, $simGroups, $dataset['baseline_groups'], $outputDir, $seed);
             $scenarioReports[] = $scenarioReport;
         }
+        $scenarioCompareDurationMs = self::msSince($scenarioCompareStartedAt);
 
         usort($scenarioReports, static function ($left, $right) {
             return strcmp((string)$left['scenario_name'], (string)$right['scenario_name']);
@@ -51,9 +56,19 @@ class ResultComparator
                 })),
             ],
             'scenarios' => $scenarioReports,
+            'timing_summary' => [
+                'dataset_build_duration_ms' => $datasetDurationMs,
+                'scenario_compare_duration_ms' => $scenarioCompareDurationMs,
+                'artifact_write_duration_ms' => 0,
+                'total_duration_ms' => 0,
+            ],
         ];
 
         $baseName = 'comparison_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $seed);
+        $artifactWriteStartedAt = microtime(true);
+        $jsonPath = MetricsCollector::writeJson($result, $outputDir, $baseName);
+        $result['timing_summary']['artifact_write_duration_ms'] = self::msSince($artifactWriteStartedAt);
+        $result['timing_summary']['total_duration_ms'] = self::msSince($startedAt);
         $jsonPath = MetricsCollector::writeJson($result, $outputDir, $baseName);
 
         return [
@@ -137,6 +152,7 @@ class ResultComparator
 
     private static function compareScenario(string $scenarioName, array $simGroups, array $baselineGroups, string $outputDir, string $seed): array
     {
+        $startedAt = microtime(true);
         $simulatorComparisons = [];
         $regressionFlags = [];
         $wins = 0;
@@ -196,6 +212,7 @@ class ResultComparator
             'simulator_comparisons' => $simulatorComparisons,
             'cross_simulator_regression_flags' => $crossFlags,
             'regression_flags' => $flags,
+            'timing_ms' => 0,
         ];
 
         if ($disposition === 'reject') {
@@ -206,8 +223,10 @@ class ResultComparator
                 'secondary_regressions' => $attribution['report']['secondary_regressions'],
                 'interaction_ambiguity' => $attribution['report']['interaction_ambiguity'],
                 'confidence_notes' => $attribution['report']['confidence_notes'],
+                'timing_ms' => (int)($attribution['timing_ms'] ?? 0),
             ];
         }
+        $report['timing_ms'] = self::msSince($startedAt);
 
         return $report;
     }
@@ -711,6 +730,7 @@ class ResultComparator
         string $outputDir,
         string $seed
     ): array {
+        $startedAt = microtime(true);
         $changedKnobs = self::collectChangedKnobs($simGroups, $baselineGroups, $scenarioReport);
         $gateCandidates = self::collectGateCandidates($scenarioReport);
         $primaryGate = $gateCandidates[0] ?? [
@@ -768,6 +788,7 @@ class ResultComparator
         return [
             'report' => $report,
             'artifact_paths' => $artifactPaths,
+            'timing_ms' => self::msSince($startedAt),
         ];
     }
 
@@ -1277,6 +1298,11 @@ class ResultComparator
         }
 
         return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    private static function msSince(float $startedAt): int
+    {
+        return (int)round((microtime(true) - $startedAt) * 1000);
     }
 
     private static function flagSeverity(string $flag): float

@@ -92,6 +92,7 @@ Generation is baseline-aware before linting: it intersects the registry with the
 Every generated candidate and scenario now carries `stage` plus `lineage` metadata so reports show where a candidate came from and which earlier-stage candidates validated it. Low-signal or unstable knobs stay in stage 1 for learning, but do not auto-promote.
 
 See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
+Official sweep/comparator qualification and campaign profiles are documented in [SIMULATION_SWEEP_COMPARATOR_PROFILES.md](SIMULATION_SWEEP_COMPARATOR_PROFILES.md).
 The shared simulator/play-test economy contract is documented in [ECONOMY_CONFIG_COMPATIBILITY.md](ECONOMY_CONFIG_COMPATIBILITY.md).
 Promotion-critical simulator/runtime mechanic certification is documented in [PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md](PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md).
 Promotion-eligible candidates can be converted into a staged play-test repo patch bundle with `php scripts/generate_promotion_patch.php --promotion-report=... --dry-run`.
@@ -103,7 +104,9 @@ Semantic determinism excludes only operational metadata that can vary between eq
 - Simulation D result `manifest_path`
 - Simulation D manifest `generated_at`
 - Simulation D manifest `config.base_season_config_path`
-- Simulation D manifest `runs[*].json`, `runs[*].csv`, and `runs[*].config_audit.*`
+- Simulation D manifest `runs[*].json`, `runs[*].csv`, `runs[*].config_audit.*`, and `runs[*].timings`
+- Simulation D manifest `timing_summary`
+- Simulation E payload `timing_summary`, `scenarios[*].timing_ms`, and `scenarios[*].rejection_attribution.timing_ms`
 
 Those raw fields are still emitted for inspection and debugging, but determinism assertions compare the remaining semantic output surface. Economic metrics, sweep metadata, requested candidate changes, audit status, and other payload content must still match exactly for a run to be considered deterministic.
 

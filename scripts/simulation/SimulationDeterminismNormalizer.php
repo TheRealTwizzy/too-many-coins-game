@@ -47,6 +47,31 @@ class SimulationDeterminismNormalizer
             'path' => 'runs[*].config_audit.*',
             'reason' => 'Embedded audit artifact paths are preserved for operators but are not semantic outputs.',
         ],
+        [
+            'scope' => 'policy_sweep_manifest',
+            'path' => 'timing_summary',
+            'reason' => 'Sweep timing telemetry depends on workstation speed and wall-clock execution, not semantic output.',
+        ],
+        [
+            'scope' => 'policy_sweep_manifest',
+            'path' => 'runs[*].timings',
+            'reason' => 'Per-run timing telemetry is operational instrumentation only.',
+        ],
+        [
+            'scope' => 'simulation_payload',
+            'path' => 'timing_summary',
+            'reason' => 'Comparator timing telemetry depends on workstation speed and wall-clock execution, not semantic output.',
+        ],
+        [
+            'scope' => 'simulation_payload',
+            'path' => 'scenarios[*].timing_ms',
+            'reason' => 'Per-scenario comparator timing is operational instrumentation only.',
+        ],
+        [
+            'scope' => 'simulation_payload',
+            'path' => 'scenarios[*].rejection_attribution.timing_ms',
+            'reason' => 'Rejection attribution timing is operational instrumentation only.',
+        ],
     ];
 
     public static function volatileFieldInventory(): array
@@ -65,9 +90,24 @@ class SimulationDeterminismNormalizer
         $normalized = $payload;
 
         unset($normalized['generated_at']);
+        unset($normalized['timing_summary']);
 
         if (isset($normalized['config_audit']) && is_array($normalized['config_audit'])) {
             unset($normalized['config_audit']['artifact_paths']);
+        }
+
+        if (isset($normalized['scenarios']) && is_array($normalized['scenarios'])) {
+            foreach ($normalized['scenarios'] as $index => $scenario) {
+                if (!is_array($scenario)) {
+                    continue;
+                }
+
+                unset($scenario['timing_ms']);
+                if (isset($scenario['rejection_attribution']) && is_array($scenario['rejection_attribution'])) {
+                    unset($scenario['rejection_attribution']['timing_ms']);
+                }
+                $normalized['scenarios'][$index] = $scenario;
+            }
         }
 
         return $normalized;
@@ -101,6 +141,7 @@ class SimulationDeterminismNormalizer
         if (isset($normalized['config']) && is_array($normalized['config'])) {
             unset($normalized['config']['base_season_config_path']);
         }
+        unset($normalized['timing_summary']);
 
         if (isset($normalized['runs']) && is_array($normalized['runs'])) {
             foreach ($normalized['runs'] as $index => $run) {
@@ -108,7 +149,7 @@ class SimulationDeterminismNormalizer
                     continue;
                 }
 
-                unset($run['json'], $run['csv'], $run['config_audit']);
+                unset($run['json'], $run['csv'], $run['config_audit'], $run['timings']);
                 $normalized['runs'][$index] = $run;
             }
         }

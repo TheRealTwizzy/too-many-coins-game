@@ -1,0 +1,398 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T02:34:42+00:00",
+    "seed": "full-campaign-proof-20260414b",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "phase-gated-safe-24h-v1",
+            "phase-gated-safe-48h-v1",
+            "phase-gated-high-floor-v1",
+            "phase-gated-plus-inflation-tighten-v1"
+        ],
+        "base_season_config_path": null
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_B_full-campaign-proof-20260414b_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_B_full-campaign-proof-20260414b_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_B_full-campaign-proof-20260414b_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_B_full-campaign-proof-20260414b_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 29452,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 29456
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_C_full-campaign-proof-20260414b_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_C_full-campaign-proof-20260414b_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_C_full-campaign-proof-20260414b_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_baseline_C_full-campaign-proof-20260414b_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 58968,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 58973
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-safe-24h-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 31737,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 31741
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-safe-24h-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 53830,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 53836
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-48h-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-safe-48h-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_B_ppa2.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 32602,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 32606
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-48h-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-safe-48h-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_C_ppa2_s4.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-safe-48h-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-safe-48h-v1_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 49617,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 49621
+            }
+        },
+        {
+            "scenario_name": "phase-gated-high-floor-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-high-floor-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "hoarding_safe_min_coins"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_B_ppa2.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 34407,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 34412
+            }
+        },
+        {
+            "scenario_name": "phase-gated-high-floor-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-high-floor-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "hoarding_safe_min_coins"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_C_ppa2_s4.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-high-floor-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-high-floor-v1_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 52805,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 52810
+            }
+        },
+        {
+            "scenario_name": "phase-gated-plus-inflation-tighten-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-plus-inflation-tighten-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "inflation_table",
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_B_ppa2.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_B_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 33778,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 33783
+            }
+        },
+        {
+            "scenario_name": "phase-gated-plus-inflation-tighten-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "full-campaign-proof-20260414b|scenario|phase-gated-plus-inflation-tighten-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "boost_related"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours",
+                "inflation_table",
+                "base_ubi_active_per_tick",
+                "base_ubi_idle_factor_fp"
+            ],
+            "json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_C_ppa2_s4.json",
+            "csv": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\full-campaign-proof-20260414b\\sweep\\runs\\sweep_phase-gated-plus-inflation-tighten-v1_C_full-campaign-proof-20260414b_scenario_phase-gated-plus-inflation-tighten-v1_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 64623,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 64627
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ],
+    "timing_summary": {
+        "run_count": 10,
+        "scenario_resolution_duration_ms": 3,
+        "run_execution_duration_ms": 441866,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 441871,
+        "by_simulator": {
+            "B": {
+                "run_count": 5,
+                "total_duration_ms": 161998
+            },
+            "C": {
+                "run_count": 5,
+                "total_duration_ms": 279867
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "phase-gated-plus-inflation-tighten-v1",
+                "simulator_type": "C",
+                "total_duration_ms": 64627
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 58973
+            },
+            {
+                "scenario_name": "phase-gated-safe-24h-v1",
+                "simulator_type": "C",
+                "total_duration_ms": 53836
+            }
+        ]
+    }
+}

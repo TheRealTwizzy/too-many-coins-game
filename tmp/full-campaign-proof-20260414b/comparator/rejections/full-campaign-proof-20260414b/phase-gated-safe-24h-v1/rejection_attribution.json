@@ -1,0 +1,214 @@
+{
+    "schema_version": "tmc-sim-rejection-attribution.v1",
+    "generated_at": "2026-04-15T02:34:42+00:00",
+    "comparator_seed": "full-campaign-proof-20260414b",
+    "scenario_name": "phase-gated-safe-24h-v1",
+    "recommended_disposition": "reject",
+    "control_baseline_comparison": {
+        "wins": 8,
+        "losses": 7,
+        "mixed_tradeoffs": 2,
+        "confidence_summary": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "regression_flags": [
+            "dominant_archetype_shifted",
+            "lock_in_down_but_expiry_dominance_up",
+            "reduces_lock_in_but_expiry_dominance_rises",
+            "skip_rejoin_exploit_worsened"
+        ],
+        "cross_simulator_regression_flags": [
+            "reduces_lock_in_but_expiry_dominance_rises"
+        ],
+        "simulator_groups": [
+            {
+                "simulator_type": "B",
+                "signature": "B|ppa=2|seasons=1",
+                "paired_runs": 1,
+                "wins": 3,
+                "losses": 3,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted",
+                    "lock_in_down_but_expiry_dominance_up"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": -1.0,
+                    "natural_expiry_delta": 1.0,
+                    "late_active_engaged_rate_delta": 0.09999999999999998,
+                    "concentration_top10_share_delta": 0.0,
+                    "skip_strategy_edge_delta": 0.0
+                }
+            },
+            {
+                "simulator_type": "C",
+                "signature": "C|ppa=2|seasons=4",
+                "paired_runs": 1,
+                "wins": 5,
+                "losses": 4,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "skip_rejoin_exploit_worsened"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": -0.1014705882352942,
+                    "natural_expiry_delta": 3.0,
+                    "late_active_engaged_rate_delta": -0.008198051948051954,
+                    "concentration_top10_share_delta": -0.06178296573077838,
+                    "skip_strategy_edge_delta": 2693.0919117647063
+                }
+            }
+        ]
+    },
+    "changed_knobs": [
+        {
+            "path": "season.hoarding_safe_hours",
+            "key": "hoarding_safe_hours",
+            "requested_value": 24,
+            "baseline_value": 12,
+            "candidate_effective_value": 24,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "hoarding_preservation_pressure",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 12,
+                    "candidate_effective_value": 24,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 12,
+                    "candidate_effective_value": 24,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        },
+        {
+            "path": "season.hoarding_sink_enabled",
+            "key": "hoarding_sink_enabled",
+            "requested_value": 1,
+            "baseline_value": 1,
+            "candidate_effective_value": 1,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "hoarding_preservation_pressure",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 1,
+                    "candidate_effective_value": 1,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 1,
+                    "candidate_effective_value": 1,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        }
+    ],
+    "knob_activity_summary": {
+        "active_count": 2,
+        "inactive_count": 0,
+        "unknown_count": 0,
+        "active_paths": [
+            "season.hoarding_safe_hours",
+            "season.hoarding_sink_enabled"
+        ],
+        "inactive_paths": []
+    },
+    "primary_failed_gate": {
+        "flag": "lock_in_down_but_expiry_dominance_up",
+        "label": "Lock-in weakened while expiry pressure rose",
+        "source": "simulator",
+        "score": 201.0,
+        "evidence": {
+            "simulator_type": "B",
+            "lock_in_delta": -1.0,
+            "natural_expiry_delta": 1.0
+        },
+        "rationale": "This gate is driven by direct simulator deltas. Candidate output reduced lock-in while raising natural expiry."
+    },
+    "secondary_regressions": [
+        {
+            "flag": "skip_rejoin_exploit_worsened",
+            "label": "Skip/rejoin edge worsened",
+            "source": "simulator",
+            "score": 116.93091911764706,
+            "evidence": {
+                "simulator_type": "C",
+                "skip_strategy_edge_delta": 2693.0919117647063
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Candidate increased the skip-heavy edge instead of pushing it toward zero."
+        },
+        {
+            "flag": "reduces_lock_in_but_expiry_dominance_rises",
+            "label": "Lock-in weakened while expiry pressure rose",
+            "source": "cross_simulator",
+            "score": 96.0,
+            "evidence": {
+                "simulator_type": null,
+                "lock_in_delta": 0.0,
+                "natural_expiry_delta": 0.0
+            },
+            "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate output reduced lock-in while raising natural expiry."
+        },
+        {
+            "flag": "dominant_archetype_shifted",
+            "label": "Dominant archetype changed",
+            "source": "simulator",
+            "score": 69.0,
+            "evidence": {
+                "simulator_type": "B",
+                "dominant_archetype_transition": {
+                    "baseline": "Mostly Idle",
+                    "candidate": "Regular"
+                }
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+        }
+    ],
+    "likely_causal_knob_ranking": [
+        {
+            "path": "season.hoarding_sink_enabled",
+            "key": "hoarding_sink_enabled",
+            "classification": "active",
+            "subsystem": "hoarding_preservation_pressure",
+            "score": 9.775,
+            "confidence": "low",
+            "rationale": "Knob was active in the effective config. Its key maps directly to the primary failed gate. Bundle interaction ambiguity lowers confidence.",
+            "rank": 1
+        },
+        {
+            "path": "season.hoarding_safe_hours",
+            "key": "hoarding_safe_hours",
+            "classification": "active",
+            "subsystem": "hoarding_preservation_pressure",
+            "score": 9.01,
+            "confidence": "low",
+            "rationale": "Knob was active in the effective config. Its key maps directly to the primary failed gate. Bundle interaction ambiguity lowers confidence.",
+            "rank": 2
+        }
+    ],
+    "interaction_ambiguity": {
+        "present": true,
+        "type": "multi_knob_bundle",
+        "note": "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+    },
+    "confidence_notes": [
+        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+        "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+    ]
+}

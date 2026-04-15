@@ -74,5 +74,9 @@ class SimulationPolicySweepSmokeTest extends TestCase
         $this->assertSame('tmc-sim-sweep.v1', (string)$payload['sweep']['schema_version']);
         $this->assertArrayHasKey('cohort', $payload['sweep']);
         $this->assertArrayHasKey('horizon', $payload['sweep']);
+        $this->assertArrayHasKey('timing_summary', (array)$result['manifest']);
+        $this->assertArrayHasKey('timings', $run);
+        $this->assertGreaterThanOrEqual(0, (int)$result['manifest']['timing_summary']['total_duration_ms']);
+        $this->assertGreaterThanOrEqual(0, (int)$run['timings']['total_duration_ms']);
     }
 }

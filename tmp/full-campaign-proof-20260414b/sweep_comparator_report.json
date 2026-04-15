@@ -1,0 +1,55 @@
+{
+    "schema_version": "tmc-sweep-comparator-campaign-report.v1",
+    "generated_at": "2026-04-15T02:34:42+00:00",
+    "seed": "full-campaign-proof-20260414b",
+    "profile": {
+        "schema_version": "tmc-sweep-comparator-profile.v1",
+        "id": "full-campaign",
+        "label": "Full Follow-up Campaign",
+        "description": "Full follow-up scenario bundle for campaign-level review across both simulators with the same reproducible baseline.",
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "scenario_names": [
+            "phase-gated-safe-24h-v1",
+            "phase-gated-safe-48h-v1",
+            "phase-gated-high-floor-v1",
+            "phase-gated-plus-inflation-tighten-v1"
+        ],
+        "tuning_candidates_path": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts\\simulation/../../simulation_output/sweep/followup-tuning-candidates-20260413.json",
+        "expected_completion_envelope": {
+            "min_minutes": 6.5,
+            "max_minutes": 9,
+            "basis": "Measured on 2026-04-14 in-repo using the fixed follow-up bundle and current-db export."
+        }
+    },
+    "inputs": {
+        "season_config_path": null,
+        "tuning_candidates_path": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts\\simulation/../../simulation_output/sweep/followup-tuning-candidates-20260413.json",
+        "tick_real_seconds": "3600"
+    },
+    "artifacts": {
+        "sweep_manifest_json": "tmp\\full-campaign-proof-20260414b\\sweep\\policy_sweep_full-campaign-proof-20260414b_ppa2_s4.json",
+        "comparison_json": "tmp\\full-campaign-proof-20260414b\\comparator\\comparison_full-campaign-proof-20260414b.json"
+    },
+    "timing_summary": {
+        "sweep_duration_ms": 441871,
+        "comparator_duration_ms": 37,
+        "total_duration_ms": 441912,
+        "completion_status": "within-envelope",
+        "expected_completion_envelope": {
+            "min_minutes": 6.5,
+            "max_minutes": 9,
+            "basis": "Measured on 2026-04-14 in-repo using the fixed follow-up bundle and current-db export."
+        }
+    },
+    "summary": {
+        "sweep_run_count": 10,
+        "scenario_count": 4,
+        "rejected_scenario_count": 4
+    }
+}

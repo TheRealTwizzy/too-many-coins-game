@@ -135,11 +135,15 @@ class SimulationResultComparatorSmokeTest extends TestCase
         $payload = (array)$result['payload'];
         $this->assertSame('tmc-sim-comparator.v1', (string)$payload['comparator_schema_version']);
         $this->assertCount(1, (array)$payload['scenarios']);
+        $this->assertArrayHasKey('timing_summary', $payload);
+        $this->assertGreaterThanOrEqual(0, (int)$payload['timing_summary']['total_duration_ms']);
 
         $scenario = (array)$payload['scenarios'][0];
         $this->assertSame('candidate-x', (string)$scenario['scenario_name']);
         $this->assertArrayHasKey('simulator_comparisons', $scenario);
         $this->assertNotEmpty((array)$scenario['simulator_comparisons']);
+        $this->assertArrayHasKey('timing_ms', $scenario);
+        $this->assertGreaterThanOrEqual(0, (int)$scenario['timing_ms']);
 
         $firstComparison = (array)$scenario['simulator_comparisons'][0];
         $this->assertArrayHasKey('delta_flags', $firstComparison);

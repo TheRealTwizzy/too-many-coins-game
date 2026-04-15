@@ -134,4 +134,13 @@ echo sprintf('Runs: %d | Simulators: %s | Scenarios: %s',
     implode(',', (array)$manifest['config']['simulators']),
     implode(',', (array)$manifest['config']['scenario_names'])
 ) . PHP_EOL;
+if (!empty($manifest['timing_summary'])) {
+    echo sprintf(
+        'Duration: %.2f minutes | Slowest run: %s',
+        ((int)$manifest['timing_summary']['total_duration_ms']) / 60000,
+        !empty($manifest['timing_summary']['slowest_runs'][0])
+            ? ((string)$manifest['timing_summary']['slowest_runs'][0]['scenario_name'] . '/' . (string)$manifest['timing_summary']['slowest_runs'][0]['simulator_type'])
+            : 'n/a'
+    ) . PHP_EOL;
+}
 echo 'Manifest: ' . (string)$result['manifest_path'] . PHP_EOL;

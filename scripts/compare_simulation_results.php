@@ -83,12 +83,13 @@ echo 'Simulation E Result Comparator' . PHP_EOL;
 echo sprintf('Scenarios compared: %d', count($scenarios)) . PHP_EOL;
 foreach ($scenarios as $scenario) {
     echo sprintf(
-        '- %s | wins %d | losses %d | mixed %d | disposition: %s',
+        '- %s | wins %d | losses %d | mixed %d | disposition: %s | time %.2fs',
         (string)$scenario['scenario_name'],
         (int)$scenario['wins'],
         (int)$scenario['losses'],
         (int)$scenario['mixed_tradeoffs'],
-        (string)$scenario['recommended_disposition']
+        (string)$scenario['recommended_disposition'],
+        ((int)($scenario['timing_ms'] ?? 0)) / 1000
     ) . PHP_EOL;
     $flags = (array)($scenario['regression_flags'] ?? []);
     if (!empty($flags)) {
@@ -99,5 +100,11 @@ foreach ($scenarios as $scenario) {
     if (!empty($artifactPaths['rejection_attribution_json'])) {
         echo '  rejection attribution: ' . (string)$artifactPaths['rejection_attribution_json'] . PHP_EOL;
     }
+}
+if (!empty($payload['timing_summary'])) {
+    echo sprintf(
+        'Comparator duration: %.2fs',
+        ((int)$payload['timing_summary']['total_duration_ms']) / 1000
+    ) . PHP_EOL;
 }
 echo 'JSON: ' . (string)$result['json_path'] . PHP_EOL;
