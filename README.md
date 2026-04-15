@@ -72,6 +72,8 @@ Strict candidate validation now runs before simulation preflight. Candidate pack
 - keys for disabled subsystems
 - malformed types and out-of-range values
 
+`tools/export-season-config.php` now exports only the canonical patchable economy surface. If you need season identity or runtime DB state for inspection, write it separately with `--metadata-output=FILE`.
+
 Lint candidate JSON without running simulations:
 
 ```bash

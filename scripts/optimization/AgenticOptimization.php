@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/database.php';
 require_once __DIR__ . '/../simulation/SimulationSeason.php';
+require_once __DIR__ . '/../simulation/SeasonConfigExporter.php';
 require_once __DIR__ . '/../simulation/SimulationPopulationSeason.php';
 require_once __DIR__ . '/../simulation/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/../simulation/MetricsCollector.php';
@@ -1174,7 +1175,7 @@ class AgenticHarnessRunner
                             'phase_stop' => $profile['phase_stop'] ?? null,
                             'run_label' => $baseName,
                             'preflight_artifact_dir' => $tierDir . DIRECTORY_SEPARATOR . $baseName . '.audit',
-                            'base_season_overrides' => $baseSeasonConfig ?? $effectiveSeasonConfig,
+                            'base_season_overrides' => SeasonConfigExporter::canonicalOverridesFromSeason($baseSeasonConfig ?? $effectiveSeasonConfig),
                             'candidate_patch' => $candidateChanges,
                         ]
                     );
@@ -1196,7 +1197,7 @@ class AgenticHarnessRunner
                             'archetype_keys' => (array)($profile['archetype_keys'] ?? []),
                             'run_label' => $baseName,
                             'preflight_artifact_dir' => $tierDir . DIRECTORY_SEPARATOR . $baseName . '.audit',
-                            'base_season_overrides' => $baseSeasonConfig ?? $effectiveSeasonConfig,
+                            'base_season_overrides' => SeasonConfigExporter::canonicalOverridesFromSeason($baseSeasonConfig ?? $effectiveSeasonConfig),
                             'candidate_patch' => $candidateChanges,
                         ]
                     );

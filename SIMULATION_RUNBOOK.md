@@ -266,7 +266,7 @@ php scripts/simulate_economy.php [--seed=VALUE] [--players-per-archetype=N] [--o
 **Key arguments**
 - `--seed` — run identifier
 - `--players-per-archetype` — cohort size per archetype (default: 5)
-- `--season-config` — JSON file with season config overrides; accepts output of `tools/export-season-config.php`
+- `--season-config` — JSON file with canonical patchable season config overrides; accepts output of `tools/export-season-config.php`
 
 **Output**
 - `simulation_output/season/season_<seed>_ppa<N>.json` — full archetype metrics  
@@ -279,7 +279,7 @@ php scripts/simulate_economy.php --seed=run1 --players-per-archetype=5
 
 **With live config**
 ```
-php tools/export-season-config.php --output=simulation_output/live_season.json
+php tools/export-season-config.php --output=simulation_output/live_season.json --metadata-output=simulation_output/live_season.metadata.json
 php scripts/simulate_economy.php --seed=live-test --season-config=simulation_output/live_season.json
 ```
 
@@ -314,7 +314,7 @@ Remove-Item Env:TMC_TICK_REAL_SECONDS
 
 **With live config**
 ```
-php tools/export-season-config.php --output=simulation_output/live_season.json
+php tools/export-season-config.php --output=simulation_output/live_season.json --metadata-output=simulation_output/live_season.metadata.json
 $env:TMC_TICK_REAL_SECONDS=3600
 php scripts/simulate_lifetime.php --seed=live-test --season-config=simulation_output/live_season.json
 ```
@@ -359,7 +359,7 @@ Remove-Item Env:TMC_TICK_REAL_SECONDS
 
 **Example — with live config as base**
 ```
-php tools/export-season-config.php --output=simulation_output/live_season.json
+php tools/export-season-config.php --output=simulation_output/live_season.json --metadata-output=simulation_output/live_season.metadata.json
 $env:TMC_TICK_REAL_SECONDS=3600
 php scripts/simulate_policy_sweep.php --seed=sweep-live --season-config=simulation_output/live_season.json --scenarios=hoarder-pressure-v1
 ```
@@ -497,7 +497,7 @@ That file can be fed to **any** of B, C, or D via `--season-config=FILE`.
 
 ```
 # Export (requires live DB connection)
-php tools/export-season-config.php --output=simulation_output/live_season.json
+php tools/export-season-config.php --output=simulation_output/live_season.json --metadata-output=simulation_output/live_season.metadata.json
 
 # B
 php scripts/simulate_economy.php --seed=live-b --season-config=simulation_output/live_season.json
@@ -637,3 +637,5 @@ Keep the `seed`, `players-per-archetype`, and `seasons` inputs aligned between S
 - `SSH tunnel startup failed ...`: SSH connected but could not establish the tunnel; verify remote DB host/port reachability from the VPS.
 - `Database connection failed`: confirm the tunnel is still running and that `LocalForwardPort`, `DbName`, `DbUser`, and `DbPass` match the current database.
 - `Expected sweep manifest not found`: run Sim D first, or re-run Sim E with the same seed, player count, and season count used for Sim D.
+
+

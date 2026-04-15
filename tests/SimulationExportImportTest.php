@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 putenv('TMC_TICK_REAL_SECONDS=3600');
 
 require_once __DIR__ . '/../scripts/simulation/SimulationSeason.php';
+require_once __DIR__ . '/../scripts/simulation/SeasonConfigExporter.php';
 require_once __DIR__ . '/../scripts/simulation/SimulationRandom.php';
 require_once __DIR__ . '/../scripts/simulation/Archetypes.php';
 require_once __DIR__ . '/../scripts/simulation/PolicyBehavior.php';
@@ -18,15 +19,11 @@ require_once __DIR__ . '/../scripts/simulation/PolicySweepRunner.php';
 require_once __DIR__ . '/../scripts/simulation/ResultComparator.php';
 
 /**
- * Verifies the live-config export/import path end-to-end without a real DB.
+ * Verifies the canonical export/import path end-to-end without a real DB.
  *
- * The "export" step is emulated by calling SimulationSeason::build() and
- * serializing the result to JSON — which is the same format that
- * tools/export-season-config.php produces from a live database row.
- *
- * The season_seed binary field is encoded as hex (season_seed_hex) to match
- * exactly what export-season-config.php writes, exercising the
- * normalizeImportedRow() hex-decode path on import.
+ * The CLI exporter now emits only canonical patchable economy config.
+ * These tests emulate that through SeasonConfigExporter, which is the same
+ * shared helper used by tools/export-season-config.php.
  */
 class SimulationExportImportTest extends TestCase
 {
@@ -42,19 +39,19 @@ class SimulationExportImportTest extends TestCase
     // Shape contract
     // -------------------------------------------------------------------------
 
-    public function testExportedConfigContainsAllRequiredSeasonKeys(): void
+    public function testExportedConfigContainsOnlyCanonicalPatchableKeys(): void
     {
         $season = SimulationSeason::build(1, 'export-shape-test');
         $exported = $this->serializeAsExport($season);
 
-        // The exported object must carry every SEASON_ECONOMY_COLUMNS key.
-        // season_seed is serialized as season_seed_hex in the export format.
-        foreach (SimulationSeason::SEASON_ECONOMY_COLUMNS as $col) {
-            if ($col === 'season_seed') {
-                $this->assertArrayHasKey('season_seed_hex', $exported, 'Export must carry season_seed_hex.');
-                continue;
-            }
-            $this->assertArrayHasKey($col, $exported, "Export missing required column: $col");
+        $this->assertSame(
+            SeasonConfigExporter::canonicalConfigKeys(),
+            array_keys($exported),
+            'Canonical export must contain only the explicit patchable tuning surface.'
+        );
+
+        foreach (array_merge(SeasonConfigExporter::metadataKeys(), SeasonConfigExporter::runtimeOnlyKeys()) as $key) {
+            $this->assertArrayNotHasKey($key, $exported, "Canonical export must not include non-patchable key: $key");
         }
     }
 
@@ -277,11 +274,7 @@ class SimulationExportImportTest extends TestCase
      */
     private function serializeAsExport(array $season): array
     {
-        if (isset($season['season_seed'])) {
-            $season['season_seed_hex'] = bin2hex((string)$season['season_seed']);
-            unset($season['season_seed']);
-        }
-        return $season;
+        return SeasonConfigExporter::canonicalConfigFromRow($season);
     }
 
     private function writeExportFile(array $season, string $filename): string

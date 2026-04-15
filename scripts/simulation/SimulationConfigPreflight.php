@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/EconomicCandidateValidator.php';
+require_once __DIR__ . '/SeasonConfigExporter.php';
 
 class SimulationConfigPreflightException extends RuntimeException
 {
@@ -315,7 +316,7 @@ class SimulationConfigPreflight
             unset($normalized['season_seed_hex']);
         }
 
-        $allowed = array_flip(SimulationSeason::SEASON_ECONOMY_COLUMNS);
+        $allowed = array_fill_keys(SeasonConfigExporter::canonicalConfigKeys(), true);
         foreach (array_keys($normalized) as $key) {
             if (!isset($allowed[$key])) {
                 throw new InvalidArgumentException('Unknown base season config key: ' . $key);

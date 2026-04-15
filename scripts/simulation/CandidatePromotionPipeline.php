@@ -3,6 +3,7 @@
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/CanonicalEconomyConfigContract.php';
 require_once __DIR__ . '/EconomicCandidateValidator.php';
+require_once __DIR__ . '/SeasonConfigExporter.php';
 require_once __DIR__ . '/SimulationConfigPreflight.php';
 require_once __DIR__ . '/SimulationPopulationSeason.php';
 require_once __DIR__ . '/SimulationPopulationLifetime.php';
@@ -399,7 +400,7 @@ class CandidatePromotionPipeline
             'players_per_archetype' => (int)($context['options']['players_per_archetype'] ?? 1),
             'season_count' => (int)($context['options']['season_count'] ?? 4),
             'run_label' => $context['candidate_id'] . '-promotion-preflight',
-            'base_season_overrides' => $context['base_season'],
+            'base_season_overrides' => SeasonConfigExporter::canonicalOverridesFromSeason($context['base_season']),
             'candidate_patch' => $context['canonical_changes'],
             'artifact_dir' => $stageDir,
             'debug_allow_inactive_candidate' => $bypassRequested,
@@ -523,7 +524,7 @@ class CandidatePromotionPipeline
             [
                 'run_label' => $context['candidate_id'] . '-promotion-B',
                 'preflight_artifact_dir' => $stageDir . DIRECTORY_SEPARATOR . 'audit',
-                'base_season_overrides' => $context['base_season'],
+                'base_season_overrides' => SeasonConfigExporter::canonicalOverridesFromSeason($context['base_season']),
                 'candidate_patch' => self::filterCanonicalChangesByScope($context['canonical_changes'], 'season'),
                 'debug_allow_inactive_candidate' => $bypassRequested || !empty($context['preflight']['report']['context']['debug_bypass']),
             ]
@@ -574,7 +575,7 @@ class CandidatePromotionPipeline
             [
                 'run_label' => $context['candidate_id'] . '-promotion-C-baseline',
                 'preflight_artifact_dir' => $stageDir . DIRECTORY_SEPARATOR . 'baseline.audit',
-                'base_season_overrides' => $context['base_season'],
+                'base_season_overrides' => SeasonConfigExporter::canonicalOverridesFromSeason($context['base_season']),
                 'candidate_patch' => [],
             ]
         );
@@ -586,7 +587,7 @@ class CandidatePromotionPipeline
             [
                 'run_label' => $context['candidate_id'] . '-promotion-C-candidate',
                 'preflight_artifact_dir' => $stageDir . DIRECTORY_SEPARATOR . 'candidate.audit',
-                'base_season_overrides' => $context['base_season'],
+                'base_season_overrides' => SeasonConfigExporter::canonicalOverridesFromSeason($context['base_season']),
                 'candidate_patch' => $seasonChanges,
                 'debug_allow_inactive_candidate' => $bypassRequested || !empty($context['preflight']['report']['context']['debug_bypass']),
             ]
@@ -749,7 +750,7 @@ class CandidatePromotionPipeline
 
     private static function stagePlayTestCompatibilityValidation(array &$context, string $stageDir, bool $bypassRequested): array
     {
-        $exported = self::seasonForExport($context['candidate_season']);
+        $exported = SeasonConfigExporter::canonicalConfigFromRow($context['candidate_season']);
         $exportPath = $stageDir . DIRECTORY_SEPARATOR . 'candidate_effective_season.json';
         file_put_contents($exportPath, json_encode($exported, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $context['exported_candidate_config_path'] = $exportPath;
@@ -759,8 +760,8 @@ class CandidatePromotionPipeline
             (int)($context['candidate_season']['season_id'] ?? 1),
             $context['seed'] . '|promotion|compat-import'
         );
-        $importHash = self::seasonSurfaceHash($imported);
-        $candidateHash = self::seasonSurfaceHash($context['candidate_season']);
+        $importHash = self::canonicalConfigHash(SeasonConfigExporter::canonicalConfigFromRow($imported));
+        $candidateHash = self::canonicalConfigHash($exported);
 
         $sweepResult = PolicySweepRunner::run([
             'seed' => $context['seed'] . '|promotion|compat',
@@ -780,8 +781,8 @@ class CandidatePromotionPipeline
             self::filterCanonicalChangesByScope($context['canonical_changes'], 'season')
         );
         $report['candidate_id'] = $context['candidate_id'];
-        $report['candidate_surface_hash'] = $candidateHash;
-        $report['imported_surface_hash'] = $importHash;
+        $report['candidate_canonical_surface_hash'] = $candidateHash;
+        $report['imported_canonical_surface_hash'] = $importHash;
         $report['exported_candidate_config_path'] = $exportPath;
         $report['sweep_manifest_path'] = (string)$sweepResult['manifest_path'];
         $report['run_count'] = $runCount;
@@ -790,9 +791,9 @@ class CandidatePromotionPipeline
             $report['issues'][] = [
                 'code' => 'lossy_conversion',
                 'key' => '',
-                'detail' => 'Exported play-test season config did not round-trip through import with the same season surface hash.',
-                'candidate_surface_hash' => $candidateHash,
-                'imported_surface_hash' => $importHash,
+                'detail' => 'Exported canonical season config did not round-trip through import with the same canonical surface hash.',
+                'candidate_canonical_surface_hash' => $candidateHash,
+                'imported_canonical_surface_hash' => $importHash,
             ];
         }
 
@@ -820,8 +821,8 @@ class CandidatePromotionPipeline
                     ? ['Developer debug bypass applied to `play_test_repo_compatibility_validation`; compatibility mismatch was retained for diagnostics only.']
                     : [],
                 'details' => [
-                    'candidate_surface_hash' => $candidateHash,
-                    'imported_surface_hash' => $importHash,
+                    'candidate_canonical_surface_hash' => $candidateHash,
+                    'imported_canonical_surface_hash' => $importHash,
                     'run_count' => $runCount,
                 ],
                 'artifacts' => array_merge([
@@ -835,8 +836,8 @@ class CandidatePromotionPipeline
             'status' => 'pass',
             'summary' => 'Play-test repo compatibility validation passed.',
             'details' => [
-                'candidate_surface_hash' => $candidateHash,
-                'imported_surface_hash' => $importHash,
+                'candidate_canonical_surface_hash' => $candidateHash,
+                'imported_canonical_surface_hash' => $importHash,
                 'run_count' => $runCount,
             ],
             'artifacts' => array_merge([
@@ -1074,6 +1075,13 @@ class CandidatePromotionPipeline
     private static function seasonSurfaceHash(array $season): string
     {
         $normalized = self::seasonForExport($season);
+        AgenticOptimizationUtils::sortAssocRecursively($normalized);
+        return AgenticOptimizationUtils::jsonHash($normalized);
+    }
+
+    private static function canonicalConfigHash(array $config): string
+    {
+        $normalized = $config;
         AgenticOptimizationUtils::sortAssocRecursively($normalized);
         return AgenticOptimizationUtils::jsonHash($normalized);
     }
