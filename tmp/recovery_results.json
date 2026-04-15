@@ -1,0 +1,15 @@
+{
+  "schema_version": "tmc-recovery-results.v1",
+  "generated_at": "2026-04-15T18:30:45+00:00",
+  "blockers_resolved": [
+    "SV1: Agentic optimizer tier3 crash — fixed by reducing profile cost 50x",
+    "SV2: market_affordability_bias_fp not applied in calculateStarPrice — wired",
+    "OQ1: Empty subsystems blackout_lockin, sigil_loop, lockin_incentives — restored with live params",
+    "RP1: No final_integration_report.json — resolved by SV1 fix"
+  ],
+  "suite_status": "operational_for_diagnosis",
+  "structural_blocker": "No candidate on current search surface passes qualification. Dominant failure patterns: lock_in_down_but_expiry_dominance_up, candidate_improves_B_but_worsens_C. Structural imbalance (hoarder 212% of median, boost/hardcore 25%) requires affordability knob combined with lock-in incentive fix.",
+  "best_candidate": "recovery-affordability-ubi",
+  "best_candidate_status": "ineligible",
+  "best_candidate_first_failing_stage": "targeted_subsystem_harnesses"
+}
