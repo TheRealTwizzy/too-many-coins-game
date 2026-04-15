@@ -1,0 +1,94 @@
+[
+    {
+        "candidate_id":  "stage1-market_affordability_bias_fp-02",
+        "stage":  "stage_1_single_knob",
+        "exit_code":  2,
+        "harness_status":  null,
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling harness suite failed: Simulation preflight failed due to inactive candidate changes: season.market_affordability_bias_fp (inactive_unreferenced). See audit: tmp/balance-discovery/harnesses\\balance-stage1-market_affordability_bias_fp-02\\tier1\\runs\\season_balance-stage1-market_affordability_bias_fp-02-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+    },
+    {
+        "candidate_id":  "stage1-starprice_reactivation_window_ticks-01",
+        "stage":  "stage_1_single_knob",
+        "exit_code":  2,
+        "harness_status":  null,
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling harness suite failed: Simulation preflight failed due to inactive candidate changes: season.starprice_reactivation_window_ticks (inactive_unreferenced). See audit: tmp/balance-discovery/harnesses\\balance-stage1-starprice_reactivation_window_ticks-01\\tier1\\runs\\season_balance-stage1-starprice_reactivation_window_ticks-01-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+    },
+    {
+        "candidate_id":  "stage1-starprice_max_downstep_fp-04",
+        "stage":  "stage_1_single_knob",
+        "exit_code":  1,
+        "harness_status":  "fail",
+        "failed_family_ids":  [
+                                  "hoarding_pressure_imbalance"
+                              ],
+        "output":  "Coupling Harness Suite Complete\nRun Dir: tmp/balance-discovery/harnesses\\balance-stage1-starprice_max_downstep_fp-04\nJSON: tmp/balance-discovery/harnesses\\balance-stage1-starprice_max_downstep_fp-04\\coupling_harness_report.json\nMarkdown: tmp/balance-discovery/harnesses\\balance-stage1-starprice_max_downstep_fp-04\\coupling_harness_report.md\nStatus: fail\nFailed families: hoarding_pressure_imbalance"
+    },
+    {
+        "candidate_id":  "stage1-starprice_max_upstep_fp-03",
+        "stage":  "stage_1_single_knob",
+        "exit_code":  0,
+        "harness_status":  "pass",
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling Harness Suite Complete\nRun Dir: tmp/balance-discovery/harnesses\\balance-stage1-starprice_max_upstep_fp-03\nJSON: tmp/balance-discovery/harnesses\\balance-stage1-starprice_max_upstep_fp-03\\coupling_harness_report.json\nMarkdown: tmp/balance-discovery/harnesses\\balance-stage1-starprice_max_upstep_fp-03\\coupling_harness_report.md\nStatus: pass\nFailed families: none"
+    },
+    {
+        "candidate_id":  "stage1-base_ubi_active_per_tick-06",
+        "stage":  "stage_1_single_knob",
+        "exit_code":  1,
+        "harness_status":  "fail",
+        "failed_family_ids":  [
+                                  "skip_rejoin_exploit_worsened",
+                                  "hoarding_pressure_imbalance",
+                                  "star_affordability_pricing_instability"
+                              ],
+        "output":  "Coupling Harness Suite Complete\nRun Dir: tmp/balance-discovery/harnesses\\balance-stage1-base_ubi_active_per_tick-06\nJSON: tmp/balance-discovery/harnesses\\balance-stage1-base_ubi_active_per_tick-06\\coupling_harness_report.json\nMarkdown: tmp/balance-discovery/harnesses\\balance-stage1-base_ubi_active_per_tick-06\\coupling_harness_report.md\nStatus: fail\nFailed families: skip_rejoin_exploit_worsened, hoarding_pressure_imbalance, star_affordability_pricing_instability"
+    },
+    {
+        "candidate_id":  "stage1-target_spend_rate_per_tick-05",
+        "stage":  "stage_1_single_knob",
+        "exit_code":  2,
+        "harness_status":  null,
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling harness suite failed: Simulation preflight failed due to inactive candidate changes: season.target_spend_rate_per_tick (inactive_unreferenced). See audit: tmp/balance-discovery/harnesses\\balance-stage1-target_spend_rate_per_tick-05\\tier1\\runs\\season_balance-stage1-target_spend_rate_per_tick-05-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+    },
+    {
+        "candidate_id":  "stage2-market_affordability_bias_fp-starprice_reactivation_window_ticks",
+        "stage":  "stage_2_pairwise",
+        "exit_code":  2,
+        "harness_status":  null,
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling harness suite failed: Simulation preflight failed due to inactive candidate changes: season.market_affordability_bias_fp (inactive_unreferenced), season.starprice_reactivation_window_ticks (inactive_unreferenced). See audit: tmp/balance-discovery/harnesses\\balance-stage2-market_affordability_bias_fp-starprice_reactivation_window_ticks\\tier1\\runs\\season_balance-stage2-market_affordability_bias_fp-starprice_reactivation_window_ticks-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+    },
+    {
+        "candidate_id":  "stage2-market_affordability_bias_fp-starprice_max_downstep_fp",
+        "stage":  "stage_2_pairwise",
+        "exit_code":  2,
+        "harness_status":  null,
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling harness suite failed: Simulation preflight failed due to inactive candidate changes: season.market_affordability_bias_fp (inactive_unreferenced). See audit: tmp/balance-discovery/harnesses\\balance-stage2-market_affordability_bias_fp-starprice_max_downstep_fp\\tier1\\runs\\season_balance-stage2-market_affordability_bias_fp-starprice_max_downstep_fp-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+    },
+    {
+        "candidate_id":  "stage2-starprice_max_upstep_fp-starprice_reactivation_window_ticks",
+        "stage":  "stage_2_pairwise",
+        "exit_code":  2,
+        "harness_status":  null,
+        "failed_family_ids":  [
+
+                              ],
+        "output":  "Coupling harness suite failed: Simulation preflight failed due to inactive candidate changes: season.starprice_reactivation_window_ticks (inactive_unreferenced). See audit: tmp/balance-discovery/harnesses\\balance-stage2-starprice_max_upstep_fp-starprice_reactivation_window_ticks\\tier1\\runs\\season_balance-stage2-starprice_max_upstep_fp-starprice_reactivation_window_ticks-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+    }
+]

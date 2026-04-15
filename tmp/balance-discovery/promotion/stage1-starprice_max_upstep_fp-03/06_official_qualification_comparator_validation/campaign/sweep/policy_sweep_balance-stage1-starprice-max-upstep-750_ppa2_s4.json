@@ -1,0 +1,185 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T08:13:19+00:00",
+    "seed": "balance-stage1-starprice-max-upstep-750",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "stage1-starprice_max_upstep_fp-03"
+        ],
+        "base_season_config_path": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "balance-stage1-starprice-max-upstep-750|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 29911,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 29915
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "balance-stage1-starprice-max-upstep-750|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_balance-stage1-starprice-max-upstep-750_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 54810,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 54815
+            }
+        },
+        {
+            "scenario_name": "stage1-starprice_max_upstep_fp-03",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "balance-stage1-starprice-max-upstep-750|scenario|stage1-starprice_max_upstep_fp-03|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "star_conversion_pricing"
+            ],
+            "override_keys": [
+                "starprice_max_upstep_fp"
+            ],
+            "json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_B_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_B_ppa2.json",
+            "csv": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_B_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_B_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_B_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 35081,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 35086
+            }
+        },
+        {
+            "scenario_name": "stage1-starprice_max_upstep_fp-03",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "balance-stage1-starprice-max-upstep-750|scenario|stage1-starprice_max_upstep_fp-03|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "star_conversion_pricing"
+            ],
+            "override_keys": [
+                "starprice_max_upstep_fp"
+            ],
+            "json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_C_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_C_ppa2_s4.json",
+            "csv": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_C_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_C_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_stage1-starprice_max_upstep_fp-03_C_balance-stage1-starprice-max-upstep-750_scenario_stage1-starprice_max_upstep_fp-03_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 65175,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 65181
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 184997,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 185001,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 65001
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 119996
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "stage1-starprice_max_upstep_fp-03",
+                "simulator_type": "C",
+                "total_duration_ms": 65181
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 54815
+            },
+            {
+                "scenario_name": "stage1-starprice_max_upstep_fp-03",
+                "simulator_type": "B",
+                "total_duration_ms": 35086
+            }
+        ]
+    }
+}

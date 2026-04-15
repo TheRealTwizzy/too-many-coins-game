@@ -1,0 +1,302 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "comparator_schema_version": "tmc-sim-comparator.v1",
+    "generated_at": "2026-04-15T08:13:19+00:00",
+    "seed": "balance-stage1-starprice-max-upstep-750",
+    "inputs": {
+        "sweep_manifest": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_balance-stage1-starprice-max-upstep-750_ppa2_s4.json",
+        "baseline_b_paths": [],
+        "baseline_c_paths": []
+    },
+    "summary": {
+        "scenario_count": 1,
+        "baseline_group_count": 2,
+        "scenario_group_count": 1,
+        "rejected_scenario_count": 1
+    },
+    "scenarios": [
+        {
+            "scenario_name": "stage1-starprice_max_upstep_fp-03",
+            "wins": 7,
+            "losses": 9,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -2.0,
+                            "natural_expiry_delta": 2.0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.09999999999999998
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 14.0,
+                            "t6_drop_delta": 4.0,
+                            "t6_combine_delta": 10.0,
+                            "t6_theft_delta": 0.0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -3760.0
+                        },
+                        "star_focused_dominance": {
+                            "delta": 1571.0
+                        },
+                        "hoarder_performance": {
+                            "delta": 3692.0
+                        },
+                        "boost_focused_payoff": {
+                            "delta": -4722.0
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0.0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.06279490906187771,
+                            "top10_share_delta": 0.0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": false
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Hoarder": 0.0,
+                        "Boost-Focused": -5.0,
+                        "Casual": -2.0,
+                        "Mostly Idle": -6.0,
+                        "Early Locker": -3.0,
+                        "Star-Focused": 3.0,
+                        "Hardcore": 1.0,
+                        "Aggressive Sigil User": -1.0,
+                        "Regular": 5.0,
+                        "Late Deployer": 8.0
+                    },
+                    "wins": 2,
+                    "losses": 5,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "engagement_up_but_t6_supply_spike",
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "star_conversion_pricing"
+                        ],
+                        "override_keys": [
+                            "starprice_max_upstep_fp"
+                        ],
+                        "scenario_name": "stage1-starprice_max_upstep_fp-03",
+                        "dominant_archetype_transition": {
+                            "baseline": "Hoarder",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.023015873015873045,
+                            "natural_expiry_delta": -1.0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.21394438894438894
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 2.0,
+                            "t6_drop_delta": 0.0,
+                            "t6_combine_delta": 0.0,
+                            "t6_theft_delta": 0.0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 322.0
+                        },
+                        "star_focused_dominance": {
+                            "delta": 4607.0
+                        },
+                        "hoarder_performance": {
+                            "delta": -2224.5
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 969.5
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.05495901336283163
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -2021.1111111111113
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.03413290045287272,
+                            "top10_share_delta": 0.05495901336283163
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Early Locker": -5.0,
+                        "Hoarder": -3.0,
+                        "Star-Focused": 2.0,
+                        "Hardcore": 2.0,
+                        "Casual": 2.0,
+                        "Aggressive Sigil User": 2.0,
+                        "Regular": 0.0,
+                        "Late Deployer": -1.0,
+                        "Boost-Focused": 1.0,
+                        "Mostly Idle": 0.0
+                    },
+                    "wins": 5,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "long_run_concentration_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "star_conversion_pricing"
+                        ],
+                        "override_keys": [
+                            "starprice_max_upstep_fp"
+                        ],
+                        "scenario_name": "stage1-starprice_max_upstep_fp-03",
+                        "dominant_archetype_transition": {
+                            "baseline": "Early Locker",
+                            "candidate": "Star-Focused"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "improves_engagement_but_t6_supply_spikes",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "engagement_up_but_t6_supply_spike",
+                "improves_engagement_but_t6_supply_spikes",
+                "lock_in_down_but_expiry_dominance_up",
+                "long_run_concentration_worsened",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "timing_ms": 7,
+            "rejection_attribution": {
+                "artifact_paths": {
+                    "rejection_attribution_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\balance-stage1-starprice-max-upstep-750\\stage1-starprice_max_upstep_fp-03\\rejection_attribution.json",
+                    "rejection_attribution_md": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\balance-stage1-starprice-max-upstep-750\\stage1-starprice_max_upstep_fp-03\\rejection_attribution.md"
+                },
+                "primary_failed_gate": {
+                    "flag": "lock_in_down_but_expiry_dominance_up",
+                    "label": "Lock-in weakened while expiry pressure rose",
+                    "source": "simulator",
+                    "score": 302.0,
+                    "evidence": {
+                        "simulator_type": "B",
+                        "lock_in_delta": -2.0,
+                        "natural_expiry_delta": 2.0
+                    },
+                    "rationale": "This gate is driven by direct simulator deltas. Candidate output reduced lock-in while raising natural expiry."
+                },
+                "secondary_regressions": [
+                    {
+                        "flag": "long_run_concentration_worsened",
+                        "label": "Long-run concentration worsened",
+                        "source": "simulator",
+                        "score": 146.95901336283163,
+                        "evidence": {
+                            "simulator_type": "C",
+                            "top10_share_delta": 0.05495901336283163
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Candidate increased long-run top-share concentration."
+                    },
+                    {
+                        "flag": "engagement_up_but_t6_supply_spike",
+                        "label": "Engagement gain came with excess T6 supply",
+                        "source": "simulator",
+                        "score": 104.0,
+                        "evidence": {
+                            "simulator_type": "B",
+                            "late_active_engaged_rate_delta": 0.09999999999999998,
+                            "t6_total_delta": 14.0
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Engagement gain appears coupled to excess T6 supply growth."
+                    },
+                    {
+                        "flag": "reduces_lock_in_but_expiry_dominance_rises",
+                        "label": "Lock-in weakened while expiry pressure rose",
+                        "source": "cross_simulator",
+                        "score": 96.0,
+                        "evidence": {
+                            "simulator_type": null,
+                            "lock_in_delta": 0.0,
+                            "natural_expiry_delta": 0.0
+                        },
+                        "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate output reduced lock-in while raising natural expiry."
+                    },
+                    {
+                        "flag": "improves_engagement_but_t6_supply_spikes",
+                        "label": "Engagement gain came with excess T6 supply",
+                        "source": "cross_simulator",
+                        "score": 80.0,
+                        "evidence": {
+                            "simulator_type": null,
+                            "late_active_engaged_rate_delta": 0.0,
+                            "t6_total_delta": 0.0
+                        },
+                        "rationale": "This gate is driven by a cross-simulator regression pattern. Engagement gain appears coupled to excess T6 supply growth."
+                    },
+                    {
+                        "flag": "dominant_archetype_shifted",
+                        "label": "Dominant archetype changed",
+                        "source": "simulator",
+                        "score": 69.0,
+                        "evidence": {
+                            "simulator_type": "C",
+                            "dominant_archetype_transition": {
+                                "baseline": "Early Locker",
+                                "candidate": "Star-Focused"
+                            }
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+                    }
+                ],
+                "interaction_ambiguity": {
+                    "present": false,
+                    "type": "single_active_knob",
+                    "note": "One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual."
+                },
+                "confidence_notes": [
+                    "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+                    "A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof."
+                ],
+                "timing_ms": 7
+            }
+        }
+    ],
+    "timing_summary": {
+        "dataset_build_duration_ms": 10,
+        "scenario_compare_duration_ms": 7,
+        "artifact_write_duration_ms": 2,
+        "total_duration_ms": 19
+    }
+}

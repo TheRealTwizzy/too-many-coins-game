@@ -1,0 +1,52 @@
+{
+    "schema_version": "tmc-sweep-comparator-campaign-report.v1",
+    "generated_at": "2026-04-15T08:13:19+00:00",
+    "seed": "balance-stage1-starprice-max-upstep-750",
+    "profile": {
+        "schema_version": "tmc-sweep-comparator-profile.v1",
+        "id": "qualification",
+        "label": "Qualification Comparator",
+        "description": "Reduced-cost sweep/comparator profile that still exercises baseline pairing, cross-simulator rejection, and rejection-attribution artifact generation.",
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "scenario_names": [
+            "stage1-starprice_max_upstep_fp-03"
+        ],
+        "tuning_candidates_path": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\qualification_candidate_bundle.json",
+        "expected_completion_envelope": {
+            "min_minutes": 2.5,
+            "max_minutes": 4,
+            "basis": "Measured on 2026-04-15 in-repo using the fixed follow-up bundle and the default canonical simulator season."
+        }
+    },
+    "inputs": {
+        "season_config_path": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\qualification_base_season.json",
+        "tuning_candidates_path": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\qualification_candidate_bundle.json",
+        "tick_real_seconds": "3600"
+    },
+    "artifacts": {
+        "sweep_manifest_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_balance-stage1-starprice-max-upstep-750_ppa2_s4.json",
+        "comparison_json": "tmp/balance-discovery/promotion\\stage1-starprice_max_upstep_fp-03\\06_official_qualification_comparator_validation\\campaign\\comparator\\comparison_balance-stage1-starprice-max-upstep-750.json"
+    },
+    "timing_summary": {
+        "sweep_duration_ms": 185001,
+        "comparator_duration_ms": 19,
+        "total_duration_ms": 185024,
+        "completion_status": "within-envelope",
+        "expected_completion_envelope": {
+            "min_minutes": 2.5,
+            "max_minutes": 4,
+            "basis": "Measured on 2026-04-15 in-repo using the fixed follow-up bundle and the default canonical simulator season."
+        }
+    },
+    "summary": {
+        "sweep_run_count": 4,
+        "scenario_count": 1,
+        "rejected_scenario_count": 1
+    }
+}
