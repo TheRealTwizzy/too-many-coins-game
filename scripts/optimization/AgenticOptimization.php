@@ -456,9 +456,9 @@ class AgenticEconomyDecomposition
                 'local_profile' => 'tier1_blackout',
                 'coupling_harness_families' => ['lock_in_down_but_expiry_dominance_up'],
                 'owned_parameters' => [
-                    ['key' => 'starprice_reactivation_window_ticks', 'mode' => 'multiply', 'values' => [1.10, 1.18]],
-                    ['key' => 'hoarding_window_ticks', 'mode' => 'multiply', 'values' => [0.95, 0.90]],
-                    ['key' => 'market_affordability_bias_fp', 'mode' => 'multiply', 'values' => [0.97, 0.93]],
+                    ['key' => 'starprice_idle_weight_fp', 'mode' => 'multiply', 'values' => [0.88, 0.80]],
+                    ['key' => 'starprice_max_upstep_fp', 'mode' => 'multiply', 'values' => [0.92, 0.85]],
+                    ['key' => 'market_affordability_bias_fp', 'mode' => 'multiply', 'values' => [0.97, 0.94]],
                 ],
                 'local_objectives' => [
                     ['metric' => 'blackout_action_density', 'direction' => 'up', 'weight' => 1.8, 'scale' => 0.25],
@@ -512,15 +512,9 @@ class AgenticEconomyDecomposition
                 'priority' => 5,
                 'local_profile' => 'tier1_sigil',
                 'owned_parameters' => [
-                    [
-                        'key' => 'vault_config',
-                        'mode' => 'vault_supply_cost',
-                        'values' => [
-                            ['supply_mult' => 1.08, 'cost_mult' => 0.95],
-                            ['supply_mult' => 1.16, 'cost_mult' => 0.90],
-                        ],
-                    ],
-                    ['key' => 'hoarding_window_ticks', 'mode' => 'multiply', 'values' => [0.96, 0.92]],
+                    ['key' => 'starprice_idle_weight_fp', 'mode' => 'multiply', 'values' => [0.90, 0.82]],
+                    ['key' => 'starprice_max_upstep_fp', 'mode' => 'multiply', 'values' => [0.94, 0.88]],
+                    ['key' => 'market_affordability_bias_fp', 'mode' => 'multiply', 'values' => [0.98, 0.95]],
                 ],
                 'local_objectives' => [
                     ['metric' => 'sigil_counterplay_density', 'direction' => 'up', 'weight' => 1.7, 'scale' => 0.10],
@@ -576,9 +570,9 @@ class AgenticEconomyDecomposition
                 'local_profile' => 'tier1_lockin',
                 'coupling_harness_families' => ['lock_in_down_but_expiry_dominance_up'],
                 'owned_parameters' => [
-                    ['key' => 'starprice_reactivation_window_ticks', 'mode' => 'multiply', 'values' => [1.10, 1.20]],
-                    ['key' => 'market_affordability_bias_fp', 'mode' => 'multiply', 'values' => [0.97, 0.92]],
-                    ['key' => 'target_spend_rate_per_tick', 'mode' => 'multiply', 'values' => [0.96, 0.90]],
+                    ['key' => 'starprice_idle_weight_fp', 'mode' => 'multiply', 'values' => [0.88, 0.78]],
+                    ['key' => 'market_affordability_bias_fp', 'mode' => 'multiply', 'values' => [0.97, 0.94]],
+                    ['key' => 'starprice_max_downstep_fp', 'mode' => 'multiply', 'values' => [1.06, 1.12]],
                 ],
                 'local_objectives' => [
                     ['metric' => 'lock_in_total', 'direction' => 'up', 'weight' => 1.8, 'scale' => 6.0],

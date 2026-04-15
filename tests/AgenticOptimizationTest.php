@@ -34,12 +34,6 @@ class AgenticOptimizationTest extends TestCase
 
     public function testSubsystemsWithOwnedParametersHaveNonEmptyAfterFilter(): void
     {
-        $this->markTestSkipped(
-            'TODO Task 4 (simulation-suite-recovery): blackout_lockin, sigil_loop, and lockin_incentives ' .
-            'have zero owned parameters after the candidateSearchParameters() filter. ' .
-            'Task 4 replaces their no-op parameters with live search targets. Remove this skip after Task 4.'
-        );
-
         $decomposition = AgenticEconomyDecomposition::build();
         $emptySubsystems = [];
 
