@@ -1,0 +1,49 @@
+{
+    "schema_version": "tmc-promotion-bundle.v1",
+    "patch_style_version": "tmc-play-test-reset-sql.v1",
+    "bundle_id": "q14-s1-diag-a",
+    "candidate_id": "q14-s1-diag",
+    "bundle_signature_sha256": "b7a6446632abdea743c1c6021893a53cf89754962a085f6b2d93241a92eb4ffe",
+    "base_surface_sha256": "36a98b2e6ba5a4f8ff0ef74e68296fd1dd7d04db7b9f1158c7cfe7f006d05f39",
+    "candidate_surface_sha256": "1d18fac189d47686ce7caefcef9604107c0b07f2ba9ece40164a5985898771f1",
+    "patched_surface_sha256": "1d18fac189d47686ce7caefcef9604107c0b07f2ba9ece40164a5985898771f1",
+    "changed_keys": [
+        "base_ubi_active_per_tick"
+    ],
+    "canonical_patch": {
+        "base_ubi_active_per_tick": 32
+    },
+    "play_test_patch": {
+        "base_ubi_active_per_tick": 32
+    },
+    "repo_changes": [
+        {
+            "relative_path": "migration_z_sim_promotion_q14-s1-diag_6cde01b70c79_test_reset.sql",
+            "change_type": "add",
+            "approved": true,
+            "staged_path": "repo_files/migration_z_sim_promotion_q14-s1-diag_6cde01b70c79_test_reset.sql",
+            "content_sha256": "f9f459e554e30f92db47954dd9575c78de4190839b20c205ac0351ad497891fa",
+            "line_count": 144
+        }
+    ],
+    "validation": {
+        "candidate_contract_status": "pass",
+        "base_contract_status": "pass",
+        "patched_contract_status": "pass",
+        "schema_valid": true,
+        "candidate_matches_patched": true,
+        "changed_key_count": 1,
+        "approved_file_count": 1
+    },
+    "artifacts": {
+        "bundle_json": "promotion_bundle.json",
+        "bundle_md": "promotion_bundle.md",
+        "canonical_patch_json": "canonical_patch.json",
+        "play_test_patch_json": "play_test_patch.json",
+        "patched_play_test_season_json": "patched_play_test_season.json",
+        "repo_patch_diff": "repo_patch.diff",
+        "staged_repo_files": [
+            "repo_files/migration_z_sim_promotion_q14-s1-diag_6cde01b70c79_test_reset.sql"
+        ]
+    }
+}

@@ -1,0 +1,843 @@
+{
+    "schema_version":  "tmc-qualification-results.v1",
+    "generated_at":  "2026-04-14T18:14:18.7709026Z",
+    "repo_head":  "162a74d94d94eda426b6f723a141cd4a1b8e629f",
+    "baseline":  {
+                     "path":  "simulation_output/current-db/export/current_season.json",
+                     "sha256":  "EE81E680935B55E16721ED53B924086249C0233F8716094C4E19DAACECFD9A07",
+                     "provenance":  "simulation_output/current-db/agentic-optimization/agentic-current-db-v4/baseline_config_snapshot.json",
+                     "official_export_blocks_promotion":  true,
+                     "blocking_error":  "Unknown base season config key: created_at"
+                 },
+    "validation_bundle":  {
+                              "promotion_seed_prefix":  "qualification-20260414",
+                              "promotion_players_per_archetype":  2,
+                              "promotion_season_count":  4,
+                              "sweep_bundle_source":  "simulation_output/sweep/followup-tuning-candidates-20260413.json",
+                              "sweep_scenarios":  [
+                                                      "phase-gated-safe-24h-v1",
+                                                      "phase-gated-safe-48h-v1",
+                                                      "phase-gated-high-floor-v1",
+                                                      "phase-gated-plus-inflation-tighten-v1"
+                                                  ]
+                          },
+    "canonical_entrypoints":  {
+                                  "candidate_validation":  "php scripts/lint_candidate_packages.php --input=FILE --season-config=simulation_output/current-db/export/current_season.json",
+                                  "effective_config_preflight":  "scripts/simulation/SimulationConfigPreflight.php via promote_simulation_candidate.php / simulate_* entrypoints",
+                                  "staged_candidate_generation":  "php scripts/generate_tuning_candidates.php --diagnosis=simulation_output/current-db/diagnosis/diagnosis_report.json --season-config=simulation_output/current-db/export/current_season.json --output=tmp/qualification-20260414/staged-candidates --version=3",
+                                  "rejection_attribution":  "php scripts/compare_simulation_results.php --seed=... --sweep-manifest=FILE --output=...",
+                                  "subsystem_harnesses":  "php scripts/simulate_coupling_harnesses.php --seed=... --season-config=FILE --candidate-patch=FILE",
+                                  "promotion_ladder":  "php scripts/promote_simulation_candidate.php --candidate=FILE --candidate-id=ID --seed=... --season-config=FILE --output=DIR --players-per-archetype=2 --season-count=4",
+                                  "canonical_config_export":  "php tools/export-season-config.php --output=FILE",
+                                  "deterministic_patch_generation":  "php scripts/generate_promotion_patch.php --promotion-report=FILE --output=DIR --dry-run",
+                                  "parity_certification":  "php scripts/certify_runtime_parity.php --candidate-id=ID --seed=... --season-config=FILE --output=DIR"
+                              },
+    "candidate_manifest":  {
+                               "generated_for":  "qualification-20260414",
+                               "baseline":  "simulation_output/current-db/export/current_season.json",
+                               "candidates":  [
+                                                  {
+                                                      "id":  "invalid_disabled_subsystem",
+                                                      "path":  "tmp/qualification-20260414/candidates/invalid_disabled_subsystem.json",
+                                                      "source":  "handcrafted",
+                                                      "expected_outcome":  "fail_preflight"
+                                                  },
+                                                  {
+                                                      "id":  "coupled_overbundled_candidate",
+                                                      "path":  "tmp/qualification-20260414/candidates/coupled_overbundled_candidate.json",
+                                                      "source":  "tmp/qualification-20260414/staged-candidates/tuning_candidates_v3.json#stage_4_full_confirmation",
+                                                      "expected_outcome":  "fail_early"
+                                                  },
+                                                  {
+                                                      "id":  "single_knob_candidate",
+                                                      "path":  "tmp/qualification-20260414/candidates/single_knob_candidate.json",
+                                                      "source":  "tmp/qualification-20260414/staged-candidates/tuning_candidates_v3.json#stage_1_single_knob",
+                                                      "expected_outcome":  "valid_single_knob"
+                                                  },
+                                                  {
+                                                      "id":  "late_stage_failure_candidate",
+                                                      "path":  "tmp/qualification-20260414/candidates/late_stage_failure_candidate.json",
+                                                      "source":  "simulation_output/sweep/followup-tuning-candidates-20260413.json#phase-gated-safe-24h-v1",
+                                                      "expected_outcome":  "pass_early_fail_late"
+                                                  },
+                                                  {
+                                                      "id":  "promotion_contender_candidate",
+                                                      "path":  "tmp/qualification-20260414/candidates/promotion_contender_candidate.json",
+                                                      "source":  "tmp/qualification-20260414/staged-candidates/tuning_candidates_v3.json#stage_4_full_confirmation",
+                                                      "expected_outcome":  "best_available_contender"
+                                                  }
+                                              ]
+                           },
+    "lint_results":  {
+                         "value":  [
+                                       {
+                                           "candidate_id":  "invalid_disabled_subsystem",
+                                           "exit_code":  2,
+                                           "output":  [
+                                                          "Candidate lint failed: 1 issue(s).",
+                                                          "- [candidate_disabled_subsystem] season.hoarding_safe_hours: Subsystem `hoarding_preservation_pressure` is disabled for this candidate context because `season.hoarding_sink_enabled` resolves to 0."
+                                                      ]
+                                       },
+                                       {
+                                           "candidate_id":  "coupled_overbundled_candidate",
+                                           "exit_code":  0,
+                                           "output":  [
+                                                          "Candidate lint passed: C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\tmp\\qualification-20260414\\candidates\\coupled_overbundled_candidate.json | packages=0 scenarios=0"
+                                                      ]
+                                       },
+                                       {
+                                           "candidate_id":  "single_knob_candidate",
+                                           "exit_code":  0,
+                                           "output":  [
+                                                          "Candidate lint passed: C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\tmp\\qualification-20260414\\candidates\\single_knob_candidate.json | packages=0 scenarios=0"
+                                                      ]
+                                       },
+                                       {
+                                           "candidate_id":  "late_stage_failure_candidate",
+                                           "exit_code":  0,
+                                           "output":  [
+                                                          "Candidate lint passed: C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\tmp\\qualification-20260414\\candidates\\late_stage_failure_candidate.json | packages=0 scenarios=0"
+                                                      ]
+                                       },
+                                       {
+                                           "candidate_id":  "promotion_contender_candidate",
+                                           "exit_code":  0,
+                                           "output":  [
+                                                          "Candidate lint passed: C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\tmp\\qualification-20260414\\candidates\\promotion_contender_candidate.json | packages=0 scenarios=0"
+                                                      ]
+                                       }
+                                   ],
+                         "Count":  5
+                     },
+    "official_baseline_promotion_runs":  [
+                                             {
+                                                 "candidate_id":  "cpl",
+                                                 "status":  "ineligible",
+                                                 "patch_ready":  false,
+                                                 "promotion_eligible":  false,
+                                                 "stages":  [
+                                                                {
+                                                                    "index":  1,
+                                                                    "id":  "candidate_schema_validation",
+                                                                    "status":  "pass",
+                                                                    "summary":  "Candidate schema validated successfully.",
+                                                                    "artifacts":  {
+                                                                                      "schema_validation_json":  "tmp/q14/p\\cpl\\01_candidate_schema_validation\\candidate_schema_validation.json"
+                                                                                  }
+                                                                },
+                                                                {
+                                                                    "index":  2,
+                                                                    "id":  "effective_config_preflight",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Unknown base season config key: created_at",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  3,
+                                                                    "id":  "targeted_subsystem_harnesses",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  4,
+                                                                    "id":  "full_single_season_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  5,
+                                                                    "id":  "multi_season_exploit_regression_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  6,
+                                                                    "id":  "patch_serialization_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  7,
+                                                                    "id":  "play_test_runtime_parity_certification",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  8,
+                                                                    "id":  "play_test_repo_compatibility_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  9,
+                                                                    "id":  "promotion_eligibility_marking",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                }
+                                                            ]
+                                             },
+                                             {
+                                                 "candidate_id":  "s1",
+                                                 "status":  "ineligible",
+                                                 "patch_ready":  false,
+                                                 "promotion_eligible":  false,
+                                                 "stages":  [
+                                                                {
+                                                                    "index":  1,
+                                                                    "id":  "candidate_schema_validation",
+                                                                    "status":  "pass",
+                                                                    "summary":  "Candidate schema validated successfully.",
+                                                                    "artifacts":  {
+                                                                                      "schema_validation_json":  "tmp/q14/p\\s1\\01_candidate_schema_validation\\candidate_schema_validation.json"
+                                                                                  }
+                                                                },
+                                                                {
+                                                                    "index":  2,
+                                                                    "id":  "effective_config_preflight",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Unknown base season config key: created_at",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  3,
+                                                                    "id":  "targeted_subsystem_harnesses",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  4,
+                                                                    "id":  "full_single_season_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  5,
+                                                                    "id":  "multi_season_exploit_regression_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  6,
+                                                                    "id":  "patch_serialization_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  7,
+                                                                    "id":  "play_test_runtime_parity_certification",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  8,
+                                                                    "id":  "play_test_repo_compatibility_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  9,
+                                                                    "id":  "promotion_eligibility_marking",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                }
+                                                            ]
+                                             },
+                                             {
+                                                 "candidate_id":  "inv",
+                                                 "status":  "ineligible",
+                                                 "patch_ready":  false,
+                                                 "promotion_eligible":  false,
+                                                 "stages":  [
+                                                                {
+                                                                    "index":  1,
+                                                                    "id":  "candidate_schema_validation",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Economic candidate validation failed: season.hoarding_safe_hours (candidate_disabled_subsystem).",
+                                                                    "artifacts":  {
+                                                                                      "schema_validation_json":  "tmp/q14/p\\inv\\01_candidate_schema_validation\\candidate_schema_validation.json"
+                                                                                  }
+                                                                },
+                                                                {
+                                                                    "index":  2,
+                                                                    "id":  "effective_config_preflight",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  3,
+                                                                    "id":  "targeted_subsystem_harnesses",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  4,
+                                                                    "id":  "full_single_season_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  5,
+                                                                    "id":  "multi_season_exploit_regression_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  6,
+                                                                    "id":  "patch_serialization_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  7,
+                                                                    "id":  "play_test_runtime_parity_certification",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  8,
+                                                                    "id":  "play_test_repo_compatibility_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  9,
+                                                                    "id":  "promotion_eligibility_marking",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                }
+                                                            ]
+                                             },
+                                             {
+                                                 "candidate_id":  "late",
+                                                 "status":  "ineligible",
+                                                 "patch_ready":  false,
+                                                 "promotion_eligible":  false,
+                                                 "stages":  [
+                                                                {
+                                                                    "index":  1,
+                                                                    "id":  "candidate_schema_validation",
+                                                                    "status":  "pass",
+                                                                    "summary":  "Candidate schema validated successfully.",
+                                                                    "artifacts":  {
+                                                                                      "schema_validation_json":  "tmp/q14/p\\late\\01_candidate_schema_validation\\candidate_schema_validation.json"
+                                                                                  }
+                                                                },
+                                                                {
+                                                                    "index":  2,
+                                                                    "id":  "effective_config_preflight",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Unknown base season config key: created_at",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  3,
+                                                                    "id":  "targeted_subsystem_harnesses",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  4,
+                                                                    "id":  "full_single_season_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  5,
+                                                                    "id":  "multi_season_exploit_regression_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  6,
+                                                                    "id":  "patch_serialization_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  7,
+                                                                    "id":  "play_test_runtime_parity_certification",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  8,
+                                                                    "id":  "play_test_repo_compatibility_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  9,
+                                                                    "id":  "promotion_eligibility_marking",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                }
+                                                            ]
+                                             },
+                                             {
+                                                 "candidate_id":  "ctr",
+                                                 "status":  "ineligible",
+                                                 "patch_ready":  false,
+                                                 "promotion_eligible":  false,
+                                                 "stages":  [
+                                                                {
+                                                                    "index":  1,
+                                                                    "id":  "candidate_schema_validation",
+                                                                    "status":  "pass",
+                                                                    "summary":  "Candidate schema validated successfully.",
+                                                                    "artifacts":  {
+                                                                                      "schema_validation_json":  "tmp/q14/p\\ctr\\01_candidate_schema_validation\\candidate_schema_validation.json"
+                                                                                  }
+                                                                },
+                                                                {
+                                                                    "index":  2,
+                                                                    "id":  "effective_config_preflight",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Unknown base season config key: created_at",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  3,
+                                                                    "id":  "targeted_subsystem_harnesses",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  4,
+                                                                    "id":  "full_single_season_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  5,
+                                                                    "id":  "multi_season_exploit_regression_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  6,
+                                                                    "id":  "patch_serialization_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  7,
+                                                                    "id":  "play_test_runtime_parity_certification",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  8,
+                                                                    "id":  "play_test_repo_compatibility_validation",
+                                                                    "status":  "blocked",
+                                                                    "summary":  "blocked by failed prior required stage",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                },
+                                                                {
+                                                                    "index":  9,
+                                                                    "id":  "promotion_eligibility_marking",
+                                                                    "status":  "fail",
+                                                                    "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                                                                    "artifacts":  [
+
+                                                                                  ]
+                                                                }
+                                                            ]
+                                             }
+                                         ],
+    "diagnostic_continuation":  {
+                                    "sanitized_baseline":  "tmp/q14/baseline_promo.json",
+                                    "note":  "Diagnostic continuation removed only the created_at field from the same fixed baseline snapshot.",
+                                    "single_knob_candidate":  {
+                                                                  "candidate_id":  "s1s",
+                                                                  "status":  "ineligible",
+                                                                  "patch_ready":  false,
+                                                                  "promotion_eligible":  false,
+                                                                  "stages":  [
+                                                                                 {
+                                                                                     "index":  1,
+                                                                                     "id":  "candidate_schema_validation",
+                                                                                     "status":  "pass",
+                                                                                     "summary":  "Candidate schema validated successfully.",
+                                                                                     "artifacts":  {
+                                                                                                       "schema_validation_json":  "tmp/q14/p\\s1s\\01_candidate_schema_validation\\candidate_schema_validation.json"
+                                                                                                   }
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  2,
+                                                                                     "id":  "effective_config_preflight",
+                                                                                     "status":  "pass",
+                                                                                     "summary":  "Effective-config preflight passed and produced canonical audit artifacts.",
+                                                                                     "artifacts":  {
+                                                                                                       "effective_config_json":  "tmp/q14/p\\s1s\\02_effective_config_preflight\\effective_config.json",
+                                                                                                       "effective_config_audit_md":  "tmp/q14/p\\s1s\\02_effective_config_preflight\\effective_config_audit.md"
+                                                                                                   }
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  3,
+                                                                                     "id":  "targeted_subsystem_harnesses",
+                                                                                     "status":  "fail",
+                                                                                     "summary":  "Targeted subsystem harnesses detected promotion-blocking regressions.",
+                                                                                     "artifacts":  {
+                                                                                                       "targeted_harness_report_json":  "tmp/q14/p\\s1s\\03_targeted_subsystem_harnesses\\targeted_harness_report.json"
+                                                                                                   }
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  4,
+                                                                                     "id":  "full_single_season_validation",
+                                                                                     "status":  "blocked",
+                                                                                     "summary":  "blocked by failed prior required stage",
+                                                                                     "artifacts":  [
+
+                                                                                                   ]
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  5,
+                                                                                     "id":  "multi_season_exploit_regression_validation",
+                                                                                     "status":  "blocked",
+                                                                                     "summary":  "blocked by failed prior required stage",
+                                                                                     "artifacts":  [
+
+                                                                                                   ]
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  6,
+                                                                                     "id":  "patch_serialization_validation",
+                                                                                     "status":  "blocked",
+                                                                                     "summary":  "blocked by failed prior required stage",
+                                                                                     "artifacts":  [
+
+                                                                                                   ]
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  7,
+                                                                                     "id":  "play_test_runtime_parity_certification",
+                                                                                     "status":  "blocked",
+                                                                                     "summary":  "blocked by failed prior required stage",
+                                                                                     "artifacts":  [
+
+                                                                                                   ]
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  8,
+                                                                                     "id":  "play_test_repo_compatibility_validation",
+                                                                                     "status":  "blocked",
+                                                                                     "summary":  "blocked by failed prior required stage",
+                                                                                     "artifacts":  [
+
+                                                                                                   ]
+                                                                                 },
+                                                                                 {
+                                                                                     "index":  9,
+                                                                                     "id":  "promotion_eligibility_marking",
+                                                                                     "status":  "fail",
+                                                                                     "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                                                                                     "artifacts":  [
+
+                                                                                                   ]
+                                                                                 }
+                                                                             ],
+                                                                  "targeted_harness_summary":  {
+                                                                                                   "status":  "fail",
+                                                                                                   "selected_family_ids":  [
+                                                                                                                               "boost_underperformance",
+                                                                                                                               "skip_rejoin_exploit_worsened",
+                                                                                                                               "star_affordability_pricing_instability"
+                                                                                                                           ],
+                                                                                                   "failed_family_ids":  [
+                                                                                                                             "boost_underperformance",
+                                                                                                                             "skip_rejoin_exploit_worsened"
+                                                                                                                         ],
+                                                                                                   "family_statuses":  [
+                                                                                                                           {
+                                                                                                                               "family_id":  "boost_underperformance",
+                                                                                                                               "status":  "fail",
+                                                                                                                               "failed_metrics":  [
+                                                                                                                                                      "boost_focused_gap"
+                                                                                                                                                  ]
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "family_id":  "skip_rejoin_exploit_worsened",
+                                                                                                                               "status":  "fail",
+                                                                                                                               "failed_metrics":  [
+                                                                                                                                                      "skip_strategy_edge"
+                                                                                                                                                  ]
+                                                                                                                           },
+                                                                                                                           {
+                                                                                                                               "family_id":  "star_affordability_pricing_instability",
+                                                                                                                               "status":  "pass",
+                                                                                                                               "failed_metrics":  [
+
+                                                                                                                                                  ]
+                                                                                                                           }
+                                                                                                                       ]
+                                                                                               }
+                                                              },
+                                    "late_stage_candidate_partial":  {
+                                                                         "candidate_id":  "lates",
+                                                                         "completed_artifact_dirs":  [
+                                                                                                         "01_candidate_schema_validation",
+                                                                                                         "02_effective_config_preflight",
+                                                                                                         "03_targeted_subsystem_harnesses"
+                                                                                                     ],
+                                                                         "completed_report":  false,
+                                                                         "note":  "Run exceeded timeout after stage 3 work began; no final promotion_state.json was written."
+                                                                     }
+                                },
+    "parity_run":  {
+                       "exit_status":  "pass",
+                       "certified":  true,
+                       "json":  "tmp/q14/par/runtime_parity_certification.json",
+                       "markdown":  "tmp/q14/par/runtime_parity_certification.md",
+                       "required_domains":  [
+                                                "hoarding_sink_behavior",
+                                                "boost_behavior",
+                                                "lock_in_timing",
+                                                "expiry_timing",
+                                                "star_pricing_affordability",
+                                                "rejoin_participation_effects",
+                                                "blackout_finalization_interactions"
+                                            ],
+                       "material_drift_count":  0
+                   },
+    "patch_generation_determinism":  {
+                                         "diagnostic_only":  true,
+                                         "note":  "No real qualification candidate reached promotion eligibility, so generator determinism was checked against a fixed canonical config derived from the sanitized single-knob run.",
+                                         "differing_bundle_ids":  {
+                                                                      "same_repo_diff_hash":  true,
+                                                                      "same_bundle_json_hash":  false,
+                                                                      "note":  "Bundle JSON changes when bundle_id changes, but repo_patch.diff stays identical."
+                                                                  },
+                                         "same_bundle_id":  {
+                                                                "same_bundle_json_hash":  true,
+                                                                "same_repo_diff_hash":  true,
+                                                                "same_staged_sql_hash":  true
+                                                            }
+                                     },
+    "focused_phpunit":  {
+                            "exit_code":  1,
+                            "summary":  [
+                                            "PHPUnit 11.5.55 by Sebastian Bergmann and contributors.",
+                                            "",
+                                            "Runtime:       PHP 8.5.4",
+                                            "Configuration: C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\phpunit.xml",
+                                            "",
+                                            "........................FD......D.D                               35 / 35 (100%)",
+                                            "",
+                                            "Time: 06:43.153, Memory: 14.00 MB",
+                                            "",
+                                            "Candidate Promotion Pipeline",
+                                            " âš  Eligible candidate passes all stages and writes artifacts",
+                                            " âœ” Failed schema validation blocks later stages",
+                                            " âš  Debug bypass allows diagnostic continuation but never marks patch ready",
+                                            "",
+                                            "Coupling Harness Evaluator",
+                                            " âœ” Catalog exposes all known families",
+                                            " âœ” Lock in expiry family fails on known wall pattern",
+                                            " âœ” Star pricing family reports directional metric failures",
+                                            " âœ” Decomposition subsystems expose coupling harness families",
+                                            "",
+                                            "Economic Candidate Validator",
+                                            " âœ” Valid candidate package passes validation",
+                                            " âœ” Unknown key is rejected",
+                                            " âœ” Deprecated key is rejected",
+                                            " âœ” Out of surface key is rejected",
+                                            " âœ” Disabled subsystem key is rejected",
+                                            " âœ” Type mismatch is rejected",
+                                            " âœ” Range violation is rejected",
+                                            " âœ” Scenario category mismatch is rejected",
+                                            " âœ” Lint cli passes for valid input",
+                                            " âœ” Lint cli fails for invalid input",
+                                            "",
+                                            "Promotion Patch Generator",
+                                            " âœ” Generator produces deterministic bundle artifacts",
+                                            " âœ” Generator rejects unapproved repo targets",
+                                            " âœ” Generated patched season matches canonical config and passes schema validation",
+                                            "",
+                                            "Runtime Parity Certification",
+                                            " âœ” Certification covers all required domains and writes artifacts",
+                                            " âœ” Compare metrics flags material and tolerated drift separately",
+                                            "",
+                                            "Simulation Config Preflight",
+                                            " âœ” Feature disabled but knob changed fails preflight",
+                                            " âœ” Env override shadows runtime candidate value",
+                                            " âœ” Scenario override shadows candidate value",
+                                            " âœ” Invalid config path fails preflight",
+                                            " âœ” Deprecated config key fails preflight",
+                                            " âœ” Successful active key resolution writes artifacts",
+                                            " âœ” Simulation run carries config audit metadata",
+                                            "",
+                                            "Simulation Determinism",
+                                            " âœ” Simulation a is fully deterministic",
+                                            " âœ˜ Simulation d payloads are deterministic for same seed",
+                                            "   â”‚",
+                                            "   â”‚ Simulation D payload mismatch on run 0 (scenario=baseline, sim=B)",
+                                            "   â”‚ Failed asserting that two arrays are identical.",
+                                            "   â”‚ --- Expected",
+                                            "   â”‚ +++ Actual",
+                                            "   â”‚ @@ @@",
+                                            "   â”‚      \u0027config_audit\u0027 =\u003e Array \u0026312 [",
+                                            "   â”‚          \u0027status\u0027 =\u003e \u0027pass\u0027,",
+                                            "   â”‚          \u0027artifact_paths\u0027 =\u003e Array \u0026313 [",
+                                            "   â”‚ -            \u0027effective_config_json\u0027 =\u003e \u0027C:\\Users\\trent\\AppData\\Local\\Temp\\tmc_det_d_run1_69de81c57dccf\\runs\\sweep_baseline_B_determinism-d_scenario_baseline_sim_B_ppa1.audit\\effective_config.json\u0027,",
+                                            "   â”‚ -            \u0027effective_config_audit_md\u0027 =\u003e \u0027C:\\Users\\trent\\AppData\\Local\\Temp\\tmc_det_d_run1_69de81c57dccf\\runs\\sweep_baseline_B_determinism-d_scenario_baseline_sim_B_ppa1.audit\\effective_config_audit.md\u0027,",
+                                            "   â”‚ +            \u0027effective_config_json\u0027 =\u003e \u0027C:\\Users\\trent\\AppData\\Local\\Temp\\tmc_det_d_run2_69de81c57dcd0\\runs\\sweep_baseline_B_determinism-d_scenario_baseline_sim_B_ppa1.audit\\effective_config.json\u0027,",
+                                            "   â”‚ +            \u0027effective_config_audit_md\u0027 =\u003e \u0027C:\\Users\\trent\\AppData\\Local\\Temp\\tmc_det_d_run2_69de81c57dcd0\\runs\\sweep_baseline_B_determinism-d_scenario_baseline_sim_B_ppa1.audit\\effective_config_audit.md\u0027,",
+                                            "   â”‚          ],",
+                                            "   â”‚          \u0027requested_candidate_changes\u0027 =\u003e Array \u0026314 [],",
+                                            "   â”‚      ],",
+                                            "   â”‚  ]",
+                                            "   â”‚",
+                                            "   â”‚ C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\tests\\SimulationDeterminismTest.php:87",
+                                            "   â”‚",
+                                            " âš  Simulation d manifest config is stable across runs",
+                                            " âœ” Simulation e is fully deterministic",
+                                            "",
+                                            "Simulation Rejection Attribution",
+                                            " âœ” Rejected single knob run writes attribution report with baseline and ranking",
+                                            " âœ” Bundled knob failure reports interaction ambiguity explicitly",
+                                            "",
+                                            "FAILURES!",
+                                            "Tests: 35, Assertions: 135, Failures: 1, Deprecations: 4."
+                                        ],
+                            "key_findings":  {
+                                                 "promotion_pipeline_tests":  "warning-only due deprecations, functional cases passed",
+                                                 "coupling_harness_evaluator":  "pass",
+                                                 "economic_candidate_validator":  "pass",
+                                                 "promotion_patch_generator":  "pass",
+                                                 "runtime_parity_certification":  "pass",
+                                                 "simulation_config_preflight":  "pass",
+                                                 "rejection_attribution":  "pass",
+                                                 "simulation_d_determinism":  "fail due artifact path differences in payload"
+                                             }
+                        },
+    "blockers":  [
+                     {
+                         "id":  "QB-EXPORT-PREFLIGHT-MISMATCH",
+                         "severity":  "critical",
+                         "description":  "Canonical export output from tools/export-season-config.php is rejected by SimulationConfigPreflight because the export includes created_at while preflight only allows SimulationSeason::SEASON_ECONOMY_COLUMNS."
+                     },
+                     {
+                         "id":  "QB-STAGED-CANDIDATE-INACTIVE-SURFACE",
+                         "severity":  "major",
+                         "description":  "Fresh staged candidate generation emitted hoarding-subsystem candidates that fail lint/preflight against the fixed baseline because hoarding_sink_enabled=0."
+                     },
+                     {
+                         "id":  "QB-SIM-D-PAYLOAD-DETERMINISM",
+                         "severity":  "major",
+                         "description":  "Focused PHPUnit qualification shows Simulation D payload equality fails for same-seed reruns because config_audit artifact paths differ between runs."
+                     }
+                 ],
+    "verdict":  "not ready"
+}

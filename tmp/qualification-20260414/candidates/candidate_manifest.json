@@ -1,0 +1,36 @@
+{
+    "generated_for": "qualification-20260414",
+    "baseline": "simulation_output/current-db/export/current_season.json",
+    "candidates": [
+        {
+            "id": "invalid_disabled_subsystem",
+            "path": "tmp/qualification-20260414/candidates/invalid_disabled_subsystem.json",
+            "source": "handcrafted",
+            "expected_outcome": "fail_preflight"
+        },
+        {
+            "id": "coupled_overbundled_candidate",
+            "path": "tmp/qualification-20260414/candidates/coupled_overbundled_candidate.json",
+            "source": "tmp/qualification-20260414/staged-candidates/tuning_candidates_v3.json#stage_4_full_confirmation",
+            "expected_outcome": "fail_early"
+        },
+        {
+            "id": "single_knob_candidate",
+            "path": "tmp/qualification-20260414/candidates/single_knob_candidate.json",
+            "source": "tmp/qualification-20260414/staged-candidates/tuning_candidates_v3.json#stage_1_single_knob",
+            "expected_outcome": "valid_single_knob"
+        },
+        {
+            "id": "late_stage_failure_candidate",
+            "path": "tmp/qualification-20260414/candidates/late_stage_failure_candidate.json",
+            "source": "simulation_output/sweep/followup-tuning-candidates-20260413.json#phase-gated-safe-24h-v1",
+            "expected_outcome": "pass_early_fail_late"
+        },
+        {
+            "id": "promotion_contender_candidate",
+            "path": "tmp/qualification-20260414/candidates/promotion_contender_candidate.json",
+            "source": "tmp/qualification-20260414/staged-candidates/tuning_candidates_v3.json#stage_4_full_confirmation",
+            "expected_outcome": "best_available_contender"
+        }
+    ]
+}

@@ -1,0 +1,747 @@
+[
+    {
+        "candidate_id":  "inv",
+        "pipeline_status":  "ineligible",
+        "patch_ready":  false,
+        "promotion_eligible":  false,
+        "stages":  [
+                       {
+                           "index":  1,
+                           "id":  "candidate_schema_validation",
+                           "status":  "fail",
+                           "summary":  "Economic candidate validation failed: season.hoarding_safe_hours (candidate_disabled_subsystem).",
+                           "artifact_keys":  [
+                                                 "schema_validation_json"
+                                             ]
+                       },
+                       {
+                           "index":  2,
+                           "id":  "effective_config_preflight",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  3,
+                           "id":  "targeted_subsystem_harnesses",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  4,
+                           "id":  "full_single_season_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  5,
+                           "id":  "multi_season_exploit_regression_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  6,
+                           "id":  "patch_serialization_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  7,
+                           "id":  "play_test_runtime_parity_certification",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  8,
+                           "id":  "play_test_repo_compatibility_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  9,
+                           "id":  "promotion_eligibility_marking",
+                           "status":  "fail",
+                           "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       }
+                   ],
+        "warnings":  [
+
+                     ],
+        "report_warning_count":  0
+    },
+    {
+        "candidate_id":  "s1",
+        "pipeline_status":  "ineligible",
+        "patch_ready":  false,
+        "promotion_eligible":  false,
+        "stages":  [
+                       {
+                           "index":  1,
+                           "id":  "candidate_schema_validation",
+                           "status":  "pass",
+                           "summary":  "Candidate schema validated successfully.",
+                           "artifact_keys":  [
+                                                 "schema_validation_json"
+                                             ]
+                       },
+                       {
+                           "index":  2,
+                           "id":  "effective_config_preflight",
+                           "status":  "fail",
+                           "summary":  "Unknown base season config key: created_at",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  3,
+                           "id":  "targeted_subsystem_harnesses",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  4,
+                           "id":  "full_single_season_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  5,
+                           "id":  "multi_season_exploit_regression_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  6,
+                           "id":  "patch_serialization_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  7,
+                           "id":  "play_test_runtime_parity_certification",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  8,
+                           "id":  "play_test_repo_compatibility_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  9,
+                           "id":  "promotion_eligibility_marking",
+                           "status":  "fail",
+                           "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       }
+                   ],
+        "warnings":  [
+
+                     ],
+        "report_warning_count":  0
+    },
+    {
+        "candidate_id":  "late",
+        "pipeline_status":  "ineligible",
+        "patch_ready":  false,
+        "promotion_eligible":  false,
+        "stages":  [
+                       {
+                           "index":  1,
+                           "id":  "candidate_schema_validation",
+                           "status":  "pass",
+                           "summary":  "Candidate schema validated successfully.",
+                           "artifact_keys":  [
+                                                 "schema_validation_json"
+                                             ]
+                       },
+                       {
+                           "index":  2,
+                           "id":  "effective_config_preflight",
+                           "status":  "fail",
+                           "summary":  "Unknown base season config key: created_at",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  3,
+                           "id":  "targeted_subsystem_harnesses",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  4,
+                           "id":  "full_single_season_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  5,
+                           "id":  "multi_season_exploit_regression_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  6,
+                           "id":  "patch_serialization_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  7,
+                           "id":  "play_test_runtime_parity_certification",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  8,
+                           "id":  "play_test_repo_compatibility_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  9,
+                           "id":  "promotion_eligibility_marking",
+                           "status":  "fail",
+                           "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       }
+                   ],
+        "warnings":  [
+
+                     ],
+        "report_warning_count":  0
+    },
+    {
+        "candidate_id":  "cpl",
+        "pipeline_status":  "ineligible",
+        "patch_ready":  false,
+        "promotion_eligible":  false,
+        "stages":  [
+                       {
+                           "index":  1,
+                           "id":  "candidate_schema_validation",
+                           "status":  "pass",
+                           "summary":  "Candidate schema validated successfully.",
+                           "artifact_keys":  [
+                                                 "schema_validation_json"
+                                             ]
+                       },
+                       {
+                           "index":  2,
+                           "id":  "effective_config_preflight",
+                           "status":  "fail",
+                           "summary":  "Unknown base season config key: created_at",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  3,
+                           "id":  "targeted_subsystem_harnesses",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  4,
+                           "id":  "full_single_season_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  5,
+                           "id":  "multi_season_exploit_regression_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  6,
+                           "id":  "patch_serialization_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  7,
+                           "id":  "play_test_runtime_parity_certification",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  8,
+                           "id":  "play_test_repo_compatibility_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  9,
+                           "id":  "promotion_eligibility_marking",
+                           "status":  "fail",
+                           "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       }
+                   ],
+        "warnings":  [
+
+                     ],
+        "report_warning_count":  0
+    },
+    {
+        "candidate_id":  "ctr",
+        "pipeline_status":  "ineligible",
+        "patch_ready":  false,
+        "promotion_eligible":  false,
+        "stages":  [
+                       {
+                           "index":  1,
+                           "id":  "candidate_schema_validation",
+                           "status":  "pass",
+                           "summary":  "Candidate schema validated successfully.",
+                           "artifact_keys":  [
+                                                 "schema_validation_json"
+                                             ]
+                       },
+                       {
+                           "index":  2,
+                           "id":  "effective_config_preflight",
+                           "status":  "fail",
+                           "summary":  "Unknown base season config key: created_at",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  3,
+                           "id":  "targeted_subsystem_harnesses",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  4,
+                           "id":  "full_single_season_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  5,
+                           "id":  "multi_season_exploit_regression_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  6,
+                           "id":  "patch_serialization_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  7,
+                           "id":  "play_test_runtime_parity_certification",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  8,
+                           "id":  "play_test_repo_compatibility_validation",
+                           "status":  "blocked",
+                           "summary":  "blocked by failed prior required stage",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       },
+                       {
+                           "index":  9,
+                           "id":  "promotion_eligibility_marking",
+                           "status":  "fail",
+                           "summary":  "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+                           "artifact_keys":  [
+                                                 "Count",
+                                                 "Length",
+                                                 "LongLength",
+                                                 "Rank",
+                                                 "SyncRoot",
+                                                 "IsReadOnly",
+                                                 "IsFixedSize",
+                                                 "IsSynchronized"
+                                             ]
+                       }
+                   ],
+        "warnings":  [
+
+                     ],
+        "report_warning_count":  0
+    }
+]
