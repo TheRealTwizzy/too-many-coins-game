@@ -1,0 +1,210 @@
+{
+    "schema_version": "tmc-candidate-promotion-state.v1",
+    "generated_at": "2026-04-15T03:09:22+00:00",
+    "candidate_id": "invalid_disabled_subsystem",
+    "seed": "qualification-20260414-rerun-invalid",
+    "status": "ineligible",
+    "patch_ready": false,
+    "promotion_eligible": false,
+    "debug_bypass_used": false,
+    "debug_bypass_stages": [],
+    "warnings": [],
+    "stage_order": [
+        "candidate_schema_validation",
+        "effective_config_preflight",
+        "targeted_subsystem_harnesses",
+        "full_single_season_validation",
+        "multi_season_exploit_regression_validation",
+        "patch_serialization_validation",
+        "play_test_runtime_parity_certification",
+        "play_test_repo_compatibility_validation",
+        "promotion_eligibility_marking"
+    ],
+    "stages": [
+        {
+            "index": 1,
+            "id": "candidate_schema_validation",
+            "label": "candidate schema validation",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 3,
+            "summary": "Economic candidate validation failed: season.hoarding_safe_hours (candidate_disabled_subsystem).",
+            "warnings": [],
+            "artifacts": {
+                "schema_validation_json": "tmp\\qualification-20260414-rerun\\promotion-invalid\\invalid_disabled_subsystem\\01_candidate_schema_validation\\candidate_schema_validation.json"
+            },
+            "details": {
+                "failure_count": 1,
+                "failures": [
+                    {
+                        "context": "candidate_change[0]",
+                        "path": "season.hoarding_safe_hours",
+                        "reason_code": "candidate_disabled_subsystem",
+                        "reason_detail": "Subsystem `hoarding_preservation_pressure` is disabled for this candidate context because `season.hoarding_sink_enabled` resolves to 0.",
+                        "requested_value": 24
+                    }
+                ]
+            }
+        },
+        {
+            "index": 2,
+            "id": "effective_config_preflight",
+            "label": "effective-config preflight",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 3,
+            "id": "targeted_subsystem_harnesses",
+            "label": "targeted subsystem harnesses",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 4,
+            "id": "full_single_season_validation",
+            "label": "full single-season validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 5,
+            "id": "multi_season_exploit_regression_validation",
+            "label": "multi-season exploit/regression validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 6,
+            "id": "patch_serialization_validation",
+            "label": "patch serialization validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 7,
+            "id": "play_test_runtime_parity_certification",
+            "label": "play-test runtime parity certification",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 8,
+            "id": "play_test_repo_compatibility_validation",
+            "label": "play-test repo compatibility validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 9,
+            "id": "promotion_eligibility_marking",
+            "label": "promotion eligibility marking",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T03:09:22+00:00",
+            "completed_at": "2026-04-15T03:09:22+00:00",
+            "duration_ms": 0,
+            "summary": "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+            "warnings": [],
+            "artifacts": [],
+            "details": {
+                "promotion_eligible": false,
+                "patch_ready": false,
+                "blocking_stages": [
+                    {
+                        "stage_id": "candidate_schema_validation",
+                        "status": "fail",
+                        "summary": "Economic candidate validation failed: season.hoarding_safe_hours (candidate_disabled_subsystem)."
+                    },
+                    {
+                        "stage_id": "effective_config_preflight",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "targeted_subsystem_harnesses",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "full_single_season_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "multi_season_exploit_regression_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "patch_serialization_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_runtime_parity_certification",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_repo_compatibility_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    }
+                ]
+            }
+        }
+    ],
+    "artifact_paths": []
+}

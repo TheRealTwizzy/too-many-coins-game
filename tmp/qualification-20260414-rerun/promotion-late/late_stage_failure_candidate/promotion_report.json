@@ -1,0 +1,389 @@
+{
+    "schema_version": "tmc-candidate-promotion-report.v1",
+    "generated_at": "2026-04-15T03:14:37+00:00",
+    "candidate_id": "late_stage_failure_candidate",
+    "seed": "qualification-20260414-rerun-late",
+    "pipeline_status": "eligible",
+    "patch_ready": true,
+    "promotion_eligible": true,
+    "debug_bypass_used": false,
+    "debug_bypass_stages": [],
+    "warnings": [],
+    "candidate": {
+        "raw_document": {
+            "hoarding_sink_enabled": 1,
+            "hoarding_safe_hours": 24
+        },
+        "canonical_changes": [
+            {
+                "raw_path": "hoarding_safe_hours",
+                "path": "season.hoarding_safe_hours",
+                "scope": "season",
+                "key": "hoarding_safe_hours",
+                "requested_value": 24,
+                "path_status": "valid"
+            },
+            {
+                "raw_path": "hoarding_sink_enabled",
+                "path": "season.hoarding_sink_enabled",
+                "scope": "season",
+                "key": "hoarding_sink_enabled",
+                "requested_value": 1,
+                "path_status": "valid"
+            }
+        ],
+        "serialized_patch_path": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\06_patch_serialization_validation\\candidate_patch.json"
+    },
+    "base_season": {
+        "surface_sha256": "014a97f38c9e992890f5220e326d5cd7bf3a45af799cd135aef10e3618ab3ea9",
+        "effective_config": {
+            "season_id": 1,
+            "start_time": 1,
+            "end_time": 20161,
+            "blackout_time": 15841,
+            "status": "Scheduled",
+            "season_expired": 0,
+            "expiration_finalized": 0,
+            "base_ubi_active_per_tick": 30,
+            "base_ubi_idle_factor_fp": 250000,
+            "ubi_min_per_tick": 1,
+            "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+            "hoarding_window_ticks": 86400,
+            "target_spend_rate_per_tick": 18,
+            "hoarding_min_factor_fp": 90000,
+            "hoarding_sink_enabled": 0,
+            "hoarding_safe_hours": 12,
+            "hoarding_safe_min_coins": 20000,
+            "hoarding_tier1_excess_cap": 50000,
+            "hoarding_tier2_excess_cap": 200000,
+            "hoarding_tier1_rate_hourly_fp": 200,
+            "hoarding_tier2_rate_hourly_fp": 535,
+            "hoarding_tier3_rate_hourly_fp": 1070,
+            "hoarding_sink_cap_ratio_fp": 350000,
+            "hoarding_idle_multiplier_fp": 1287500,
+            "starprice_table": "[{\"m\": 0, \"price\": 100}, {\"m\": 25000, \"price\": 220}, {\"m\": 100000, \"price\": 520}, {\"m\": 500000, \"price\": 1600}, {\"m\": 2000000, \"price\": 4200}]",
+            "star_price_cap": 6000,
+            "starprice_idle_weight_fp": 0,
+            "starprice_active_only": 1,
+            "starprice_max_upstep_fp": 1000,
+            "starprice_max_downstep_fp": 12960,
+            "starprice_model_version": 1,
+            "starprice_reactivation_window_ticks": 81,
+            "starprice_demand_table": "[{\"ratio_fp\": 850000, \"multiplier_fp\": 900000}, {\"ratio_fp\": 1000000, \"multiplier_fp\": 1000000}, {\"ratio_fp\": 1150000, \"multiplier_fp\": 1080000}, {\"ratio_fp\": 1300000, \"multiplier_fp\": 1120000}]",
+            "market_affordability_bias_fp": 970000,
+            "vault_config": "[{\"tier\": 1, \"supply\": 500, \"cost_table\": [{\"cost\": 50, \"remaining\": 1}]}, {\"tier\": 2, \"supply\": 250, \"cost_table\": [{\"cost\": 250, \"remaining\": 1}]}, {\"tier\": 3, \"supply\": 125, \"cost_table\": [{\"cost\": 1000, \"remaining\": 1}]}]",
+            "current_star_price": 100,
+            "market_anchor_price": 100,
+            "blackout_star_price_snapshot": null,
+            "blackout_started_tick": null,
+            "pending_star_burn_coins": 0,
+            "star_burn_ema_fp": 0,
+            "net_mint_ema_fp": 0,
+            "market_pressure_fp": 1000000,
+            "total_coins_supply": 0,
+            "total_coins_supply_end_of_tick": 0,
+            "coins_active_total": 0,
+            "coins_idle_total": 0,
+            "coins_offline_total": 0,
+            "effective_price_supply": 0,
+            "last_processed_tick": 1,
+            "season_seed_hex": "565f616782b529a7a291a13309cece4392f26313a8ce1056ef5962a2c169e346"
+        }
+    },
+    "candidate_effective_season": {
+        "surface_sha256": "c3a61867ac57988b65742ef1014c56848db75508f5aa661a213561f94f9566fd",
+        "effective_config": {
+            "season_id": 1,
+            "start_time": 1,
+            "end_time": 20161,
+            "blackout_time": 15841,
+            "status": "Scheduled",
+            "season_expired": 0,
+            "expiration_finalized": 0,
+            "base_ubi_active_per_tick": 30,
+            "base_ubi_idle_factor_fp": 250000,
+            "ubi_min_per_tick": 1,
+            "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+            "hoarding_window_ticks": 86400,
+            "target_spend_rate_per_tick": 18,
+            "hoarding_min_factor_fp": 90000,
+            "hoarding_sink_enabled": 1,
+            "hoarding_safe_hours": 24,
+            "hoarding_safe_min_coins": 20000,
+            "hoarding_tier1_excess_cap": 50000,
+            "hoarding_tier2_excess_cap": 200000,
+            "hoarding_tier1_rate_hourly_fp": 200,
+            "hoarding_tier2_rate_hourly_fp": 535,
+            "hoarding_tier3_rate_hourly_fp": 1070,
+            "hoarding_sink_cap_ratio_fp": 350000,
+            "hoarding_idle_multiplier_fp": 1287500,
+            "starprice_table": "[{\"m\": 0, \"price\": 100}, {\"m\": 25000, \"price\": 220}, {\"m\": 100000, \"price\": 520}, {\"m\": 500000, \"price\": 1600}, {\"m\": 2000000, \"price\": 4200}]",
+            "star_price_cap": 6000,
+            "starprice_idle_weight_fp": 0,
+            "starprice_active_only": 1,
+            "starprice_max_upstep_fp": 1000,
+            "starprice_max_downstep_fp": 12960,
+            "starprice_model_version": 1,
+            "starprice_reactivation_window_ticks": 81,
+            "starprice_demand_table": "[{\"ratio_fp\": 850000, \"multiplier_fp\": 900000}, {\"ratio_fp\": 1000000, \"multiplier_fp\": 1000000}, {\"ratio_fp\": 1150000, \"multiplier_fp\": 1080000}, {\"ratio_fp\": 1300000, \"multiplier_fp\": 1120000}]",
+            "market_affordability_bias_fp": 970000,
+            "vault_config": "[{\"tier\": 1, \"supply\": 500, \"cost_table\": [{\"cost\": 50, \"remaining\": 1}]}, {\"tier\": 2, \"supply\": 250, \"cost_table\": [{\"cost\": 250, \"remaining\": 1}]}, {\"tier\": 3, \"supply\": 125, \"cost_table\": [{\"cost\": 1000, \"remaining\": 1}]}]",
+            "current_star_price": 100,
+            "market_anchor_price": 100,
+            "blackout_star_price_snapshot": null,
+            "blackout_started_tick": null,
+            "pending_star_burn_coins": 0,
+            "star_burn_ema_fp": 0,
+            "net_mint_ema_fp": 0,
+            "market_pressure_fp": 1000000,
+            "total_coins_supply": 0,
+            "total_coins_supply_end_of_tick": 0,
+            "coins_active_total": 0,
+            "coins_idle_total": 0,
+            "coins_offline_total": 0,
+            "effective_price_supply": 0,
+            "last_processed_tick": 1,
+            "season_seed_hex": "375a010849b37823a1edff2d2477331722ea14f8d62946f5c14e57886284f9da"
+        },
+        "export_path": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\candidate_effective_season.json"
+    },
+    "stages": [
+        {
+            "index": 1,
+            "id": "candidate_schema_validation",
+            "label": "candidate schema validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:09:34+00:00",
+            "completed_at": "2026-04-15T03:09:34+00:00",
+            "duration_ms": 3,
+            "summary": "Candidate schema validated successfully.",
+            "warnings": [],
+            "artifacts": {
+                "schema_validation_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\01_candidate_schema_validation\\candidate_schema_validation.json"
+            },
+            "details": {
+                "canonical_change_count": 2,
+                "canonical_changes": [
+                    {
+                        "raw_path": "hoarding_safe_hours",
+                        "path": "season.hoarding_safe_hours",
+                        "scope": "season",
+                        "key": "hoarding_safe_hours",
+                        "requested_value": 24,
+                        "path_status": "valid"
+                    },
+                    {
+                        "raw_path": "hoarding_sink_enabled",
+                        "path": "season.hoarding_sink_enabled",
+                        "scope": "season",
+                        "key": "hoarding_sink_enabled",
+                        "requested_value": 1,
+                        "path_status": "valid"
+                    }
+                ]
+            }
+        },
+        {
+            "index": 2,
+            "id": "effective_config_preflight",
+            "label": "effective-config preflight",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:09:34+00:00",
+            "completed_at": "2026-04-15T03:09:34+00:00",
+            "duration_ms": 4,
+            "summary": "Effective-config preflight passed and produced canonical audit artifacts.",
+            "warnings": [],
+            "artifacts": {
+                "effective_config_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\02_effective_config_preflight\\effective_config.json",
+                "effective_config_audit_md": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\02_effective_config_preflight\\effective_config_audit.md"
+            },
+            "details": {
+                "preflight_status": "pass",
+                "requested_candidate_changes": [
+                    {
+                        "path": "season.hoarding_safe_hours",
+                        "raw_path": "season.hoarding_safe_hours",
+                        "requested_value": 24,
+                        "effective_value": 24,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    },
+                    {
+                        "path": "season.hoarding_sink_enabled",
+                        "raw_path": "season.hoarding_sink_enabled",
+                        "requested_value": 1,
+                        "effective_value": 1,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    }
+                ]
+            }
+        },
+        {
+            "index": 3,
+            "id": "targeted_subsystem_harnesses",
+            "label": "targeted subsystem harnesses",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:09:34+00:00",
+            "completed_at": "2026-04-15T03:10:33+00:00",
+            "duration_ms": 58427,
+            "summary": "Targeted subsystem harnesses passed.",
+            "warnings": [],
+            "artifacts": {
+                "targeted_harness_report_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\03_targeted_subsystem_harnesses\\targeted_harness_report.json"
+            },
+            "details": {
+                "selected_family_ids": [
+                    "boost_underperformance",
+                    "hoarding_pressure_imbalance",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "skip_rejoin_exploit_worsened",
+                    "star_affordability_pricing_instability"
+                ],
+                "failed_family_ids": []
+            }
+        },
+        {
+            "index": 4,
+            "id": "full_single_season_validation",
+            "label": "full single-season validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:10:33+00:00",
+            "completed_at": "2026-04-15T03:11:05+00:00",
+            "duration_ms": 32719,
+            "summary": "Full single-season validation completed with config audit status `pass`.",
+            "warnings": [],
+            "artifacts": {
+                "single_season_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\04_full_single_season_validation\\promotion_single_season_late_stage_failure_candidate.json",
+                "single_season_csv": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\04_full_single_season_validation\\promotion_single_season_late_stage_failure_candidate.csv",
+                "effective_config_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\04_full_single_season_validation\\audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\04_full_single_season_validation\\audit\\effective_config_audit.md"
+            },
+            "details": {
+                "audit_status": "pass",
+                "schema_version": "tmc-sim-phase1.v1",
+                "simulator": "single-season-population"
+            }
+        },
+        {
+            "index": 5,
+            "id": "multi_season_exploit_regression_validation",
+            "label": "multi-season exploit/regression validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:11:05+00:00",
+            "completed_at": "2026-04-15T03:13:06+00:00",
+            "duration_ms": 120776,
+            "summary": "Multi-season exploit/regression validation passed without regression flags.",
+            "warnings": [],
+            "artifacts": {
+                "multi_season_validation_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\05_multi_season_exploit_regression_validation\\multi_season_validation.json",
+                "baseline_lifetime_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.json",
+                "baseline_lifetime_csv": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.csv",
+                "candidate_lifetime_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.json",
+                "candidate_lifetime_csv": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.csv"
+            },
+            "details": {
+                "regression_flags": [],
+                "global_score_delta": -4.216743895391062e-5
+            }
+        },
+        {
+            "index": 6,
+            "id": "patch_serialization_validation",
+            "label": "patch serialization validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:13:06+00:00",
+            "completed_at": "2026-04-15T03:13:06+00:00",
+            "duration_ms": 3,
+            "summary": "Patch serialization validation passed.",
+            "warnings": [],
+            "artifacts": {
+                "serialized_patch_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\06_patch_serialization_validation\\candidate_patch.json"
+            },
+            "details": {
+                "round_trip_equal": true,
+                "serialized_change_count": 2
+            }
+        },
+        {
+            "index": 7,
+            "id": "play_test_runtime_parity_certification",
+            "label": "play-test runtime parity certification",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:13:06+00:00",
+            "completed_at": "2026-04-15T03:13:06+00:00",
+            "duration_ms": 5,
+            "summary": "Play-test runtime parity certification passed for every promotion-critical mechanic domain.",
+            "warnings": [],
+            "artifacts": {
+                "runtime_parity_certification_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\07_play_test_runtime_parity_certification\\runtime_parity_certification.json",
+                "runtime_parity_certification_md": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\07_play_test_runtime_parity_certification\\runtime_parity_certification.md"
+            },
+            "details": {
+                "certification_status": "pass",
+                "material_drift_count": 0,
+                "tolerated_difference_count": 0,
+                "required_domain_ids": [
+                    "hoarding_sink_behavior",
+                    "boost_behavior",
+                    "lock_in_timing",
+                    "expiry_timing",
+                    "star_pricing_affordability",
+                    "rejoin_participation_effects",
+                    "blackout_finalization_interactions"
+                ]
+            }
+        },
+        {
+            "index": 8,
+            "id": "play_test_repo_compatibility_validation",
+            "label": "play-test repo compatibility validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:13:06+00:00",
+            "completed_at": "2026-04-15T03:14:37+00:00",
+            "duration_ms": 90495,
+            "summary": "Play-test repo compatibility validation passed.",
+            "warnings": [],
+            "artifacts": {
+                "candidate_effective_season_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\candidate_effective_season.json",
+                "sweep_manifest_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\policy_sweep_qualification-20260414-rerun-late_promotion_compat_ppa2_s4.json",
+                "play_test_repo_compatibility_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\play_test_repo_compatibility.json",
+                "play_test_repo_compatibility_md": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\play_test_repo_compatibility.md"
+            },
+            "details": {
+                "candidate_canonical_surface_hash": "fae6ce7e49fa7e0853e33a1161bb33af4a3007cdc60c1f8ad03979593c8127e2",
+                "imported_canonical_surface_hash": "fae6ce7e49fa7e0853e33a1161bb33af4a3007cdc60c1f8ad03979593c8127e2",
+                "run_count": 2
+            }
+        },
+        {
+            "index": 9,
+            "id": "promotion_eligibility_marking",
+            "label": "promotion eligibility marking",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T03:14:37+00:00",
+            "completed_at": "2026-04-15T03:14:37+00:00",
+            "duration_ms": 0,
+            "summary": "Candidate passed every required promotion stage and is patch-ready.",
+            "warnings": [],
+            "artifacts": [],
+            "details": {
+                "promotion_eligible": true,
+                "patch_ready": true
+            }
+        }
+    ]
+}

@@ -1,0 +1,115 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T03:14:37+00:00",
+    "seed": "qualification-20260414-rerun-late|promotion|compat",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline"
+        ],
+        "base_season_config_path": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\candidate_effective_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "qualification-20260414-rerun-late|promotion|compat|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_B_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_B_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_B_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_B_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 31659,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 31663
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "qualification-20260414-rerun-late|promotion|compat|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_C_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_C_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_C_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\runs\\sweep_baseline_C_qualification-20260414-rerun-late_promotion_compat_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 58817,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 58821
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ],
+    "timing_summary": {
+        "run_count": 2,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 90484,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 90487,
+        "by_simulator": {
+            "B": {
+                "run_count": 1,
+                "total_duration_ms": 31663
+            },
+            "C": {
+                "run_count": 1,
+                "total_duration_ms": 58821
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 58821
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "B",
+                "total_duration_ms": 31663
+            }
+        ]
+    }
+}

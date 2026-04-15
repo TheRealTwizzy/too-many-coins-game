@@ -1,0 +1,958 @@
+{
+    "schema_version": "tmc-play-test-economy-compatibility.v2",
+    "contract_schema_version": "tmc-canonical-economy-config.v1",
+    "generated_at": "2026-04-15T03:14:37+00:00",
+    "status": "pass",
+    "summary": "Simulator patch maps cleanly into play-test config without semantic drift.",
+    "schema_key_count": 27,
+    "patch_entry_count": 2,
+    "canonical_patch": {
+        "hoarding_safe_hours": 24,
+        "hoarding_sink_enabled": 1
+    },
+    "play_test_patch": {
+        "hoarding_safe_hours": 24,
+        "hoarding_sink_enabled": 1
+    },
+    "round_trip_canonical_patch": {
+        "hoarding_safe_hours": 24,
+        "hoarding_sink_enabled": 1
+    },
+    "round_trip_equal": true,
+    "issues": [],
+    "schema": {
+        "keys": {
+            "base_ubi_active_per_tick": {
+                "type": "int",
+                "subsystem": "boost_related",
+                "units": "coins_per_tick",
+                "min": 0,
+                "max": 1000000,
+                "description": "Base active UBI mint before boost and inflation modifiers.",
+                "default": 30,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.base_ubi_active_per_tick",
+                    "key": "base_ubi_active_per_tick",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_tick",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "base_ubi_active_per_tick",
+                    "key": "base_ubi_active_per_tick",
+                    "column": "base_ubi_active_per_tick",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_tick",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "base_ubi_idle_factor_fp": {
+                "type": "int",
+                "subsystem": "boost_related",
+                "units": "fp_1e6",
+                "min": 0,
+                "max": 1000000,
+                "description": "Idle-player share of active UBI in fixed-point parts per 1,000,000.",
+                "default": 250000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.base_ubi_idle_factor_fp",
+                    "key": "base_ubi_idle_factor_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "base_ubi_idle_factor_fp",
+                    "key": "base_ubi_idle_factor_fp",
+                    "column": "base_ubi_idle_factor_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "ubi_min_per_tick": {
+                "type": "int",
+                "subsystem": "boost_related",
+                "units": "coins_per_tick",
+                "min": 0,
+                "max": 1000000,
+                "description": "Per-tick mint floor after economy modifiers are applied.",
+                "default": 1,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.ubi_min_per_tick",
+                    "key": "ubi_min_per_tick",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_tick",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "ubi_min_per_tick",
+                    "key": "ubi_min_per_tick",
+                    "column": "ubi_min_per_tick",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_tick",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "inflation_table": {
+                "type": "inflation_table",
+                "subsystem": "boost_related",
+                "units": "table[x:coins_supply,factor_fp:fp_1e6]",
+                "description": "Supply breakpoints that scale minting through fixed-point inflation factors.",
+                "default": [
+                    {
+                        "x": 0,
+                        "factor_fp": 1000000
+                    },
+                    {
+                        "x": 50000,
+                        "factor_fp": 620000
+                    },
+                    {
+                        "x": 200000,
+                        "factor_fp": 280000
+                    },
+                    {
+                        "x": 800000,
+                        "factor_fp": 110000
+                    },
+                    {
+                        "x": 3000000,
+                        "factor_fp": 50000
+                    }
+                ],
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.inflation_table",
+                    "key": "inflation_table",
+                    "codec": "json",
+                    "type": "inflation_table",
+                    "units": "table[x:coins_supply,factor_fp:fp_1e6]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "inflation_table",
+                    "key": "inflation_table",
+                    "column": "inflation_table",
+                    "codec": "json",
+                    "type": "inflation_table",
+                    "units": "table[x:coins_supply,factor_fp:fp_1e6]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_window_ticks": {
+                "type": "int",
+                "subsystem": "phase_timing",
+                "units": "ticks",
+                "min": 1,
+                "max_from_context": "season_duration_ticks",
+                "description": "Lookback window used when evaluating hoarding pressure.",
+                "default": 1440,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_window_ticks",
+                    "key": "hoarding_window_ticks",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "ticks",
+                    "min": 1,
+                    "max": null,
+                    "max_from_context": "season_duration_ticks"
+                },
+                "play_test": {
+                    "path": "hoarding_window_ticks",
+                    "key": "hoarding_window_ticks",
+                    "column": "hoarding_window_ticks",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "ticks",
+                    "min": 1,
+                    "max": null,
+                    "max_from_context": "season_duration_ticks"
+                }
+            },
+            "target_spend_rate_per_tick": {
+                "type": "int",
+                "subsystem": "boost_related",
+                "units": "coins_per_tick",
+                "min": 1,
+                "max": 1000000,
+                "description": "Reference per-tick spend target used by affordability and pressure systems.",
+                "default": 50,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.target_spend_rate_per_tick",
+                    "key": "target_spend_rate_per_tick",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_tick",
+                    "min": 1,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "target_spend_rate_per_tick",
+                    "key": "target_spend_rate_per_tick",
+                    "column": "target_spend_rate_per_tick",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_tick",
+                    "min": 1,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_min_factor_fp": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "fp_1e6",
+                "min": 0,
+                "max": 1000000,
+                "description": "Lower bound on hoarding pressure multiplier.",
+                "default": 100000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_min_factor_fp",
+                    "key": "hoarding_min_factor_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_min_factor_fp",
+                    "key": "hoarding_min_factor_fp",
+                    "column": "hoarding_min_factor_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_sink_enabled": {
+                "type": "bool_int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "bool_int",
+                "description": "Feature flag that enables hoarding sink tuning keys.",
+                "default": 1,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_sink_enabled",
+                    "key": "hoarding_sink_enabled",
+                    "codec": "identity",
+                    "type": "bool_int",
+                    "units": "bool_int",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_sink_enabled",
+                    "key": "hoarding_sink_enabled",
+                    "column": "hoarding_sink_enabled",
+                    "codec": "identity",
+                    "type": "bool_int",
+                    "units": "bool_int",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_safe_hours": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "hours",
+                "min": 0,
+                "max": 2160,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Grace period before hoarding sink pressure may begin.",
+                "default": 12,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_safe_hours",
+                    "key": "hoarding_safe_hours",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "hours",
+                    "min": 0,
+                    "max": 2160,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_safe_hours",
+                    "key": "hoarding_safe_hours",
+                    "column": "hoarding_safe_hours",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "hours",
+                    "min": 0,
+                    "max": 2160,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_safe_min_coins": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "coins",
+                "min": 0,
+                "max": 1000000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Coin floor protected from hoarding sink consumption.",
+                "default": 20000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_safe_min_coins",
+                    "key": "hoarding_safe_min_coins",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins",
+                    "min": 0,
+                    "max": 1000000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_safe_min_coins",
+                    "key": "hoarding_safe_min_coins",
+                    "column": "hoarding_safe_min_coins",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins",
+                    "min": 0,
+                    "max": 1000000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_tier1_excess_cap": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "coins",
+                "min": 0,
+                "max": 1000000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Tier-1 excess band cap for hoarding sink pressure.",
+                "default": 50000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_tier1_excess_cap",
+                    "key": "hoarding_tier1_excess_cap",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins",
+                    "min": 0,
+                    "max": 1000000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_tier1_excess_cap",
+                    "key": "hoarding_tier1_excess_cap",
+                    "column": "hoarding_tier1_excess_cap",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins",
+                    "min": 0,
+                    "max": 1000000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_tier2_excess_cap": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "coins",
+                "min": 0,
+                "max": 1000000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Tier-2 excess band cap for hoarding sink pressure.",
+                "default": 200000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_tier2_excess_cap",
+                    "key": "hoarding_tier2_excess_cap",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins",
+                    "min": 0,
+                    "max": 1000000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_tier2_excess_cap",
+                    "key": "hoarding_tier2_excess_cap",
+                    "column": "hoarding_tier2_excess_cap",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins",
+                    "min": 0,
+                    "max": 1000000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_tier1_rate_hourly_fp": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "fp_1e6_per_hour",
+                "min": 0,
+                "max": 5000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Hourly sink rate applied in the lowest excess band.",
+                "default": 200,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_tier1_rate_hourly_fp",
+                    "key": "hoarding_tier1_rate_hourly_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6_per_hour",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_tier1_rate_hourly_fp",
+                    "key": "hoarding_tier1_rate_hourly_fp",
+                    "column": "hoarding_tier1_rate_hourly_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6_per_hour",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_tier2_rate_hourly_fp": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "fp_1e6_per_hour",
+                "min": 0,
+                "max": 5000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Hourly sink rate applied in the middle excess band.",
+                "default": 500,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_tier2_rate_hourly_fp",
+                    "key": "hoarding_tier2_rate_hourly_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6_per_hour",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_tier2_rate_hourly_fp",
+                    "key": "hoarding_tier2_rate_hourly_fp",
+                    "column": "hoarding_tier2_rate_hourly_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6_per_hour",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_tier3_rate_hourly_fp": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "fp_1e6_per_hour",
+                "min": 0,
+                "max": 5000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Hourly sink rate applied above the upper excess cap.",
+                "default": 1000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_tier3_rate_hourly_fp",
+                    "key": "hoarding_tier3_rate_hourly_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6_per_hour",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_tier3_rate_hourly_fp",
+                    "key": "hoarding_tier3_rate_hourly_fp",
+                    "column": "hoarding_tier3_rate_hourly_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6_per_hour",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_sink_cap_ratio_fp": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "fp_1e6",
+                "min": 0,
+                "max": 1000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Maximum per-tick sink expressed as a ratio of protected supply.",
+                "default": 350000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_sink_cap_ratio_fp",
+                    "key": "hoarding_sink_cap_ratio_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_sink_cap_ratio_fp",
+                    "key": "hoarding_sink_cap_ratio_fp",
+                    "column": "hoarding_sink_cap_ratio_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "hoarding_idle_multiplier_fp": {
+                "type": "int",
+                "subsystem": "hoarding_preservation_pressure",
+                "units": "fp_1e6",
+                "min": 0,
+                "max": 5000000,
+                "feature_flag": "season.hoarding_sink_enabled",
+                "description": "Multiplier applied when the player is idle during sink evaluation.",
+                "default": 1250000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.hoarding_idle_multiplier_fp",
+                    "key": "hoarding_idle_multiplier_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "hoarding_idle_multiplier_fp",
+                    "key": "hoarding_idle_multiplier_fp",
+                    "column": "hoarding_idle_multiplier_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 5000000,
+                    "max_from_context": null
+                }
+            },
+            "starprice_table": {
+                "type": "starprice_table",
+                "subsystem": "star_conversion_pricing",
+                "units": "table[m:effective_price_supply_coins,price:coins_per_star]",
+                "description": "Supply-to-price curve for published star prices.",
+                "default": [
+                    {
+                        "m": 0,
+                        "price": 100
+                    },
+                    {
+                        "m": 25000,
+                        "price": 220
+                    },
+                    {
+                        "m": 100000,
+                        "price": 520
+                    },
+                    {
+                        "m": 500000,
+                        "price": 1600
+                    },
+                    {
+                        "m": 2000000,
+                        "price": 4200
+                    }
+                ],
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_table",
+                    "key": "starprice_table",
+                    "codec": "json",
+                    "type": "starprice_table",
+                    "units": "table[m:effective_price_supply_coins,price:coins_per_star]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "starprice_table",
+                    "key": "starprice_table",
+                    "column": "starprice_table",
+                    "codec": "json",
+                    "type": "starprice_table",
+                    "units": "table[m:effective_price_supply_coins,price:coins_per_star]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                }
+            },
+            "star_price_cap": {
+                "type": "int",
+                "subsystem": "star_conversion_pricing",
+                "units": "coins_per_star",
+                "min": 1,
+                "max": 1000000000,
+                "description": "Hard cap on published star price.",
+                "default": 10000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.star_price_cap",
+                    "key": "star_price_cap",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_star",
+                    "min": 1,
+                    "max": 1000000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "star_price_cap",
+                    "key": "star_price_cap",
+                    "column": "star_price_cap",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "coins_per_star",
+                    "min": 1,
+                    "max": 1000000000,
+                    "max_from_context": null
+                }
+            },
+            "starprice_idle_weight_fp": {
+                "type": "int",
+                "subsystem": "star_conversion_pricing",
+                "units": "fp_1e6",
+                "min": 0,
+                "max": 1000000,
+                "description": "Fixed-point share of idle coin supply counted in price pressure.",
+                "default": 250000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_idle_weight_fp",
+                    "key": "starprice_idle_weight_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "starprice_idle_weight_fp",
+                    "key": "starprice_idle_weight_fp",
+                    "column": "starprice_idle_weight_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 0,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "starprice_active_only": {
+                "type": "bool_int",
+                "subsystem": "star_conversion_pricing",
+                "units": "bool_int",
+                "description": "When enabled, only active supply participates in price calculation.",
+                "default": 0,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_active_only",
+                    "key": "starprice_active_only",
+                    "codec": "identity",
+                    "type": "bool_int",
+                    "units": "bool_int",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "starprice_active_only",
+                    "key": "starprice_active_only",
+                    "column": "starprice_active_only",
+                    "codec": "identity",
+                    "type": "bool_int",
+                    "units": "bool_int",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                }
+            },
+            "starprice_max_upstep_fp": {
+                "type": "int",
+                "subsystem": "star_conversion_pricing",
+                "units": "fp_1e6",
+                "min": 1,
+                "max": 1000000,
+                "description": "Maximum upward price change per tick in fixed-point ratio.",
+                "default": 2000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_max_upstep_fp",
+                    "key": "starprice_max_upstep_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 1,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "starprice_max_upstep_fp",
+                    "key": "starprice_max_upstep_fp",
+                    "column": "starprice_max_upstep_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 1,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "starprice_max_downstep_fp": {
+                "type": "int",
+                "subsystem": "star_conversion_pricing",
+                "units": "fp_1e6",
+                "min": 1,
+                "max": 1000000,
+                "description": "Maximum downward price change per tick in fixed-point ratio.",
+                "default": 10000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_max_downstep_fp",
+                    "key": "starprice_max_downstep_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 1,
+                    "max": 1000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "starprice_max_downstep_fp",
+                    "key": "starprice_max_downstep_fp",
+                    "column": "starprice_max_downstep_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 1,
+                    "max": 1000000,
+                    "max_from_context": null
+                }
+            },
+            "starprice_reactivation_window_ticks": {
+                "type": "int",
+                "subsystem": "lock_in_expiry_incentives",
+                "units": "ticks",
+                "min": 1,
+                "max_from_context": "season_duration_ticks",
+                "description": "Window that treats recently reactivated players as demand-active.",
+                "default": 75,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_reactivation_window_ticks",
+                    "key": "starprice_reactivation_window_ticks",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "ticks",
+                    "min": 1,
+                    "max": null,
+                    "max_from_context": "season_duration_ticks"
+                },
+                "play_test": {
+                    "path": "starprice_reactivation_window_ticks",
+                    "key": "starprice_reactivation_window_ticks",
+                    "column": "starprice_reactivation_window_ticks",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "ticks",
+                    "min": 1,
+                    "max": null,
+                    "max_from_context": "season_duration_ticks"
+                }
+            },
+            "starprice_demand_table": {
+                "type": "starprice_demand_table",
+                "subsystem": "star_conversion_pricing",
+                "units": "table[ratio_fp:fp_1e6,multiplier_fp:fp_1e6]",
+                "description": "Demand multiplier curve applied to star pricing pressure.",
+                "default": [
+                    {
+                        "ratio_fp": 850000,
+                        "multiplier_fp": 900000
+                    },
+                    {
+                        "ratio_fp": 1000000,
+                        "multiplier_fp": 1000000
+                    },
+                    {
+                        "ratio_fp": 1150000,
+                        "multiplier_fp": 1080000
+                    },
+                    {
+                        "ratio_fp": 1300000,
+                        "multiplier_fp": 1120000
+                    }
+                ],
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.starprice_demand_table",
+                    "key": "starprice_demand_table",
+                    "codec": "json",
+                    "type": "starprice_demand_table",
+                    "units": "table[ratio_fp:fp_1e6,multiplier_fp:fp_1e6]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "starprice_demand_table",
+                    "key": "starprice_demand_table",
+                    "column": "starprice_demand_table",
+                    "codec": "json",
+                    "type": "starprice_demand_table",
+                    "units": "table[ratio_fp:fp_1e6,multiplier_fp:fp_1e6]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                }
+            },
+            "market_affordability_bias_fp": {
+                "type": "int",
+                "subsystem": "lock_in_expiry_incentives",
+                "units": "fp_1e6",
+                "min": 1,
+                "max": 5000000,
+                "description": "Bias multiplier that shapes affordability-driven price response.",
+                "default": 1000000,
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.market_affordability_bias_fp",
+                    "key": "market_affordability_bias_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 1,
+                    "max": 5000000,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "market_affordability_bias_fp",
+                    "key": "market_affordability_bias_fp",
+                    "column": "market_affordability_bias_fp",
+                    "codec": "identity",
+                    "type": "int",
+                    "units": "fp_1e6",
+                    "min": 1,
+                    "max": 5000000,
+                    "max_from_context": null
+                }
+            },
+            "vault_config": {
+                "type": "vault_config",
+                "subsystem": "sigil_drop_tier_combine",
+                "units": "table[tier:int,supply:count,cost_table:table[remaining:count,cost:stars]]",
+                "description": "Vault supply and star-cost ladder per sigil tier.",
+                "default": [
+                    {
+                        "tier": 1,
+                        "supply": 500,
+                        "cost_table": [
+                            {
+                                "remaining": 1,
+                                "cost": 50
+                            }
+                        ]
+                    },
+                    {
+                        "tier": 2,
+                        "supply": 250,
+                        "cost_table": [
+                            {
+                                "remaining": 1,
+                                "cost": 250
+                            }
+                        ]
+                    },
+                    {
+                        "tier": 3,
+                        "supply": 125,
+                        "cost_table": [
+                            {
+                                "remaining": 1,
+                                "cost": 1000
+                            }
+                        ]
+                    }
+                ],
+                "simulator": {
+                    "scope": "season",
+                    "path": "season.vault_config",
+                    "key": "vault_config",
+                    "codec": "json",
+                    "type": "vault_config",
+                    "units": "table[tier:int,supply:count,cost_table:table[remaining:count,cost:stars]]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                },
+                "play_test": {
+                    "path": "vault_config",
+                    "key": "vault_config",
+                    "column": "vault_config",
+                    "codec": "json",
+                    "type": "vault_config",
+                    "units": "table[tier:int,supply:count,cost_table:table[remaining:count,cost:stars]]",
+                    "min": null,
+                    "max": null,
+                    "max_from_context": null
+                }
+            }
+        }
+    },
+    "candidate_id": "late_stage_failure_candidate",
+    "candidate_canonical_surface_hash": "fae6ce7e49fa7e0853e33a1161bb33af4a3007cdc60c1f8ad03979593c8127e2",
+    "imported_canonical_surface_hash": "fae6ce7e49fa7e0853e33a1161bb33af4a3007cdc60c1f8ad03979593c8127e2",
+    "exported_candidate_config_path": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\candidate_effective_season.json",
+    "sweep_manifest_path": "tmp\\qualification-20260414-rerun\\promotion-late\\late_stage_failure_candidate\\08_play_test_repo_compatibility_validation\\sweep\\policy_sweep_qualification-20260414-rerun-late_promotion_compat_ppa2_s4.json",
+    "run_count": 2,
+    "compatible": true
+}

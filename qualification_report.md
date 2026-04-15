@@ -1,191 +1,308 @@
 # Qualification Report
 
-## A. Baseline refs and commits used
+Qualification date: `2026-04-14`
+Git commit: `4936633dabe17f64e58b672f71b3a9b01fc6772a`
+Workspace: `tmp/qualification-20260414-rerun`
 
-- Qualification date: `2026-04-14`
-- Repo HEAD: `162a74d94d94eda426b6f723a141cd4a1b8e629f`
-- Fixed baseline snapshot: `simulation_output/current-db/export/current_season.json`
-- Baseline SHA-256: `EE81E680935B55E16721ED53B924086249C0233F8716094C4E19DAACECFD9A07`
-- Provenance cross-check: `simulation_output/current-db/agentic-optimization/agentic-current-db-v4/baseline_config_snapshot.json`
+## 1. Baselines, Bundles, And Commands Used
 
-## B. Scenario bundle and seed bundle
+- Official baseline artifact under test:
+  - `simulation_output/current-db/export/current_season_economy_only.json`
+- Diagnostic continuation baseline:
+  - `tmp/qualification-20260414-rerun/diagnostic_clean_baseline.json`
+  - Produced with `SeasonConfigExporter::canonicalConfigFromRow()` from the checked-in season row only after the official baseline artifact had already failed qualification
+- Scenario bundle:
+  - `simulation_output/sweep/followup-tuning-candidates-20260413.json`
+- Seed bundle root:
+  - `qualification-20260414-rerun`
+- Promotion ladder size:
+  - `players_per_archetype=2`
+  - `season_count=4`
 
-- Promotion seed prefix: `qualification-20260414`
-- Promotion ladder size: `players_per_archetype=2`, `season_count=4`
-- Standalone sweep bundle source: `simulation_output/sweep/followup-tuning-candidates-20260413.json`
-- Fixed sweep scenarios:
-  - `phase-gated-safe-24h-v1`
-  - `phase-gated-safe-48h-v1`
-  - `phase-gated-high-floor-v1`
-  - `phase-gated-plus-inflation-tighten-v1`
-- Diagnostic sanitized baseline: `tmp/q14/baseline_promo.json`
-  - This removed only `created_at` from the same fixed baseline snapshot so downstream ladder behavior could be observed after the export/preflight blocker.
+Canonical entrypoints confirmed in the repo:
 
-## C. Candidate list and expected outcomes
+- Baseline export: `php tools/export-season-config.php --output=FILE --metadata-output=FILE`
+- Candidate linting: `php scripts/lint_candidate_packages.php --input=FILE --season-config=FILE`
+- Effective-config preflight: `scripts/simulation/SimulationConfigPreflight.php`
+- Staged generation: `php scripts/generate_tuning_candidates.php --diagnosis=... --season-config=... --output=... --version=3`
+- Rejection attribution: `php scripts/compare_simulation_results.php --seed=... --sweep-manifest=FILE --output=...`
+- Targeted harnesses: `php scripts/simulate_coupling_harnesses.php --seed=... --season-config=FILE --candidate-patch=FILE`
+- Promotion ladder: `php scripts/promote_simulation_candidate.php --candidate=FILE --candidate-id=ID --seed=... --season-config=FILE --output=... --players-per-archetype=2 --season-count=4`
+- Canonical config export: `php tools/export-season-config.php --output=FILE --metadata-output=FILE`
+- Deterministic patch generation: `php scripts/generate_promotion_patch.php --promotion-report=FILE --output=DIR --dry-run`
+- Parity certification: `php scripts/certify_runtime_parity.php --candidate-id=ID --seed=... --season-config=FILE --output=DIR`
+- Qualification report generation: no dedicated script is present
+
+Environment note:
+
+- The DB-backed exporter CLI could not be run in this workspace because the configured DB connection was refused.
+- Because of that, exporter behavior was verified through focused tests and through the checked-in export artifacts.
+
+## 2. Qualification Candidate Set
+
+- Official baseline artifact:
+  - `simulation_output/current-db/export/current_season_economy_only.json`
+  - Expected: pass official preflight unchanged
 
 - `invalid_disabled_subsystem`
-  - Source: handcrafted `hoarding_safe_hours` patch
-  - Expected: fail validation/preflight
-- `coupled_overbundled_candidate`
-  - Source: staged v3 stage-4 mixed bundle with required sink activation
-  - Expected: fail early
+  - `tmp/qualification-20260414-rerun/candidates/invalid_disabled_subsystem.json`
+  - Patch: `{"hoarding_safe_hours":24}`
+  - Expected: fail preflight
+
+- Suppressed disabled-subsystem family:
+  - `phase_dead_zones -> hoarding_window_ticks`
+  - Expected: suppressed at generation time, not emitted
+
 - `single_knob_candidate`
-  - Source: staged v3 stage-1 `base_ubi_active_per_tick=32`
+  - `tmp/qualification-20260414-rerun/candidates/single_knob_candidate.json`
+  - Patch: `{"base_ubi_active_per_tick":32}`
   - Expected: valid single-knob candidate
+
 - `late_stage_failure_candidate`
-  - Source: `phase-gated-safe-24h-v1`
-  - Expected: pass early, fail later
+  - `tmp/qualification-20260414-rerun/candidates/late_stage_failure_candidate.json`
+  - Patch: `{"hoarding_sink_enabled":1,"hoarding_safe_hours":24}`
+  - Expected: pass early stages, then fail later validation
+
 - `promotion_contender_candidate`
-  - Source: strongest current staged full-confirmation hoarding candidate with required sink activation
-  - Expected: best available contender for promotion eligibility
+  - `tmp/qualification-20260414-rerun/candidates/promotion_contender_candidate.json`
+  - Patch: generated `vault_config` candidate
+  - Expected: best available contender
 
-## D. Actual outcomes by stage
+## 3. Actual Outcomes By Area
 
-- Official baseline run using `simulation_output/current-db/export/current_season.json`
-  - `invalid_disabled_subsystem`
-    - Stage 1 `candidate_schema_validation`: `fail`
-    - Stages 2-8: `blocked`
-  - `single_knob_candidate`
-    - Stage 1: `pass`
-    - Stage 2 `effective_config_preflight`: `fail`
-    - Stages 3-8: `blocked`
-  - `late_stage_failure_candidate`
-    - Stage 1: `pass`
-    - Stage 2: `fail`
-    - Stages 3-8: `blocked`
-  - `coupled_overbundled_candidate`
-    - Stage 1: `pass`
-    - Stage 2: `fail`
-    - Stages 3-8: `blocked`
-  - `promotion_contender_candidate`
-    - Stage 1: `pass`
-    - Stage 2: `fail`
-    - Stages 3-8: `blocked`
+### A. Export / Preflight Integrity
 
-- Diagnostic continuation on sanitized baseline `tmp/q14/baseline_promo.json`
-  - `single_knob_candidate` as `s1s`
-    - Stage 1: `pass`
-    - Stage 2: `pass`
-    - Stage 3 `targeted_subsystem_harnesses`: `fail`
-    - Stages 4-8: `blocked`
-  - `late_stage_failure_candidate` as `lates`
-    - Stages 1-3 began and artifacts were created
-    - Final `promotion_state.json` was not written before timeout
+Result: `fail`
 
-## E. Failures by reason code
+Evidence:
+
+- The checked-in official baseline artifact failed the official preflight path unchanged:
+  - `php scripts/simulate_economy.php --seed=qualification-20260414-rerun-baseline --players-per-archetype=1 --season-config=simulation_output/current-db/export/current_season_economy_only.json ...`
+  - Failure: `Unknown base season config key: starprice_model_version`
+- The official `qualification` sweep/comparator profile also failed immediately against the same artifact with the same error.
+- Contract-surface comparison showed:
+  - canonical contract keys: `27`
+  - checked-in baseline keys: `28`
+  - extra key: `starprice_model_version`
+- The legacy export file `simulation_output/current-db/export/current_season.json` still contains DB/runtime fields such as `season_id`, `status`, and `created_at`.
+
+Counter-evidence:
+
+- `SeasonConfigExporterTest` passed and proves the exporter code now separates canonical config from metadata/runtime state.
+- A diagnostic canonical baseline generated through `SeasonConfigExporter::canonicalConfigFromRow()` passed preflight and allowed the rest of qualification to continue.
+
+Assessment:
+
+- Exporter code looks fixed.
+- The reproducible checked-in official baseline artifact is still not compatible with official preflight.
+- That means the blocker is not closed end-to-end in repo-usable qualification evidence.
+
+### B. Baseline-Aware Staged Generation
+
+Result: `pass`
+
+Evidence:
+
+- Fresh staged generation against the disabled-hoarding baseline produced:
+  - `3` candidates
+  - `8` suppressed candidate families
+- The previously problematic disabled family was suppressed instead of emitted:
+  - family: `phase_dead_zones`
+  - target: `hoarding_window_ticks`
+  - reason: `subsystem_disabled_in_baseline`
+- Suppression is visible in:
+  - `tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.json`
+  - `tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.md`
+
+Assessment:
+
+- The staged generator is now baseline-aware in the way qualification requires.
+- Disabled-subsystem families are no longer leaking into generated candidates on this baseline.
+
+### C. Candidate Validation And Harness Screening
+
+Result: `mixed`
+
+Candidate lint:
+
+- `invalid_disabled_subsystem`: fail
+  - reason code: `candidate_disabled_subsystem`
+- `single_knob_candidate`: pass
+- `late_stage_failure_candidate`: pass
+- `promotion_contender_candidate`: pass
+
+Promotion ladder outcomes on the diagnostic continuation baseline:
+
+- `invalid_disabled_subsystem`
+  - stage 1 fail: `candidate_disabled_subsystem`
+  - later stages correctly blocked
+
+- `single_knob_candidate`
+  - stage 1 pass
+  - stage 2 pass
+  - stage 3 fail: targeted subsystem harnesses
+  - later stages correctly blocked
+
+- `promotion_contender_candidate`
+  - stage 1 pass
+  - stage 2 fail: `season.vault_config (inactive_unreferenced)`
+  - later stages correctly blocked
+
+- `late_stage_failure_candidate`
+  - stages 1-9 all pass
+  - marked `promotion_eligible=true`
+
+Standalone harness evidence:
+
+- `single_knob_candidate`: `fail`
+  - failed families:
+    - `skip_rejoin_exploit_worsened`
+    - `hoarding_pressure_imbalance`
+    - `star_affordability_pricing_instability`
+- `late_stage_failure_candidate`: `pass`
+- `promotion_contender_candidate`: harness run failed honestly during preflight because `vault_config` is `inactive_unreferenced`
+
+Assessment:
+
+- Stage gating is being enforced.
+- Harness artifacts are real and informative.
+- Unknown/inactive/shadowed behavior is not being silently ignored.
+
+### D. Determinism
+
+Result: `pass`
+
+Evidence:
+
+- Two equivalent Simulation D sweep runs with the same seed and different output roots normalized identically:
+  - result envelope equality: `true`
+  - per-run payload equality: `true` for all `4` baseline/scenario simulator pairs
+- A real semantic change still diverged:
+  - control: `players_per_archetype=2`
+  - drift run: `players_per_archetype=3`
+  - semantic drift detected: `true`
+- Summary artifact:
+  - `tmp/qualification-20260414-rerun/determinism_summary.json`
+
+Assessment:
+
+- The run-specific artifact-path determinism blocker appears closed.
+
+### E. Rejection Attribution / Comparator Evidence
+
+Result: `pass`
+
+Evidence:
+
+- The official supported `qualification` comparator profile completed successfully on the diagnostic continuation baseline:
+  - duration: `3.07` minutes
+  - completion status: `within-envelope`
+  - sweep runs: `4`
+  - rejected scenarios: `1`
+- The rejection-attribution artifact was generated and usable:
+  - `tmp/qualification-20260414-rerun/sweep-diagnostic-baseline/comparator/rejections/qualification-20260414-rerun-diagnostic-profile/phase-gated-safe-24h-v1/rejection_attribution.json`
+- The rejected scenario carried specific flags:
+  - `candidate_improves_B_but_worsens_C`
+  - `dominant_archetype_shifted`
+  - `reduced_one_dominant_but_created_new_dominant`
+  - `skip_rejoin_exploit_worsened`
+
+Assessment:
+
+- The official qualification-scale comparator path is operational when fed a truly canonical baseline.
+- Rejection attribution is no longer the weak point.
+
+### F. Promotion Ladder / Parity / Patching
+
+Result: `fail`
+
+What worked:
+
+- Parity certification for the eligible candidate passed:
+  - standalone parity: `pass`
+  - material drift count: `0`
+- Play-test compatibility validation for the eligible candidate passed.
+- Patch generation for the eligible candidate was deterministic:
+  - bundle JSON hashes matched
+  - diff hashes matched
+  - staged SQL hashes matched
+- Generated patch touched only one approved root migration file:
+  - `migration_z_sim_promotion_late_stage_failure_candidate_f0d7aac9a64b_test_reset.sql`
+- Patch generation failed honestly on an ineligible promotion report.
+
+Critical mismatch:
+
+- The same `late_stage_failure_candidate` that the promotion ladder marked `promotion_eligible=true` was rejected by the official qualification comparator profile.
+- Promotion stage 5 is not the same proof as the official comparator path:
+  - code inspection shows stage 5 only runs a direct Sim C lifetime comparison
+  - it does not run the official B+C supported comparator profile
+- That lets a candidate become patch-ready even when the official qualification comparator rejects it.
+
+Assessment:
+
+- Individual promotion components are behaving honestly.
+- The promotion decision path is not aligned with the official qualification comparator.
+- That is a critical blocker for balance-suggestion workflows.
+
+## 4. Failures By Reason Code / Gate
 
 - `candidate_disabled_subsystem`
-  - Observed in strict lint for `invalid_disabled_subsystem`
-  - Also exposed a generator/baseline mismatch: fresh staged candidate generation emitted hoarding-subsystem candidates that are inactive against the fixed baseline because `hoarding_sink_enabled=0`
-
-- `Unknown base season config key: created_at`
-  - Observed in promotion ladder stage 2 for every valid candidate when using the official baseline export
-  - This is not just a candidate failure. It is a broken handoff between canonical export and canonical preflight.
-
-- Targeted harness blocking metrics on diagnostic continuation
-  - `boost_underperformance` failed on metric `boost_focused_gap`
-  - `skip_rejoin_exploit_worsened` failed on metric `skip_strategy_edge`
-
-## F. Rejection attribution quality assessment
-
-- Direct standalone sweep/comparator execution did not complete within the qualification timeout budget after the export blocker was bypassed, so full CLI attribution evidence is incomplete.
-- Focused tests still provide meaningful evidence:
-  - `Simulation Rejection Attribution` test passed
-  - It verified both single-knob attribution reporting and explicit interaction ambiguity for bundled failures
-- Assessment:
-  - Quality appears structurally good in isolated tests
-  - End-to-end operational qualification remains incomplete because the real sweep/comparator path did not finish inside the campaign window
-
-## G. Subsystem harness screening effectiveness
-
-- Strong evidence from the sanitized single-knob run:
-  - Selected families: `boost_underperformance`, `skip_rejoin_exploit_worsened`, `star_affordability_pricing_instability`
-  - Failed families:
-    - `boost_underperformance` on `boost_focused_gap`
-    - `skip_rejoin_exploit_worsened` on `skip_strategy_edge`
-  - Passed family:
+  - `invalid_disabled_subsystem`
+- `inactive_unreferenced`
+  - `promotion_contender_candidate`
+- targeted harness regressions
+  - `single_knob_candidate`
+  - failed families:
+    - `skip_rejoin_exploit_worsened`
+    - `hoarding_pressure_imbalance`
     - `star_affordability_pricing_instability`
-- Assessment:
-  - The targeted harness gate is doing real filtering and is not a formality
-  - It blocked a seemingly simple single-knob candidate before costlier downstream stages
-  - That is good screening behavior
+- official comparator rejection flags for `phase-gated-safe-24h-v1`
+  - `candidate_improves_B_but_worsens_C`
+  - `dominant_archetype_shifted`
+  - `reduced_one_dominant_but_created_new_dominant`
+  - `skip_rejoin_exploit_worsened`
+- official baseline artifact failure
+  - unknown base season config key: `starprice_model_version`
 
-## H. Promotion ladder enforcement assessment
+## 5. Focused Test Evidence
 
-- Enforcement is strict and correctly blocking non-passing candidates.
-- Stage ordering and blocking behavior look correct:
-  - invalid schema failure blocks later stages
-  - preflight failure blocks later stages
-  - targeted harness failure blocks later stages
-- The ladder is not usable with the official canonical export right now because stage 2 rejects the export format itself.
-- Assessment:
-  - Enforcement logic is good
-  - Promotion readiness is bad because the official entrypoints do not compose cleanly
+The following focused tests were rerun and passed:
 
-## I. Parity certification summary
+- `SeasonConfigExporterTest`
+- `SimulationConfigPreflightTest`
+- `TuningCandidateGeneratorTest`
+- `RuntimeParityCertificationTest`
+- `PromotionPatchGeneratorTest`
+- `SimulationRejectionAttributionTest`
+- `SweepComparatorCampaignRunnerTest`
+- `SweepComparatorProfileCatalogTest`
+- `CandidatePromotionPipelineTest`
 
-- Standalone CLI parity run succeeded:
-  - Command: `php scripts/certify_runtime_parity.php --candidate-id=q14-parity --seed=q14-parity --season-config=tmp/q14/baseline_promo.json --output=tmp/q14/par`
-  - Result: `pass`
-  - Artifacts:
-    - `tmp/q14/par/runtime_parity_certification.json`
-    - `tmp/q14/par/runtime_parity_certification.md`
-- Required domains covered:
-  - `hoarding_sink_behavior`
-  - `boost_behavior`
-  - `lock_in_timing`
-  - `expiry_timing`
-  - `star_pricing_affordability`
-  - `rejoin_participation_effects`
-  - `blackout_finalization_interactions`
-- Material drift count: `0`
+These support the conclusion that several code-level fixes are real, even though the end-to-end qualification path still has critical gaps.
 
-## J. Deterministic patch generation summary
+## 6. Reopened Blockers
 
-- No real qualification candidate became promotion-eligible, so this check is diagnostic rather than promotion-ready.
-- Diagnostic result:
-  - Same canonical config + different `bundle_id`:
-    - `repo_patch.diff` hash stayed identical
-    - `promotion_bundle.json` hash changed
-    - Interpretation: diff payload is stable, metadata is bundle-id-dependent
-  - Same canonical config + same `bundle_id` in two output roots:
-    - `promotion_bundle.json` hash matched
-    - `repo_patch.diff` hash matched
-    - staged SQL file hash matched
-- Assessment:
-  - Patch generation is deterministic for identical semantic inputs when the bundle identity is held constant
-  - Bundle metadata is intentionally identity-sensitive
+1. `QB-EXPORT-PREFLIGHT-ARTIFACT`
+   - The reproducible checked-in official baseline artifact still contains deprecated key `starprice_model_version`.
+   - Result: official exported-baseline qualification fails before simulation.
 
-## K. Residual risks
+2. `QB-PROMOTION-COMPARATOR-MISMATCH`
+   - The promotion ladder can mark a candidate patch-ready while the official qualification comparator profile rejects that same candidate.
+   - Result: balance-suggestion / promotion workflows are not trustworthy end-to-end.
 
-- Reopened blocker: official canonical export is incompatible with official preflight
-- Reopened blocker: staged candidate generation is not baseline-aware enough to avoid inactive subsystem knobs
-- Reopened blocker: Simulation D payload determinism is still broken because artifact paths leak into compared payloads
-- Operational concern: full standalone sweep/comparator and harness runs are expensive enough in this environment to exceed the qualification timeout budget
-- Qualification gap: no real candidate reached stages 4-8 under the official baseline, so later-stage artifact generation was only covered by focused tests, not by the primary campaign
+## 7. Residual Risks
 
-## L. Final verdict
+- A live DB-backed exporter run could not be executed in this workspace, so exporter CLI verification is indirect.
+- The exporter logic looks fixed, but the checked-in reproducible baseline artifact is stale enough to break qualification.
+- Comparator evidence and promotion evidence are currently inconsistent for at least one candidate.
 
-`not ready`
+## 8. Final Verdict
 
-### Why
+Final verdict: `not ready`
 
-- The official pipeline cannot even consume the official canonical export without failing stage 2 preflight on `created_at`.
-- A fresh staged candidate bundle produced invalid hoarding-subsystem candidates against the fixed baseline.
-- Simulation D still fails the focused determinism qualification because payloads differ across same-seed reruns.
-- Although parity certification and patch generation components behave well in isolation, the end-to-end promotion path is not currently reliable enough for controlled production use.
+Why:
 
-### Reopened blockers
-
-1. `QB-EXPORT-PREFLIGHT-MISMATCH`
-   - `tools/export-season-config.php` exports `SELECT *` season rows, including `created_at`
-   - `SimulationConfigPreflight::normalizeBaseSeasonValues()` rejects non-`SEASON_ECONOMY_COLUMNS` keys
-   - Result: canonical export cannot feed canonical promotion preflight
-
-2. `QB-STAGED-CANDIDATE-INACTIVE-SURFACE`
-   - fresh staged generation emitted sink-tuning candidates while the fixed baseline had `hoarding_sink_enabled=0`
-   - Result: generated candidates fail lint/preflight before any real simulation signal is available
-
-3. `QB-SIM-D-PAYLOAD-DETERMINISM`
-   - focused PHPUnit qualification still fails Simulation D payload equality for same-seed reruns because artifact paths differ between runs
-   - Result: repeated-run consistency is not yet clean enough for full qualification sign-off
+- The official reproducible baseline artifact still fails official preflight unchanged.
+- The official promotion decision path can disagree with the official comparator path on the same candidate.
+- Determinism, staged-generation suppression, rejection attribution, parity, and deterministic patch generation all look materially improved.
+- Those improvements are not enough to sign off either controlled simulation use or balance-suggestion workflows while the two blockers above remain open.

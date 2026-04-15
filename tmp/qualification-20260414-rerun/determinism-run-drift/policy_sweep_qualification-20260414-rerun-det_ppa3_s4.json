@@ -1,0 +1,187 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T03:32:51+00:00",
+    "seed": "qualification-20260414-rerun-det",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 3,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "phase-gated-safe-24h-v1"
+        ],
+        "base_season_config_path": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/diagnostic_clean_baseline.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "qualification-20260414-rerun-det|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_B_qualification-20260414-rerun-det_scenario_baseline_sim_B_ppa3.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_B_qualification-20260414-rerun-det_scenario_baseline_sim_B_ppa3.csv",
+            "config_audit": {
+                "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_B_qualification-20260414-rerun-det_scenario_baseline_sim_B_ppa3.audit\\effective_config.json",
+                "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_B_qualification-20260414-rerun-det_scenario_baseline_sim_B_ppa3.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 48462,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 48466
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "qualification-20260414-rerun-det|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_C_qualification-20260414-rerun-det_scenario_baseline_sim_C_ppa3_s4.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_C_qualification-20260414-rerun-det_scenario_baseline_sim_C_ppa3_s4.csv",
+            "config_audit": {
+                "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_C_qualification-20260414-rerun-det_scenario_baseline_sim_C_ppa3_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_baseline_C_qualification-20260414-rerun-det_scenario_baseline_sim_C_ppa3_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 82668,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 82673
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "qualification-20260414-rerun-det|scenario|phase-gated-safe-24h-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_B_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_B_ppa3.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_B_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_B_ppa3.csv",
+            "config_audit": {
+                "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_B_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_B_ppa3.audit\\effective_config.json",
+                "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_B_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_B_ppa3.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 49568,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 49572
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "qualification-20260414-rerun-det|scenario|phase-gated-safe-24h-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 3,
+                "total_players": 30
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_sink_enabled",
+                "hoarding_safe_hours"
+            ],
+            "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_C_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_C_ppa3_s4.json",
+            "csv": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_C_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_C_ppa3_s4.csv",
+            "config_audit": {
+                "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_C_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_C_ppa3_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game/tmp/qualification-20260414-rerun/determinism-run-drift\\runs\\sweep_phase-gated-safe-24h-v1_C_qualification-20260414-rerun-det_scenario_phase-gated-safe-24h-v1_sim_C_ppa3_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 87638,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 87644
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 3,
+        "run_execution_duration_ms": 268356,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 268361,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 98038
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 170317
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "phase-gated-safe-24h-v1",
+                "simulator_type": "C",
+                "total_duration_ms": 87644
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 82673
+            },
+            {
+                "scenario_name": "phase-gated-safe-24h-v1",
+                "simulator_type": "B",
+                "total_duration_ms": 49572
+            }
+        ]
+    }
+}

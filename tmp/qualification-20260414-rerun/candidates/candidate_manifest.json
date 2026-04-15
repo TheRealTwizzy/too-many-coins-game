@@ -1,0 +1,39 @@
+{
+  "generated_for": "qualification-20260414-rerun",
+  "git_commit": "4936633dabe17f64e58b672f71b3a9b01fc6772a",
+  "baseline": "simulation_output/current-db/export/current_season_economy_only.json",
+  "scenario_bundle": "simulation_output/sweep/followup-tuning-candidates-20260413.json",
+  "candidates": [
+    {
+      "id": "invalid_disabled_subsystem",
+      "path": "tmp/qualification-20260414-rerun/candidates/invalid_disabled_subsystem.json",
+      "source": "handcrafted",
+      "expected_outcome": "fail_preflight"
+    },
+    {
+      "id": "suppressed_disabled_family",
+      "source": "tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.json#suppression_report",
+      "family": "phase_dead_zones",
+      "target": "hoarding_window_ticks",
+      "expected_outcome": "suppressed_at_generation"
+    },
+    {
+      "id": "single_knob_candidate",
+      "path": "tmp/qualification-20260414-rerun/candidates/single_knob_candidate.json",
+      "source": "tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.json#stage1-base_ubi_active_per_tick-01",
+      "expected_outcome": "valid_single_knob"
+    },
+    {
+      "id": "late_stage_failure_candidate",
+      "path": "tmp/qualification-20260414-rerun/candidates/late_stage_failure_candidate.json",
+      "source": "simulation_output/sweep/followup-tuning-candidates-20260413.json#phase-gated-safe-24h-v1",
+      "expected_outcome": "pass_early_fail_late"
+    },
+    {
+      "id": "promotion_contender_candidate",
+      "path": "tmp/qualification-20260414-rerun/candidates/promotion_contender_candidate.json",
+      "source": "tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.json#stage1-vault_config-02",
+      "expected_outcome": "best_available_contender"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+    "schema_version": "tmc-economic-candidate-surface.v1",
+    "generated_at": "2026-04-15T03:09:22+00:00",
+    "candidate_id": "invalid_disabled_subsystem",
+    "failure_count": 1,
+    "failures": [
+        {
+            "context": "candidate_change[0]",
+            "path": "season.hoarding_safe_hours",
+            "reason_code": "candidate_disabled_subsystem",
+            "reason_detail": "Subsystem `hoarding_preservation_pressure` is disabled for this candidate context because `season.hoarding_sink_enabled` resolves to 0.",
+            "requested_value": 24
+        }
+    ],
+    "canonical_changes": [
+        {
+            "raw_path": "hoarding_safe_hours",
+            "path": "season.hoarding_safe_hours",
+            "scope": "season",
+            "key": "hoarding_safe_hours",
+            "requested_value": 24,
+            "path_status": "valid"
+        }
+    ]
+}

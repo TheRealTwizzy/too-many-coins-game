@@ -1,0 +1,52 @@
+{
+    "schema_version": "tmc-promotion-bundle.v1",
+    "patch_style_version": "tmc-play-test-reset-sql.v1",
+    "bundle_id": "promotion-bundle-late_stage_failure_candidate",
+    "candidate_id": "late_stage_failure_candidate",
+    "bundle_signature_sha256": "7aa7459cbd39e86c3de5fe420a0a4cf333a4cfe8b68f31dc3b6aa7de713819d0",
+    "base_surface_sha256": "014a97f38c9e992890f5220e326d5cd7bf3a45af799cd135aef10e3618ab3ea9",
+    "candidate_surface_sha256": "c3a61867ac57988b65742ef1014c56848db75508f5aa661a213561f94f9566fd",
+    "patched_surface_sha256": "494c9993f73b1f5c6b6e4bde4c87937cdb1c876af03f6b36e875a6dc164e4b08",
+    "changed_keys": [
+        "hoarding_sink_enabled",
+        "hoarding_safe_hours"
+    ],
+    "canonical_patch": {
+        "hoarding_safe_hours": 24,
+        "hoarding_sink_enabled": 1
+    },
+    "play_test_patch": {
+        "hoarding_safe_hours": 24,
+        "hoarding_sink_enabled": 1
+    },
+    "repo_changes": [
+        {
+            "relative_path": "migration_z_sim_promotion_late_stage_failure_candidate_f0d7aac9a64b_test_reset.sql",
+            "change_type": "add",
+            "approved": true,
+            "staged_path": "repo_files/migration_z_sim_promotion_late_stage_failure_candidate_f0d7aac9a64b_test_reset.sql",
+            "content_sha256": "37749721a228efe77a1acacabc746a584002d1ff88b16046fb25839e6621165a",
+            "line_count": 145
+        }
+    ],
+    "validation": {
+        "candidate_contract_status": "pass",
+        "base_contract_status": "pass",
+        "patched_contract_status": "pass",
+        "schema_valid": true,
+        "candidate_matches_patched": true,
+        "changed_key_count": 2,
+        "approved_file_count": 1
+    },
+    "artifacts": {
+        "bundle_json": "promotion_bundle.json",
+        "bundle_md": "promotion_bundle.md",
+        "canonical_patch_json": "canonical_patch.json",
+        "play_test_patch_json": "play_test_patch.json",
+        "patched_play_test_season_json": "patched_play_test_season.json",
+        "repo_patch_diff": "repo_patch.diff",
+        "staged_repo_files": [
+            "repo_files/migration_z_sim_promotion_late_stage_failure_candidate_f0d7aac9a64b_test_reset.sql"
+        ]
+    }
+}
