@@ -1,0 +1,189 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T16:08:47+00:00",
+    "seed": "focused-single-starprice-max-upstep-950",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "focused-single-starprice-max-upstep-950"
+        ],
+        "base_season_config_path": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-single-starprice-max-upstep-950|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-single-starprice-max-upstep-950_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-single-starprice-max-upstep-950_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-single-starprice-max-upstep-950_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-single-starprice-max-upstep-950_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 40133,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 40137
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-single-starprice-max-upstep-950|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-single-starprice-max-upstep-950_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-single-starprice-max-upstep-950_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-single-starprice-max-upstep-950_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-single-starprice-max-upstep-950_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 66479,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 66483
+            }
+        },
+        {
+            "scenario_name": "focused-single-starprice-max-upstep-950",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-single-starprice-max-upstep-950|scenario|focused-single-starprice-max-upstep-950|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "lock_in_expiry_incentives",
+                "phase_timing",
+                "star_conversion_pricing"
+            ],
+            "override_keys": [
+                "starprice_max_upstep_fp"
+            ],
+            "json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_B_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_B_ppa2.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_B_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_B_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_B_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 40019,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 40025
+            }
+        },
+        {
+            "scenario_name": "focused-single-starprice-max-upstep-950",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-single-starprice-max-upstep-950|scenario|focused-single-starprice-max-upstep-950|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "lock_in_expiry_incentives",
+                "phase_timing",
+                "star_conversion_pricing"
+            ],
+            "override_keys": [
+                "starprice_max_upstep_fp"
+            ],
+            "json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_C_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_C_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_C_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-single-starprice-max-upstep-950\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-single-starprice-max-upstep-950_C_focused-single-starprice-max-upstep-950_scenario_focused-single-starprice-max-upstep-950_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 78397,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 78402
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing",
+        "sigil_drop_tier_combine"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 225048,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 225053,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 80162
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 144885
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "focused-single-starprice-max-upstep-950",
+                "simulator_type": "C",
+                "total_duration_ms": 78402
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 66483
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "B",
+                "total_duration_ms": 40137
+            }
+        ]
+    }
+}

@@ -59,21 +59,21 @@ class SimulationRejectionAttributionTest extends TestCase
         ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         file_put_contents($baselineAuditPath, json_encode($this->fakeAuditReport([], [
-            'target_spend_rate_per_tick' => 30,
+            'hoarding_min_factor_fp' => 100000,
         ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         file_put_contents($scenarioAuditPath, json_encode($this->fakeAuditReport([
             [
-                'path' => 'season.target_spend_rate_per_tick',
-                'requested_value' => 42,
-                'effective_value' => 42,
+                'path' => 'season.hoarding_min_factor_fp',
+                'requested_value' => 180000,
+                'effective_value' => 180000,
                 'effective_source' => 'candidate_patch',
                 'is_active' => true,
                 'reason_code' => null,
                 'reason_detail' => null,
             ],
         ], [
-            'target_spend_rate_per_tick' => 42,
+            'hoarding_min_factor_fp' => 180000,
         ]), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $manifestPath = $this->tempDir . DIRECTORY_SEPARATOR . 'single_manifest.json';
@@ -85,7 +85,7 @@ class SimulationRejectionAttributionTest extends TestCase
                 ]),
                 $this->manifestRun('candidate-single', 'B', false, $scenarioBPath, [
                     'effective_config_json' => $scenarioAuditPath,
-                ], ['target_spend_rate_per_tick']),
+                ], ['hoarding_min_factor_fp']),
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
@@ -110,16 +110,16 @@ class SimulationRejectionAttributionTest extends TestCase
         $this->assertSame('lock_in_down_but_expiry_dominance_up', (string)$report['primary_failed_gate']['flag']);
         $this->assertFalse((bool)$report['interaction_ambiguity']['present']);
         $this->assertCount(1, (array)$report['changed_knobs']);
-        $this->assertSame('season.target_spend_rate_per_tick', (string)$report['changed_knobs'][0]['path']);
+        $this->assertSame('season.hoarding_min_factor_fp', (string)$report['changed_knobs'][0]['path']);
         $this->assertSame('active', (string)$report['changed_knobs'][0]['classification']);
-        $this->assertSame(30, $report['changed_knobs'][0]['baseline_value']);
-        $this->assertSame(42, $report['changed_knobs'][0]['candidate_effective_value']);
-        $this->assertSame('season.target_spend_rate_per_tick', (string)$report['likely_causal_knob_ranking'][0]['path']);
+        $this->assertSame(100000, $report['changed_knobs'][0]['baseline_value']);
+        $this->assertSame(180000, $report['changed_knobs'][0]['candidate_effective_value']);
+        $this->assertSame('season.hoarding_min_factor_fp', (string)$report['likely_causal_knob_ranking'][0]['path']);
         $this->assertSame('moderate', (string)$report['likely_causal_knob_ranking'][0]['confidence']);
 
         $markdown = (string)file_get_contents($mdPath);
         $this->assertStringContainsString('# Rejection Attribution', $markdown);
-        $this->assertStringContainsString('season.target_spend_rate_per_tick', $markdown);
+        $this->assertStringContainsString('season.hoarding_min_factor_fp', $markdown);
     }
 
     public function testBundledKnobFailureReportsInteractionAmbiguityExplicitly(): void

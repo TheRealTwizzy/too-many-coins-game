@@ -31,28 +31,20 @@ class EconomicCandidateValidator
             'starprice_active_only',
             'starprice_max_upstep_fp',
             'starprice_max_downstep_fp',
-            'starprice_reactivation_window_ticks',
-            'starprice_demand_table',
-            'market_affordability_bias_fp',
         ],
         'boost_related' => [
-            'target_spend_rate_per_tick',
             'base_ubi_active_per_tick',
             'base_ubi_idle_factor_fp',
             'ubi_min_per_tick',
             'inflation_table',
         ],
-        'sigil_drop_tier_combine' => [
-            'vault_config',
-        ],
         'lock_in_expiry_incentives' => [
-            'market_affordability_bias_fp',
-            'starprice_reactivation_window_ticks',
-            'target_spend_rate_per_tick',
+            'starprice_idle_weight_fp',
+            'starprice_max_upstep_fp',
+            'starprice_max_downstep_fp',
             'hoarding_min_factor_fp',
         ],
         'hoarding_preservation_pressure' => [
-            'hoarding_window_ticks',
             'hoarding_min_factor_fp',
             'hoarding_sink_enabled',
             'hoarding_safe_hours',
@@ -66,9 +58,11 @@ class EconomicCandidateValidator
             'hoarding_idle_multiplier_fp',
         ],
         'phase_timing' => [
-            'hoarding_window_ticks',
-            'starprice_reactivation_window_ticks',
+            'hoarding_safe_hours',
+            'starprice_max_upstep_fp',
+            'starprice_max_downstep_fp',
         ],
+        'sigil_drop_tier_combine' => [],
     ];
 
     private const DEPRECATED_KEYS = [

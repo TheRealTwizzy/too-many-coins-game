@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/database.php';
 require_once __DIR__ . '/../simulation/SimulationSeason.php';
 require_once __DIR__ . '/../simulation/SeasonConfigExporter.php';
+require_once __DIR__ . '/../simulation/CanonicalEconomyConfigContract.php';
 require_once __DIR__ . '/../simulation/SimulationPopulationSeason.php';
 require_once __DIR__ . '/../simulation/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/../simulation/MetricsCollector.php';
@@ -625,7 +626,15 @@ class AgenticEconomyDecomposition
             ],
         ];
 
+        $activeSearchKeys = array_fill_keys(array_keys(CanonicalEconomyConfigContract::candidateSearchParameters()), true);
         foreach ($subsystems as &$subsystem) {
+            $subsystem['owned_parameters'] = array_values(array_filter(
+                (array)($subsystem['owned_parameters'] ?? []),
+                static function (array $parameter) use ($activeSearchKeys): bool {
+                    $key = (string)($parameter['key'] ?? '');
+                    return $key !== '' && isset($activeSearchKeys[$key]);
+                }
+            ));
             if (!isset($subsystem['search_limits'])) {
                 $subsystem['search_limits'] = [
                     'max_candidates' => 4,

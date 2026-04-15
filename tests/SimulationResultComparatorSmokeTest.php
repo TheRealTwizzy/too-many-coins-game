@@ -107,7 +107,7 @@ class SimulationResultComparatorSmokeTest extends TestCase
                     'cohort' => ['players_per_archetype' => 1],
                     'horizon' => ['season_count' => 1],
                     'override_categories' => ['boost_related'],
-                    'override_keys' => ['target_spend_rate_per_tick'],
+                    'override_keys' => ['base_ubi_active_per_tick'],
                     'json' => $scenarioBPath,
                 ],
                 [
@@ -118,7 +118,7 @@ class SimulationResultComparatorSmokeTest extends TestCase
                     'cohort' => ['players_per_archetype' => 1],
                     'horizon' => ['season_count' => 4],
                     'override_categories' => ['boost_related'],
-                    'override_keys' => ['target_spend_rate_per_tick'],
+                    'override_keys' => ['base_ubi_active_per_tick'],
                     'json' => $scenarioCPath,
                 ],
             ],

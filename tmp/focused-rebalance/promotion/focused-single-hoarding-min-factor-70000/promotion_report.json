@@ -1,0 +1,460 @@
+{
+    "schema_version": "tmc-candidate-promotion-report.v1",
+    "generated_at": "2026-04-15T16:08:55+00:00",
+    "candidate_id": "focused-single-hoarding-min-factor-70000",
+    "seed": "focused-single-hoarding-min-factor-70000",
+    "pipeline_status": "ineligible",
+    "patch_ready": false,
+    "promotion_eligible": false,
+    "debug_bypass_used": false,
+    "debug_bypass_stages": [],
+    "warnings": [],
+    "candidate": {
+        "raw_document": {
+            "hoarding_min_factor_fp": 70000
+        },
+        "canonical_changes": [
+            {
+                "raw_path": "hoarding_min_factor_fp",
+                "path": "season.hoarding_min_factor_fp",
+                "scope": "season",
+                "key": "hoarding_min_factor_fp",
+                "requested_value": 70000,
+                "path_status": "valid"
+            }
+        ],
+        "serialized_patch_path": null
+    },
+    "base_season": {
+        "surface_sha256": "890af4fea529a6bd5862c44f1efd77830597ebcfc9a7aa0bbbce1de8ea713fe6",
+        "effective_config": {
+            "season_id": 1,
+            "start_time": 1,
+            "end_time": 20161,
+            "blackout_time": 15841,
+            "status": "Scheduled",
+            "season_expired": 0,
+            "expiration_finalized": 0,
+            "base_ubi_active_per_tick": 30,
+            "base_ubi_idle_factor_fp": 250000,
+            "ubi_min_per_tick": 1,
+            "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+            "hoarding_window_ticks": 86400,
+            "target_spend_rate_per_tick": 18,
+            "hoarding_min_factor_fp": 90000,
+            "hoarding_sink_enabled": 0,
+            "hoarding_safe_hours": 12,
+            "hoarding_safe_min_coins": 20000,
+            "hoarding_tier1_excess_cap": 50000,
+            "hoarding_tier2_excess_cap": 200000,
+            "hoarding_tier1_rate_hourly_fp": 200,
+            "hoarding_tier2_rate_hourly_fp": 535,
+            "hoarding_tier3_rate_hourly_fp": 1070,
+            "hoarding_sink_cap_ratio_fp": 350000,
+            "hoarding_idle_multiplier_fp": 1287500,
+            "starprice_table": "[{\"m\": 0, \"price\": 100}, {\"m\": 25000, \"price\": 220}, {\"m\": 100000, \"price\": 520}, {\"m\": 500000, \"price\": 1600}, {\"m\": 2000000, \"price\": 4200}]",
+            "star_price_cap": 6000,
+            "starprice_idle_weight_fp": 0,
+            "starprice_active_only": 1,
+            "starprice_max_upstep_fp": 1000,
+            "starprice_max_downstep_fp": 12960,
+            "starprice_model_version": 1,
+            "starprice_reactivation_window_ticks": 81,
+            "starprice_demand_table": "[{\"ratio_fp\": 850000, \"multiplier_fp\": 900000}, {\"ratio_fp\": 1000000, \"multiplier_fp\": 1000000}, {\"ratio_fp\": 1150000, \"multiplier_fp\": 1080000}, {\"ratio_fp\": 1300000, \"multiplier_fp\": 1120000}]",
+            "market_affordability_bias_fp": 970000,
+            "vault_config": "[{\"tier\": 1, \"supply\": 500, \"cost_table\": [{\"cost\": 50, \"remaining\": 1}]}, {\"tier\": 2, \"supply\": 250, \"cost_table\": [{\"cost\": 250, \"remaining\": 1}]}, {\"tier\": 3, \"supply\": 125, \"cost_table\": [{\"cost\": 1000, \"remaining\": 1}]}]",
+            "current_star_price": 100,
+            "market_anchor_price": 100,
+            "blackout_star_price_snapshot": null,
+            "blackout_started_tick": null,
+            "pending_star_burn_coins": 0,
+            "star_burn_ema_fp": 0,
+            "net_mint_ema_fp": 0,
+            "market_pressure_fp": 1000000,
+            "total_coins_supply": 0,
+            "total_coins_supply_end_of_tick": 0,
+            "coins_active_total": 0,
+            "coins_idle_total": 0,
+            "coins_offline_total": 0,
+            "effective_price_supply": 0,
+            "last_processed_tick": 1,
+            "season_seed_hex": "f1362eac64241eac2a5ae51f8aa03d6dde542455ae6c7f6e0b9082cba385154f"
+        }
+    },
+    "candidate_effective_season": {
+        "surface_sha256": "1d8c06b7c87dd8970bcb98a26b82549a5c7778769608725b7cf9f93c0425a095",
+        "effective_config": {
+            "season_id": 1,
+            "start_time": 1,
+            "end_time": 20161,
+            "blackout_time": 15841,
+            "status": "Scheduled",
+            "season_expired": 0,
+            "expiration_finalized": 0,
+            "base_ubi_active_per_tick": 30,
+            "base_ubi_idle_factor_fp": 250000,
+            "ubi_min_per_tick": 1,
+            "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+            "hoarding_window_ticks": 86400,
+            "target_spend_rate_per_tick": 18,
+            "hoarding_min_factor_fp": 70000,
+            "hoarding_sink_enabled": 0,
+            "hoarding_safe_hours": 12,
+            "hoarding_safe_min_coins": 20000,
+            "hoarding_tier1_excess_cap": 50000,
+            "hoarding_tier2_excess_cap": 200000,
+            "hoarding_tier1_rate_hourly_fp": 200,
+            "hoarding_tier2_rate_hourly_fp": 535,
+            "hoarding_tier3_rate_hourly_fp": 1070,
+            "hoarding_sink_cap_ratio_fp": 350000,
+            "hoarding_idle_multiplier_fp": 1287500,
+            "starprice_table": "[{\"m\": 0, \"price\": 100}, {\"m\": 25000, \"price\": 220}, {\"m\": 100000, \"price\": 520}, {\"m\": 500000, \"price\": 1600}, {\"m\": 2000000, \"price\": 4200}]",
+            "star_price_cap": 6000,
+            "starprice_idle_weight_fp": 0,
+            "starprice_active_only": 1,
+            "starprice_max_upstep_fp": 1000,
+            "starprice_max_downstep_fp": 12960,
+            "starprice_model_version": 1,
+            "starprice_reactivation_window_ticks": 81,
+            "starprice_demand_table": "[{\"ratio_fp\": 850000, \"multiplier_fp\": 900000}, {\"ratio_fp\": 1000000, \"multiplier_fp\": 1000000}, {\"ratio_fp\": 1150000, \"multiplier_fp\": 1080000}, {\"ratio_fp\": 1300000, \"multiplier_fp\": 1120000}]",
+            "market_affordability_bias_fp": 970000,
+            "vault_config": "[{\"tier\": 1, \"supply\": 500, \"cost_table\": [{\"cost\": 50, \"remaining\": 1}]}, {\"tier\": 2, \"supply\": 250, \"cost_table\": [{\"cost\": 250, \"remaining\": 1}]}, {\"tier\": 3, \"supply\": 125, \"cost_table\": [{\"cost\": 1000, \"remaining\": 1}]}]",
+            "current_star_price": 100,
+            "market_anchor_price": 100,
+            "blackout_star_price_snapshot": null,
+            "blackout_started_tick": null,
+            "pending_star_burn_coins": 0,
+            "star_burn_ema_fp": 0,
+            "net_mint_ema_fp": 0,
+            "market_pressure_fp": 1000000,
+            "total_coins_supply": 0,
+            "total_coins_supply_end_of_tick": 0,
+            "coins_active_total": 0,
+            "coins_idle_total": 0,
+            "coins_offline_total": 0,
+            "effective_price_supply": 0,
+            "last_processed_tick": 1,
+            "season_seed_hex": "c240c8c96ec2baf771cd7b4b78355ac5783966030fae4f167640cb8fba2459e7"
+        },
+        "export_path": null
+    },
+    "stages": [
+        {
+            "index": 1,
+            "id": "candidate_schema_validation",
+            "label": "candidate schema validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T16:03:12+00:00",
+            "completed_at": "2026-04-15T16:03:12+00:00",
+            "duration_ms": 3,
+            "summary": "Candidate schema validated successfully.",
+            "warnings": [],
+            "artifacts": {
+                "schema_validation_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\01_candidate_schema_validation\\candidate_schema_validation.json"
+            },
+            "details": {
+                "canonical_change_count": 1,
+                "canonical_changes": [
+                    {
+                        "raw_path": "hoarding_min_factor_fp",
+                        "path": "season.hoarding_min_factor_fp",
+                        "scope": "season",
+                        "key": "hoarding_min_factor_fp",
+                        "requested_value": 70000,
+                        "path_status": "valid"
+                    }
+                ]
+            }
+        },
+        {
+            "index": 2,
+            "id": "effective_config_preflight",
+            "label": "effective-config preflight",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T16:03:12+00:00",
+            "completed_at": "2026-04-15T16:03:12+00:00",
+            "duration_ms": 4,
+            "summary": "Effective-config preflight passed and produced canonical audit artifacts.",
+            "warnings": [],
+            "artifacts": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\02_effective_config_preflight\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\02_effective_config_preflight\\effective_config_audit.md"
+            },
+            "details": {
+                "preflight_status": "pass",
+                "requested_candidate_changes": [
+                    {
+                        "path": "season.hoarding_min_factor_fp",
+                        "raw_path": "season.hoarding_min_factor_fp",
+                        "requested_value": 70000,
+                        "effective_value": 70000,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    }
+                ]
+            }
+        },
+        {
+            "index": 3,
+            "id": "targeted_subsystem_harnesses",
+            "label": "targeted subsystem harnesses",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T16:03:12+00:00",
+            "completed_at": "2026-04-15T16:03:43+00:00",
+            "duration_ms": 30827,
+            "summary": "Targeted subsystem harnesses passed.",
+            "warnings": [],
+            "artifacts": {
+                "targeted_harness_report_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\03_targeted_subsystem_harnesses\\targeted_harness_report.json"
+            },
+            "details": {
+                "selected_family_ids": [
+                    "boost_underperformance",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "skip_rejoin_exploit_worsened"
+                ],
+                "failed_family_ids": []
+            }
+        },
+        {
+            "index": 4,
+            "id": "full_single_season_validation",
+            "label": "full single-season validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T16:03:43+00:00",
+            "completed_at": "2026-04-15T16:04:05+00:00",
+            "duration_ms": 22441,
+            "summary": "Full single-season validation completed with config audit status `pass`.",
+            "warnings": [],
+            "artifacts": {
+                "single_season_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\04_full_single_season_validation\\promotion_single_season_focused-single-hoarding-min-factor-70000.json",
+                "single_season_csv": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\04_full_single_season_validation\\promotion_single_season_focused-single-hoarding-min-factor-70000.csv",
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\04_full_single_season_validation\\audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\04_full_single_season_validation\\audit\\effective_config_audit.md"
+            },
+            "details": {
+                "audit_status": "pass",
+                "schema_version": "tmc-sim-phase1.v1",
+                "simulator": "single-season-population"
+            }
+        },
+        {
+            "index": 5,
+            "id": "multi_season_exploit_regression_validation",
+            "label": "multi-season exploit/regression validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T16:04:05+00:00",
+            "completed_at": "2026-04-15T16:05:24+00:00",
+            "duration_ms": 78535,
+            "summary": "Multi-season exploit/regression validation passed without regression flags.",
+            "warnings": [],
+            "artifacts": {
+                "multi_season_validation_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\05_multi_season_exploit_regression_validation\\multi_season_validation.json",
+                "baseline_lifetime_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.json",
+                "baseline_lifetime_csv": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.csv",
+                "candidate_lifetime_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.json",
+                "candidate_lifetime_csv": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.csv"
+            },
+            "details": {
+                "regression_flags": [],
+                "global_score_delta": 0
+            }
+        },
+        {
+            "index": 6,
+            "id": "official_qualification_comparator_validation",
+            "label": "official qualification comparator validation",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T16:05:24+00:00",
+            "completed_at": "2026-04-15T16:08:55+00:00",
+            "duration_ms": 211269,
+            "summary": "Official qualification comparator rejected the candidate for promotion readiness (`reject`).",
+            "warnings": [],
+            "artifacts": {
+                "qualification_base_season_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\qualification_base_season.json",
+                "qualification_candidate_bundle_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\qualification_candidate_bundle.json",
+                "qualification_campaign_report_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\sweep_comparator_report.json",
+                "qualification_campaign_report_md": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\sweep_comparator_report.md",
+                "qualification_comparison_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\comparison_focused-single-hoarding-min-factor-70000.json",
+                "qualification_sweep_manifest_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_focused-single-hoarding-min-factor-70000_ppa2_s4.json",
+                "qualification_rejection_attribution_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-single-hoarding-min-factor-70000\\focused-single-hoarding-min-factor-70000\\rejection_attribution.json",
+                "qualification_rejection_attribution_md": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-single-hoarding-min-factor-70000\\focused-single-hoarding-min-factor-70000\\rejection_attribution.md"
+            },
+            "details": {
+                "passes": false,
+                "required_disposition": "non-reject",
+                "actual_disposition": "reject",
+                "wins": 7,
+                "losses": 9,
+                "mixed_tradeoffs": 2,
+                "regression_flags": [
+                    "dominant_archetype_shifted",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "reduced_one_dominant_but_created_new_dominant",
+                    "reduces_lock_in_but_expiry_dominance_rises"
+                ],
+                "cross_simulator_regression_flags": [
+                    "reduced_one_dominant_but_created_new_dominant",
+                    "reduces_lock_in_but_expiry_dominance_rises"
+                ],
+                "rejection_attribution": {
+                    "artifact_paths": {
+                        "rejection_attribution_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-single-hoarding-min-factor-70000\\focused-single-hoarding-min-factor-70000\\rejection_attribution.json",
+                        "rejection_attribution_md": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-single-hoarding-min-factor-70000\\focused-single-hoarding-min-factor-70000\\rejection_attribution.md"
+                    },
+                    "primary_failed_gate": {
+                        "flag": "lock_in_down_but_expiry_dominance_up",
+                        "label": "Lock-in weakened while expiry pressure rose",
+                        "source": "simulator",
+                        "score": 201,
+                        "evidence": {
+                            "simulator_type": "B",
+                            "lock_in_delta": -1,
+                            "natural_expiry_delta": 1
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Candidate output reduced lock-in while raising natural expiry."
+                    },
+                    "secondary_regressions": [
+                        {
+                            "flag": "reduces_lock_in_but_expiry_dominance_rises",
+                            "label": "Lock-in weakened while expiry pressure rose",
+                            "source": "cross_simulator",
+                            "score": 96,
+                            "evidence": {
+                                "simulator_type": null,
+                                "lock_in_delta": 0,
+                                "natural_expiry_delta": 0
+                            },
+                            "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate output reduced lock-in while raising natural expiry."
+                        },
+                        {
+                            "flag": "reduced_one_dominant_but_created_new_dominant",
+                            "label": "One dominant strategy fell but another took over",
+                            "source": "cross_simulator",
+                            "score": 75,
+                            "evidence": {
+                                "simulator_type": null,
+                                "dominant_archetype_transition": []
+                            },
+                            "rationale": "This gate is driven by a cross-simulator regression pattern. Archetype leadership changed enough to trigger a stability concern."
+                        },
+                        {
+                            "flag": "dominant_archetype_shifted",
+                            "label": "Dominant archetype changed",
+                            "source": "simulator",
+                            "score": 69,
+                            "evidence": {
+                                "simulator_type": "B",
+                                "dominant_archetype_transition": {
+                                    "baseline": "Hoarder",
+                                    "candidate": "Star-Focused"
+                                }
+                            },
+                            "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+                        }
+                    ],
+                    "interaction_ambiguity": {
+                        "present": false,
+                        "type": "single_active_knob",
+                        "note": "One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual."
+                    },
+                    "confidence_notes": [
+                        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+                        "A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof."
+                    ],
+                    "timing_ms": 7
+                }
+            }
+        },
+        {
+            "index": 7,
+            "id": "patch_serialization_validation",
+            "label": "patch serialization validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T16:08:55+00:00",
+            "completed_at": "2026-04-15T16:08:55+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 8,
+            "id": "play_test_runtime_parity_certification",
+            "label": "play-test runtime parity certification",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T16:08:55+00:00",
+            "completed_at": "2026-04-15T16:08:55+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 9,
+            "id": "play_test_repo_compatibility_validation",
+            "label": "play-test repo compatibility validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T16:08:55+00:00",
+            "completed_at": "2026-04-15T16:08:55+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 10,
+            "id": "promotion_eligibility_marking",
+            "label": "promotion eligibility marking",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T16:08:55+00:00",
+            "completed_at": "2026-04-15T16:08:55+00:00",
+            "duration_ms": 0,
+            "summary": "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+            "warnings": [],
+            "artifacts": [],
+            "details": {
+                "promotion_eligible": false,
+                "patch_ready": false,
+                "blocking_stages": [
+                    {
+                        "stage_id": "official_qualification_comparator_validation",
+                        "status": "fail",
+                        "summary": "Official qualification comparator rejected the candidate for promotion readiness (`reject`)."
+                    },
+                    {
+                        "stage_id": "patch_serialization_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_runtime_parity_certification",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_repo_compatibility_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    }
+                ]
+            }
+        }
+    ]
+}

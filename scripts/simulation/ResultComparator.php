@@ -1359,11 +1359,11 @@ class ResultComparator
         $mapping = [
             'lock_in_down_but_expiry_dominance_up' => [
                 'subsystems' => ['lock_in_expiry_incentives', 'hoarding_preservation_pressure', 'phase_timing'],
-                'keys' => ['target_spend_rate_per_tick', 'hoarding_min_factor_fp', 'market_affordability_bias_fp', 'starprice_reactivation_window_ticks', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'hoarding_safe_min_coins', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'hoarding_window_ticks'],
+                'keys' => ['hoarding_min_factor_fp', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'hoarding_safe_min_coins', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'starprice_idle_weight_fp', 'starprice_max_upstep_fp', 'starprice_max_downstep_fp'],
             ],
             'reduces_lock_in_but_expiry_dominance_rises' => [
                 'subsystems' => ['lock_in_expiry_incentives', 'hoarding_preservation_pressure', 'phase_timing'],
-                'keys' => ['target_spend_rate_per_tick', 'hoarding_min_factor_fp', 'market_affordability_bias_fp', 'starprice_reactivation_window_ticks', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'hoarding_safe_min_coins', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'hoarding_window_ticks'],
+                'keys' => ['hoarding_min_factor_fp', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'hoarding_safe_min_coins', 'hoarding_tier1_rate_hourly_fp', 'hoarding_tier2_rate_hourly_fp', 'hoarding_tier3_rate_hourly_fp', 'hoarding_sink_cap_ratio_fp', 'starprice_idle_weight_fp', 'starprice_max_upstep_fp', 'starprice_max_downstep_fp'],
             ],
             'long_run_concentration_worsened' => [
                 'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing'],
@@ -1375,15 +1375,15 @@ class ResultComparator
             ],
             'skip_rejoin_exploit_worsened' => [
                 'subsystems' => ['lock_in_expiry_incentives', 'phase_timing', 'hoarding_preservation_pressure'],
-                'keys' => ['starprice_reactivation_window_ticks', 'target_spend_rate_per_tick', 'hoarding_min_factor_fp', 'hoarding_window_ticks', 'hoarding_sink_enabled'],
+                'keys' => ['hoarding_min_factor_fp', 'hoarding_sink_enabled', 'hoarding_safe_hours', 'starprice_idle_weight_fp', 'base_ubi_active_per_tick'],
             ],
             'engagement_up_but_t6_supply_spike' => [
                 'subsystems' => ['sigil_drop_tier_combine'],
-                'keys' => ['vault_config'],
+                'keys' => [],
             ],
             'improves_engagement_but_t6_supply_spikes' => [
                 'subsystems' => ['sigil_drop_tier_combine'],
-                'keys' => ['vault_config'],
+                'keys' => [],
             ],
             'candidate_improves_B_but_worsens_C' => [
                 'subsystems' => ['hoarding_preservation_pressure', 'boost_related', 'star_conversion_pricing', 'lock_in_expiry_incentives', 'phase_timing', 'sigil_drop_tier_combine'],

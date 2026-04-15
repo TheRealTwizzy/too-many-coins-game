@@ -23,6 +23,15 @@ class CanonicalEconomyConfigContract
     public const SCHEMA_VERSION = 'tmc-canonical-economy-config.v1';
     public const COMPATIBILITY_REPORT_SCHEMA_VERSION = 'tmc-play-test-economy-compatibility.v2';
 
+    private const CANDIDATE_SEARCH_SURFACE_REMOVALS = [
+        'hoarding_window_ticks' => 'Declared in the canonical config schema, but the canonical runtime/simulation path never reads it.',
+        'target_spend_rate_per_tick' => 'Only referenced by Economy::hoardingFactor(), and that helper is not invoked by the canonical runtime/simulation path.',
+        'starprice_reactivation_window_ticks' => 'Stored on the season row, but canonical star pricing and lock-in logic never consult it.',
+        'starprice_demand_table' => 'Validated and stored, but canonical star pricing never applies the demand multiplier table.',
+        'market_affordability_bias_fp' => 'Declared as a tuning knob, but canonical star pricing and purchase logic never apply the affordability bias.',
+        'vault_config' => 'Vault pricing helpers exist, but Phase 1 simulation/runtime search excludes vault-market spending from the canonical balance surface.',
+    ];
+
     private const PATCHABLE_PARAMETER_SCHEMA = [
         'base_ubi_active_per_tick' => [
             'type' => 'int',
@@ -242,7 +251,7 @@ class CanonicalEconomyConfigContract
     public static function validatorSurfaceMeta(): array
     {
         $surface = [];
-        foreach (self::patchableParameters() as $key => $meta) {
+        foreach (self::candidateSearchParameters() as $key => $meta) {
             $surface[$key] = [
                 'type' => $meta['type'],
                 'min' => $meta['min'] ?? null,
@@ -256,6 +265,21 @@ class CanonicalEconomyConfigContract
         }
 
         return $surface;
+    }
+
+    public static function candidateSearchParameters(): array
+    {
+        $schema = self::patchableParameters();
+        foreach (array_keys(self::CANDIDATE_SEARCH_SURFACE_REMOVALS) as $key) {
+            unset($schema[$key]);
+        }
+
+        return $schema;
+    }
+
+    public static function removedCandidateSearchKeys(): array
+    {
+        return self::CANDIDATE_SEARCH_SURFACE_REMOVALS;
     }
 
     public static function patchableParameters(): array

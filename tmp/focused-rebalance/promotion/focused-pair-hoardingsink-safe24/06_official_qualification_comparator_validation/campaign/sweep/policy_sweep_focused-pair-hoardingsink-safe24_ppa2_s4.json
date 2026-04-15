@@ -1,0 +1,189 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T16:16:57+00:00",
+    "seed": "focused-pair-hoardingsink-safe24",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "focused-pair-hoardingsink-safe24"
+        ],
+        "base_season_config_path": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-pair-hoardingsink-safe24|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-pair-hoardingsink-safe24_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-pair-hoardingsink-safe24_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-pair-hoardingsink-safe24_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-pair-hoardingsink-safe24_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 35794,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 35800
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-pair-hoardingsink-safe24|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-pair-hoardingsink-safe24_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-pair-hoardingsink-safe24_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-pair-hoardingsink-safe24_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-pair-hoardingsink-safe24_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 68224,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 68229
+            }
+        },
+        {
+            "scenario_name": "focused-pair-hoardingsink-safe24",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-pair-hoardingsink-safe24|scenario|focused-pair-hoardingsink-safe24|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_B_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_B_ppa2.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_B_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_B_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_B_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 39281,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 39287
+            }
+        },
+        {
+            "scenario_name": "focused-pair-hoardingsink-safe24",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-pair-hoardingsink-safe24|scenario|focused-pair-hoardingsink-safe24|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_C_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_C_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_C_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-rebalance/promotion\\focused-pair-hoardingsink-safe24\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_focused-pair-hoardingsink-safe24_C_focused-pair-hoardingsink-safe24_scenario_focused-pair-hoardingsink-safe24_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 55748,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 55753
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing",
+        "sigil_drop_tier_combine"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 199070,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 199074,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 75087
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 123982
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 68229
+            },
+            {
+                "scenario_name": "focused-pair-hoardingsink-safe24",
+                "simulator_type": "C",
+                "total_duration_ms": 55753
+            },
+            {
+                "scenario_name": "focused-pair-hoardingsink-safe24",
+                "simulator_type": "B",
+                "total_duration_ms": 39287
+            }
+        ]
+    }
+}

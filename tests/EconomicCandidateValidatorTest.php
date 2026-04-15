@@ -74,6 +74,26 @@ class EconomicCandidateValidatorTest extends TestCase
         $this->assertSame('candidate_out_of_surface', $failures[0]['reason_code']);
     }
 
+    public function testDormantSearchSurfaceKeysAreRejected(): void
+    {
+        foreach ([
+            'hoarding_window_ticks' => 120,
+            'target_spend_rate_per_tick' => 18,
+            'starprice_reactivation_window_ticks' => 90,
+            'starprice_demand_table' => [['ratio_fp' => 1000000, 'multiplier_fp' => 1000000]],
+            'market_affordability_bias_fp' => 970000,
+            'vault_config' => [
+                ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
+            ],
+        ] as $key => $value) {
+            $failures = EconomicCandidateValidator::validateCandidateDocument([
+                $key => $value,
+            ]);
+
+            $this->assertSame('candidate_out_of_surface', $failures[0]['reason_code'], $key);
+        }
+    }
+
     public function testDisabledSubsystemKeyIsRejected(): void
     {
         $baseSeason = SimulationSeason::build(1, 'validator-disabled', [

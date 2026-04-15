@@ -1,0 +1,277 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "comparator_schema_version": "tmc-sim-comparator.v1",
+    "generated_at": "2026-04-15T16:08:55+00:00",
+    "seed": "focused-single-hoarding-min-factor-70000",
+    "inputs": {
+        "sweep_manifest": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_focused-single-hoarding-min-factor-70000_ppa2_s4.json",
+        "baseline_b_paths": [],
+        "baseline_c_paths": []
+    },
+    "summary": {
+        "scenario_count": 1,
+        "baseline_group_count": 2,
+        "scenario_group_count": 1,
+        "rejected_scenario_count": 1
+    },
+    "scenarios": [
+        {
+            "scenario_name": "focused-single-hoarding-min-factor-70000",
+            "wins": 7,
+            "losses": 9,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": -1.0,
+                            "natural_expiry_delta": 1.0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": 0.04999999999999993
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 2.0,
+                            "t6_drop_delta": -1.0,
+                            "t6_combine_delta": 3.0,
+                            "t6_theft_delta": 0.0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 7.0
+                        },
+                        "star_focused_dominance": {
+                            "delta": 1850.0
+                        },
+                        "hoarder_performance": {
+                            "delta": -5676.0
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 468.0
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0.0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.0028810139262874512,
+                            "top10_share_delta": 0.0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Hoarder": -4.0,
+                        "Casual": -2.0,
+                        "Star-Focused": 2.0,
+                        "Early Locker": -6.0,
+                        "Mostly Idle": 2.0,
+                        "Hardcore": 4.0,
+                        "Late Deployer": -2.0,
+                        "Aggressive Sigil User": 1.0,
+                        "Boost-Focused": 3.0,
+                        "Regular": 2.0
+                    },
+                    "wins": 3,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "hoarding_min_factor_fp"
+                        ],
+                        "scenario_name": "focused-single-hoarding-min-factor-70000",
+                        "dominant_archetype_transition": {
+                            "baseline": "Hoarder",
+                            "candidate": "Star-Focused"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.09753787878787878,
+                            "natural_expiry_delta": -3.0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.1591450216450217
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 11.0,
+                            "t6_drop_delta": 0.0,
+                            "t6_combine_delta": 0.0,
+                            "t6_theft_delta": 0.0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 1977.5
+                        },
+                        "star_focused_dominance": {
+                            "delta": -2529.5
+                        },
+                        "hoarder_performance": {
+                            "delta": 2518.0
+                        },
+                        "boost_focused_payoff": {
+                            "delta": -2492.5
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": -0.0065685491493689685
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -7501.926315789473
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.0062289749190751476,
+                            "top10_share_delta": -0.0065685491493689685
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": -6.0,
+                        "Hardcore": -4.0,
+                        "Early Locker": -1.0,
+                        "Hoarder": 3.0,
+                        "Boost-Focused": -5.0,
+                        "Late Deployer": -3.0,
+                        "Aggressive Sigil User": 2.0,
+                        "Regular": 5.0,
+                        "Mostly Idle": 1.0,
+                        "Casual": 8.0
+                    },
+                    "wins": 4,
+                    "losses": 5,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure",
+                            "lock_in_expiry_incentives"
+                        ],
+                        "override_keys": [
+                            "hoarding_min_factor_fp"
+                        ],
+                        "scenario_name": "focused-single-hoarding-min-factor-70000",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Hoarder"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "timing_ms": 7,
+            "rejection_attribution": {
+                "artifact_paths": {
+                    "rejection_attribution_json": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-single-hoarding-min-factor-70000\\focused-single-hoarding-min-factor-70000\\rejection_attribution.json",
+                    "rejection_attribution_md": "tmp/focused-rebalance/promotion\\focused-single-hoarding-min-factor-70000\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-single-hoarding-min-factor-70000\\focused-single-hoarding-min-factor-70000\\rejection_attribution.md"
+                },
+                "primary_failed_gate": {
+                    "flag": "lock_in_down_but_expiry_dominance_up",
+                    "label": "Lock-in weakened while expiry pressure rose",
+                    "source": "simulator",
+                    "score": 201.0,
+                    "evidence": {
+                        "simulator_type": "B",
+                        "lock_in_delta": -1.0,
+                        "natural_expiry_delta": 1.0
+                    },
+                    "rationale": "This gate is driven by direct simulator deltas. Candidate output reduced lock-in while raising natural expiry."
+                },
+                "secondary_regressions": [
+                    {
+                        "flag": "reduces_lock_in_but_expiry_dominance_rises",
+                        "label": "Lock-in weakened while expiry pressure rose",
+                        "source": "cross_simulator",
+                        "score": 96.0,
+                        "evidence": {
+                            "simulator_type": null,
+                            "lock_in_delta": 0.0,
+                            "natural_expiry_delta": 0.0
+                        },
+                        "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate output reduced lock-in while raising natural expiry."
+                    },
+                    {
+                        "flag": "reduced_one_dominant_but_created_new_dominant",
+                        "label": "One dominant strategy fell but another took over",
+                        "source": "cross_simulator",
+                        "score": 75.0,
+                        "evidence": {
+                            "simulator_type": null,
+                            "dominant_archetype_transition": []
+                        },
+                        "rationale": "This gate is driven by a cross-simulator regression pattern. Archetype leadership changed enough to trigger a stability concern."
+                    },
+                    {
+                        "flag": "dominant_archetype_shifted",
+                        "label": "Dominant archetype changed",
+                        "source": "simulator",
+                        "score": 69.0,
+                        "evidence": {
+                            "simulator_type": "B",
+                            "dominant_archetype_transition": {
+                                "baseline": "Hoarder",
+                                "candidate": "Star-Focused"
+                            }
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+                    }
+                ],
+                "interaction_ambiguity": {
+                    "present": false,
+                    "type": "single_active_knob",
+                    "note": "One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual."
+                },
+                "confidence_notes": [
+                    "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+                    "A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof."
+                ],
+                "timing_ms": 7
+            }
+        }
+    ],
+    "timing_summary": {
+        "dataset_build_duration_ms": 8,
+        "scenario_compare_duration_ms": 7,
+        "artifact_write_duration_ms": 2,
+        "total_duration_ms": 17
+    }
+}

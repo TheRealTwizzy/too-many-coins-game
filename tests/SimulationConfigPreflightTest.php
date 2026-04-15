@@ -111,6 +111,19 @@ class SimulationConfigPreflightTest extends TestCase
         }
     }
 
+    public function testDormantSearchSurfaceKeyFailsPreflight(): void
+    {
+        try {
+            SimulationConfigPreflight::resolve($this->options([
+                'candidate_patch' => ['target_spend_rate_per_tick' => 42],
+            ]));
+            $this->fail('Expected dormant search-surface key to fail preflight.');
+        } catch (SimulationConfigPreflightException $e) {
+            $failure = $e->report()['candidate_validation']['candidate_patch_failures'][0];
+            $this->assertSame('candidate_out_of_surface', $failure['reason_code']);
+        }
+    }
+
     public function testSuccessfulActiveKeyResolutionWritesArtifacts(): void
     {
         $resolved = SimulationConfigPreflight::resolve($this->options([

@@ -1,0 +1,158 @@
+{
+    "schema_version": "tmc-sim-rejection-attribution.v1",
+    "generated_at": "2026-04-15T16:08:47+00:00",
+    "comparator_seed": "focused-single-starprice-max-upstep-950",
+    "scenario_name": "focused-single-starprice-max-upstep-950",
+    "recommended_disposition": "reject",
+    "control_baseline_comparison": {
+        "wins": 6,
+        "losses": 9,
+        "mixed_tradeoffs": 2,
+        "confidence_summary": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "regression_flags": [
+            "dominant_archetype_shifted",
+            "long_run_concentration_worsened",
+            "skip_rejoin_exploit_worsened"
+        ],
+        "cross_simulator_regression_flags": [],
+        "simulator_groups": [
+            {
+                "simulator_type": "B",
+                "signature": "B|ppa=2|seasons=1",
+                "paired_runs": 1,
+                "wins": 3,
+                "losses": 3,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": 1.0,
+                    "natural_expiry_delta": -1.0,
+                    "late_active_engaged_rate_delta": 0.0,
+                    "concentration_top10_share_delta": 0.0,
+                    "skip_strategy_edge_delta": 0.0
+                }
+            },
+            {
+                "simulator_type": "C",
+                "signature": "C|ppa=2|seasons=4",
+                "paired_runs": 1,
+                "wins": 3,
+                "losses": 6,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted",
+                    "long_run_concentration_worsened",
+                    "skip_rejoin_exploit_worsened"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": 0.03882575757575757,
+                    "natural_expiry_delta": -1.0,
+                    "late_active_engaged_rate_delta": 0.08253968253968247,
+                    "concentration_top10_share_delta": 0.06158241664975048,
+                    "skip_strategy_edge_delta": 692.5
+                }
+            }
+        ]
+    },
+    "changed_knobs": [
+        {
+            "path": "season.starprice_max_upstep_fp",
+            "key": "starprice_max_upstep_fp",
+            "requested_value": 950,
+            "baseline_value": 1000,
+            "candidate_effective_value": 950,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "star_conversion_pricing",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 1000,
+                    "candidate_effective_value": 950,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 1000,
+                    "candidate_effective_value": 950,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        }
+    ],
+    "knob_activity_summary": {
+        "active_count": 1,
+        "inactive_count": 0,
+        "unknown_count": 0,
+        "active_paths": [
+            "season.starprice_max_upstep_fp"
+        ],
+        "inactive_paths": []
+    },
+    "primary_failed_gate": {
+        "flag": "long_run_concentration_worsened",
+        "label": "Long-run concentration worsened",
+        "source": "simulator",
+        "score": 153.58241664975048,
+        "evidence": {
+            "simulator_type": "C",
+            "top10_share_delta": 0.06158241664975048
+        },
+        "rationale": "This gate is driven by direct simulator deltas. Candidate increased long-run top-share concentration."
+    },
+    "secondary_regressions": [
+        {
+            "flag": "skip_rejoin_exploit_worsened",
+            "label": "Skip/rejoin edge worsened",
+            "source": "simulator",
+            "score": 96.925,
+            "evidence": {
+                "simulator_type": "C",
+                "skip_strategy_edge_delta": 692.5
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Candidate increased the skip-heavy edge instead of pushing it toward zero."
+        },
+        {
+            "flag": "dominant_archetype_shifted",
+            "label": "Dominant archetype changed",
+            "source": "simulator",
+            "score": 69.0,
+            "evidence": {
+                "simulator_type": "B",
+                "dominant_archetype_transition": {
+                    "baseline": "Mostly Idle",
+                    "candidate": "Aggressive Sigil User"
+                }
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+        }
+    ],
+    "likely_causal_knob_ranking": [
+        {
+            "path": "season.starprice_max_upstep_fp",
+            "key": "starprice_max_upstep_fp",
+            "classification": "active",
+            "subsystem": "star_conversion_pricing",
+            "score": 8.058,
+            "confidence": "moderate",
+            "rationale": "Knob was active in the effective config. Its subsystem aligns with the primary failed gate.",
+            "rank": 1
+        }
+    ],
+    "interaction_ambiguity": {
+        "present": false,
+        "type": "single_active_knob",
+        "note": "One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual."
+    },
+    "confidence_notes": [
+        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+        "A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof."
+    ]
+}

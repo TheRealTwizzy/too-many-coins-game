@@ -36,20 +36,19 @@ class PolicyScenarioCatalog
             ],
             [
                 'name' => 'star-focused-friction-v1',
-                'description' => 'Raise star-conversion friction for persistent star deployment paths.',
+                'description' => 'Raise star-conversion friction for persistent star deployment paths using only live star-pricing knobs.',
                 'categories' => ['star_conversion_pricing', 'lock_in_expiry_incentives'],
                 'overrides' => [
-                    'market_affordability_bias_fp' => 1180000,
-                    'starprice_reactivation_window_ticks' => 140,
+                    'starprice_idle_weight_fp' => 320000,
                     'starprice_max_upstep_fp' => 1500,
                 ],
             ],
             [
                 'name' => 'boost-payoff-relief-v1',
-                'description' => 'Lightly ease spend pressure so boost-heavy paths can convert value more reliably.',
+                'description' => 'Lightly ease boost conversion pressure using live UBI and hoarding-floor knobs.',
                 'categories' => ['boost_related', 'lock_in_expiry_incentives', 'hoarding_preservation_pressure'],
                 'overrides' => [
-                    'target_spend_rate_per_tick' => 38,
+                    'base_ubi_active_per_tick' => 34,
                     'hoarding_min_factor_fp' => 180000,
                     'hoarding_safe_hours' => 8,
                 ],
@@ -67,24 +66,23 @@ class PolicyScenarioCatalog
             ],
             [
                 'name' => 'hoarding-sink-minimal-v1',
-                'description' => 'Enable hoarding sink (previously disabled in live config) with unchanged rates and extended reactivation window to isolate the sink-enable effect on hoarder dominance.',
+                'description' => 'Enable hoarding sink with unchanged rates and a mild star-pricing offset to isolate the sink-enable effect on hoarder dominance.',
                 'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives'],
                 'overrides' => [
                     'hoarding_sink_enabled' => 1,
-                    'starprice_reactivation_window_ticks' => 100,
-                    'market_affordability_bias_fp' => 980000,
+                    'starprice_idle_weight_fp' => 230000,
                 ],
             ],
             [
                 'name' => 'hoarding-sink-conservative-v1',
-                'description' => 'Enable hoarding sink with conservative tier2/tier3 rate increases and a strong lock-in counterweight to prevent expiry regression.',
+                'description' => 'Enable hoarding sink with conservative tier2/tier3 rate increases and a live star-pricing counterweight to prevent expiry regression.',
                 'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives'],
                 'overrides' => [
                     'hoarding_sink_enabled' => 1,
                     'hoarding_tier2_rate_hourly_fp' => 520,
                     'hoarding_tier3_rate_hourly_fp' => 1050,
-                    'starprice_reactivation_window_ticks' => 100,
-                    'market_affordability_bias_fp' => 960000,
+                    'starprice_idle_weight_fp' => 220000,
+                    'starprice_max_downstep_fp' => 11200,
                 ],
             ],
             [
@@ -104,17 +102,15 @@ class PolicyScenarioCatalog
                     'hoarding_sink_enabled' => 1,
                     'hoarding_tier2_rate_hourly_fp' => 520,
                     'hoarding_tier3_rate_hourly_fp' => 1050,
-                    'starprice_reactivation_window_ticks' => 100,
-                    'market_affordability_bias_fp' => 970000,
+                    'starprice_idle_weight_fp' => 225000,
                     'base_ubi_active_per_tick' => 38,
                 ],
             ],
             [
                 'name' => 'hoarding-ubi-squeeze-v1',
-                'description' => 'Suppress hoarder UBI accumulation (not existing coin balance) by raising spend target and lowering min UBI factor. Avoids lock-in regression by not draining coin reserves.',
+                'description' => 'Suppress hoarder advantage by tightening the hoarding floor while lifting active UBI. Avoids direct coin-drain regression.',
                 'categories' => ['lock_in_expiry_incentives', 'boost_related'],
                 'overrides' => [
-                    'target_spend_rate_per_tick' => 22,
                     'hoarding_min_factor_fp' => 75000,
                     'base_ubi_active_per_tick' => 36,
                     'base_ubi_idle_factor_fp' => 220000,
@@ -122,15 +118,14 @@ class PolicyScenarioCatalog
             ],
             [
                 'name' => 'hoarding-sink-ultra-gentle-v1',
-                'description' => 'Enable hoarding sink at half the current rates (100/250/500 fp/hour) with extended reactivation window. Minimal drain may not trigger lock-in regression while still pressuring excess hoarding.',
+                'description' => 'Enable hoarding sink at half the current rates (100/250/500 fp/hour) with a gentle live star-pricing offset. Minimal drain may avoid lock-in regression while still pressuring excess hoarding.',
                 'categories' => ['hoarding_preservation_pressure', 'lock_in_expiry_incentives'],
                 'overrides' => [
                     'hoarding_sink_enabled' => 1,
                     'hoarding_tier1_rate_hourly_fp' => 100,
                     'hoarding_tier2_rate_hourly_fp' => 250,
                     'hoarding_tier3_rate_hourly_fp' => 500,
-                    'starprice_reactivation_window_ticks' => 120,
-                    'market_affordability_bias_fp' => 975000,
+                    'starprice_idle_weight_fp' => 235000,
                 ],
             ],
             [

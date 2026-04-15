@@ -1,0 +1,340 @@
+{
+  "schema_version": "tmc-focused-rebalance-results.v1",
+  "generated_at": "2026-04-15T16:20:00Z",
+  "baseline": {
+    "season_config": "simulation_output/current-db/export/current_season_economy_only.json",
+    "comparator_profile": "qualification",
+    "baseline_values": {
+      "base_ubi_active_per_tick": 30,
+      "base_ubi_idle_factor_fp": 250000,
+      "ubi_min_per_tick": 1,
+      "hoarding_min_factor_fp": 90000,
+      "hoarding_sink_enabled": 0,
+      "hoarding_safe_hours": 12,
+      "starprice_idle_weight_fp": 0,
+      "starprice_active_only": 1,
+      "starprice_max_upstep_fp": 1000,
+      "starprice_max_downstep_fp": 12960,
+      "star_price_cap": 6000
+    }
+  },
+  "active_surface": {
+    "canonical_live_and_searchable": [
+      "base_ubi_active_per_tick",
+      "base_ubi_idle_factor_fp",
+      "ubi_min_per_tick",
+      "inflation_table",
+      "hoarding_min_factor_fp",
+      "hoarding_sink_enabled",
+      "hoarding_safe_hours",
+      "hoarding_safe_min_coins",
+      "hoarding_tier1_excess_cap",
+      "hoarding_tier2_excess_cap",
+      "hoarding_tier1_rate_hourly_fp",
+      "hoarding_tier2_rate_hourly_fp",
+      "hoarding_tier3_rate_hourly_fp",
+      "hoarding_sink_cap_ratio_fp",
+      "hoarding_idle_multiplier_fp",
+      "starprice_table",
+      "star_price_cap",
+      "starprice_idle_weight_fp",
+      "starprice_active_only",
+      "starprice_max_upstep_fp",
+      "starprice_max_downstep_fp"
+    ],
+    "baseline_active_notes": [
+      "The baseline disables the hoarding sink family with hoarding_sink_enabled=0.",
+      "That means the hoarding sink subfamily is truthful and searchable, but conditionally gated until a candidate enables the sink."
+    ]
+  },
+  "search_stages": [
+    {
+      "stage": "single_knob_harness_screen",
+      "candidates": [
+        {
+          "candidate_id": "focused-single-starprice-max-upstep-950",
+          "patch": {
+            "starprice_max_upstep_fp": 950
+          },
+          "harness_status": "pass",
+          "failed_families": []
+        },
+        {
+          "candidate_id": "focused-single-starprice-max-downstep-18000",
+          "patch": {
+            "starprice_max_downstep_fp": 18000
+          },
+          "harness_status": "fail",
+          "failed_families": [
+            "boost_underperformance"
+          ],
+          "drop_reason": "Failed early on boost ROI, so the lane was not advanced to qualification."
+        },
+        {
+          "candidate_id": "focused-single-hoarding-min-factor-70000",
+          "patch": {
+            "hoarding_min_factor_fp": 70000
+          },
+          "harness_status": "pass",
+          "failed_families": []
+        },
+        {
+          "candidate_id": "focused-single-hoarding-sink-enabled",
+          "patch": {
+            "hoarding_sink_enabled": 1
+          },
+          "harness_status": "pass",
+          "failed_families": []
+        }
+      ]
+    },
+    {
+      "stage": "single_knob_official_qualification",
+      "candidates": [
+        {
+          "candidate_id": "focused-single-starprice-max-upstep-950",
+          "patch": {
+            "starprice_max_upstep_fp": 950
+          },
+          "pipeline_status": "ineligible",
+          "promotion_eligible": false,
+          "comparator_status": "fail",
+          "actual_disposition": "reject",
+          "wins": 6,
+          "losses": 9,
+          "mixed_tradeoffs": 2,
+          "regression_flags": [
+            "dominant_archetype_shifted",
+            "long_run_concentration_worsened",
+            "skip_rejoin_exploit_worsened"
+          ],
+          "primary_failed_gate": {
+            "flag": "long_run_concentration_worsened",
+            "evidence": {
+              "simulator_type": "C",
+              "top10_share_delta": 0.06158241664975048
+            }
+          }
+        },
+        {
+          "candidate_id": "focused-single-hoarding-min-factor-70000",
+          "patch": {
+            "hoarding_min_factor_fp": 70000
+          },
+          "pipeline_status": "ineligible",
+          "promotion_eligible": false,
+          "comparator_status": "fail",
+          "actual_disposition": "reject",
+          "wins": 7,
+          "losses": 9,
+          "mixed_tradeoffs": 2,
+          "regression_flags": [
+            "dominant_archetype_shifted",
+            "lock_in_down_but_expiry_dominance_up",
+            "reduced_one_dominant_but_created_new_dominant",
+            "reduces_lock_in_but_expiry_dominance_rises"
+          ],
+          "primary_failed_gate": {
+            "flag": "lock_in_down_but_expiry_dominance_up",
+            "evidence": {
+              "simulator_type": "B",
+              "lock_in_delta": -1,
+              "natural_expiry_delta": 1
+            }
+          }
+        },
+        {
+          "candidate_id": "focused-single-hoarding-sink-enabled",
+          "patch": {
+            "hoarding_sink_enabled": 1
+          },
+          "pipeline_status": "ineligible",
+          "promotion_eligible": false,
+          "comparator_status": "fail",
+          "actual_disposition": "reject",
+          "wins": 7,
+          "losses": 8,
+          "mixed_tradeoffs": 2,
+          "regression_flags": [
+            "candidate_improves_B_but_worsens_C",
+            "dominant_archetype_shifted",
+            "lock_in_down_but_expiry_dominance_up",
+            "long_run_concentration_worsened",
+            "reduced_one_dominant_but_created_new_dominant",
+            "reduces_lock_in_but_expiry_dominance_rises",
+            "seasonal_fairness_improves_but_long_run_concentration_worsens",
+            "skip_rejoin_exploit_worsened"
+          ],
+          "primary_failed_gate": {
+            "flag": "lock_in_down_but_expiry_dominance_up",
+            "evidence": {
+              "simulator_type": "B",
+              "lock_in_delta": -1,
+              "natural_expiry_delta": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "stage": "pairwise_harness_screen",
+      "candidates": [
+        {
+          "candidate_id": "focused-pair-starprice950-hoardingmin70000",
+          "patch": {
+            "starprice_max_upstep_fp": 950,
+            "hoarding_min_factor_fp": 70000
+          },
+          "harness_status": "pass",
+          "failed_families": []
+        },
+        {
+          "candidate_id": "focused-pair-hoardingsink-safe24",
+          "patch": {
+            "hoarding_sink_enabled": 1,
+            "hoarding_safe_hours": 24
+          },
+          "harness_status": "pass",
+          "failed_families": []
+        }
+      ]
+    },
+    {
+      "stage": "pairwise_official_qualification",
+      "candidates": [
+        {
+          "candidate_id": "focused-pair-starprice950-hoardingmin70000",
+          "patch": {
+            "starprice_max_upstep_fp": 950,
+            "hoarding_min_factor_fp": 70000
+          },
+          "pipeline_status": "ineligible",
+          "promotion_eligible": false,
+          "comparator_status": "fail",
+          "actual_disposition": "reject",
+          "wins": 3,
+          "losses": 13,
+          "mixed_tradeoffs": 2,
+          "regression_flags": [
+            "dominant_archetype_shifted",
+            "lock_in_down_but_expiry_dominance_up",
+            "long_run_concentration_worsened",
+            "reduces_lock_in_but_expiry_dominance_rises",
+            "seasonal_fairness_improves_but_long_run_concentration_worsens",
+            "skip_rejoin_exploit_worsened"
+          ],
+          "primary_failed_gate": {
+            "flag": "lock_in_down_but_expiry_dominance_up",
+            "evidence": {
+              "simulator_type": "B",
+              "lock_in_delta": -2,
+              "natural_expiry_delta": 2
+            }
+          }
+        },
+        {
+          "candidate_id": "focused-pair-hoardingsink-safe24",
+          "patch": {
+            "hoarding_sink_enabled": 1,
+            "hoarding_safe_hours": 24
+          },
+          "pipeline_status": "ineligible",
+          "promotion_eligible": false,
+          "comparator_status": "fail",
+          "actual_disposition": "reject",
+          "wins": 9,
+          "losses": 7,
+          "mixed_tradeoffs": 2,
+          "regression_flags": [
+            "candidate_improves_B_but_worsens_C",
+            "dominant_archetype_shifted",
+            "long_run_concentration_worsened",
+            "reduced_one_dominant_but_created_new_dominant"
+          ],
+          "primary_failed_gate": {
+            "flag": "long_run_concentration_worsened",
+            "evidence": {
+              "simulator_type": "C",
+              "top10_share_delta": 0.07420426641056277
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ranked_candidates": [
+    {
+      "rank": 1,
+      "candidate_id": "focused-pair-hoardingsink-safe24",
+      "reason": "Best overall scorecard of the campaign at 9 wins / 7 losses / 2 mixed, but still reject due long-run concentration and dominant-strategy rotation in simulator C."
+    },
+    {
+      "rank": 2,
+      "candidate_id": "focused-single-hoarding-sink-enabled",
+      "reason": "Best single-knob headline at 7 wins / 8 losses / 2 mixed and the smallest concentration delta among the sink-family candidates, but still reject due lock-in/expiry, skip/rejoin, and C-side concentration."
+    },
+    {
+      "rank": 3,
+      "candidate_id": "focused-single-hoarding-min-factor-70000",
+      "reason": "Harness-clean and slightly stronger than the star-price single on wins, but still reject on lock-in down / expiry up."
+    },
+    {
+      "rank": 4,
+      "candidate_id": "focused-single-starprice-max-upstep-950",
+      "reason": "Harness-clean but reject-grade due concentration and skip/rejoin worsening."
+    },
+    {
+      "rank": 5,
+      "candidate_id": "focused-pair-starprice950-hoardingmin70000",
+      "reason": "Evidence-negative pair; combining the star-price and low-floor lanes amplified both lock-in/expiry and long-run concentration problems."
+    },
+    {
+      "rank": 6,
+      "candidate_id": "focused-single-starprice-max-downstep-18000",
+      "reason": "Rejected at harness stage because faster downward price relaxation weakened boost ROI."
+    }
+  ],
+  "final_assessment": {
+    "comparator_approved_candidate_found": false,
+    "promotion_eligible_candidate_found": false,
+    "dominant_rejection_reasons": [
+      "long_run_concentration_worsened",
+      "lock_in_down_but_expiry_dominance_up",
+      "skip_rejoin_exploit_worsened",
+      "dominant_archetype_shifted",
+      "candidate_improves_B_but_worsens_C"
+    ],
+    "narrowest_structural_blocker": {
+      "id": "short_run_relief_trades_into_long_run_concentration",
+      "detail": "On the truthful active surface, any candidate strong enough to improve short-run playability in simulator B either shifts dominance and weakens lock-in, or it pays for those gains with worse long-run concentration and strategy takeover in simulator C. The smallest remaining blocker is therefore not search-surface integrity but the economy's current inability to improve short-run fairness without recreating a long-run concentration response."
+    },
+    "recommendation": {
+      "action": "reopen structural blocker Z",
+      "target": "short_run_relief_trades_into_long_run_concentration",
+      "note": "No candidate reached comparator-approved or promotion-eligible status under the official qualification standard."
+    }
+  },
+  "artifacts": {
+    "single_harness_reports": [
+      "simulation_output/coupling-harnesses/focused-rebalance-single-starprice-max-upstep-950/coupling_harness_report.json",
+      "simulation_output/coupling-harnesses/focused-rebalance-single-starprice-max-downstep-18000/coupling_harness_report.json",
+      "simulation_output/coupling-harnesses/focused-rebalance-single-hoarding-min-factor-70000/coupling_harness_report.json",
+      "simulation_output/coupling-harnesses/focused-rebalance-single-hoarding-sink-enabled/coupling_harness_report.json"
+    ],
+    "pair_harness_reports": [
+      "simulation_output/coupling-harnesses/focused-rebalance-pair-starprice950-hoardingmin70000/coupling_harness_report.json",
+      "simulation_output/coupling-harnesses/focused-rebalance-pair-hoardingsink-safe24/coupling_harness_report.json"
+    ],
+    "promotion_reports": [
+      "tmp/focused-rebalance/promotion/focused-single-starprice-max-upstep-950/promotion_report.json",
+      "tmp/focused-rebalance/promotion/focused-single-hoarding-min-factor-70000/promotion_report.json",
+      "tmp/focused-rebalance/promotion/focused-single-hoarding-sink-enabled/promotion_report.json",
+      "tmp/focused-rebalance/promotion/focused-pair-starprice950-hoardingmin70000/promotion_report.json",
+      "tmp/focused-rebalance/promotion/focused-pair-hoardingsink-safe24/promotion_report.json"
+    ]
+  },
+  "uncertainty": [
+    "Comparator attribution is still based on sparse paired simulator groups, so causal ranking is directional rather than proof-grade.",
+    "The best pairwise lane improved the B-side scorecard materially, but still crossed the reject line because the C-side concentration regression remained too large."
+  ]
+}

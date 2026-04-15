@@ -1,0 +1,257 @@
+{
+  "schema_version": "tmc-active-surface-inventory.v1",
+  "generated_at": "2026-04-15T00:00:00Z",
+  "inventory": [
+    {
+      "key": "base_ubi_active_per_tick",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key in UBI/gross-rate calculation.",
+      "runtime_paths": ["includes/economy.php:628-645"]
+    },
+    {
+      "key": "base_ubi_idle_factor_fp",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key in UBI/gross-rate calculation.",
+      "runtime_paths": ["includes/economy.php:628-645"]
+    },
+    {
+      "key": "ubi_min_per_tick",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key in UBI floor calculation.",
+      "runtime_paths": ["includes/economy.php:645-648"]
+    },
+    {
+      "key": "inflation_table",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key through Economy::inflationFactor().",
+      "runtime_paths": ["includes/economy.php:491-494"]
+    },
+    {
+      "key": "hoarding_window_ticks",
+      "classification": "generator_mismatch",
+      "search_surface_after_reconciliation": false,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Generator and lint treated the key as tunable, but canonical runtime/simulation never reads it.",
+      "runtime_paths": []
+    },
+    {
+      "key": "target_spend_rate_per_tick",
+      "classification": "generator_mismatch",
+      "search_surface_after_reconciliation": false,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Only Economy::hoardingFactor() reads the key, and that helper is not invoked by the canonical runtime/simulation path.",
+      "runtime_paths": ["includes/economy.php:499-504"]
+    },
+    {
+      "key": "hoarding_min_factor_fp",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key in inflation floor and hoarding-pressure math.",
+      "runtime_paths": ["includes/economy.php:491-504"]
+    },
+    {
+      "key": "hoarding_sink_enabled",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Feature flag directly gates the hoarding-sink runtime path.",
+      "runtime_paths": ["includes/economy.php:526-529", "includes/economy.php:669-672"]
+    },
+    {
+      "key": "hoarding_safe_hours",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:691-696"]
+    },
+    {
+      "key": "hoarding_safe_min_coins",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:691-696"]
+    },
+    {
+      "key": "hoarding_tier1_excess_cap",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:700-707"]
+    },
+    {
+      "key": "hoarding_tier2_excess_cap",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:700-707"]
+    },
+    {
+      "key": "hoarding_tier1_rate_hourly_fp",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:702-718"]
+    },
+    {
+      "key": "hoarding_tier2_rate_hourly_fp",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:702-718"]
+    },
+    {
+      "key": "hoarding_tier3_rate_hourly_fp",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:702-718"]
+    },
+    {
+      "key": "hoarding_sink_cap_ratio_fp",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on.",
+      "runtime_paths": ["includes/economy.php:730-735"]
+    },
+    {
+      "key": "hoarding_idle_multiplier_fp",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key only when hoarding_sink_enabled is on and the player is not Active.",
+      "runtime_paths": ["includes/economy.php:726-729"]
+    },
+    {
+      "key": "starprice_table",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the table in star-price calculation.",
+      "runtime_paths": ["includes/economy.php:801-823"]
+    },
+    {
+      "key": "star_price_cap",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the cap in star-price calculation.",
+      "runtime_paths": ["includes/economy.php:822-823"]
+    },
+    {
+      "key": "starprice_idle_weight_fp",
+      "classification": "active_but_conditionally_gated",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Runtime consumes the key when starprice_active_only is off; otherwise effective_price_supply uses active coins only.",
+      "runtime_paths": ["includes/tick_engine.php:377-386", "includes/economy.php:784-799"]
+    },
+    {
+      "key": "starprice_active_only",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both branch on the key when calculating effective price supply.",
+      "runtime_paths": ["includes/tick_engine.php:377-386", "includes/economy.php:784-799"]
+    },
+    {
+      "key": "starprice_max_upstep_fp",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key in star-price velocity clamping.",
+      "runtime_paths": ["includes/economy.php:808-817"]
+    },
+    {
+      "key": "starprice_max_downstep_fp",
+      "classification": "active_referenced",
+      "search_surface_after_reconciliation": true,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Canonical runtime and simulation both consume the key in star-price velocity clamping.",
+      "runtime_paths": ["includes/economy.php:808-817"]
+    },
+    {
+      "key": "starprice_reactivation_window_ticks",
+      "classification": "runtime_wiring_missing",
+      "search_surface_after_reconciliation": false,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Schema and generator assumed the knob mattered, but canonical star pricing and lock-in logic never consult it.",
+      "runtime_paths": []
+    },
+    {
+      "key": "starprice_demand_table",
+      "classification": "runtime_wiring_missing",
+      "search_surface_after_reconciliation": false,
+      "staged_generation_before_reconciliation": false,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Schema accepted the table, but canonical star pricing never applies it.",
+      "runtime_paths": []
+    },
+    {
+      "key": "market_affordability_bias_fp",
+      "classification": "runtime_wiring_missing",
+      "search_surface_after_reconciliation": false,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Schema and generator assumed the knob mattered, but canonical pricing and purchase logic never apply it.",
+      "runtime_paths": []
+    },
+    {
+      "key": "vault_config",
+      "classification": "valid_but_intentionally_dormant",
+      "search_surface_after_reconciliation": false,
+      "staged_generation_before_reconciliation": true,
+      "candidate_lint_before_reconciliation": true,
+      "root_cause": "Helper logic exists, but Phase 1 explicitly excludes vault-market spending from the canonical simulation/search surface.",
+      "runtime_paths": ["includes/economy.php:869-885", "scripts/simulation/PolicyBehavior.php:12-15"]
+    }
+  ],
+  "deprecated_keys": [
+    {
+      "key": "starprice_model_version",
+      "classification": "deprecated_should_remove",
+      "search_surface_after_reconciliation": false,
+      "root_cause": "Candidate lint already rejects it as runtime-owned and non-configurable for balance search."
+    }
+  ]
+}

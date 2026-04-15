@@ -34,7 +34,7 @@ class TuningCandidateGeneratorTest extends TestCase
         $stage1 = (array)$document['stages']['stage_1_single_knob'];
         $blocked = null;
         foreach ($stage1 as $candidate) {
-            if (($candidate['changes'][0]['target'] ?? null) === 'hoarding_window_ticks') {
+            if (($candidate['changes'][0]['target'] ?? null) === 'hoarding_safe_hours') {
                 $blocked = $candidate;
                 break;
             }
@@ -48,7 +48,7 @@ class TuningCandidateGeneratorTest extends TestCase
         foreach (['stage_2_pairwise', 'stage_3_constrained_bundle', 'stage_4_full_confirmation'] as $stageName) {
             foreach ((array)$document['stages'][$stageName] as $candidate) {
                 $targets = array_column((array)$candidate['changes'], 'target');
-                $this->assertNotContains('hoarding_window_ticks', $targets);
+                $this->assertNotContains('hoarding_safe_hours', $targets);
             }
         }
     }
@@ -107,16 +107,19 @@ class TuningCandidateGeneratorTest extends TestCase
         ]);
 
         $targets = $this->documentTargets($document);
-        $this->assertNotContains('hoarding_window_ticks', $targets);
+        $this->assertNotContains('hoarding_safe_hours', $targets);
         $this->assertNotContains('hoarding_tier2_rate_hourly_fp', $targets);
         $this->assertNotContains('hoarding_tier3_rate_hourly_fp', $targets);
         $this->assertNotContains('hoarding_idle_multiplier_fp', $targets);
+        $this->assertNotContains('market_affordability_bias_fp', $targets);
+        $this->assertNotContains('starprice_reactivation_window_ticks', $targets);
+        $this->assertNotContains('target_spend_rate_per_tick', $targets);
+        $this->assertNotContains('hoarding_window_ticks', $targets);
 
         $suppressed = (array)($document['suppression_report']['entries'] ?? []);
         $this->assertNotEmpty($suppressed);
         $this->assertTrue($this->hasSuppression($suppressed, 'hoarding_advantage', 'hoarding_tier2_rate_hourly_fp', 'knob_out_of_active_search_space'));
-        $this->assertTrue($this->hasSuppression($suppressed, 'phase_dead_zones', 'hoarding_window_ticks', 'subsystem_disabled_in_baseline'));
-        $this->assertTrue($this->hasSuppression($suppressed, 'lock_in_support', 'market_affordability_bias_fp', 'stage_ineligible_candidate_dimension'));
+        $this->assertTrue($this->hasSuppression($suppressed, 'phase_dead_zones', 'hoarding_safe_hours', 'knob_out_of_active_search_space'));
     }
 
     public function testHoardingCandidateFamiliesReappearWhenHoardingSinkIsEnabled(): void
@@ -129,14 +132,18 @@ class TuningCandidateGeneratorTest extends TestCase
         ]);
 
         $targets = $this->documentTargets($document);
-        $this->assertContains('hoarding_window_ticks', $targets);
+        $this->assertContains('hoarding_safe_hours', $targets);
         $this->assertContains('hoarding_tier2_rate_hourly_fp', $targets);
         $this->assertContains('hoarding_tier3_rate_hourly_fp', $targets);
         $this->assertContains('hoarding_idle_multiplier_fp', $targets);
+        $this->assertNotContains('market_affordability_bias_fp', $targets);
+        $this->assertNotContains('starprice_reactivation_window_ticks', $targets);
+        $this->assertNotContains('target_spend_rate_per_tick', $targets);
+        $this->assertNotContains('hoarding_window_ticks', $targets);
 
         $suppressed = (array)($document['suppression_report']['entries'] ?? []);
         $this->assertFalse($this->hasSuppression($suppressed, 'hoarding_advantage', 'hoarding_tier2_rate_hourly_fp', 'knob_out_of_active_search_space'));
-        $this->assertFalse($this->hasSuppression($suppressed, 'phase_dead_zones', 'hoarding_window_ticks', 'subsystem_disabled_in_baseline'));
+        $this->assertFalse($this->hasSuppression($suppressed, 'phase_dead_zones', 'hoarding_safe_hours', 'knob_out_of_active_search_space'));
     }
 
     public function testGenerationOutputIsStableAndBaselineAware(): void
@@ -202,13 +209,12 @@ class TuningCandidateGeneratorTest extends TestCase
     {
         return SimulationSeason::build(1, 'baseline-aware-test', [
             'hoarding_sink_enabled' => $enabled,
-            'target_spend_rate_per_tick' => 18,
             'hoarding_min_factor_fp' => 90000,
             'hoarding_tier2_rate_hourly_fp' => 535,
             'hoarding_tier3_rate_hourly_fp' => 1070,
             'hoarding_idle_multiplier_fp' => 1287500,
-            'starprice_reactivation_window_ticks' => 81,
-            'market_affordability_bias_fp' => 970000,
+            'hoarding_safe_hours' => 10,
+            'starprice_idle_weight_fp' => 240000,
         ]);
     }
 
