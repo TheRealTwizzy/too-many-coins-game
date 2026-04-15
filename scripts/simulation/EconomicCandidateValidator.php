@@ -31,6 +31,7 @@ class EconomicCandidateValidator
             'starprice_active_only',
             'starprice_max_upstep_fp',
             'starprice_max_downstep_fp',
+            'market_affordability_bias_fp',
         ],
         'boost_related' => [
             'base_ubi_active_per_tick',

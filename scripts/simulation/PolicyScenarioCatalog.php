@@ -156,6 +156,35 @@ class PolicyScenarioCatalog
                     'hoarding_sink_enabled' => 1,
                 ],
             ],
+            [
+                'name' => 'affordability-relief-v1',
+                'description' => 'Reduce star price by 6% via market_affordability_bias_fp to improve Boost-Focused and Hardcore viability without touching hoarding or UBI.',
+                'categories' => ['star_conversion_pricing'],
+                'overrides' => [
+                    'market_affordability_bias_fp' => 940000,
+                ],
+            ],
+            [
+                'name' => 'affordability-sink-combo-v1',
+                'description' => 'Enable hoarding sink at conservative rates combined with 3% affordability relief to improve competitive balance across multiple archetypes.',
+                'categories' => ['star_conversion_pricing', 'hoarding_preservation_pressure'],
+                'overrides' => [
+                    'hoarding_sink_enabled' => 1,
+                    'hoarding_tier2_rate_hourly_fp' => 520,
+                    'hoarding_tier3_rate_hourly_fp' => 1050,
+                    'market_affordability_bias_fp' => 970000,
+                ],
+            ],
+            [
+                'name' => 'affordability-ubi-combo-v1',
+                'description' => 'Combine 6% affordability relief with active UBI buff to address both star-pricing friction and Hardcore/Boost-Focused archetype income weakness simultaneously.',
+                'categories' => ['star_conversion_pricing', 'boost_related'],
+                'overrides' => [
+                    'market_affordability_bias_fp' => 940000,
+                    'base_ubi_active_per_tick' => 36,
+                    'base_ubi_idle_factor_fp' => 220000,
+                ],
+            ],
         ];
 
         $indexed = [];
