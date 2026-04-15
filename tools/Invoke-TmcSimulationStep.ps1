@@ -128,7 +128,8 @@ $agenticDir = Join-Path $outputRoot 'agentic-optimization'
 
 $null = New-Item -ItemType Directory -Force -Path $exportDir, $seasonDir, $lifetimeDir, $sweepDir, $sweepRunsDir, $comparatorDir, $harnessDir, $agenticDir
 
-$exportPath = Join-Path $exportDir 'current_season.json'
+$exportPath = Join-Path $exportDir 'current_season_economy_only.json'
+$exportMetadataPath = Join-Path $exportDir 'current_season_economy_only.metadata.json'
 $manifestPath = Join-Path $sweepDir ("policy_sweep_{0}_ppa{1}_s{2}.json" -f $Seed, $PlayersPerArchetype, $Seasons)
 
 $env:DB_HOST = '127.0.0.1'
@@ -146,7 +147,8 @@ try {
             Write-Host "Exporting current season config to $exportPath"
             Invoke-PhpScript -Arguments @(
                 (Join-Path $PSScriptRoot 'export-season-config.php'),
-                "--output=$exportPath"
+                "--output=$exportPath",
+                "--metadata-output=$exportMetadataPath"
             )
         }
         'sim-b' {
@@ -225,7 +227,8 @@ try {
                 Write-Host "Export file missing for agentic optimizer; exporting current season first..."
                 Invoke-PhpScript -Arguments @(
                     (Join-Path $PSScriptRoot 'export-season-config.php'),
-                    "--output=$exportPath"
+                    "--output=$exportPath",
+                    "--metadata-output=$exportMetadataPath"
                 )
             }
 

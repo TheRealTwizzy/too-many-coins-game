@@ -1,0 +1,197 @@
+{
+    "schema_version": "tmc-sim-rejection-attribution.v1",
+    "generated_at": "2026-04-15T07:35:37+00:00",
+    "comparator_seed": "focused-official-qualification",
+    "scenario_name": "phase-gated-safe-24h-v1",
+    "recommended_disposition": "reject",
+    "control_baseline_comparison": {
+        "wins": 6,
+        "losses": 9,
+        "mixed_tradeoffs": 2,
+        "confidence_summary": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "regression_flags": [
+            "dominant_archetype_shifted",
+            "long_run_concentration_worsened",
+            "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ],
+        "cross_simulator_regression_flags": [
+            "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ],
+        "simulator_groups": [
+            {
+                "simulator_type": "B",
+                "signature": "B|ppa=2|seasons=1",
+                "paired_runs": 1,
+                "wins": 3,
+                "losses": 4,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": 4.0,
+                    "natural_expiry_delta": -4.0,
+                    "late_active_engaged_rate_delta": -0.09999999999999998,
+                    "concentration_top10_share_delta": 0.0,
+                    "skip_strategy_edge_delta": 0.0
+                }
+            },
+            {
+                "simulator_type": "C",
+                "signature": "C|ppa=2|seasons=4",
+                "paired_runs": 1,
+                "wins": 3,
+                "losses": 5,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "long_run_concentration_worsened"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": 0.009803921568627527,
+                    "natural_expiry_delta": 0.0,
+                    "late_active_engaged_rate_delta": -0.09045329670329672,
+                    "concentration_top10_share_delta": 0.04002384238426057,
+                    "skip_strategy_edge_delta": -2458.72514619883
+                }
+            }
+        ]
+    },
+    "changed_knobs": [
+        {
+            "path": "season.hoarding_safe_hours",
+            "key": "hoarding_safe_hours",
+            "requested_value": 24,
+            "baseline_value": 12,
+            "candidate_effective_value": 24,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "hoarding_preservation_pressure",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 12,
+                    "candidate_effective_value": 24,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 12,
+                    "candidate_effective_value": 24,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        },
+        {
+            "path": "season.hoarding_sink_enabled",
+            "key": "hoarding_sink_enabled",
+            "requested_value": 1,
+            "baseline_value": 0,
+            "candidate_effective_value": 1,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "hoarding_preservation_pressure",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 0,
+                    "candidate_effective_value": 1,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 0,
+                    "candidate_effective_value": 1,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        }
+    ],
+    "knob_activity_summary": {
+        "active_count": 2,
+        "inactive_count": 0,
+        "unknown_count": 0,
+        "active_paths": [
+            "season.hoarding_safe_hours",
+            "season.hoarding_sink_enabled"
+        ],
+        "inactive_paths": []
+    },
+    "primary_failed_gate": {
+        "flag": "long_run_concentration_worsened",
+        "label": "Long-run concentration worsened",
+        "source": "simulator",
+        "score": 132.02384238426058,
+        "evidence": {
+            "simulator_type": "C",
+            "top10_share_delta": 0.04002384238426057
+        },
+        "rationale": "This gate is driven by direct simulator deltas. Candidate increased long-run top-share concentration."
+    },
+    "secondary_regressions": [
+        {
+            "flag": "seasonal_fairness_improves_but_long_run_concentration_worsens",
+            "label": "Seasonal fairness improved but long-run concentration regressed",
+            "source": "cross_simulator",
+            "score": 128.02384238426058,
+            "evidence": {
+                "simulator_type": "C",
+                "top10_share_delta": 0.04002384238426057
+            },
+            "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate improved short-run fairness but paid for it with worse long-run concentration."
+        },
+        {
+            "flag": "dominant_archetype_shifted",
+            "label": "Dominant archetype changed",
+            "source": "simulator",
+            "score": 69.0,
+            "evidence": {
+                "simulator_type": "B",
+                "dominant_archetype_transition": {
+                    "baseline": "Early Locker",
+                    "candidate": "Star-Focused"
+                }
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+        }
+    ],
+    "likely_causal_knob_ranking": [
+        {
+            "path": "season.hoarding_safe_hours",
+            "key": "hoarding_safe_hours",
+            "classification": "active",
+            "subsystem": "hoarding_preservation_pressure",
+            "score": 5.78,
+            "confidence": "low",
+            "rationale": "Knob was active in the effective config. Its subsystem aligns with the primary failed gate. Bundle interaction ambiguity lowers confidence.",
+            "rank": 1
+        },
+        {
+            "path": "season.hoarding_sink_enabled",
+            "key": "hoarding_sink_enabled",
+            "classification": "active",
+            "subsystem": "hoarding_preservation_pressure",
+            "score": 5.78,
+            "confidence": "low",
+            "rationale": "Knob was active in the effective config. Its subsystem aligns with the primary failed gate. Bundle interaction ambiguity lowers confidence.",
+            "rank": 2
+        }
+    ],
+    "interaction_ambiguity": {
+        "present": true,
+        "type": "multi_knob_bundle",
+        "note": "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+    },
+    "confidence_notes": [
+        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+        "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+    ]
+}

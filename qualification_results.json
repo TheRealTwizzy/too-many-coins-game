@@ -1,304 +1,203 @@
 {
-  "schema_version": "tmc-qualification-results.v2",
-  "generated_at": "2026-04-15T03:45:00Z",
-  "qualification_date": "2026-04-14",
-  "git_commit": "4936633dabe17f64e58b672f71b3a9b01fc6772a",
-  "workspace_root": "tmp/qualification-20260414-rerun",
-  "verdict": "not_ready",
-  "readiness": {
-    "controlled_simulation_use": false,
-    "balance_suggestion_workflows": false
+  "schema_version": "tmc-qualification-results.v3",
+  "qualification_window": {
+    "local_date": "2026-04-14",
+    "timezone": "America/Denver",
+    "artifact_timestamp_timezone": "UTC"
   },
-  "inputs": {
-    "official_baseline_artifact": "simulation_output/current-db/export/current_season_economy_only.json",
-    "diagnostic_continuation_baseline": "tmp/qualification-20260414-rerun/diagnostic_clean_baseline.json",
-    "scenario_bundle": "simulation_output/sweep/followup-tuning-candidates-20260413.json",
-    "seed_bundle_root": "qualification-20260414-rerun",
-    "promotion_players_per_archetype": 2,
-    "promotion_season_count": 4
-  },
-  "entrypoints": {
-    "baseline_export": "php tools/export-season-config.php --output=FILE --metadata-output=FILE",
-    "candidate_linting": "php scripts/lint_candidate_packages.php --input=FILE --season-config=FILE",
-    "effective_config_preflight": "scripts/simulation/SimulationConfigPreflight.php via simulate_economy.php and promote_simulation_candidate.php",
-    "staged_candidate_generation": "php scripts/generate_tuning_candidates.php --diagnosis=simulation_output/current-db/diagnosis/diagnosis_report.json --season-config=simulation_output/current-db/export/current_season_economy_only.json --output=tmp/qualification-20260414-rerun/staged-candidates --version=3",
-    "rejection_attribution": "php scripts/compare_simulation_results.php --seed=VALUE --sweep-manifest=FILE --output=DIR",
-    "targeted_subsystem_harnesses": "php scripts/simulate_coupling_harnesses.php --seed=VALUE --season-config=FILE --candidate-patch=FILE --output=DIR",
-    "promotion_ladder": "php scripts/promote_simulation_candidate.php --candidate=FILE --candidate-id=ID --seed=VALUE --season-config=FILE --output=DIR --players-per-archetype=2 --season-count=4",
-    "canonical_config_export": "php tools/export-season-config.php --output=FILE --metadata-output=FILE",
-    "deterministic_patch_generation": "php scripts/generate_promotion_patch.php --promotion-report=FILE --output=DIR --dry-run",
-    "parity_certification": "php scripts/certify_runtime_parity.php --candidate-id=ID --seed=VALUE --season-config=FILE --output=DIR",
-    "qualification_report_generation": null
-  },
-  "environment_limitations": [
-    {
-      "type": "db_unavailable",
-      "detail": "The exporter CLI could not be executed end-to-end in this workspace because the configured DB connection was refused."
-    }
-  ],
-  "baseline_assessment": {
-    "official_baseline_preflight_status": "fail",
-    "official_baseline_failure": "Unknown base season config key: starprice_model_version",
-    "official_profile_with_official_baseline_status": "fail",
-    "official_profile_with_official_baseline_failure": "Unknown base season config key: starprice_model_version",
-    "contract_key_count": 27,
-    "official_baseline_key_count": 28,
-    "official_baseline_extra_keys": [
-      "starprice_model_version"
+  "objective": "Close the promotion/comparator contradiction and the checked-in baseline artifact mismatch, then rerun focused readiness qualification.",
+  "fixes": {
+    "promotion_readiness": [
+      "Inserted required stage `official_qualification_comparator_validation` into `CandidatePromotionPipeline`.",
+      "Promotion eligibility now requires the official `qualification` comparator stage to be non-reject with zero regression flags.",
+      "Extracted the canonical comparator gate into `PromotionReadinessGate` for shared semantics and direct tests.",
+      "Normalized the promotion comparator wrapper to reuse `candidate_id` as scenario identity and the outer pipeline seed as the comparator seed."
     ],
-    "legacy_export_has_db_runtime_metadata": true,
-    "legacy_export_extra_key_sample": [
-      "season_id",
-      "start_time",
-      "end_time",
-      "blackout_time",
-      "status",
-      "season_expired",
-      "expiration_finalized",
-      "current_star_price",
-      "total_coins_supply",
-      "total_coins_supply_end_of_tick",
-      "coins_active_total",
-      "coins_idle_total"
-    ],
-    "diagnostic_continuation_preflight_status": "pass",
-    "assessment": "Exporter code appears fixed in tests, but the reproducible checked-in baseline artifact still fails official preflight unchanged."
+    "baseline_artifact": [
+      "Extended `tools/export-season-config.php` with `--input-json=FILE` so the canonical exporter can refresh tracked artifacts without DB access.",
+      "Updated `tools/Invoke-TmcSimulationStep.ps1` to target the official canonical export path `simulation_output/current-db/export/current_season_economy_only.json`.",
+      "Regenerated `simulation_output/current-db/export/current_season_economy_only.json` through the exporter from the tracked `current_season.json` snapshot."
+    ]
   },
-  "staged_generation_assessment": {
-    "status": "pass",
-    "generated_candidate_count": 3,
-    "suppressed_family_count": 8,
-    "suppressed_disabled_family": {
-      "family": "phase_dead_zones",
-      "target": "hoarding_window_ticks",
-      "reason_code": "subsystem_disabled_in_baseline",
-      "artifact": "tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.json"
-    }
-  },
-  "candidate_set": [
-    {
-      "id": "official_baseline_artifact",
-      "path": "simulation_output/current-db/export/current_season_economy_only.json",
-      "expected_outcome": "pass_preflight_without_sanitization",
-      "actual_outcome": "failed_preflight_due_to_extra_key"
-    },
-    {
-      "id": "invalid_disabled_subsystem",
-      "path": "tmp/qualification-20260414-rerun/candidates/invalid_disabled_subsystem.json",
-      "expected_outcome": "fail_preflight",
-      "actual_outcome": "failed_schema_validation"
-    },
-    {
-      "id": "suppressed_disabled_family",
-      "source": "tmp/qualification-20260414-rerun/staged-candidates/tuning_candidates_v3.json#suppression_report",
-      "family": "phase_dead_zones",
-      "target": "hoarding_window_ticks",
-      "expected_outcome": "suppressed_at_generation",
-      "actual_outcome": "suppressed_at_generation"
-    },
-    {
-      "id": "single_knob_candidate",
-      "path": "tmp/qualification-20260414-rerun/candidates/single_knob_candidate.json",
-      "expected_outcome": "valid_single_knob",
-      "actual_outcome": "failed_targeted_harnesses"
-    },
-    {
-      "id": "late_stage_failure_candidate",
-      "path": "tmp/qualification-20260414-rerun/candidates/late_stage_failure_candidate.json",
-      "expected_outcome": "pass_early_fail_late",
-      "actual_outcome": "promotion_eligible_but_official_comparator_reject"
-    },
-    {
-      "id": "promotion_contender_candidate",
-      "path": "tmp/qualification-20260414-rerun/candidates/promotion_contender_candidate.json",
-      "expected_outcome": "best_available_contender",
-      "actual_outcome": "failed_preflight_inactive_unreferenced"
-    }
-  ],
-  "candidate_lint_results": {
-    "invalid_disabled_subsystem": {
-      "status": "fail",
-      "reason_code": "candidate_disabled_subsystem"
-    },
-    "single_knob_candidate": {
-      "status": "pass"
-    },
-    "late_stage_failure_candidate": {
-      "status": "pass"
-    },
-    "promotion_contender_candidate": {
-      "status": "pass"
-    }
-  },
-  "promotion_results": {
-    "invalid_disabled_subsystem": {
-      "status": "ineligible",
-      "patch_ready": false,
-      "promotion_eligible": false,
-      "stage_statuses": {
-        "candidate_schema_validation": "fail",
-        "effective_config_preflight": "blocked",
-        "targeted_subsystem_harnesses": "blocked",
-        "full_single_season_validation": "blocked",
-        "multi_season_exploit_regression_validation": "blocked",
-        "patch_serialization_validation": "blocked",
-        "play_test_runtime_parity_certification": "blocked",
-        "play_test_repo_compatibility_validation": "blocked",
-        "promotion_eligibility_marking": "fail"
-      },
-      "primary_failure": "candidate_disabled_subsystem"
-    },
-    "single_knob_candidate": {
-      "status": "ineligible",
-      "patch_ready": false,
-      "promotion_eligible": false,
-      "stage_statuses": {
-        "candidate_schema_validation": "pass",
-        "effective_config_preflight": "pass",
-        "targeted_subsystem_harnesses": "fail",
-        "full_single_season_validation": "blocked",
-        "multi_season_exploit_regression_validation": "blocked",
-        "patch_serialization_validation": "blocked",
-        "play_test_runtime_parity_certification": "blocked",
-        "play_test_repo_compatibility_validation": "blocked",
-        "promotion_eligibility_marking": "fail"
-      },
-      "harness_failures": [
-        "skip_rejoin_exploit_worsened",
-        "hoarding_pressure_imbalance",
-        "star_affordability_pricing_instability"
+  "root_causes": {
+    "promotion_comparator_contradiction": {
+      "summary": "The promotion ladder previously marked candidates eligible after narrower local checks and never required the official `qualification` B+C comparator profile before `promotion_eligible=true`.",
+      "details": [
+        "Stage 5 only used direct Sim C lifetime metric flags, not the official B+C sweep/comparator profile.",
+        "Cross-simulator rejection attribution and official comparator regression semantics were missing from the promotion decision path.",
+        "The promotion comparator wrapper also used a different synthetic scenario name and derived seed, which made exact comparison with standalone qualification harder than necessary."
       ]
     },
-    "late_stage_failure_candidate": {
-      "status": "eligible",
-      "patch_ready": true,
-      "promotion_eligible": true,
-      "stage_statuses": {
+    "baseline_artifact_mismatch": {
+      "summary": "The checked-in canonical baseline artifact had drifted from the exporter boundary and was no longer being refreshed through a canonical path.",
+      "details": [
+        "The tracked `current_season_economy_only.json` still contained deprecated key `starprice_model_version`.",
+        "It also lagged multiple canonical values behind the tracked `current_season.json` snapshot.",
+        "No repo test was asserting that the checked-in canonical artifact matched `SeasonConfigExporter::canonicalConfigFromRow()` or passed strict preflight unchanged."
+      ]
+    }
+  },
+  "artifacts": {
+    "official_baseline_artifact": "simulation_output/current-db/export/current_season_economy_only.json",
+    "tracked_snapshot_source": "simulation_output/current-db/export/current_season.json",
+    "focused_determinism_summary": "tmp/focused-determinism-summary.json",
+    "official_qualification_report": "tmp/focused-official-qualification/sweep_comparator_report.json",
+    "official_qualification_comparison": "tmp/focused-official-qualification/comparator/comparison_focused-official-qualification.json",
+    "promotion_alignment_summary": "tmp/focused-promotion-comparator-alignment.json",
+    "promotion_safe24_state": "tmp/focused-safe24-aligned/phase-gated-safe-24h-v1/promotion_state.json",
+    "promotion_safe24_report": "tmp/focused-safe24-aligned/phase-gated-safe-24h-v1/promotion_report.json",
+    "baseline_equivalent_report": "tmp/focused-clean-baseline-equivalent/focused-clean-baseline-equivalent/promotion_report.json"
+  },
+  "focused_checks": {
+    "official_baseline_preflight_unchanged": {
+      "status": "pass",
+      "evidence": [
+        "OfficialBaselineArtifactTest::testOfficialBaselineArtifactPassesPreflightUnchanged",
+        "OfficialBaselineArtifactTest::testCheckedInCanonicalArtifactMatchesTrackedSnapshotProjection"
+      ],
+      "details": {
+        "matches_exporter_projection": true,
+        "forbidden_keys_present": [],
+        "notes": "Refreshed via `php tools/export-season-config.php --input-json=simulation_output/current-db/export/current_season.json --output=simulation_output/current-db/export/current_season_economy_only.json`."
+      }
+    },
+    "disabled_subsystem_suppression": {
+      "status": "pass",
+      "evidence": [
+        "SimulationConfigPreflightTest::testFeatureDisabledButKnobChangedFailsPreflight"
+      ],
+      "details": {
+        "reason_code": "candidate_disabled_subsystem"
+      }
+    },
+    "determinism": {
+      "status": "pass",
+      "artifact": "tmp/focused-determinism-summary.json",
+      "details": {
+        "single_season_archetypes_equal": true,
+        "single_season_diagnostics_equal": true,
+        "lifetime_players_equal": true,
+        "lifetime_population_diagnostics_equal": true
+      }
+    },
+    "rejection_attribution_and_official_comparator": {
+      "status": "pass",
+      "artifact": "tmp/focused-official-qualification/comparator/comparison_focused-official-qualification.json",
+      "details": {
+        "profile": "qualification",
+        "scenario": "phase-gated-safe-24h-v1",
+        "recommended_disposition": "reject",
+        "regression_flags": [
+          "dominant_archetype_shifted",
+          "long_run_concentration_worsened",
+          "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ],
+        "rejection_attribution_json": "tmp/focused-official-qualification/comparator/rejections/focused-official-qualification/phase-gated-safe-24h-v1/rejection_attribution.json"
+      }
+    },
+    "promotion_vs_comparator_alignment": {
+      "status": "pass",
+      "artifact": "tmp/focused-promotion-comparator-alignment.json",
+      "details": {
+        "candidate_id": "phase-gated-safe-24h-v1",
+        "seed": "focused-official-qualification",
+        "promotion_eligible": false,
+        "official_disposition": "reject",
+        "promotion_stage_disposition": "reject",
+        "aligned_disposition": true,
+        "aligned_regression_flags": true
+      }
+    },
+    "parity_certification_and_patch_generation_components": {
+      "status": "pass_with_gap",
+      "evidence": [
+        "RuntimeParityCertificationTest",
+        "PromotionPatchGeneratorTest"
+      ],
+      "details": {
+        "component_tests_passed": true,
+        "end_to_end_on_truly_eligible_candidate": false,
+        "reason": "No comparator-approved promotion candidate was found in this focused rerun, so the full eligible-candidate promotion path could not be demonstrated."
+      }
+    }
+  },
+  "candidate_readiness_probes": {
+    "phase_gated_safe_24h_v1": {
+      "promotion_state": "ineligible",
+      "promotion_eligible": false,
+      "old_ladder_stages_1_to_5": {
         "candidate_schema_validation": "pass",
         "effective_config_preflight": "pass",
         "targeted_subsystem_harnesses": "pass",
         "full_single_season_validation": "pass",
-        "multi_season_exploit_regression_validation": "pass",
-        "patch_serialization_validation": "pass",
-        "play_test_runtime_parity_certification": "pass",
-        "play_test_repo_compatibility_validation": "pass",
-        "promotion_eligibility_marking": "pass"
+        "multi_season_exploit_regression_validation": "pass"
       },
-      "artifacts": {
-        "promotion_report_json": "tmp/qualification-20260414-rerun/promotion-late/late_stage_failure_candidate/promotion_report.json",
-        "compatibility_candidate_effective_season": "tmp/qualification-20260414-rerun/promotion-late/late_stage_failure_candidate/08_play_test_repo_compatibility_validation/candidate_effective_season.json"
+      "official_comparator_stage": {
+        "status": "fail",
+        "disposition": "reject",
+        "regression_flags": [
+          "dominant_archetype_shifted",
+          "long_run_concentration_worsened",
+          "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ]
       }
     },
-    "promotion_contender_candidate": {
-      "status": "ineligible",
-      "patch_ready": false,
+    "baseline_equivalent_candidate": {
+      "promotion_state": "ineligible",
       "promotion_eligible": false,
-      "stage_statuses": {
-        "candidate_schema_validation": "pass",
-        "effective_config_preflight": "fail",
-        "targeted_subsystem_harnesses": "blocked",
-        "full_single_season_validation": "blocked",
-        "multi_season_exploit_regression_validation": "blocked",
-        "patch_serialization_validation": "blocked",
-        "play_test_runtime_parity_certification": "blocked",
-        "play_test_repo_compatibility_validation": "blocked",
-        "promotion_eligibility_marking": "fail"
-      },
-      "primary_failure": "inactive_unreferenced",
-      "primary_failure_detail": "season.vault_config"
-    }
-  },
-  "comparator_assessment": {
-    "official_profile_on_diagnostic_baseline": {
-      "status": "pass",
-      "profile": "qualification",
-      "completion_status": "within-envelope",
-      "duration_minutes": 3.07,
-      "sweep_run_count": 4,
-      "rejected_scenario_count": 1,
-      "comparison_json": "tmp/qualification-20260414-rerun/sweep-diagnostic-baseline/comparator/comparison_qualification-20260414-rerun-diagnostic-profile.json",
-      "report_json": "tmp/qualification-20260414-rerun/sweep-diagnostic-baseline/sweep_comparator_report.json"
-    },
-    "rejected_scenarios": [
-      {
-        "scenario_name": "phase-gated-safe-24h-v1",
-        "recommended_disposition": "reject",
+      "details": {
+        "candidate_document": {
+          "base_ubi_active_per_tick": 30
+        },
+        "official_comparator_stage_status": "fail",
+        "official_comparator_disposition": "reject",
         "regression_flags": [
-          "candidate_improves_B_but_worsens_C",
           "dominant_archetype_shifted",
           "reduced_one_dominant_but_created_new_dominant",
-          "skip_rejoin_exploit_worsened"
-        ],
-        "rejection_attribution_json": "tmp/qualification-20260414-rerun/sweep-diagnostic-baseline/comparator/rejections/qualification-20260414-rerun-diagnostic-profile/phase-gated-safe-24h-v1/rejection_attribution.json"
+          "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ]
       }
-    ]
-  },
-  "determinism_assessment": {
-    "equivalent_run_result_equal": true,
-    "equivalent_run_payloads_equal": true,
-    "semantic_drift_detected": true,
-    "summary_artifact": "tmp/qualification-20260414-rerun/determinism_summary.json"
-  },
-  "parity_and_patch_assessment": {
-    "standalone_parity": {
-      "status": "pass",
-      "certified": true,
-      "material_drift_count": 0,
-      "report_json": "tmp/qualification-20260414-rerun/parity-late/runtime_parity_certification.json"
-    },
-    "patch_generation_for_eligible_candidate": {
-      "status": "pass",
-      "bundle_id": "promotion-bundle-late_stage_failure_candidate",
-      "changed_keys": [
-        "hoarding_sink_enabled",
-        "hoarding_safe_hours"
-      ],
-      "deterministic_bundle_json": true,
-      "deterministic_repo_diff": true,
-      "deterministic_staged_sql": true,
-      "approved_file_count": 1,
-      "touched_relative_paths": [
-        "migration_z_sim_promotion_late_stage_failure_candidate_f0d7aac9a64b_test_reset.sql"
-      ]
-    },
-    "patch_generation_for_ineligible_candidate": {
-      "status": "honest_fail",
-      "message": "Promotion report is not promotion-eligible and cannot be converted into a repo patch bundle."
     }
   },
-  "promotion_vs_comparator_consistency": {
-    "status": "fail",
-    "candidate_id": "late_stage_failure_candidate",
-    "promotion_ladder_status": "eligible",
-    "official_qualification_comparator_status": "reject",
-    "assessment": "The promotion ladder can mark a candidate patch-ready even when the official supported qualification comparator profile rejects the same candidate."
-  },
-  "focused_test_evidence": {
-    "SeasonConfigExporterTest": "pass",
-    "SimulationConfigPreflightTest": "pass",
-    "TuningCandidateGeneratorTest": "pass",
-    "RuntimeParityCertificationTest": "pass",
-    "PromotionPatchGeneratorTest": "pass",
-    "SimulationRejectionAttributionTest": "pass",
-    "SweepComparatorCampaignRunnerTest": "pass",
-    "SweepComparatorProfileCatalogTest": "pass",
-    "CandidatePromotionPipelineTest": "pass"
-  },
-  "reopened_blockers": [
+  "tests_run": [
     {
-      "id": "QB-EXPORT-PREFLIGHT-ARTIFACT",
-      "severity": "critical",
-      "detail": "The reproducible checked-in baseline artifact `simulation_output/current-db/export/current_season_economy_only.json` still contains deprecated key `starprice_model_version` and fails official preflight unchanged."
+      "name": "OfficialBaselineArtifactTest",
+      "status": "pass"
     },
     {
-      "id": "QB-PROMOTION-COMPARATOR-MISMATCH",
-      "severity": "critical",
-      "detail": "The promotion ladder marked `late_stage_failure_candidate` eligible while the official `qualification` comparator profile rejected the same candidate with four regression flags and rejection attribution evidence."
+      "name": "PromotionReadinessGateTest",
+      "status": "pass"
+    },
+    {
+      "name": "CandidatePromotionPipelineTest",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationConfigPreflightTest::testFeatureDisabledButKnobChangedFailsPreflight",
+      "status": "pass"
+    },
+    {
+      "name": "RuntimeParityCertificationTest",
+      "status": "pass"
+    },
+    {
+      "name": "PromotionPatchGeneratorTest",
+      "status": "pass"
     }
   ],
+  "uncertainty": {
+    "db_backed_exporter_execution": "unavailable_in_workspace",
+    "handling": "Tracked artifact was refreshed through the canonical exporter using `--input-json` against the checked-in season snapshot."
+  },
+  "blocker_status": {
+    "baseline_artifact_preflight_failure": "closed",
+    "promotion_comparator_contradiction": "closed",
+    "promotion_ready_candidate_demonstrated": "not_demonstrated"
+  },
   "residual_risks": [
-    "A live DB-backed exporter run could not be executed in this workspace, so exporter CLI validation is indirect.",
-    "Exporter logic is well covered by tests, but the checked-in baseline snapshot remains stale enough to break the official end-to-end handoff.",
-    "Comparator and promotion-path semantics are not currently aligned for promotion decisions."
-  ]
+    "No truly eligible promotion candidate was found under the refreshed official baseline and the official `qualification` comparator profile.",
+    "Because no comparator-approved candidate was available, the full end-to-end promotion path beyond the comparator gate remains unproven in this rerun.",
+    "Snapshot-input exporter refresh is reproducible and canonical, but it is still a fallback for the currently unavailable DB-backed export step."
+  ],
+  "final_verdict": "not ready"
 }

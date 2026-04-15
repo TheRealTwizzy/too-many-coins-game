@@ -1,0 +1,187 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T07:32:23+00:00",
+    "seed": "focused-safe24-reject|promotion|qualification",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "promotion-ready-focused-safe24-reject"
+        ],
+        "base_season_config_path": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-safe24-reject|promotion|qualification|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 32951,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 32955
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-safe24-reject|promotion|qualification|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-safe24-reject_promotion_qualification_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 59052,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 59057
+            }
+        },
+        {
+            "scenario_name": "promotion-ready-focused-safe24-reject",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-safe24-reject|promotion|qualification|scenario|promotion-ready-focused-safe24-reject|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_B_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_B_ppa2.json",
+            "csv": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_B_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_B_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_B_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 31118,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 31124
+            }
+        },
+        {
+            "scenario_name": "promotion-ready-focused-safe24-reject",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-safe24-reject|promotion|qualification|scenario|promotion-ready-focused-safe24-reject|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_C_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_C_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_C_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-reject\\focused-safe24-reject\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_promotion-ready-focused-safe24-reject_C_focused-safe24-reject_promotion_qualification_scenario_promotion-ready-focused-safe24-reject_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 71284,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 71289
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 194426,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 194430,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 64079
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 130346
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "promotion-ready-focused-safe24-reject",
+                "simulator_type": "C",
+                "total_duration_ms": 71289
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 59057
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "B",
+                "total_duration_ms": 32955
+            }
+        ]
+    }
+}

@@ -1,0 +1,331 @@
+{
+    "schema_version": "tmc-candidate-promotion-state.v1",
+    "generated_at": "2026-04-15T06:41:50+00:00",
+    "candidate_id": "focused-clean-baseline-equivalent",
+    "seed": "focused-clean-baseline-equivalent",
+    "status": "ineligible",
+    "patch_ready": false,
+    "promotion_eligible": false,
+    "debug_bypass_used": false,
+    "debug_bypass_stages": [],
+    "warnings": [],
+    "stage_order": [
+        "candidate_schema_validation",
+        "effective_config_preflight",
+        "targeted_subsystem_harnesses",
+        "full_single_season_validation",
+        "multi_season_exploit_regression_validation",
+        "official_qualification_comparator_validation",
+        "patch_serialization_validation",
+        "play_test_runtime_parity_certification",
+        "play_test_repo_compatibility_validation",
+        "promotion_eligibility_marking"
+    ],
+    "stages": [
+        {
+            "index": 1,
+            "id": "candidate_schema_validation",
+            "label": "candidate schema validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T06:41:50+00:00",
+            "completed_at": "2026-04-15T06:41:50+00:00",
+            "duration_ms": 13,
+            "summary": "Candidate schema validated successfully.",
+            "warnings": [],
+            "artifacts": {
+                "schema_validation_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\01_candidate_schema_validation\\candidate_schema_validation.json"
+            },
+            "details": {
+                "canonical_change_count": 1,
+                "canonical_changes": [
+                    {
+                        "raw_path": "base_ubi_active_per_tick",
+                        "path": "season.base_ubi_active_per_tick",
+                        "scope": "season",
+                        "key": "base_ubi_active_per_tick",
+                        "requested_value": 30,
+                        "path_status": "valid"
+                    }
+                ]
+            }
+        },
+        {
+            "index": 2,
+            "id": "effective_config_preflight",
+            "label": "effective-config preflight",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T06:41:50+00:00",
+            "completed_at": "2026-04-15T06:41:50+00:00",
+            "duration_ms": 107,
+            "summary": "Effective-config preflight passed and produced canonical audit artifacts.",
+            "warnings": [],
+            "artifacts": {
+                "effective_config_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\02_effective_config_preflight\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\02_effective_config_preflight\\effective_config_audit.md"
+            },
+            "details": {
+                "preflight_status": "pass",
+                "requested_candidate_changes": [
+                    {
+                        "path": "season.base_ubi_active_per_tick",
+                        "raw_path": "season.base_ubi_active_per_tick",
+                        "requested_value": 30,
+                        "effective_value": 30,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    }
+                ]
+            }
+        },
+        {
+            "index": 3,
+            "id": "targeted_subsystem_harnesses",
+            "label": "targeted subsystem harnesses",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T06:41:50+00:00",
+            "completed_at": "2026-04-15T06:45:27+00:00",
+            "duration_ms": 217271,
+            "summary": "Targeted subsystem harnesses passed.",
+            "warnings": [],
+            "artifacts": {
+                "targeted_harness_report_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\03_targeted_subsystem_harnesses\\targeted_harness_report.json"
+            },
+            "details": {
+                "selected_family_ids": [
+                    "boost_underperformance",
+                    "skip_rejoin_exploit_worsened",
+                    "star_affordability_pricing_instability"
+                ],
+                "failed_family_ids": []
+            }
+        },
+        {
+            "index": 4,
+            "id": "full_single_season_validation",
+            "label": "full single-season validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T06:45:27+00:00",
+            "completed_at": "2026-04-15T06:47:39+00:00",
+            "duration_ms": 131405,
+            "summary": "Full single-season validation completed with config audit status `pass`.",
+            "warnings": [],
+            "artifacts": {
+                "single_season_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\04_full_single_season_validation\\promotion_single_season_focused-clean-baseline-equivalent.json",
+                "single_season_csv": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\04_full_single_season_validation\\promotion_single_season_focused-clean-baseline-equivalent.csv",
+                "effective_config_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\04_full_single_season_validation\\audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\04_full_single_season_validation\\audit\\effective_config_audit.md"
+            },
+            "details": {
+                "audit_status": "pass",
+                "schema_version": "tmc-sim-phase1.v1",
+                "simulator": "single-season-population"
+            }
+        },
+        {
+            "index": 5,
+            "id": "multi_season_exploit_regression_validation",
+            "label": "multi-season exploit/regression validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T06:47:39+00:00",
+            "completed_at": "2026-04-15T06:52:58+00:00",
+            "duration_ms": 319821,
+            "summary": "Multi-season exploit/regression validation passed without regression flags.",
+            "warnings": [],
+            "artifacts": {
+                "multi_season_validation_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\05_multi_season_exploit_regression_validation\\multi_season_validation.json",
+                "baseline_lifetime_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.json",
+                "baseline_lifetime_csv": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.csv",
+                "candidate_lifetime_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.json",
+                "candidate_lifetime_csv": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.csv"
+            },
+            "details": {
+                "regression_flags": [],
+                "global_score_delta": 0
+            }
+        },
+        {
+            "index": 6,
+            "id": "official_qualification_comparator_validation",
+            "label": "official qualification comparator validation",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T06:52:58+00:00",
+            "completed_at": "2026-04-15T07:10:01+00:00",
+            "duration_ms": 1022970,
+            "summary": "Official qualification comparator rejected the candidate for promotion readiness (`reject`).",
+            "warnings": [],
+            "artifacts": {
+                "qualification_base_season_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\qualification_base_season.json",
+                "qualification_candidate_bundle_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\qualification_candidate_bundle.json",
+                "qualification_campaign_report_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\sweep_comparator_report.json",
+                "qualification_campaign_report_md": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\sweep_comparator_report.md",
+                "qualification_comparison_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\comparator\\comparison_focused-clean-baseline-equivalent_promotion_qualification.json",
+                "qualification_sweep_manifest_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_focused-clean-baseline-equivalent_promotion_qualification_ppa2_s4.json",
+                "qualification_rejection_attribution_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-clean-baseline-equivalent_promotion_qualification\\promotion-ready-focused-clean-baseline-equivalent\\rejection_attribution.json",
+                "qualification_rejection_attribution_md": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-clean-baseline-equivalent_promotion_qualification\\promotion-ready-focused-clean-baseline-equivalent\\rejection_attribution.md"
+            },
+            "details": {
+                "passes": false,
+                "required_disposition": "non-reject",
+                "actual_disposition": "reject",
+                "wins": 7,
+                "losses": 7,
+                "mixed_tradeoffs": 2,
+                "regression_flags": [
+                    "dominant_archetype_shifted",
+                    "reduced_one_dominant_but_created_new_dominant",
+                    "seasonal_fairness_improves_but_long_run_concentration_worsens"
+                ],
+                "cross_simulator_regression_flags": [
+                    "reduced_one_dominant_but_created_new_dominant",
+                    "seasonal_fairness_improves_but_long_run_concentration_worsens"
+                ],
+                "rejection_attribution": {
+                    "artifact_paths": {
+                        "rejection_attribution_json": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-clean-baseline-equivalent_promotion_qualification\\promotion-ready-focused-clean-baseline-equivalent\\rejection_attribution.json",
+                        "rejection_attribution_md": "tmp/focused-clean-baseline-equivalent\\focused-clean-baseline-equivalent\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-clean-baseline-equivalent_promotion_qualification\\promotion-ready-focused-clean-baseline-equivalent\\rejection_attribution.md"
+                    },
+                    "primary_failed_gate": {
+                        "flag": "seasonal_fairness_improves_but_long_run_concentration_worsens",
+                        "label": "Seasonal fairness improved but long-run concentration regressed",
+                        "source": "cross_simulator",
+                        "score": 95.71534303154311,
+                        "evidence": {
+                            "simulator_type": "C",
+                            "top10_share_delta": 0.007715343031543115
+                        },
+                        "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate improved short-run fairness but paid for it with worse long-run concentration."
+                    },
+                    "secondary_regressions": [
+                        {
+                            "flag": "reduced_one_dominant_but_created_new_dominant",
+                            "label": "One dominant strategy fell but another took over",
+                            "source": "cross_simulator",
+                            "score": 75,
+                            "evidence": {
+                                "simulator_type": null,
+                                "dominant_archetype_transition": []
+                            },
+                            "rationale": "This gate is driven by a cross-simulator regression pattern. Archetype leadership changed enough to trigger a stability concern."
+                        },
+                        {
+                            "flag": "dominant_archetype_shifted",
+                            "label": "Dominant archetype changed",
+                            "source": "simulator",
+                            "score": 69,
+                            "evidence": {
+                                "simulator_type": "B",
+                                "dominant_archetype_transition": {
+                                    "baseline": "Casual",
+                                    "candidate": "Hoarder"
+                                }
+                            },
+                            "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+                        }
+                    ],
+                    "interaction_ambiguity": {
+                        "present": false,
+                        "type": "single_active_knob",
+                        "note": "One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual."
+                    },
+                    "confidence_notes": [
+                        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+                        "A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof.",
+                        "The primary failure is cross-simulator, so the report reflects an interaction-level regression instead of a single local metric threshold."
+                    ],
+                    "timing_ms": 18
+                }
+            }
+        },
+        {
+            "index": 7,
+            "id": "patch_serialization_validation",
+            "label": "patch serialization validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T07:10:01+00:00",
+            "completed_at": "2026-04-15T07:10:01+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 8,
+            "id": "play_test_runtime_parity_certification",
+            "label": "play-test runtime parity certification",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T07:10:01+00:00",
+            "completed_at": "2026-04-15T07:10:01+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 9,
+            "id": "play_test_repo_compatibility_validation",
+            "label": "play-test repo compatibility validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T07:10:01+00:00",
+            "completed_at": "2026-04-15T07:10:01+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 10,
+            "id": "promotion_eligibility_marking",
+            "label": "promotion eligibility marking",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T07:10:01+00:00",
+            "completed_at": "2026-04-15T07:10:01+00:00",
+            "duration_ms": 0,
+            "summary": "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+            "warnings": [],
+            "artifacts": [],
+            "details": {
+                "promotion_eligible": false,
+                "patch_ready": false,
+                "blocking_stages": [
+                    {
+                        "stage_id": "official_qualification_comparator_validation",
+                        "status": "fail",
+                        "summary": "Official qualification comparator rejected the candidate for promotion readiness (`reject`)."
+                    },
+                    {
+                        "stage_id": "patch_serialization_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_runtime_parity_certification",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_repo_compatibility_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    }
+                ]
+            }
+        }
+    ],
+    "artifact_paths": []
+}

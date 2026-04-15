@@ -1,7 +1,5 @@
 <?php
 
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../scripts/simulation/SeasonConfigExporter.php';
 
 $options = [];
@@ -10,42 +8,63 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['output'] = substr($arg, 9);
     } elseif (str_starts_with($arg, '--metadata-output=')) {
         $options['metadata-output'] = substr($arg, 18);
+    } elseif (str_starts_with($arg, '--input-json=')) {
+        $options['input-json'] = substr($arg, 13);
     } elseif ($arg === '--help') {
         echo <<<'HELP'
 Export Season Config
 
 Usage:
-  php tools/export-season-config.php [--output=FILE] [--metadata-output=FILE]
+  php tools/export-season-config.php [--output=FILE] [--metadata-output=FILE] [--input-json=FILE]
 
 Behavior:
   - exports only the canonical patchable economy config
   - optionally writes separate metadata/runtime-state JSON
+  - can refresh a canonical export from an existing season snapshot JSON when DB access is unavailable
   - never mixes DB metadata or runtime-owned fields into the canonical config output
 HELP;
         exit(0);
     }
 }
 
-$db = Database::getInstance();
-$select = implode(",\n       ", SeasonConfigExporter::dbSelectExpressions());
-$row = $db->fetch(
-    "SELECT {$select}
-       FROM seasons
-      WHERE status IN ('Active', 'Blackout')
-      ORDER BY season_id DESC
-      LIMIT 1"
-);
-if (!$row) {
+$row = null;
+if (!empty($options['input-json'])) {
+    $inputPath = (string)$options['input-json'];
+    if (!is_file($inputPath)) {
+        fwrite(STDERR, "Input JSON file not found: {$inputPath}" . PHP_EOL);
+        exit(1);
+    }
+
+    $row = json_decode((string)file_get_contents($inputPath), true);
+    if (!is_array($row)) {
+        fwrite(STDERR, "Input JSON must decode to an object: {$inputPath}" . PHP_EOL);
+        exit(1);
+    }
+} else {
+    require_once __DIR__ . '/../includes/config.php';
+    require_once __DIR__ . '/../includes/database.php';
+
+    $db = Database::getInstance();
+    $select = implode(",\n       ", SeasonConfigExporter::dbSelectExpressions());
     $row = $db->fetch(
         "SELECT {$select}
            FROM seasons
+          WHERE status IN ('Active', 'Blackout')
           ORDER BY season_id DESC
           LIMIT 1"
     );
-}
-if (!$row) {
-    fwrite(STDERR, "No season rows found." . PHP_EOL);
-    exit(1);
+    if (!$row) {
+        $row = $db->fetch(
+            "SELECT {$select}
+               FROM seasons
+              ORDER BY season_id DESC
+              LIMIT 1"
+        );
+    }
+    if (!$row) {
+        fwrite(STDERR, "No season rows found." . PHP_EOL);
+        exit(1);
+    }
 }
 
 $export = SeasonConfigExporter::exportDocumentsFromRow($row);

@@ -1,0 +1,261 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "comparator_schema_version": "tmc-sim-comparator.v1",
+    "generated_at": "2026-04-15T07:42:35+00:00",
+    "seed": "focused-official-qualification",
+    "inputs": {
+        "sweep_manifest": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_focused-official-qualification_ppa2_s4.json",
+        "baseline_b_paths": [],
+        "baseline_c_paths": []
+    },
+    "summary": {
+        "scenario_count": 1,
+        "baseline_group_count": 2,
+        "scenario_group_count": 1,
+        "rejected_scenario_count": 1
+    },
+    "scenarios": [
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "wins": 6,
+            "losses": 9,
+            "mixed_tradeoffs": 2,
+            "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+            "recommended_disposition": "reject",
+            "simulator_comparisons": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 4.0,
+                            "natural_expiry_delta": -4.0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.09999999999999998
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": -8.0,
+                            "t6_drop_delta": -2.0,
+                            "t6_combine_delta": -6.0,
+                            "t6_theft_delta": 0.0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": 5143.0
+                        },
+                        "star_focused_dominance": {
+                            "delta": 6896.0
+                        },
+                        "hoarder_performance": {
+                            "delta": 3492.0
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 11.0
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.0
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": 0.0
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": -0.06405398764437528,
+                            "top10_share_delta": 0.0
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": true
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Early Locker": -8.0,
+                        "Aggressive Sigil User": -8.0,
+                        "Hardcore": -5.0,
+                        "Hoarder": 2.0,
+                        "Boost-Focused": -2.0,
+                        "Star-Focused": 5.0,
+                        "Regular": 1.0,
+                        "Mostly Idle": 5.0,
+                        "Late Deployer": 4.0,
+                        "Casual": 6.0
+                    },
+                    "wins": 3,
+                    "losses": 4,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "dominant_archetype_shifted"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "hoarding_safe_hours",
+                            "hoarding_sink_enabled"
+                        ],
+                        "scenario_name": "phase-gated-safe-24h-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Early Locker",
+                            "candidate": "Star-Focused"
+                        }
+                    }
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "sample_size": {
+                        "baseline_runs": 1,
+                        "scenario_runs": 1,
+                        "paired_runs": 1
+                    },
+                    "delta_flags": {
+                        "lock_in_vs_natural_expiry": {
+                            "lock_in_delta": 0.009803921568627527,
+                            "natural_expiry_delta": 0.0
+                        },
+                        "late_active_participation": {
+                            "late_active_engaged_rate_delta": -0.09045329670329672
+                        },
+                        "t6_supply_and_sourcing": {
+                            "t6_total_delta": 5.0,
+                            "t6_drop_delta": 0.0,
+                            "t6_combine_delta": 0.0,
+                            "t6_theft_delta": 0.0
+                        },
+                        "mostly_idle_performance": {
+                            "delta": -2544.0
+                        },
+                        "star_focused_dominance": {
+                            "delta": 62.5
+                        },
+                        "hoarder_performance": {
+                            "delta": 4845.0
+                        },
+                        "boost_focused_payoff": {
+                            "delta": 273.5
+                        },
+                        "concentration_drift": {
+                            "top10_share_delta": 0.04002384238426057
+                        },
+                        "skip_rejoin_exploit": {
+                            "skip_strategy_edge_delta": -2458.72514619883
+                        },
+                        "cumulative_global_star_concentration": {
+                            "top1_share_delta": 0.04585012655182426,
+                            "top10_share_delta": 0.04002384238426057
+                        },
+                        "archetype_ranking_shift": {
+                            "dominant_archetype_changed": false
+                        }
+                    },
+                    "archetype_ranking_shift": {
+                        "Star-Focused": 0.0,
+                        "Hardcore": -6.0,
+                        "Regular": 1.0,
+                        "Aggressive Sigil User": -5.0,
+                        "Early Locker": 2.0,
+                        "Casual": 1.0,
+                        "Late Deployer": 3.0,
+                        "Boost-Focused": 1.0,
+                        "Mostly Idle": -1.0,
+                        "Hoarder": 4.0
+                    },
+                    "wins": 3,
+                    "losses": 5,
+                    "mixed_tradeoffs": 1,
+                    "regression_flags": [
+                        "long_run_concentration_worsened"
+                    ],
+                    "metadata": {
+                        "override_categories": [
+                            "hoarding_preservation_pressure"
+                        ],
+                        "override_keys": [
+                            "hoarding_safe_hours",
+                            "hoarding_sink_enabled"
+                        ],
+                        "scenario_name": "phase-gated-safe-24h-v1",
+                        "dominant_archetype_transition": {
+                            "baseline": "Star-Focused",
+                            "candidate": "Star-Focused"
+                        }
+                    }
+                }
+            ],
+            "cross_simulator_regression_flags": [
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ],
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "long_run_concentration_worsened",
+                "seasonal_fairness_improves_but_long_run_concentration_worsens"
+            ],
+            "timing_ms": 6,
+            "rejection_attribution": {
+                "artifact_paths": {
+                    "rejection_attribution_json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-official-qualification\\phase-gated-safe-24h-v1\\rejection_attribution.json",
+                    "rejection_attribution_md": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\focused-official-qualification\\phase-gated-safe-24h-v1\\rejection_attribution.md"
+                },
+                "primary_failed_gate": {
+                    "flag": "long_run_concentration_worsened",
+                    "label": "Long-run concentration worsened",
+                    "source": "simulator",
+                    "score": 132.02384238426058,
+                    "evidence": {
+                        "simulator_type": "C",
+                        "top10_share_delta": 0.04002384238426057
+                    },
+                    "rationale": "This gate is driven by direct simulator deltas. Candidate increased long-run top-share concentration."
+                },
+                "secondary_regressions": [
+                    {
+                        "flag": "seasonal_fairness_improves_but_long_run_concentration_worsens",
+                        "label": "Seasonal fairness improved but long-run concentration regressed",
+                        "source": "cross_simulator",
+                        "score": 128.02384238426058,
+                        "evidence": {
+                            "simulator_type": "C",
+                            "top10_share_delta": 0.04002384238426057
+                        },
+                        "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate improved short-run fairness but paid for it with worse long-run concentration."
+                    },
+                    {
+                        "flag": "dominant_archetype_shifted",
+                        "label": "Dominant archetype changed",
+                        "source": "simulator",
+                        "score": 69.0,
+                        "evidence": {
+                            "simulator_type": "B",
+                            "dominant_archetype_transition": {
+                                "baseline": "Early Locker",
+                                "candidate": "Star-Focused"
+                            }
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+                    }
+                ],
+                "interaction_ambiguity": {
+                    "present": true,
+                    "type": "multi_knob_bundle",
+                    "note": "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+                },
+                "confidence_notes": [
+                    "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+                    "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+                ],
+                "timing_ms": 6
+            }
+        }
+    ],
+    "timing_summary": {
+        "dataset_build_duration_ms": 8,
+        "scenario_compare_duration_ms": 6,
+        "artifact_write_duration_ms": 2,
+        "total_duration_ms": 17
+    }
+}

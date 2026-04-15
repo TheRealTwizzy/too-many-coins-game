@@ -91,21 +91,23 @@ Fixed stage order:
 3. `targeted_subsystem_harnesses`
 4. `full_single_season_validation`
 5. `multi_season_exploit_regression_validation`
-6. `patch_serialization_validation`
-7. `play_test_runtime_parity_certification`
-8. `play_test_repo_compatibility_validation`
-9. `promotion_eligibility_marking`
+6. `official_qualification_comparator_validation`
+7. `patch_serialization_validation`
+8. `play_test_runtime_parity_certification`
+9. `play_test_repo_compatibility_validation`
+10. `promotion_eligibility_marking`
 
 Rules:
 
 - stage order is mandatory in normal workflows
 - a failed required stage blocks later required stages
 - developer-only bypasses are explicit and always keep the candidate ineligible for patch-ready promotion
-- promotion eligibility is only marked after stages 1-8 all return `pass`
-- stage 7 certifies simulator/runtime mechanic parity across hoarding sink, boost, lock-in, expiry, star pricing, rejoin, and blackout/finalization domains
-- stage 7 writes both `runtime_parity_certification.json` and `runtime_parity_certification.md`
-- stage 8 validates the shared simulator/play-test schema contract in `CanonicalEconomyConfigContract`
-- stage 8 writes both `play_test_repo_compatibility.json` and `play_test_repo_compatibility.md`
+- promotion eligibility is only marked after stages 1-9 all return `pass`
+- stage 6 runs the official `qualification` sweep/comparator profile semantics against the candidate and requires a non-`reject` disposition with zero regression flags
+- stage 8 certifies simulator/runtime mechanic parity across hoarding sink, boost, lock-in, expiry, star pricing, rejoin, and blackout/finalization domains
+- stage 8 writes both `runtime_parity_certification.json` and `runtime_parity_certification.md`
+- stage 9 validates the shared simulator/play-test schema contract in `CanonicalEconomyConfigContract`
+- stage 9 writes both `play_test_repo_compatibility.json` and `play_test_repo_compatibility.md`
 
 Reference:
 

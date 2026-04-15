@@ -1,119 +1,56 @@
 # Qualification Plan
 
-Qualification date: `2026-04-14`
+Qualification window:
+- Local date: `2026-04-14` (`America/Denver`)
+- Artifact timestamps: `2026-04-15` (`UTC`)
 
-## Objective
+Objective:
+- Close the two remaining critical blockers:
+  - promotion eligibility must not bypass the official qualification comparator standard
+  - the checked-in official baseline artifact must pass strict preflight unchanged
+- Rerun a focused readiness qualification pass against the refreshed canonical baseline
 
-Rerun the official qualification path after the reopened blocker fixes and determine whether the current simulation suite is ready for:
+Root-cause focus:
+1. Promotion/comparator contradiction
+   - inspect `CandidatePromotionPipeline`
+   - inspect the official `qualification` profile in `SweepComparatorProfileCatalog`
+   - align promotion readiness to the official comparator gate
+2. Checked-in baseline artifact mismatch
+   - inspect `SeasonConfigExporter`, `SimulationConfigPreflight`, and the checked-in `simulation_output/current-db/export/current_season_economy_only.json`
+   - repair the refresh path so the tracked canonical artifact is generated through the exporter boundary
 
-- controlled simulation use
-- balance-suggestion workflows
+Canonical fixes to apply:
+1. Promotion readiness
+   - add a required promotion stage that runs the official `qualification` sweep/comparator profile
+   - block `promotion_eligible=true` unless the comparator stage is non-reject and carries zero regression flags
+   - normalize the promotion comparator wrapper so scenario identity and seed can match standalone qualification runs
+2. Baseline artifact validity
+   - extend `tools/export-season-config.php` with snapshot-input refresh support via `--input-json=FILE`
+   - make the current-db helper export the official canonical artifact path `simulation_output/current-db/export/current_season_economy_only.json`
+   - regenerate the checked-in canonical artifact through the exporter, not by hand
 
-## Baseline And Reproducibility Inputs
+Focused verification steps:
+1. Run fast proof tests:
+   - `OfficialBaselineArtifactTest`
+   - `PromotionReadinessGateTest`
+   - `CandidatePromotionPipelineTest`
+   - targeted `SimulationConfigPreflightTest`
+   - `RuntimeParityCertificationTest`
+   - `PromotionPatchGeneratorTest`
+2. Verify the checked-in baseline artifact passes strict preflight unchanged.
+3. Verify disabled-subsystem suppression still rejects inactive/shadowed candidate keys.
+4. Verify deterministic single-season and lifetime simulation outputs on the refreshed official baseline.
+5. Rerun the official `qualification` comparator profile against `simulation_output/current-db/export/current_season_economy_only.json`.
+6. Rerun the promotion ladder on the pinned `phase-gated-safe-24h-v1` candidate using the same seed/scenario identity as standalone qualification and confirm the promotion comparator stage matches the official comparator outcome.
+7. Probe for at least one truly eligible promotion candidate.
 
-- Git commit: `4936633dabe17f64e58b672f71b3a9b01fc6772a`
-- Qualification workspace: `tmp/qualification-20260414-rerun`
-- Canonical baseline snapshot used for all run-time checks:
-  - `simulation_output/current-db/export/current_season_economy_only.json`
-- Scenario bundle:
-  - `simulation_output/sweep/followup-tuning-candidates-20260413.json`
-- Seed bundle root:
-  - `qualification-20260414-rerun`
+Important constraint handling:
+- No meaningful comparator gates are removed.
+- Promotion eligibility cannot bypass comparator-equivalent rejection checks.
+- The checked-in baseline artifact is refreshed only through the canonical exporter boundary.
+- DB-backed exporter execution was not available in this workspace, so snapshot-input refresh is used as the reproducible fallback.
 
-Exporter note:
-
-- The canonical exporter entrypoint is `php tools/export-season-config.php --output=FILE --metadata-output=FILE`.
-- In this workspace the exporter cannot be executed end-to-end because the configured DB connection is unavailable.
-- To keep the run reproducible, qualification uses the checked-in canonical export snapshot above and separately verifies exporter behavior through source inspection and focused tests.
-
-## Canonical Commands / Entrypoints
-
-- Baseline export:
-  - `php tools/export-season-config.php --output=FILE --metadata-output=FILE`
-- Candidate linting:
-  - `php scripts/lint_candidate_packages.php --input=FILE --season-config=simulation_output/current-db/export/current_season_economy_only.json`
-- Effective-config preflight:
-  - canonical resolver: `scripts/simulation/SimulationConfigPreflight.php`
-  - official exercised entrypoints:
-    - `php scripts/simulate_economy.php --season-config=FILE ...`
-    - `php scripts/promote_simulation_candidate.php --candidate=FILE --season-config=FILE ...`
-- Staged candidate generation:
-  - `php scripts/generate_tuning_candidates.php --diagnosis=simulation_output/current-db/diagnosis/diagnosis_report.json --season-config=simulation_output/current-db/export/current_season_economy_only.json --output=tmp/qualification-20260414-rerun/staged-candidates --version=3`
-- Rejection attribution:
-  - `php scripts/compare_simulation_results.php --seed=VALUE --sweep-manifest=FILE --output=DIR`
-- Targeted subsystem harnesses:
-  - `php scripts/simulate_coupling_harnesses.php --seed=VALUE --season-config=FILE --candidate-patch=FILE --output=DIR`
-- Promotion ladder execution:
-  - `php scripts/promote_simulation_candidate.php --candidate=FILE --candidate-id=ID --seed=VALUE --season-config=FILE --output=DIR --players-per-archetype=2 --season-count=4`
-- Canonical config export:
-  - same exporter as baseline export: `php tools/export-season-config.php --output=FILE --metadata-output=FILE`
-- Deterministic patch generation:
-  - `php scripts/generate_promotion_patch.php --promotion-report=FILE --output=DIR --dry-run`
-- Parity certification:
-  - `php scripts/certify_runtime_parity.php --candidate-id=ID --seed=VALUE --season-config=FILE --output=DIR`
-- Qualification report generation:
-  - no dedicated report-generation script is present in the repo
-  - qualification reporting will be synthesized into `qualification_results.json` and `qualification_report.md`
-
-## Fixed Candidate Set
-
-Baseline artifact:
-
-- `simulation_output/current-db/export/current_season_economy_only.json`
-  - Expected: passes official preflight unchanged and contains only canonical patchable economy keys
-
-Candidate patches:
-
-- `tmp/qualification-20260414-rerun/candidates/invalid_disabled_subsystem.json`
-  - `{ "hoarding_safe_hours": 24 }`
-  - Expected: fail schema/preflight with `candidate_disabled_subsystem`
-
-- Suppressed family from staged generation:
-  - family: `phase_dead_zones`
-  - target: `hoarding_window_ticks`
-  - Expected: absent from generated packages and present in suppression artifacts with a disabled-baseline reason
-
-- `tmp/qualification-20260414-rerun/candidates/single_knob_candidate.json`
-  - generated from fresh stage-1 output
-  - Expected: valid single-knob candidate; should clear schema/preflight and provide honest ladder evidence
-
-- `tmp/qualification-20260414-rerun/candidates/late_stage_failure_candidate.json`
-  - mirrors official qualification scenario `phase-gated-safe-24h-v1`
-  - Expected: pass early validation, then fail later gate(s) or comparator-driven qualification evidence
-
-- `tmp/qualification-20260414-rerun/candidates/promotion_contender_candidate.json`
-  - generated from fresh stage-1 output
-  - Expected: best available nontrivial contender for promotion-path checks
-
-## Execution Plan
-
-1. Verify the canonical baseline snapshot surface against the contract and run official preflight through `simulate_economy.php` without manual edits.
-2. Generate fresh staged candidates against the canonical baseline snapshot and verify disabled-family suppression in the emitted artifacts.
-3. Lint the fixed candidate files against the same canonical baseline snapshot.
-4. Run the promotion ladder on the representative valid and invalid candidates with `players_per_archetype=2` and `season_count=4`.
-5. Run standalone coupling harnesses for the valid candidates to confirm harness artifacts and screening behavior.
-6. Run the official sweep/comparator `qualification` profile against the same canonical baseline snapshot.
-7. Run determinism checks:
-   - same semantic inputs, different output roots
-   - intentional semantic drift negative control
-   - repeated deterministic patch generation for identical semantic inputs
-8. Run standalone parity certification for the best available contender and compare it with promotion-stage parity evidence when present.
-9. Synthesize outcomes into `qualification_results.json` and `qualification_report.md`.
-
-## Success / Verdict Rules
-
-- `ready for controlled use`
-  - official baseline export/preflight handoff is clean
-  - disabled families are suppressed before generation
-  - determinism holds for semantic-equivalent runs
-  - qualification comparator/rejection attribution completes on the official profile
-  - stage gating, parity, and patch generation behave honestly
-  - no critical blocker remains for controlled simulation or balance-suggestion workflows
-
-- `ready for simulation only`
-  - simulation-facing validation and attribution are trustworthy
-  - but promotion/balance-suggestion path still has a material limitation
-
-- `not ready`
-  - any critical qualification blocker remains reopened
-  - or determinism/comparator/promotion integrity is materially unreliable
+Expected decision rule:
+- `ready for controlled use` only if the refreshed baseline passes unchanged, comparator/promotion alignment is proven, and at least one truly eligible candidate can clear the full readiness path.
+- `ready for simulation only` only if the suite is operational for analysis but still lacks promotion-ready evidence.
+- `not ready` if the official qualification profile still rejects the pinned candidate set or no truly eligible promotion path can be demonstrated.

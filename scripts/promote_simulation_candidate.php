@@ -56,10 +56,11 @@ Stages:
   3. targeted_subsystem_harnesses
   4. full_single_season_validation
   5. multi_season_exploit_regression_validation
-  6. patch_serialization_validation
-  7. play_test_runtime_parity_certification
-  8. play_test_repo_compatibility_validation
-  9. promotion_eligibility_marking
+  6. official_qualification_comparator_validation
+  7. patch_serialization_validation
+  8. play_test_runtime_parity_certification
+  9. play_test_repo_compatibility_validation
+  10. promotion_eligibility_marking
 HELP;
         exit(0);
     }

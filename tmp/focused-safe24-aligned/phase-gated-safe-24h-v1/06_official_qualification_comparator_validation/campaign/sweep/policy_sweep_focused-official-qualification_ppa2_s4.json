@@ -1,0 +1,187 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T07:42:35+00:00",
+    "seed": "focused-official-qualification",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "phase-gated-safe-24h-v1"
+        ],
+        "base_season_config_path": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-official-qualification|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-official-qualification_scenario_baseline_sim_B_ppa2.json",
+            "csv": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-official-qualification_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-official-qualification_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_focused-official-qualification_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 41086,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 41090
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-official-qualification|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-official-qualification_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-official-qualification_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-official-qualification_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_focused-official-qualification_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 58243,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 58247
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-official-qualification|scenario|phase-gated-safe-24h-v1|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.json",
+            "csv": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_B_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 33999,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 34005
+            }
+        },
+        {
+            "scenario_name": "phase-gated-safe-24h-v1",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "focused-official-qualification|scenario|phase-gated-safe-24h-v1|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.json",
+            "csv": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "tmp/focused-safe24-aligned\\phase-gated-safe-24h-v1\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_phase-gated-safe-24h-v1_C_focused-official-qualification_scenario_phase-gated-safe-24h-v1_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 60751,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 60756
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "sigil_drop_tier_combine",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 194098,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 194102,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 75095
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 119003
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "phase-gated-safe-24h-v1",
+                "simulator_type": "C",
+                "total_duration_ms": 60756
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 58247
+            },
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "B",
+                "total_duration_ms": 41090
+            }
+        ]
+    }
+}

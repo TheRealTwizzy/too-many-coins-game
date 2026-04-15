@@ -9,7 +9,9 @@ require_once __DIR__ . '/SimulationPopulationSeason.php';
 require_once __DIR__ . '/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/MetricsCollector.php';
 require_once __DIR__ . '/PolicySweepRunner.php';
+require_once __DIR__ . '/PromotionReadinessGate.php';
 require_once __DIR__ . '/RuntimeParityCertification.php';
+require_once __DIR__ . '/SweepComparatorCampaignRunner.php';
 require_once __DIR__ . '/../optimization/AgenticOptimization.php';
 
 class CandidatePromotionPipeline
@@ -25,10 +27,11 @@ class CandidatePromotionPipeline
         ['index' => 3, 'id' => 'targeted_subsystem_harnesses', 'label' => 'targeted subsystem harnesses'],
         ['index' => 4, 'id' => 'full_single_season_validation', 'label' => 'full single-season validation'],
         ['index' => 5, 'id' => 'multi_season_exploit_regression_validation', 'label' => 'multi-season exploit/regression validation'],
-        ['index' => 6, 'id' => 'patch_serialization_validation', 'label' => 'patch serialization validation'],
-        ['index' => 7, 'id' => 'play_test_runtime_parity_certification', 'label' => 'play-test runtime parity certification'],
-        ['index' => 8, 'id' => 'play_test_repo_compatibility_validation', 'label' => 'play-test repo compatibility validation'],
-        ['index' => 9, 'id' => 'promotion_eligibility_marking', 'label' => 'promotion eligibility marking'],
+        ['index' => 6, 'id' => 'official_qualification_comparator_validation', 'label' => 'official qualification comparator validation'],
+        ['index' => 7, 'id' => 'patch_serialization_validation', 'label' => 'patch serialization validation'],
+        ['index' => 8, 'id' => 'play_test_runtime_parity_certification', 'label' => 'play-test runtime parity certification'],
+        ['index' => 9, 'id' => 'play_test_repo_compatibility_validation', 'label' => 'play-test repo compatibility validation'],
+        ['index' => 10, 'id' => 'promotion_eligibility_marking', 'label' => 'promotion eligibility marking'],
     ];
 
     public static function run(array $options): array
@@ -83,7 +86,7 @@ class CandidatePromotionPipeline
         ];
 
         $pipelineBlocked = false;
-        foreach (array_slice(self::STAGES, 0, 8) as $stageDef) {
+        foreach (array_slice(self::STAGES, 0, count(self::STAGES) - 1) as $stageDef) {
             if ($pipelineBlocked) {
                 $state['stages'][] = self::blockedStage($stageDef, 'blocked by failed prior required stage');
                 continue;
@@ -143,6 +146,7 @@ class CandidatePromotionPipeline
                 'targeted_subsystem_harnesses' => self::stageTargetedSubsystemHarnesses($context, $stageDir, $bypassRequested),
                 'full_single_season_validation' => self::stageFullSingleSeasonValidation($context, $stageDir, $bypassRequested),
                 'multi_season_exploit_regression_validation' => self::stageMultiSeasonValidation($context, $stageDir, $bypassRequested),
+                'official_qualification_comparator_validation' => self::stageOfficialQualificationComparatorValidation($context, $stageDir),
                 'patch_serialization_validation' => self::stagePatchSerializationValidation($context, $stageDir),
                 'play_test_runtime_parity_certification' => self::stagePlayTestRuntimeParityCertification($context, $stageDir, $bypassRequested),
                 'play_test_repo_compatibility_validation' => self::stagePlayTestCompatibilityValidation($context, $stageDir, $bypassRequested),
@@ -188,14 +192,14 @@ class CandidatePromotionPipeline
 
     private static function runEligibilityStage(array $state): array
     {
-        $requiredStages = array_slice($state['stages'], 0, 8);
+        $requiredStages = array_slice($state['stages'], 0, count(self::STAGES) - 1);
         $nonPassing = array_values(array_filter($requiredStages, static function (array $stage): bool {
             return (string)$stage['status'] !== 'pass';
         }));
 
         if ($nonPassing === []) {
             return [
-                'index' => 9,
+                'index' => 10,
                 'id' => 'promotion_eligibility_marking',
                 'label' => 'promotion eligibility marking',
                 'required' => true,
@@ -203,7 +207,7 @@ class CandidatePromotionPipeline
                 'started_at' => gmdate('c'),
                 'completed_at' => gmdate('c'),
                 'duration_ms' => 0,
-                'summary' => 'Candidate passed every required promotion stage and is patch-ready.',
+                'summary' => 'Candidate passed every required promotion stage, including the official qualification comparator, and is patch-ready.',
                 'warnings' => [],
                 'artifacts' => [],
                 'details' => [
@@ -222,7 +226,7 @@ class CandidatePromotionPipeline
         }, $nonPassing);
 
         return [
-            'index' => 9,
+            'index' => 10,
             'id' => 'promotion_eligibility_marking',
             'label' => 'promotion eligibility marking',
             'required' => true,
@@ -655,6 +659,83 @@ class CandidatePromotionPipeline
         ];
     }
 
+    private static function stageOfficialQualificationComparatorValidation(array &$context, string $stageDir): array
+    {
+        $seasonChanges = self::filterCanonicalChangesByScope($context['canonical_changes'], 'season');
+        $scenarioName = AgenticOptimizationUtils::sanitize($context['candidate_id']);
+        $baseSeasonPath = $stageDir . DIRECTORY_SEPARATOR . 'qualification_base_season.json';
+        $bundlePath = $stageDir . DIRECTORY_SEPARATOR . 'qualification_candidate_bundle.json';
+        $scenarioOverrides = ($seasonChanges === [])
+            ? ['base_ubi_active_per_tick' => (int)$context['base_season']['base_ubi_active_per_tick']]
+            : self::canonicalSeasonValueMap($seasonChanges);
+        $scenarioCategories = self::scenarioCategoriesFromChanges($seasonChanges);
+
+        file_put_contents(
+            $baseSeasonPath,
+            json_encode(SeasonConfigExporter::canonicalConfigFromRow($context['base_season']), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+        );
+        file_put_contents(
+            $bundlePath,
+            json_encode([
+                'schema_version' => 'tmc-tuning-candidates.v1',
+                'description' => 'Temporary promotion-ladder qualification comparator bundle for `' . $context['candidate_id'] . '`.',
+                'scenarios' => [[
+                    'name' => $scenarioName,
+                    'description' => 'Canonical promotion readiness candidate generated from the promotion pipeline.',
+                    'categories' => $scenarioCategories,
+                    'overrides' => $scenarioOverrides,
+                ]],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+        );
+
+        $campaign = SweepComparatorCampaignRunner::run([
+            'profile' => 'qualification',
+            'seed' => $context['seed'],
+            'season_config_path' => $baseSeasonPath,
+            'tuning_candidates_path' => $bundlePath,
+            'scenario_names' => [$scenarioName],
+            'output_dir' => $stageDir . DIRECTORY_SEPARATOR . 'campaign',
+        ]);
+
+        $comparisonPayload = (array)($campaign['comparison']['payload'] ?? []);
+        $scenarioReports = array_values(array_filter((array)($comparisonPayload['scenarios'] ?? []), static function (array $scenario) use ($scenarioName): bool {
+            return (string)($scenario['scenario_name'] ?? '') === $scenarioName;
+        }));
+        if ($scenarioReports === []) {
+            throw new RuntimeException('Official qualification comparator did not emit a scenario report for `' . $scenarioName . '`.');
+        }
+
+        $scenarioReport = (array)$scenarioReports[0];
+        $gate = PromotionReadinessGate::evaluateQualificationComparatorScenario($scenarioReport);
+
+        $artifacts = [
+            'qualification_base_season_json' => $baseSeasonPath,
+            'qualification_candidate_bundle_json' => $bundlePath,
+            'qualification_campaign_report_json' => (string)($campaign['report']['artifacts']['report_json'] ?? $campaign['report_json_path'] ?? ''),
+            'qualification_campaign_report_md' => (string)($campaign['report']['artifacts']['report_md'] ?? $campaign['report_md_path'] ?? ''),
+            'qualification_comparison_json' => (string)($campaign['report']['artifacts']['comparison_json'] ?? ''),
+            'qualification_sweep_manifest_json' => (string)($campaign['report']['artifacts']['sweep_manifest_json'] ?? ''),
+            'qualification_rejection_attribution_json' => (string)($scenarioReport['rejection_attribution']['artifact_paths']['rejection_attribution_json'] ?? ''),
+            'qualification_rejection_attribution_md' => (string)($scenarioReport['rejection_attribution']['artifact_paths']['rejection_attribution_md'] ?? ''),
+        ];
+
+        if (empty($gate['passes'])) {
+            return [
+                'status' => 'fail',
+                'summary' => 'Official qualification comparator rejected the candidate for promotion readiness (`' . (string)$gate['actual_disposition'] . '`).',
+                'details' => $gate,
+                'artifacts' => array_filter($artifacts),
+            ];
+        }
+
+        return [
+            'status' => 'pass',
+            'summary' => 'Official qualification comparator accepted the candidate without reject-level regression flags (`' . (string)$gate['actual_disposition'] . '`).',
+            'details' => $gate,
+            'artifacts' => array_filter($artifacts),
+        ];
+    }
+
     private static function stagePatchSerializationValidation(array &$context, string $stageDir): array
     {
         $serialized = [
@@ -1002,6 +1083,36 @@ class CandidatePromotionPipeline
                 'path_status' => $change['path_status'] ?? null,
             ];
         }, self::stableCanonicalChanges($changes));
+    }
+
+    private static function scenarioCategoriesFromChanges(array $changes): array
+    {
+        if ($changes === []) {
+            return ['boost_related'];
+        }
+
+        $categoriesByKey = [];
+        foreach (EconomicCandidateValidator::categoryAllowlist() as $category => $keys) {
+            foreach ($keys as $key) {
+                $categoriesByKey[$key][$category] = true;
+            }
+        }
+
+        $selected = [];
+        foreach ($changes as $change) {
+            $key = (string)($change['key'] ?? '');
+            foreach (array_keys((array)($categoriesByKey[$key] ?? [])) as $category) {
+                $selected[$category] = true;
+            }
+        }
+
+        $categories = array_keys($selected);
+        sort($categories);
+        if ($categories === []) {
+            throw new InvalidArgumentException('Promotion qualification comparator bundle requires at least one supported candidate category.');
+        }
+
+        return $categories;
     }
 
     private static function filterCanonicalChangesByScope(array $changes, string $scope): array

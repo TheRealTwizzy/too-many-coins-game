@@ -1,0 +1,160 @@
+{
+    "schema_version": "tmc-sim-rejection-attribution.v1",
+    "generated_at": "2026-04-15T07:10:01+00:00",
+    "comparator_seed": "focused-clean-baseline-equivalent|promotion|qualification",
+    "scenario_name": "promotion-ready-focused-clean-baseline-equivalent",
+    "recommended_disposition": "reject",
+    "control_baseline_comparison": {
+        "wins": 7,
+        "losses": 7,
+        "mixed_tradeoffs": 2,
+        "confidence_summary": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "regression_flags": [
+            "dominant_archetype_shifted",
+            "reduced_one_dominant_but_created_new_dominant",
+            "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ],
+        "cross_simulator_regression_flags": [
+            "reduced_one_dominant_but_created_new_dominant",
+            "seasonal_fairness_improves_but_long_run_concentration_worsens"
+        ],
+        "simulator_groups": [
+            {
+                "simulator_type": "B",
+                "signature": "B|ppa=2|seasons=1",
+                "paired_runs": 1,
+                "wins": 3,
+                "losses": 3,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": 0.0,
+                    "natural_expiry_delta": 0.0,
+                    "late_active_engaged_rate_delta": -0.050000000000000044,
+                    "concentration_top10_share_delta": 0.0,
+                    "skip_strategy_edge_delta": 0.0
+                }
+            },
+            {
+                "simulator_type": "C",
+                "signature": "C|ppa=2|seasons=4",
+                "paired_runs": 1,
+                "wins": 4,
+                "losses": 4,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "dominant_archetype_shifted"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": 0.014705882352941124,
+                    "natural_expiry_delta": 0.0,
+                    "late_active_engaged_rate_delta": -0.1121170496170496,
+                    "concentration_top10_share_delta": 0.007715343031543115,
+                    "skip_strategy_edge_delta": -11123.290196078431
+                }
+            }
+        ]
+    },
+    "changed_knobs": [
+        {
+            "path": "season.base_ubi_active_per_tick",
+            "key": "base_ubi_active_per_tick",
+            "requested_value": 30,
+            "baseline_value": 30,
+            "candidate_effective_value": 30,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "boost_related",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 30,
+                    "candidate_effective_value": 30,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 30,
+                    "candidate_effective_value": 30,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        }
+    ],
+    "knob_activity_summary": {
+        "active_count": 1,
+        "inactive_count": 0,
+        "unknown_count": 0,
+        "active_paths": [
+            "season.base_ubi_active_per_tick"
+        ],
+        "inactive_paths": []
+    },
+    "primary_failed_gate": {
+        "flag": "seasonal_fairness_improves_but_long_run_concentration_worsens",
+        "label": "Seasonal fairness improved but long-run concentration regressed",
+        "source": "cross_simulator",
+        "score": 95.71534303154311,
+        "evidence": {
+            "simulator_type": "C",
+            "top10_share_delta": 0.007715343031543115
+        },
+        "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate improved short-run fairness but paid for it with worse long-run concentration."
+    },
+    "secondary_regressions": [
+        {
+            "flag": "reduced_one_dominant_but_created_new_dominant",
+            "label": "One dominant strategy fell but another took over",
+            "source": "cross_simulator",
+            "score": 75.0,
+            "evidence": {
+                "simulator_type": null,
+                "dominant_archetype_transition": []
+            },
+            "rationale": "This gate is driven by a cross-simulator regression pattern. Archetype leadership changed enough to trigger a stability concern."
+        },
+        {
+            "flag": "dominant_archetype_shifted",
+            "label": "Dominant archetype changed",
+            "source": "simulator",
+            "score": 69.0,
+            "evidence": {
+                "simulator_type": "B",
+                "dominant_archetype_transition": {
+                    "baseline": "Casual",
+                    "candidate": "Hoarder"
+                }
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Archetype leadership changed enough to trigger a stability concern."
+        }
+    ],
+    "likely_causal_knob_ranking": [
+        {
+            "path": "season.base_ubi_active_per_tick",
+            "key": "base_ubi_active_per_tick",
+            "classification": "active",
+            "subsystem": "boost_related",
+            "score": 10.8,
+            "confidence": "moderate",
+            "rationale": "Knob was active in the effective config. Its key maps directly to the primary failed gate.",
+            "rank": 1
+        }
+    ],
+    "interaction_ambiguity": {
+        "present": false,
+        "type": "single_active_knob",
+        "note": "One active knob changed, which narrows attribution, but the comparator still measures outcome rather than a direct causal counterfactual."
+    },
+    "confidence_notes": [
+        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+        "A single active knob reduces bundle ambiguity, but this is still an attribution estimate rather than a counterfactual proof.",
+        "The primary failure is cross-simulator, so the report reflects an interaction-level regression instead of a single local metric threshold."
+    ]
+}
