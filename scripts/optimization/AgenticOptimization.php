@@ -216,7 +216,7 @@ class AgenticBaselineConfigLoader
 
 class AgenticEconomyDecomposition
 {
-    public static function build(): array
+    public static function build(array $baselineSeason = []): array
     {
         $profiles = [
             'tier1_hoarding' => [
@@ -623,12 +623,35 @@ class AgenticEconomyDecomposition
         ];
 
         $activeSearchKeys = array_fill_keys(array_keys(CanonicalEconomyConfigContract::candidateSearchParameters()), true);
+        $searchSurfaceMeta = CanonicalEconomyConfigContract::validatorSurfaceMeta();
         foreach ($subsystems as &$subsystem) {
             $subsystem['owned_parameters'] = array_values(array_filter(
                 (array)($subsystem['owned_parameters'] ?? []),
-                static function (array $parameter) use ($activeSearchKeys): bool {
+                static function (array $parameter) use ($activeSearchKeys, $searchSurfaceMeta, $baselineSeason): bool {
                     $key = (string)($parameter['key'] ?? '');
-                    return $key !== '' && isset($activeSearchKeys[$key]);
+                    if ($key === '' || !isset($activeSearchKeys[$key])) {
+                        return false;
+                    }
+                    // Skip parameters whose feature flag is disabled in the baseline season.
+                    // This mirrors EconomicCandidateValidator::resolveFeatureFlag() and prevents
+                    // the strict preflight from rejecting candidates with candidate_disabled_subsystem.
+                    $featureFlag = (string)($searchSurfaceMeta[$key]['feature_flag'] ?? '');
+                    if ($featureFlag !== '' && $baselineSeason !== []) {
+                        if (str_starts_with($featureFlag, 'season.')) {
+                            $flagKey = substr($featureFlag, 7);
+                            $flagValue = $baselineSeason[$flagKey] ?? null;
+                            $enabled = false;
+                            if (is_bool($flagValue)) {
+                                $enabled = $flagValue;
+                            } elseif (is_numeric($flagValue)) {
+                                $enabled = ((int)$flagValue) !== 0;
+                            }
+                            if (!$enabled) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
                 }
             ));
             if (!isset($subsystem['search_limits'])) {
@@ -2105,7 +2128,13 @@ class AgenticSubsystemAgent
         }
 
         // Add a coarse-to-fine two-surface composition candidate from the top two surfaces.
+        // Only compose when the two candidates mutate distinct keys; composing the same key twice
+        // produces a candidate_duplicate_key validation error and stacks multipliers nonsensically.
         if (count($candidates) >= 2) {
+            $firstKeys = array_column((array)($candidates[0]['changes'] ?? []), 'key');
+            $secondKeys = array_column((array)($candidates[1]['changes'] ?? []), 'key');
+        }
+        if (count($candidates) >= 2 && array_intersect($firstKeys ?? [], $secondKeys ?? []) === []) {
             $first = $candidates[0];
             $second = $candidates[1];
             $mergedConfig = $currentConfig;
@@ -2267,7 +2296,7 @@ class AgenticOptimizationCoordinator
             'effective_config' => AgenticOptimizationUtils::convertSeasonForJson($baseSeason),
         ]);
 
-        $decomposition = AgenticEconomyDecomposition::build();
+        $decomposition = AgenticEconomyDecomposition::build($baseSeason);
         $decompositionPaths = AgenticEconomyDecomposition::writeArtifacts($decomposition, $runDir . DIRECTORY_SEPARATOR . 'decomposition');
 
         $auditReport = AgenticRejectedIterationAuditor::run($repoRoot, $runDir . DIRECTORY_SEPARATOR . 'audit');
