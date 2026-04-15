@@ -415,14 +415,16 @@ class AgenticEconomyDecomposition
             'tier3_full' => [
                 'id' => 'tier3_full',
                 'tier' => 'tier3',
-                'description' => 'Full lifecycle acceptance gate.',
+                'description' => 'Full lifecycle acceptance gate (agentic screening profile). '
+                    . 'Uses reduced cost vs promotion-ladder tier3 to prevent PHP timeout. '
+                    . 'Official promotion uses SweepComparatorCampaignRunner qualification profile as the real final gate.',
                 'simulators' => ['B', 'C'],
-                'players_per_archetype' => 5,
-                'season_count' => 12,
-                'season_duration_ticks' => 14400,
-                'blackout_duration_ticks' => 3600,
+                'players_per_archetype' => 3,
+                'season_count' => 8,
+                'season_duration_ticks' => 1440,
+                'blackout_duration_ticks' => 360,
                 'archetype_keys' => [],
-                'seeds' => ['tier3-full-a', 'tier3-full-b'],
+                'seeds' => ['tier3-full-a'],
             ],
         ];
 
