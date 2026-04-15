@@ -1,0 +1,1239 @@
+{
+    "schema_version": "tmc-candidate-promotion-report.v1",
+    "generated_at": "2026-04-15T18:30:45+00:00",
+    "candidate_id": "recovery-affordability-ubi",
+    "seed": "promotion-20260415-183044",
+    "pipeline_status": "ineligible",
+    "patch_ready": false,
+    "promotion_eligible": false,
+    "debug_bypass_used": false,
+    "debug_bypass_stages": [],
+    "warnings": [],
+    "candidate": {
+        "raw_document": {
+            "market_affordability_bias_fp": 940000,
+            "base_ubi_active_per_tick": 36,
+            "base_ubi_idle_factor_fp": 220000
+        },
+        "canonical_changes": [
+            {
+                "raw_path": "base_ubi_active_per_tick",
+                "path": "season.base_ubi_active_per_tick",
+                "scope": "season",
+                "key": "base_ubi_active_per_tick",
+                "requested_value": 36,
+                "path_status": "valid"
+            },
+            {
+                "raw_path": "base_ubi_idle_factor_fp",
+                "path": "season.base_ubi_idle_factor_fp",
+                "scope": "season",
+                "key": "base_ubi_idle_factor_fp",
+                "requested_value": 220000,
+                "path_status": "valid"
+            },
+            {
+                "raw_path": "market_affordability_bias_fp",
+                "path": "season.market_affordability_bias_fp",
+                "scope": "season",
+                "key": "market_affordability_bias_fp",
+                "requested_value": 940000,
+                "path_status": "valid"
+            }
+        ],
+        "serialized_patch_path": null
+    },
+    "base_season": {
+        "surface_sha256": "9085f44ddba518846a30e22e9aae10a50787456653ea740ed683b229ccf97fc2",
+        "effective_config": {
+            "season_id": 1,
+            "start_time": 1,
+            "end_time": 337,
+            "blackout_time": 265,
+            "status": "Scheduled",
+            "season_expired": 0,
+            "expiration_finalized": 0,
+            "base_ubi_active_per_tick": 30,
+            "base_ubi_idle_factor_fp": 250000,
+            "ubi_min_per_tick": 1,
+            "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+            "hoarding_window_ticks": 86400,
+            "target_spend_rate_per_tick": 18,
+            "hoarding_min_factor_fp": 90000,
+            "hoarding_sink_enabled": 0,
+            "hoarding_safe_hours": 12,
+            "hoarding_safe_min_coins": 20000,
+            "hoarding_tier1_excess_cap": 50000,
+            "hoarding_tier2_excess_cap": 200000,
+            "hoarding_tier1_rate_hourly_fp": 200,
+            "hoarding_tier2_rate_hourly_fp": 535,
+            "hoarding_tier3_rate_hourly_fp": 1070,
+            "hoarding_sink_cap_ratio_fp": 350000,
+            "hoarding_idle_multiplier_fp": 1287500,
+            "starprice_table": "[{\"m\": 0, \"price\": 100}, {\"m\": 25000, \"price\": 220}, {\"m\": 100000, \"price\": 520}, {\"m\": 500000, \"price\": 1600}, {\"m\": 2000000, \"price\": 4200}]",
+            "star_price_cap": 6000,
+            "starprice_idle_weight_fp": 0,
+            "starprice_active_only": 1,
+            "starprice_max_upstep_fp": 1000,
+            "starprice_max_downstep_fp": 12960,
+            "starprice_model_version": 1,
+            "starprice_reactivation_window_ticks": 81,
+            "starprice_demand_table": "[{\"ratio_fp\": 850000, \"multiplier_fp\": 900000}, {\"ratio_fp\": 1000000, \"multiplier_fp\": 1000000}, {\"ratio_fp\": 1150000, \"multiplier_fp\": 1080000}, {\"ratio_fp\": 1300000, \"multiplier_fp\": 1120000}]",
+            "market_affordability_bias_fp": 970000,
+            "vault_config": "[{\"tier\": 1, \"supply\": 500, \"cost_table\": [{\"cost\": 50, \"remaining\": 1}]}, {\"tier\": 2, \"supply\": 250, \"cost_table\": [{\"cost\": 250, \"remaining\": 1}]}, {\"tier\": 3, \"supply\": 125, \"cost_table\": [{\"cost\": 1000, \"remaining\": 1}]}]",
+            "current_star_price": 100,
+            "market_anchor_price": 100,
+            "blackout_star_price_snapshot": null,
+            "blackout_started_tick": null,
+            "pending_star_burn_coins": 0,
+            "star_burn_ema_fp": 0,
+            "net_mint_ema_fp": 0,
+            "market_pressure_fp": 1000000,
+            "total_coins_supply": 0,
+            "total_coins_supply_end_of_tick": 0,
+            "coins_active_total": 0,
+            "coins_idle_total": 0,
+            "coins_offline_total": 0,
+            "effective_price_supply": 0,
+            "last_processed_tick": 1,
+            "season_seed_hex": "cfcb81fec0f8c8546c70e9a9e1c2412a30492ad3ed265715d6f738ba672e5863"
+        }
+    },
+    "candidate_effective_season": {
+        "surface_sha256": "6896822c75b3ee0bed7ceb0c2018e6b7320bd9751686a4f157dda0bb86b6a0b9",
+        "effective_config": {
+            "season_id": 1,
+            "start_time": 1,
+            "end_time": 337,
+            "blackout_time": 265,
+            "status": "Scheduled",
+            "season_expired": 0,
+            "expiration_finalized": 0,
+            "base_ubi_active_per_tick": 36,
+            "base_ubi_idle_factor_fp": 220000,
+            "ubi_min_per_tick": 1,
+            "inflation_table": "[{\"x\": 0, \"factor_fp\": 1000000}, {\"x\": 50000, \"factor_fp\": 620000}, {\"x\": 200000, \"factor_fp\": 280000}, {\"x\": 800000, \"factor_fp\": 110000}, {\"x\": 3000000, \"factor_fp\": 50000}]",
+            "hoarding_window_ticks": 86400,
+            "target_spend_rate_per_tick": 18,
+            "hoarding_min_factor_fp": 90000,
+            "hoarding_sink_enabled": 0,
+            "hoarding_safe_hours": 12,
+            "hoarding_safe_min_coins": 20000,
+            "hoarding_tier1_excess_cap": 50000,
+            "hoarding_tier2_excess_cap": 200000,
+            "hoarding_tier1_rate_hourly_fp": 200,
+            "hoarding_tier2_rate_hourly_fp": 535,
+            "hoarding_tier3_rate_hourly_fp": 1070,
+            "hoarding_sink_cap_ratio_fp": 350000,
+            "hoarding_idle_multiplier_fp": 1287500,
+            "starprice_table": "[{\"m\": 0, \"price\": 100}, {\"m\": 25000, \"price\": 220}, {\"m\": 100000, \"price\": 520}, {\"m\": 500000, \"price\": 1600}, {\"m\": 2000000, \"price\": 4200}]",
+            "star_price_cap": 6000,
+            "starprice_idle_weight_fp": 0,
+            "starprice_active_only": 1,
+            "starprice_max_upstep_fp": 1000,
+            "starprice_max_downstep_fp": 12960,
+            "starprice_model_version": 1,
+            "starprice_reactivation_window_ticks": 81,
+            "starprice_demand_table": "[{\"ratio_fp\": 850000, \"multiplier_fp\": 900000}, {\"ratio_fp\": 1000000, \"multiplier_fp\": 1000000}, {\"ratio_fp\": 1150000, \"multiplier_fp\": 1080000}, {\"ratio_fp\": 1300000, \"multiplier_fp\": 1120000}]",
+            "market_affordability_bias_fp": 940000,
+            "vault_config": "[{\"tier\": 1, \"supply\": 500, \"cost_table\": [{\"cost\": 50, \"remaining\": 1}]}, {\"tier\": 2, \"supply\": 250, \"cost_table\": [{\"cost\": 250, \"remaining\": 1}]}, {\"tier\": 3, \"supply\": 125, \"cost_table\": [{\"cost\": 1000, \"remaining\": 1}]}]",
+            "current_star_price": 100,
+            "market_anchor_price": 100,
+            "blackout_star_price_snapshot": null,
+            "blackout_started_tick": null,
+            "pending_star_burn_coins": 0,
+            "star_burn_ema_fp": 0,
+            "net_mint_ema_fp": 0,
+            "market_pressure_fp": 1000000,
+            "total_coins_supply": 0,
+            "total_coins_supply_end_of_tick": 0,
+            "coins_active_total": 0,
+            "coins_idle_total": 0,
+            "coins_offline_total": 0,
+            "effective_price_supply": 0,
+            "last_processed_tick": 1,
+            "season_seed_hex": "55b02159b073fb55e09aa2d59575b13afdbe4467a540deeb722e72e29b53ea9a"
+        },
+        "export_path": null
+    },
+    "stages": [
+        {
+            "index": 1,
+            "id": "candidate_schema_validation",
+            "label": "candidate schema validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T18:30:44+00:00",
+            "completed_at": "2026-04-15T18:30:44+00:00",
+            "duration_ms": 3,
+            "summary": "Candidate schema validated successfully.",
+            "warnings": [],
+            "artifacts": {
+                "schema_validation_json": "simulation_output/promotion\\recovery-affordability-ubi\\01_candidate_schema_validation\\candidate_schema_validation.json"
+            },
+            "details": {
+                "canonical_change_count": 3,
+                "canonical_changes": [
+                    {
+                        "raw_path": "base_ubi_active_per_tick",
+                        "path": "season.base_ubi_active_per_tick",
+                        "scope": "season",
+                        "key": "base_ubi_active_per_tick",
+                        "requested_value": 36,
+                        "path_status": "valid"
+                    },
+                    {
+                        "raw_path": "base_ubi_idle_factor_fp",
+                        "path": "season.base_ubi_idle_factor_fp",
+                        "scope": "season",
+                        "key": "base_ubi_idle_factor_fp",
+                        "requested_value": 220000,
+                        "path_status": "valid"
+                    },
+                    {
+                        "raw_path": "market_affordability_bias_fp",
+                        "path": "season.market_affordability_bias_fp",
+                        "scope": "season",
+                        "key": "market_affordability_bias_fp",
+                        "requested_value": 940000,
+                        "path_status": "valid"
+                    }
+                ]
+            }
+        },
+        {
+            "index": 2,
+            "id": "effective_config_preflight",
+            "label": "effective-config preflight",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T18:30:44+00:00",
+            "completed_at": "2026-04-15T18:30:44+00:00",
+            "duration_ms": 5,
+            "summary": "Effective-config preflight passed and produced canonical audit artifacts.",
+            "warnings": [],
+            "artifacts": {
+                "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\02_effective_config_preflight\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\02_effective_config_preflight\\effective_config_audit.md"
+            },
+            "details": {
+                "preflight_status": "pass",
+                "requested_candidate_changes": [
+                    {
+                        "path": "season.base_ubi_active_per_tick",
+                        "raw_path": "season.base_ubi_active_per_tick",
+                        "requested_value": 36,
+                        "effective_value": 36,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    },
+                    {
+                        "path": "season.base_ubi_idle_factor_fp",
+                        "raw_path": "season.base_ubi_idle_factor_fp",
+                        "requested_value": 220000,
+                        "effective_value": 220000,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    },
+                    {
+                        "path": "season.market_affordability_bias_fp",
+                        "raw_path": "season.market_affordability_bias_fp",
+                        "requested_value": 940000,
+                        "effective_value": 940000,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    }
+                ]
+            }
+        },
+        {
+            "index": 3,
+            "id": "targeted_subsystem_harnesses",
+            "label": "targeted subsystem harnesses",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T18:30:44+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 1193,
+            "summary": "Targeted subsystem harnesses detected promotion-blocking regressions.",
+            "warnings": [],
+            "artifacts": {
+                "targeted_harness_report_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\targeted_harness_report.json"
+            },
+            "details": {
+                "selected_family_ids": [
+                    "boost_underperformance",
+                    "hoarding_pressure_imbalance",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "skip_rejoin_exploit_worsened",
+                    "star_affordability_pricing_instability"
+                ],
+                "failed_family_ids": [
+                    "star_affordability_pricing_instability"
+                ],
+                "families": [
+                    {
+                        "family_id": "boost_underperformance",
+                        "label": "Boost underperformance",
+                        "profile_id": "coupling_boost",
+                        "description": "Detects candidates where boost-focused play gets weaker, later boosts disappear, or boosts stop converting into score.",
+                        "status": "pass",
+                        "metric_results": [
+                            {
+                                "metric": "boost_roi",
+                                "label": "Boost ROI must not fall.",
+                                "direction": "up",
+                                "baseline": 21.785553047404065,
+                                "candidate": 24.516930022573362,
+                                "delta": 2.7313769751692973,
+                                "improvement_toward_goal": 2.7313769751692973,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "boost_roi rose by 2.731377; goal-facing improvement=2.731377 (need >= 0)."
+                            },
+                            {
+                                "metric": "boost_mid_late_share",
+                                "label": "Mid/late boost usage must not fall.",
+                                "direction": "up",
+                                "baseline": 0.7090909090909091,
+                                "candidate": 0.7090909090909091,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "boost_mid_late_share held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "boost_focused_gap",
+                                "label": "Boost-focused score gap must not widen.",
+                                "direction": "down",
+                                "baseline": 0,
+                                "candidate": 0,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "boost_focused_gap held by 0; goal-facing improvement=0 (need >= 0)."
+                            }
+                        ],
+                        "failed_metrics": [],
+                        "blocking_flags": [],
+                        "regression_flags": [],
+                        "proves": "The reduced boost harness did not show the candidate weakening boost payoff or deployment timing.",
+                        "cannot_prove": "Does not prove boost changes remain neutral once all other subsystems mutate together.",
+                        "profile": {
+                            "tier": "tier1",
+                            "simulators": [
+                                "B"
+                            ],
+                            "players_per_archetype": 1,
+                            "season_count": 1,
+                            "season_duration_ticks": 720,
+                            "blackout_duration_ticks": 180,
+                            "estimated_work_units": 2160,
+                            "estimated_cost_ratio_vs_tier3_full": 0.003125,
+                            "estimated_speedup_vs_tier3_full": 320
+                        },
+                        "baseline": {
+                            "runtime_secs": 0.117,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1785.6666666666667,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 132.66666666666666,
+                                "boost_roi": 21.785553047404065,
+                                "boost_mid_late_share": 0.7090909090909091,
+                                "sigil_counterplay_density": 0.3333333333333333,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.6666666666666666,
+                                "hoarder_advantage_gap": -333,
+                                "boost_focused_gap": 0,
+                                "lock_in_timing_entropy": 0,
+                                "lock_in_total": 1,
+                                "expiry_rate_mean": 0.6666666666666666,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.5105105105105106,
+                                "strategic_diversity": 0.1292337748458849,
+                                "dominant_strategy_pressure": 0.7304394426580921,
+                                "concentration_top10_share": 0,
+                                "concentration_top1_share": 0,
+                                "ranking_churn_proxy": 0.6874619138622272,
+                                "repeat_season_viability": 0,
+                                "lifecycle_coherence": 0,
+                                "skip_strategy_edge": 0,
+                                "throughput_lock_in_rate": 0,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 1.8030513176144245,
+                                "star_price_mean": 36.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "none"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-boost_underperformance-coupling_boost-coupling-boost-a-1.json"
+                            ],
+                            "lifetime_paths": [],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": []
+                        },
+                        "candidate": {
+                            "runtime_secs": 0.114,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 2052.6666666666665,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 164.33333333333334,
+                                "boost_roi": 24.516930022573362,
+                                "boost_mid_late_share": 0.7090909090909091,
+                                "sigil_counterplay_density": 0.3333333333333333,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.6666666666666666,
+                                "hoarder_advantage_gap": -369,
+                                "boost_focused_gap": 0,
+                                "lock_in_timing_entropy": 0,
+                                "lock_in_total": 1,
+                                "expiry_rate_mean": 0.6666666666666666,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.6178861788617886,
+                                "strategic_diversity": 0.1292337748458849,
+                                "dominant_strategy_pressure": 0.6955634880163182,
+                                "concentration_top10_share": 0,
+                                "concentration_top1_share": 0,
+                                "ranking_churn_proxy": 0.743687494666312,
+                                "repeat_season_viability": 0,
+                                "lifecycle_coherence": 0,
+                                "skip_strategy_edge": 0,
+                                "throughput_lock_in_rate": 0,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 4.376731301939058,
+                                "star_price_mean": 18.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "none"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-boost_underperformance-coupling_boost-coupling-boost-a-1.json"
+                            ],
+                            "lifetime_paths": [],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": []
+                        }
+                    },
+                    {
+                        "family_id": "hoarding_pressure_imbalance",
+                        "label": "Hoarding pressure imbalance",
+                        "profile_id": "coupling_hoarding",
+                        "description": "Detects candidates that leave hoarding too safe or push the economy toward a new dominant anti-play strategy.",
+                        "status": "pass",
+                        "metric_results": [
+                            {
+                                "metric": "hoarder_advantage_gap",
+                                "label": "Hoarder advantage must not widen.",
+                                "direction": "down",
+                                "baseline": 0,
+                                "candidate": 0,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "hoarder_advantage_gap held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "dominant_strategy_pressure",
+                                "label": "Dominant strategy pressure must not rise.",
+                                "direction": "down",
+                                "baseline": 0.5294710327455919,
+                                "candidate": 0.5294413688978359,
+                                "delta": -2.9663847756045136e-5,
+                                "improvement_toward_goal": 2.9663847756045136e-5,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "dominant_strategy_pressure fell by 3.0E-5; goal-facing improvement=3.0E-5 (need >= 0)."
+                            },
+                            {
+                                "metric": "strategic_diversity",
+                                "label": "Strategic diversity must not fall.",
+                                "direction": "up",
+                                "baseline": 0.6193821946787638,
+                                "candidate": 0.6193821946787638,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "strategic_diversity held by 0; goal-facing improvement=0 (need >= 0)."
+                            }
+                        ],
+                        "failed_metrics": [],
+                        "blocking_flags": [],
+                        "regression_flags": [],
+                        "proves": "The cheap anti-hoarding harness did not show the candidate worsening safe-strategy dominance.",
+                        "cannot_prove": "Does not prove cross-subsystem pricing or retention interactions remain healthy at full scale.",
+                        "profile": {
+                            "tier": "tier1",
+                            "simulators": [
+                                "B",
+                                "C"
+                            ],
+                            "players_per_archetype": 1,
+                            "season_count": 3,
+                            "season_duration_ticks": 960,
+                            "blackout_duration_ticks": 240,
+                            "estimated_work_units": 17280,
+                            "estimated_cost_ratio_vs_tier3_full": 0.025,
+                            "estimated_speedup_vs_tier3_full": 40
+                        },
+                        "baseline": {
+                            "runtime_secs": 0.173,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1500.6666666666667,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 20.333333333333332,
+                                "boost_roi": 18.594594594594593,
+                                "boost_mid_late_share": 0.5454545454545454,
+                                "sigil_counterplay_density": 0.6666666666666666,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.6666666666666666,
+                                "hoarder_advantage_gap": 0,
+                                "boost_focused_gap": -1441,
+                                "lock_in_timing_entropy": 0,
+                                "lock_in_total": 3,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.2963219986120749,
+                                "strategic_diversity": 0.6193821946787638,
+                                "dominant_strategy_pressure": 0.5294710327455919,
+                                "concentration_top10_share": 0.7276427006156736,
+                                "concentration_top1_share": 0.7276427006156736,
+                                "ranking_churn_proxy": 0.8595826486516305,
+                                "repeat_season_viability": 0.4444444444444444,
+                                "lifecycle_coherence": 0.638888888888889,
+                                "skip_strategy_edge": -5668,
+                                "throughput_lock_in_rate": 1,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 1.8030513176144245,
+                                "star_price_mean": 36.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "Hoarder"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.json"
+                            ],
+                            "lifetime_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-baseline-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.json"
+                            ],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-baseline-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-baseline-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config_audit.md"
+                                }
+                            ]
+                        },
+                        "candidate": {
+                            "runtime_secs": 0.173,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1728,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 21.666666666666668,
+                                "boost_roi": 20.93918918918919,
+                                "boost_mid_late_share": 0.5454545454545454,
+                                "sigil_counterplay_density": 0.6666666666666666,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.6666666666666666,
+                                "hoarder_advantage_gap": 0,
+                                "boost_focused_gap": -1441,
+                                "lock_in_timing_entropy": 0,
+                                "lock_in_total": 3,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.29770992366412213,
+                                "strategic_diversity": 0.6193821946787638,
+                                "dominant_strategy_pressure": 0.5294413688978359,
+                                "concentration_top10_share": 0.7276427006156736,
+                                "concentration_top1_share": 0.7276427006156736,
+                                "ranking_churn_proxy": 0.8600293445071827,
+                                "repeat_season_viability": 0.4444444444444444,
+                                "lifecycle_coherence": 0.638888888888889,
+                                "skip_strategy_edge": -5668,
+                                "throughput_lock_in_rate": 1,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 4.376731301939058,
+                                "star_price_mean": 18.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "Hoarder"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.json"
+                            ],
+                            "lifetime_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-candidate-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.json"
+                            ],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-candidate-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-candidate-hoarding_pressure_imbalance-coupling_hoarding-coupling-hoarding-a-1.audit\\effective_config_audit.md"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "family_id": "lock_in_down_but_expiry_dominance_up",
+                        "label": "Lock-in down while expiry dominance rises",
+                        "profile_id": "coupling_lockin_expiry",
+                        "description": "Detects the known wall where lock-ins fall and natural expiry grows instead of improving the lock-in/expiry balance.",
+                        "status": "pass",
+                        "metric_results": [
+                            {
+                                "metric": "lock_in_total",
+                                "label": "Lock-in volume must not fall.",
+                                "direction": "up",
+                                "baseline": 3,
+                                "candidate": 3,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "lock_in_total held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "expiry_rate_mean",
+                                "label": "Expiry rate must not rise.",
+                                "direction": "down",
+                                "baseline": 0,
+                                "candidate": 0,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "expiry_rate_mean held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "lock_in_timing_entropy",
+                                "label": "Lock-in timing spread must not collapse.",
+                                "direction": "up",
+                                "baseline": 0.9182958340544894,
+                                "candidate": 0.9182958340544894,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "lock_in_timing_entropy held by 0; goal-facing improvement=0 (need >= 0)."
+                            }
+                        ],
+                        "failed_metrics": [],
+                        "blocking_flags": [],
+                        "regression_flags": [],
+                        "proves": "Short-horizon lock-in and expiry incentives did not recreate the previously observed structural failure.",
+                        "cannot_prove": "Does not prove long-run repeat-season retention or full-economy stability.",
+                        "profile": {
+                            "tier": "tier1",
+                            "simulators": [
+                                "B"
+                            ],
+                            "players_per_archetype": 1,
+                            "season_count": 1,
+                            "season_duration_ticks": 720,
+                            "blackout_duration_ticks": 180,
+                            "estimated_work_units": 2160,
+                            "estimated_cost_ratio_vs_tier3_full": 0.003125,
+                            "estimated_speedup_vs_tier3_full": 320
+                        },
+                        "baseline": {
+                            "runtime_secs": 0.09,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1562.6666666666667,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 62.333333333333336,
+                                "boost_roi": 20.79824561403509,
+                                "boost_mid_late_share": 0.7777777777777778,
+                                "sigil_counterplay_density": 1,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.3333333333333333,
+                                "hoarder_advantage_gap": -403,
+                                "boost_focused_gap": -403,
+                                "lock_in_timing_entropy": 0.9182958340544894,
+                                "lock_in_total": 3,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.23325062034739455,
+                                "strategic_diversity": 0.35384129071795406,
+                                "dominant_strategy_pressure": 0.8006417970316887,
+                                "concentration_top10_share": 0,
+                                "concentration_top1_share": 0,
+                                "ranking_churn_proxy": 0.542678587246168,
+                                "repeat_season_viability": 0,
+                                "lifecycle_coherence": 0,
+                                "skip_strategy_edge": 0,
+                                "throughput_lock_in_rate": 0,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 1.8030513176144245,
+                                "star_price_mean": 36.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "none"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.json"
+                            ],
+                            "lifetime_paths": [],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": []
+                        },
+                        "candidate": {
+                            "runtime_secs": 0.087,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1803,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 71.66666666666667,
+                                "boost_roi": 22.793650793650794,
+                                "boost_mid_late_share": 0.7857142857142857,
+                                "sigil_counterplay_density": 1,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.3333333333333333,
+                                "hoarder_advantage_gap": -404,
+                                "boost_focused_gap": -404,
+                                "lock_in_timing_entropy": 0.9182958340544894,
+                                "lock_in_total": 3,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.9975247524752475,
+                                "strategic_diversity": 0.3454675771388098,
+                                "dominant_strategy_pressure": 0.7120941848019978,
+                                "concentration_top10_share": 0,
+                                "concentration_top1_share": 0,
+                                "ranking_churn_proxy": 0.7280337286593719,
+                                "repeat_season_viability": 0,
+                                "lifecycle_coherence": 0,
+                                "skip_strategy_edge": 0,
+                                "throughput_lock_in_rate": 0,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 4.376731301939058,
+                                "star_price_mean": 18.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "none"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.json"
+                            ],
+                            "lifetime_paths": [],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-lock_in_down_but_expiry_dominance_up-coupling_lockin_expiry-coupling-lockin-expiry-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": []
+                        }
+                    },
+                    {
+                        "family_id": "skip_rejoin_exploit_worsened",
+                        "label": "Skip/rejoin exploit worsened",
+                        "profile_id": "coupling_skip_rejoin",
+                        "description": "Detects repeat-season candidates that reward skipping or make healthy re-entry less attractive.",
+                        "status": "pass",
+                        "metric_results": [
+                            {
+                                "metric": "skip_strategy_edge",
+                                "label": "Skip-heavy players must not gain edge.",
+                                "direction": "down",
+                                "baseline": -49.5,
+                                "candidate": -53,
+                                "delta": -3.5,
+                                "improvement_toward_goal": 3.5,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "skip_strategy_edge fell by 3.5; goal-facing improvement=3.5 (need >= 0)."
+                            },
+                            {
+                                "metric": "repeat_season_viability",
+                                "label": "Repeat participation must not degrade.",
+                                "direction": "up",
+                                "baseline": 0.5555555555555555,
+                                "candidate": 0.5555555555555555,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "repeat_season_viability held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "throughput_lock_in_rate",
+                                "label": "Throughput lock-in rate must not fall.",
+                                "direction": "up",
+                                "baseline": 1,
+                                "candidate": 1,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "throughput_lock_in_rate held by 0; goal-facing improvement=0 (need >= 0)."
+                            }
+                        ],
+                        "failed_metrics": [],
+                        "blocking_flags": [],
+                        "regression_flags": [],
+                        "proves": "Short lifecycle retention dynamics did not make the skip/rejoin exploit materially stronger.",
+                        "cannot_prove": "Does not prove final long-run concentration is globally acceptable outside this reduced harness.",
+                        "profile": {
+                            "tier": "tier1",
+                            "simulators": [
+                                "C"
+                            ],
+                            "players_per_archetype": 1,
+                            "season_count": 3,
+                            "season_duration_ticks": 960,
+                            "blackout_duration_ticks": 240,
+                            "estimated_work_units": 8640,
+                            "estimated_cost_ratio_vs_tier3_full": 0.0125,
+                            "estimated_speedup_vs_tier3_full": 80
+                        },
+                        "baseline": {
+                            "runtime_secs": 0.106,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 0,
+                                "first_choice_viability": 0,
+                                "star_purchase_density": 0,
+                                "boost_roi": 0,
+                                "boost_mid_late_share": 0,
+                                "sigil_counterplay_density": 0,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 1,
+                                "hoarder_advantage_gap": 0,
+                                "boost_focused_gap": 0,
+                                "lock_in_timing_entropy": 0,
+                                "lock_in_total": 0,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0,
+                                "strategic_diversity": 0,
+                                "dominant_strategy_pressure": 0,
+                                "concentration_top10_share": 0.483974358974359,
+                                "concentration_top1_share": 0.483974358974359,
+                                "ranking_churn_proxy": 0,
+                                "repeat_season_viability": 0.5555555555555555,
+                                "lifecycle_coherence": 0.7333333333333333,
+                                "skip_strategy_edge": -49.5,
+                                "throughput_lock_in_rate": 1,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 0,
+                                "star_price_mean": 0,
+                                "dominant_archetype_label_b": "none",
+                                "dominant_archetype_label_c": "Regular"
+                            },
+                            "season_paths": [],
+                            "lifetime_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-baseline-skip_rejoin_exploit_worsened-coupling_skip_rejoin-coupling-skip-rejoin-a-1.json"
+                            ],
+                            "season_audit_paths": [],
+                            "lifetime_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-baseline-skip_rejoin_exploit_worsened-coupling_skip_rejoin-coupling-skip-rejoin-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-baseline-skip_rejoin_exploit_worsened-coupling_skip_rejoin-coupling-skip-rejoin-a-1.audit\\effective_config_audit.md"
+                                }
+                            ]
+                        },
+                        "candidate": {
+                            "runtime_secs": 0.105,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 0,
+                                "first_choice_viability": 0,
+                                "star_purchase_density": 0,
+                                "boost_roi": 0,
+                                "boost_mid_late_share": 0,
+                                "sigil_counterplay_density": 0,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 1,
+                                "hoarder_advantage_gap": 0,
+                                "boost_focused_gap": 0,
+                                "lock_in_timing_entropy": 0,
+                                "lock_in_total": 0,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0,
+                                "strategic_diversity": 0,
+                                "dominant_strategy_pressure": 0,
+                                "concentration_top10_share": 0.4830067972810876,
+                                "concentration_top1_share": 0.4830067972810876,
+                                "ranking_churn_proxy": 0,
+                                "repeat_season_viability": 0.5555555555555555,
+                                "lifecycle_coherence": 0.7333333333333333,
+                                "skip_strategy_edge": -53,
+                                "throughput_lock_in_rate": 1,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 0,
+                                "star_price_mean": 0,
+                                "dominant_archetype_label_b": "none",
+                                "dominant_archetype_label_c": "Regular"
+                            },
+                            "season_paths": [],
+                            "lifetime_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-candidate-skip_rejoin_exploit_worsened-coupling_skip_rejoin-coupling-skip-rejoin-a-1.json"
+                            ],
+                            "season_audit_paths": [],
+                            "lifetime_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-candidate-skip_rejoin_exploit_worsened-coupling_skip_rejoin-coupling-skip-rejoin-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\lifetime_recovery-affordability-ubi-candidate-skip_rejoin_exploit_worsened-coupling_skip_rejoin-coupling-skip-rejoin-a-1.audit\\effective_config_audit.md"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "family_id": "star_affordability_pricing_instability",
+                        "label": "Star affordability and pricing instability",
+                        "profile_id": "coupling_star_pricing",
+                        "description": "Detects candidates that make early star access worse or create unstable pricing behavior even in a reduced star-market slice.",
+                        "status": "fail",
+                        "metric_results": [
+                            {
+                                "metric": "star_purchase_density",
+                                "label": "Star purchase density must not fall.",
+                                "direction": "up",
+                                "baseline": 100.66666666666667,
+                                "candidate": 169.33333333333334,
+                                "delta": 68.66666666666667,
+                                "improvement_toward_goal": 68.66666666666667,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "star_purchase_density rose by 68.666667; goal-facing improvement=68.666667 (need >= 0)."
+                            },
+                            {
+                                "metric": "first_choice_viability",
+                                "label": "Early star access must not fall.",
+                                "direction": "up",
+                                "baseline": 1,
+                                "candidate": 1,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "first_choice_viability held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "star_price_cap_share",
+                                "label": "Time at price cap must not rise.",
+                                "direction": "down",
+                                "baseline": 0,
+                                "candidate": 0,
+                                "delta": 0,
+                                "improvement_toward_goal": 0,
+                                "threshold_min_improvement": 0,
+                                "status": "pass",
+                                "diagnostic": "star_price_cap_share held by 0; goal-facing improvement=0 (need >= 0)."
+                            },
+                            {
+                                "metric": "star_price_range_ratio",
+                                "label": "Price range volatility must not rise.",
+                                "direction": "down",
+                                "baseline": 1.8030513176144245,
+                                "candidate": 4.376731301939058,
+                                "delta": 2.5736799843246336,
+                                "improvement_toward_goal": -2.5736799843246336,
+                                "threshold_min_improvement": 0,
+                                "status": "fail",
+                                "diagnostic": "star_price_range_ratio rose by 2.57368; goal-facing improvement=-2.57368 (need >= 0)."
+                            }
+                        ],
+                        "failed_metrics": [
+                            "star_price_range_ratio"
+                        ],
+                        "blocking_flags": [],
+                        "regression_flags": [
+                            "archetype_viability_regressed"
+                        ],
+                        "proves": "The focused star-market slice did not show weaker affordability or more unstable price movement.",
+                        "cannot_prove": "Does not prove production star-price behavior under the full player mix or full-duration seasons.",
+                        "profile": {
+                            "tier": "tier1",
+                            "simulators": [
+                                "B"
+                            ],
+                            "players_per_archetype": 1,
+                            "season_count": 1,
+                            "season_duration_ticks": 720,
+                            "blackout_duration_ticks": 180,
+                            "estimated_work_units": 2160,
+                            "estimated_cost_ratio_vs_tier3_full": 0.003125,
+                            "estimated_speedup_vs_tier3_full": 320
+                        },
+                        "baseline": {
+                            "runtime_secs": 0.092,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1653.3333333333333,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 100.66666666666667,
+                                "boost_roi": 19.934306569343065,
+                                "boost_mid_late_share": 0.7272727272727273,
+                                "sigil_counterplay_density": 0.3333333333333333,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.6666666666666666,
+                                "hoarder_advantage_gap": -1201,
+                                "boost_focused_gap": -1201,
+                                "lock_in_timing_entropy": 0.9182958340544894,
+                                "lock_in_total": 3,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.7052456286427977,
+                                "strategic_diversity": 0.19143325481419346,
+                                "dominant_strategy_pressure": 0.5190230155002349,
+                                "concentration_top10_share": 0,
+                                "concentration_top1_share": 0,
+                                "ranking_churn_proxy": 0.9271602534877905,
+                                "repeat_season_viability": 0,
+                                "lifecycle_coherence": 0,
+                                "skip_strategy_edge": 0,
+                                "throughput_lock_in_rate": 0,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 1.8030513176144245,
+                                "star_price_mean": 36.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "none"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.json"
+                            ],
+                            "lifetime_paths": [],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": []
+                        },
+                        "candidate": {
+                            "runtime_secs": 0.091,
+                            "cache_hit": false,
+                            "metrics": {
+                                "onboarding_liquidity": 1904,
+                                "first_choice_viability": 1,
+                                "star_purchase_density": 169.33333333333334,
+                                "boost_roi": 22.470802919708028,
+                                "boost_mid_late_share": 0.7272727272727273,
+                                "sigil_counterplay_density": 0.3333333333333333,
+                                "t6_theft_share": 0,
+                                "dead_mechanic_penalty": 0.6666666666666666,
+                                "hoarder_advantage_gap": -1301,
+                                "boost_focused_gap": -1301,
+                                "lock_in_timing_entropy": 0.9182958340544894,
+                                "lock_in_total": 3,
+                                "expiry_rate_mean": 0,
+                                "blackout_action_density": 0,
+                                "archetype_viability_min_ratio": 0.652574942352037,
+                                "strategic_diversity": 0.19143325481419346,
+                                "dominant_strategy_pressure": 0.5103621043042587,
+                                "concentration_top10_share": 0,
+                                "concentration_top1_share": 0,
+                                "ranking_churn_proxy": 0.929738329781966,
+                                "repeat_season_viability": 0,
+                                "lifecycle_coherence": 0,
+                                "skip_strategy_edge": 0,
+                                "throughput_lock_in_rate": 0,
+                                "star_price_cap_share": 0,
+                                "star_price_floor_share": 0,
+                                "star_price_range_ratio": 4.376731301939058,
+                                "star_price_mean": 18.05,
+                                "dominant_archetype_label_b": "Regular",
+                                "dominant_archetype_label_c": "none"
+                            },
+                            "season_paths": [
+                                "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.json"
+                            ],
+                            "lifetime_paths": [],
+                            "season_audit_paths": [
+                                {
+                                    "effective_config_json": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config.json",
+                                    "effective_config_audit_md": "simulation_output/promotion\\recovery-affordability-ubi\\03_targeted_subsystem_harnesses\\tier1\\runs\\season_recovery-affordability-ubi-candidate-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config_audit.md"
+                                }
+                            ],
+                            "lifetime_audit_paths": []
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "index": 4,
+            "id": "full_single_season_validation",
+            "label": "full single-season validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 5,
+            "id": "multi_season_exploit_regression_validation",
+            "label": "multi-season exploit/regression validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 6,
+            "id": "official_qualification_comparator_validation",
+            "label": "official qualification comparator validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 7,
+            "id": "patch_serialization_validation",
+            "label": "patch serialization validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 8,
+            "id": "play_test_runtime_parity_certification",
+            "label": "play-test runtime parity certification",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 9,
+            "id": "play_test_repo_compatibility_validation",
+            "label": "play-test repo compatibility validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 10,
+            "id": "promotion_eligibility_marking",
+            "label": "promotion eligibility marking",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T18:30:45+00:00",
+            "completed_at": "2026-04-15T18:30:45+00:00",
+            "duration_ms": 0,
+            "summary": "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+            "warnings": [],
+            "artifacts": [],
+            "details": {
+                "promotion_eligible": false,
+                "patch_ready": false,
+                "blocking_stages": [
+                    {
+                        "stage_id": "targeted_subsystem_harnesses",
+                        "status": "fail",
+                        "summary": "Targeted subsystem harnesses detected promotion-blocking regressions."
+                    },
+                    {
+                        "stage_id": "full_single_season_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "multi_season_exploit_regression_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "official_qualification_comparator_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "patch_serialization_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_runtime_parity_certification",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_repo_compatibility_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    }
+                ]
+            }
+        }
+    ]
+}

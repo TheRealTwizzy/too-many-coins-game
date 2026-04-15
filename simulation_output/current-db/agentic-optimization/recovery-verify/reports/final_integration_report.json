@@ -1,0 +1,276 @@
+{
+    "schema_version": "tmc-agentic-final-report.v1",
+    "generated_at": "2026-04-15T18:24:34+00:00",
+    "run_id": "recovery-verify",
+    "baseline_provenance": {
+        "source": "season-config-file",
+        "resolved_at": "2026-04-15T18:24:05+00:00",
+        "path": "simulation_output/current-db/export/current_season_economy_only.json",
+        "surface_sha256": "3ae2383d06292d11f77e9274800c1db94927ede1852532b922141e9ccbcef926",
+        "db_errors": [
+            "Database connection failed: SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it"
+        ]
+    },
+    "decomposition_artifacts": {
+        "json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\current-db\\agentic-optimization\\recovery-verify\\decomposition\\economy_decomposition_map.json",
+        "md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\current-db\\agentic-optimization\\recovery-verify\\decomposition\\economy_decomposition_map.md"
+    },
+    "rejected_iteration_audit": {
+        "audited_events_count": 8,
+        "key_failure_patterns": [
+            "lock_in_down_but_expiry_dominance_up",
+            "reduces_lock_in_but_expiry_dominance_rises",
+            "dominant_archetype_shifted",
+            "reduced_one_dominant_but_created_new_dominant",
+            "skip_rejoin_exploit_worsened",
+            "candidate_improves_B_but_worsens_C"
+        ],
+        "flag_histogram": {
+            "lock_in_down_but_expiry_dominance_up": 8,
+            "reduces_lock_in_but_expiry_dominance_rises": 8,
+            "dominant_archetype_shifted": 6,
+            "reduced_one_dominant_but_created_new_dominant": 3,
+            "skip_rejoin_exploit_worsened": 3,
+            "candidate_improves_B_but_worsens_C": 2,
+            "long_run_concentration_worsened": 1
+        }
+    },
+    "subsystem_results": [
+        {
+            "subsystem_id": "hoarding_pressure",
+            "subsystem_label": "Hoarding pressure and anti-safe-strategy controls",
+            "priority": 1,
+            "tested_count": 0,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": []
+        },
+        {
+            "subsystem_id": "blackout_lockin",
+            "subsystem_label": "Blackout PvP pressure and lock-in timing logic",
+            "priority": 2,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-blackout_lockin-cand-1",
+                "recovery-verify-blackout_lockin-cand-2",
+                "recovery-verify-blackout_lockin-cand-3",
+                "recovery-verify-blackout_lockin-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "boost_viability",
+            "subsystem_label": "Boost viability and deployment timing",
+            "priority": 3,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-boost_viability-cand-1",
+                "recovery-verify-boost_viability-cand-2",
+                "recovery-verify-boost_viability-cand-3",
+                "recovery-verify-boost_viability-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "concentration_control",
+            "subsystem_label": "Concentration and runaway leader control",
+            "priority": 4,
+            "tested_count": 2,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-concentration_control-cand-1",
+                "recovery-verify-concentration_control-cand-2"
+            ]
+        },
+        {
+            "subsystem_id": "sigil_loop",
+            "subsystem_label": "Sigil acquisition/combine/theft/melt/denial loop",
+            "priority": 5,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-sigil_loop-cand-1",
+                "recovery-verify-sigil_loop-cand-2",
+                "recovery-verify-sigil_loop-cand-3",
+                "recovery-verify-sigil_loop-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "onboarding_economy",
+            "subsystem_label": "Onboarding and early acquisition economy",
+            "priority": 6,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-onboarding_economy-cand-1",
+                "recovery-verify-onboarding_economy-cand-2",
+                "recovery-verify-onboarding_economy-cand-3",
+                "recovery-verify-onboarding_economy-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "star_pricing",
+            "subsystem_label": "Star pricing and purchasing economy",
+            "priority": 7,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-star_pricing-cand-1",
+                "recovery-verify-star_pricing-cand-2",
+                "recovery-verify-star_pricing-cand-3",
+                "recovery-verify-star_pricing-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "lockin_incentives",
+            "subsystem_label": "Lock-in incentives and timing",
+            "priority": 8,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-lockin_incentives-cand-1",
+                "recovery-verify-lockin_incentives-cand-2",
+                "recovery-verify-lockin_incentives-cand-3",
+                "recovery-verify-lockin_incentives-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "expiry_pressure",
+            "subsystem_label": "Expiry pressure and punishment/reward gradients",
+            "priority": 9,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-expiry_pressure-cand-1",
+                "recovery-verify-expiry_pressure-cand-2",
+                "recovery-verify-expiry_pressure-cand-3",
+                "recovery-verify-expiry_pressure-cand-4"
+            ]
+        },
+        {
+            "subsystem_id": "retention_repeat_season",
+            "subsystem_label": "Repeated-season carryover/retention/adaptation",
+            "priority": 10,
+            "tested_count": 4,
+            "accepted_count": 0,
+            "selected_candidate_id": null,
+            "accepted_candidate_ids": [],
+            "rejected_candidate_ids": [
+                "recovery-verify-retention_repeat_season-cand-1",
+                "recovery-verify-retention_repeat_season-cand-2",
+                "recovery-verify-retention_repeat_season-cand-3",
+                "recovery-verify-retention_repeat_season-cand-4"
+            ]
+        }
+    ],
+    "accepted_subsystem_winners": [],
+    "final_variant_reports": [
+        {
+            "variant_id": "baseline",
+            "description": "Baseline DB snapshot only.",
+            "included_candidates": [],
+            "global_score_delta_vs_baseline": 0,
+            "regression_flags": [],
+            "metrics": {
+                "onboarding_liquidity": 1649.6,
+                "first_choice_viability": 1,
+                "star_purchase_density": 86.63333333333334,
+                "boost_roi": 22.32910946849701,
+                "boost_mid_late_share": 0.6745562130177515,
+                "sigil_counterplay_density": 1.1666666666666667,
+                "t6_theft_share": 0,
+                "dead_mechanic_penalty": 0.3333333333333333,
+                "hoarder_advantage_gap": 7636,
+                "boost_focused_gap": -365,
+                "lock_in_timing_entropy": 0.7282023343901065,
+                "lock_in_total": 27,
+                "expiry_rate_mean": 0.1,
+                "blackout_action_density": 0.03333333333333333,
+                "archetype_viability_min_ratio": 0.6027633851468048,
+                "strategic_diversity": 0.32611489866329313,
+                "dominant_strategy_pressure": 0.2417362960242402,
+                "concentration_top10_share": 0.21484835328412827,
+                "concentration_top1_share": 0.08327647873638074,
+                "ranking_churn_proxy": 0.9293080897603252,
+                "repeat_season_viability": 0.39166666666666666,
+                "lifecycle_coherence": 0.5445822153270291,
+                "skip_strategy_edge": 3181.1481481481483,
+                "throughput_lock_in_rate": 0.9148936170212766,
+                "star_price_cap_share": 0,
+                "star_price_floor_share": 0,
+                "star_price_range_ratio": 1.8030513176144245,
+                "star_price_mean": 36.05,
+                "dominant_archetype_label_b": "Hoarder",
+                "dominant_archetype_label_c": "Regular"
+            },
+            "cache_hit": true,
+            "status": "global_accept"
+        }
+    ],
+    "best_variant": {
+        "variant_id": "baseline",
+        "description": "Baseline DB snapshot only.",
+        "included_candidates": [],
+        "global_score_delta_vs_baseline": 0,
+        "regression_flags": [],
+        "metrics": {
+            "onboarding_liquidity": 1649.6,
+            "first_choice_viability": 1,
+            "star_purchase_density": 86.63333333333334,
+            "boost_roi": 22.32910946849701,
+            "boost_mid_late_share": 0.6745562130177515,
+            "sigil_counterplay_density": 1.1666666666666667,
+            "t6_theft_share": 0,
+            "dead_mechanic_penalty": 0.3333333333333333,
+            "hoarder_advantage_gap": 7636,
+            "boost_focused_gap": -365,
+            "lock_in_timing_entropy": 0.7282023343901065,
+            "lock_in_total": 27,
+            "expiry_rate_mean": 0.1,
+            "blackout_action_density": 0.03333333333333333,
+            "archetype_viability_min_ratio": 0.6027633851468048,
+            "strategic_diversity": 0.32611489866329313,
+            "dominant_strategy_pressure": 0.2417362960242402,
+            "concentration_top10_share": 0.21484835328412827,
+            "concentration_top1_share": 0.08327647873638074,
+            "ranking_churn_proxy": 0.9293080897603252,
+            "repeat_season_viability": 0.39166666666666666,
+            "lifecycle_coherence": 0.5445822153270291,
+            "skip_strategy_edge": 3181.1481481481483,
+            "throughput_lock_in_rate": 0.9148936170212766,
+            "star_price_cap_share": 0,
+            "star_price_floor_share": 0,
+            "star_price_range_ratio": 1.8030513176144245,
+            "star_price_mean": 36.05,
+            "dominant_archetype_label_b": "Hoarder",
+            "dominant_archetype_label_c": "Regular"
+        },
+        "cache_hit": true,
+        "status": "global_accept"
+    },
+    "globally_valid_full_configuration_found": true,
+    "best_config_path": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\simulation_output\\current-db\\agentic-optimization\\recovery-verify\\best_composed_config.json",
+    "notes": [
+        "Tier1 used cheap local harnesses with reduced cohorts and/or phase-limited screening.",
+        "Known economy coupling families now run as explicit subsystem harness gates before tier2 promotion.",
+        "Tier2 validated cross-subsystem effects before any full-lifecycle promotion.",
+        "Tier3 full-lifecycle validation only ran on promoted winners and composed variants."
+    ]
+}

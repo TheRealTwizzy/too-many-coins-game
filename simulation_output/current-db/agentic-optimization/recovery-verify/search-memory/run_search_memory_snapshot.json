@@ -1,0 +1,979 @@
+{
+    "schema_version": "tmc-agentic-search-memory.v1",
+    "updated_at": "2026-04-15T18:24:34+00:00",
+    "rejected_candidates": [
+        {
+            "stage": "tier1",
+            "subsystem_id": "blackout_lockin",
+            "candidate_id": "recovery-verify-blackout_lockin-cand-1",
+            "changes": [
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.92",
+                    "old_value": 1000,
+                    "new_value": 920
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "blackout_lockin",
+            "candidate_id": "recovery-verify-blackout_lockin-cand-2",
+            "changes": [
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.85",
+                    "old_value": 1000,
+                    "new_value": 850
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "blackout_lockin",
+            "candidate_id": "recovery-verify-blackout_lockin-cand-3",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.97",
+                    "old_value": 970000,
+                    "new_value": 940900
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "blackout_lockin",
+            "candidate_id": "recovery-verify-blackout_lockin-cand-4",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.94",
+                    "old_value": 970000,
+                    "new_value": 911800
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "boost_viability",
+            "candidate_id": "recovery-verify-boost_viability-cand-1",
+            "changes": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.05",
+                    "old_value": 90000,
+                    "new_value": 94500
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "boost_viability",
+            "candidate_id": "recovery-verify-boost_viability-cand-2",
+            "changes": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.1",
+                    "old_value": 90000,
+                    "new_value": 99000
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "concentration_control",
+            "candidate_id": "recovery-verify-concentration_control-cand-1",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.98",
+                    "old_value": 970000,
+                    "new_value": 950600
+                }
+            ],
+            "local_score": -1.4336243608704404,
+            "regression_flags": [
+                "long_run_concentration_worsened"
+            ]
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "concentration_control",
+            "candidate_id": "recovery-verify-concentration_control-cand-2",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.95",
+                    "old_value": 970000,
+                    "new_value": 921500
+                }
+            ],
+            "local_score": 1.5570541630768586,
+            "regression_flags": [
+                "lock_in_down_but_expiry_dominance_up",
+                "coupling_harness_failed:hoarding_pressure_imbalance"
+            ]
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "sigil_loop",
+            "candidate_id": "recovery-verify-sigil_loop-cand-1",
+            "changes": [
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.94",
+                    "old_value": 1000,
+                    "new_value": 940
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "sigil_loop",
+            "candidate_id": "recovery-verify-sigil_loop-cand-2",
+            "changes": [
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.88",
+                    "old_value": 1000,
+                    "new_value": 880
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "sigil_loop",
+            "candidate_id": "recovery-verify-sigil_loop-cand-3",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.98",
+                    "old_value": 970000,
+                    "new_value": 950600
+                }
+            ],
+            "local_score": -2.125,
+            "regression_flags": [
+                "archetype_viability_regressed"
+            ]
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "onboarding_economy",
+            "candidate_id": "recovery-verify-onboarding_economy-cand-1",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.06",
+                    "old_value": 30,
+                    "new_value": 32
+                }
+            ],
+            "local_score": 0.14805000000000001,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "onboarding_economy",
+            "candidate_id": "recovery-verify-onboarding_economy-cand-3",
+            "changes": [
+                {
+                    "key": "base_ubi_idle_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.04",
+                    "old_value": 250000,
+                    "new_value": 260000
+                }
+            ],
+            "local_score": 0.025650000000000003,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "onboarding_economy",
+            "candidate_id": "recovery-verify-onboarding_economy-cand-4",
+            "changes": [
+                {
+                    "key": "base_ubi_idle_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.08",
+                    "old_value": 250000,
+                    "new_value": 270000
+                }
+            ],
+            "local_score": 0.05085,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "star_pricing",
+            "candidate_id": "recovery-verify-star_pricing-cand-1",
+            "changes": [
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.95",
+                    "old_value": 1000,
+                    "new_value": 950
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "star_pricing",
+            "candidate_id": "recovery-verify-star_pricing-cand-2",
+            "changes": [
+                {
+                    "key": "starprice_max_upstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.9",
+                    "old_value": 1000,
+                    "new_value": 900
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "star_pricing",
+            "candidate_id": "recovery-verify-star_pricing-cand-3",
+            "changes": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.05",
+                    "old_value": 12960,
+                    "new_value": 13608
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "star_pricing",
+            "candidate_id": "recovery-verify-star_pricing-cand-4",
+            "changes": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.1",
+                    "old_value": 12960,
+                    "new_value": 14256
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "lockin_incentives",
+            "candidate_id": "recovery-verify-lockin_incentives-cand-1",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.97",
+                    "old_value": 970000,
+                    "new_value": 940900
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "lockin_incentives",
+            "candidate_id": "recovery-verify-lockin_incentives-cand-2",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.94",
+                    "old_value": 970000,
+                    "new_value": 911800
+                }
+            ],
+            "local_score": -4.584077959486227,
+            "regression_flags": [
+                "archetype_viability_regressed",
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "lockin_incentives",
+            "candidate_id": "recovery-verify-lockin_incentives-cand-3",
+            "changes": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.06",
+                    "old_value": 12960,
+                    "new_value": 13738
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "lockin_incentives",
+            "candidate_id": "recovery-verify-lockin_incentives-cand-4",
+            "changes": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.12",
+                    "old_value": 12960,
+                    "new_value": 14515
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "expiry_pressure",
+            "candidate_id": "recovery-verify-expiry_pressure-cand-1",
+            "changes": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.05",
+                    "old_value": 12960,
+                    "new_value": 13608
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "expiry_pressure",
+            "candidate_id": "recovery-verify-expiry_pressure-cand-2",
+            "changes": [
+                {
+                    "key": "starprice_max_downstep_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.12",
+                    "old_value": 12960,
+                    "new_value": 14515
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "expiry_pressure",
+            "candidate_id": "recovery-verify-expiry_pressure-cand-3",
+            "changes": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.04",
+                    "old_value": 90000,
+                    "new_value": 93600
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "expiry_pressure",
+            "candidate_id": "recovery-verify-expiry_pressure-cand-4",
+            "changes": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.08",
+                    "old_value": 90000,
+                    "new_value": 97200
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "retention_repeat_season",
+            "candidate_id": "recovery-verify-retention_repeat_season-cand-1",
+            "changes": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.05",
+                    "old_value": 90000,
+                    "new_value": 94500
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "retention_repeat_season",
+            "candidate_id": "recovery-verify-retention_repeat_season-cand-2",
+            "changes": [
+                {
+                    "key": "hoarding_min_factor_fp",
+                    "mode": "multiply",
+                    "mutation_label": "1.1",
+                    "old_value": 90000,
+                    "new_value": 99000
+                }
+            ],
+            "local_score": 0,
+            "regression_flags": []
+        },
+        {
+            "stage": "tier1",
+            "subsystem_id": "retention_repeat_season",
+            "candidate_id": "recovery-verify-retention_repeat_season-cand-3",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.04",
+                    "old_value": 30,
+                    "new_value": 31
+                }
+            ],
+            "local_score": 0.014046784045623014,
+            "regression_flags": []
+        }
+    ],
+    "local_winners": [
+        {
+            "subsystem_id": "boost_viability",
+            "candidate_id": "recovery-verify-boost_viability-cand-3",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.05",
+                    "old_value": 30,
+                    "new_value": 32
+                }
+            ],
+            "local_score": 0.3750153061224486
+        },
+        {
+            "subsystem_id": "boost_viability",
+            "candidate_id": "recovery-verify-boost_viability-cand-4",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.1",
+                    "old_value": 30,
+                    "new_value": 33
+                }
+            ],
+            "local_score": 0.5566014739229023
+        },
+        {
+            "subsystem_id": "sigil_loop",
+            "candidate_id": "recovery-verify-sigil_loop-cand-4",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.95",
+                    "old_value": 970000,
+                    "new_value": 921500
+                }
+            ],
+            "local_score": 2.1666666666666665
+        },
+        {
+            "subsystem_id": "onboarding_economy",
+            "candidate_id": "recovery-verify-onboarding_economy-cand-2",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.12",
+                    "old_value": 30,
+                    "new_value": 34
+                }
+            ],
+            "local_score": 0.19766770682148074
+        },
+        {
+            "subsystem_id": "retention_repeat_season",
+            "candidate_id": "recovery-verify-retention_repeat_season-cand-4",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.08",
+                    "old_value": 30,
+                    "new_value": 32
+                }
+            ],
+            "local_score": 0.7331319750078352
+        }
+    ],
+    "local_winner_global_rejects": [
+        {
+            "stage": "tier3",
+            "subsystem_id": "boost_viability",
+            "candidate_id": "recovery-verify-boost_viability-cand-3",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.05",
+                    "old_value": 30,
+                    "new_value": 32
+                }
+            ],
+            "local_score": 0.3750153061224486,
+            "global_score_delta": 0.19440314327507124,
+            "regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "stage": "tier3",
+            "subsystem_id": "boost_viability",
+            "candidate_id": "recovery-verify-boost_viability-cand-4",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.1",
+                    "old_value": 30,
+                    "new_value": 33
+                }
+            ],
+            "local_score": 0.5566014739229023,
+            "global_score_delta": 0.2180735672738905,
+            "regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "stage": "tier2",
+            "subsystem_id": "sigil_loop",
+            "candidate_id": "recovery-verify-sigil_loop-cand-4",
+            "changes": [
+                {
+                    "key": "market_affordability_bias_fp",
+                    "mode": "multiply",
+                    "mutation_label": "0.95",
+                    "old_value": 970000,
+                    "new_value": 921500
+                }
+            ],
+            "local_score": 2.1666666666666665,
+            "global_score_delta": 0.5000169955496148,
+            "regression_flags": [
+                "long_run_concentration_worsened",
+                "skip_rejoin_exploit_worsened"
+            ]
+        },
+        {
+            "stage": "tier3",
+            "subsystem_id": "onboarding_economy",
+            "candidate_id": "recovery-verify-onboarding_economy-cand-2",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.12",
+                    "old_value": 30,
+                    "new_value": 34
+                }
+            ],
+            "local_score": 0.19766770682148074,
+            "global_score_delta": 0.24939327438836756,
+            "regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "stage": "tier3",
+            "subsystem_id": "retention_repeat_season",
+            "candidate_id": "recovery-verify-retention_repeat_season-cand-4",
+            "changes": [
+                {
+                    "key": "base_ubi_active_per_tick",
+                    "mode": "multiply",
+                    "mutation_label": "1.08",
+                    "old_value": 30,
+                    "new_value": 32
+                }
+            ],
+            "local_score": 0.7331319750078352,
+            "global_score_delta": 0.19440314327507124,
+            "regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        }
+    ],
+    "sensitivity_findings": [
+        {
+            "subsystem_id": "blackout_lockin",
+            "parameter": "starprice_max_upstep_fp",
+            "mutation": "0.92",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "blackout_lockin",
+            "parameter": "starprice_max_upstep_fp",
+            "mutation": "0.85",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "blackout_lockin",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.97",
+            "local_score": 0,
+            "local_regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "subsystem_id": "blackout_lockin",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.94",
+            "local_score": 0,
+            "local_regression_flags": [
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "subsystem_id": "boost_viability",
+            "parameter": "hoarding_min_factor_fp",
+            "mutation": "1.05",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "boost_viability",
+            "parameter": "hoarding_min_factor_fp",
+            "mutation": "1.1",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "boost_viability",
+            "parameter": "base_ubi_active_per_tick",
+            "mutation": "1.05",
+            "local_score": 0.3750153061224486,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "boost_viability",
+            "parameter": "base_ubi_active_per_tick",
+            "mutation": "1.1",
+            "local_score": 0.5566014739229023,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "concentration_control",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.98",
+            "local_score": -1.4336243608704404,
+            "local_regression_flags": [
+                "long_run_concentration_worsened"
+            ]
+        },
+        {
+            "subsystem_id": "concentration_control",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.95",
+            "local_score": 1.5570541630768586,
+            "local_regression_flags": [
+                "lock_in_down_but_expiry_dominance_up"
+            ]
+        },
+        {
+            "subsystem_id": "sigil_loop",
+            "parameter": "starprice_max_upstep_fp",
+            "mutation": "0.94",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "sigil_loop",
+            "parameter": "starprice_max_upstep_fp",
+            "mutation": "0.88",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "sigil_loop",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.98",
+            "local_score": -2.125,
+            "local_regression_flags": [
+                "archetype_viability_regressed"
+            ]
+        },
+        {
+            "subsystem_id": "sigil_loop",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.95",
+            "local_score": 2.1666666666666665,
+            "local_regression_flags": [
+                "archetype_viability_regressed",
+                "strategic_diversity_down"
+            ]
+        },
+        {
+            "subsystem_id": "onboarding_economy",
+            "parameter": "base_ubi_active_per_tick",
+            "mutation": "1.06",
+            "local_score": 0.14805000000000001,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "onboarding_economy",
+            "parameter": "base_ubi_active_per_tick",
+            "mutation": "1.12",
+            "local_score": 0.19766770682148074,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "onboarding_economy",
+            "parameter": "base_ubi_idle_factor_fp",
+            "mutation": "1.04",
+            "local_score": 0.025650000000000003,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "onboarding_economy",
+            "parameter": "base_ubi_idle_factor_fp",
+            "mutation": "1.08",
+            "local_score": 0.05085,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "star_pricing",
+            "parameter": "starprice_max_upstep_fp",
+            "mutation": "0.95",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "star_pricing",
+            "parameter": "starprice_max_upstep_fp",
+            "mutation": "0.9",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "star_pricing",
+            "parameter": "starprice_max_downstep_fp",
+            "mutation": "1.05",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "star_pricing",
+            "parameter": "starprice_max_downstep_fp",
+            "mutation": "1.1",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "lockin_incentives",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.97",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "lockin_incentives",
+            "parameter": "market_affordability_bias_fp",
+            "mutation": "0.94",
+            "local_score": -4.584077959486227,
+            "local_regression_flags": [
+                "archetype_viability_regressed",
+                "dominant_archetype_shifted"
+            ]
+        },
+        {
+            "subsystem_id": "lockin_incentives",
+            "parameter": "starprice_max_downstep_fp",
+            "mutation": "1.06",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "lockin_incentives",
+            "parameter": "starprice_max_downstep_fp",
+            "mutation": "1.12",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "expiry_pressure",
+            "parameter": "starprice_max_downstep_fp",
+            "mutation": "1.05",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "expiry_pressure",
+            "parameter": "starprice_max_downstep_fp",
+            "mutation": "1.12",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "expiry_pressure",
+            "parameter": "hoarding_min_factor_fp",
+            "mutation": "1.04",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "expiry_pressure",
+            "parameter": "hoarding_min_factor_fp",
+            "mutation": "1.08",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "retention_repeat_season",
+            "parameter": "hoarding_min_factor_fp",
+            "mutation": "1.05",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "retention_repeat_season",
+            "parameter": "hoarding_min_factor_fp",
+            "mutation": "1.1",
+            "local_score": 0,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "retention_repeat_season",
+            "parameter": "base_ubi_active_per_tick",
+            "mutation": "1.04",
+            "local_score": 0.014046784045623014,
+            "local_regression_flags": []
+        },
+        {
+            "subsystem_id": "retention_repeat_season",
+            "parameter": "base_ubi_active_per_tick",
+            "mutation": "1.08",
+            "local_score": 0.7331319750078352,
+            "local_regression_flags": []
+        }
+    ],
+    "conflict_log": [],
+    "candidate_hashes": {
+        "95e7c5542e8a9ed7e55f51075b6f822254a45b46c781940ee50d9526f8f2c53f": true,
+        "feb382932659f081bbaae256074d1c851a20971e0664e3774ee402043feabf33": true,
+        "3f0d0ebd1d2802ef92c8debae43beba79f53c2bdcdcf5a9d55b619026daaf365": true,
+        "189da21768877a2e93d35a5616244e5bad974fbbb75c392fc029daa8d1e62051": true,
+        "130cb0fb49b78193725ba811016d8dbf5ee9b610f74b6ed395f6c50600bf17ef": true,
+        "d633cb8db1268d89e011bdc97cb1387e2476799ca5563be687d3c4d25b2aaf7e": true,
+        "165ad1d7476ff2330812fc59fb559e18e6357d4d5b38b4f8a8a950fd488a00cf": true,
+        "1111aef0f0e19000ad34c5a12751cefaa2901e6fb0969838be28a5e3720e189a": true,
+        "9c58054aa7c10640b7f44cf0c62958a15f6edf8c0889b7f6fbb3ea5a86aa5118": true,
+        "65fd62852d5ec839ab4571b714c278cf011459b9d99e7e657cafdd7475a587ce": true,
+        "f25f012427ef94d8fb859657513451adc38e32657116843f37ce430142214aad": true,
+        "31faadbfcee2519c6601d542c515591a1c762ae5bb6ce7585ecf6e33dc9923c7": true,
+        "79e7e6843b925f4b90539bbfe09125b9f978014cb9bcd1c46848c2749e93aa63": true,
+        "36dfdd85d7d32d4eaf7002f2ef97ff6f9fb5ad001b8a1c8426973d213ff5871d": true,
+        "c852097b5a31becf24a2d7f4526bba2185c3716b69f725773ccf1a9896964e44": true,
+        "c1399a453ed78c928a157ef61a54958f17a80a4c641f5cf5accd283906e02766": true,
+        "c71f4614d9f0a63bcb4c9da2cf8dc239a0ab570a36b05b723a980cfc1de7b1f3": true,
+        "5ae2b251337e87532e9c0ca440e5867460deff640e3b10d9236c67e8e743f518": true,
+        "5b6a0df076682fc2666e23386c5e865daad8c11e28a79907dfbd47786901afe2": true,
+        "1dc8e7d308951959f30a4df0114d7ec9f208e1d97707e55d30739b2791b0a593": true,
+        "72655e42e9bd0326949d41c55337eb5e26d293121f1b679f4e439405041ae6f4": true,
+        "2c3d1b23cb0cf0f72286ef21add1a90330855c40a67c7c4057d7c659b92fea56": true,
+        "1f3955d4399c314f94f3fcfdb725a278a04d85a70a95b84067ca8974cb70b810": true,
+        "d5064fd0b5e60adc18e229c637be3004fb1395d3b2ec745e71dece7847adca31": true,
+        "90cd9b9fcbf170fdbb65f32f03aeb4b9e857448d87620f1d902ede3e2ae54fb7": true,
+        "d753377c88cd7513a759b7e23bdb8a6ac901c9850fe466a4b93e11566f03f316": true,
+        "4a9afe374fb1e7799c1b9f5c0bf134bd5fcb6291c7f8f1c4099d02369b23f954": true,
+        "de695cb6b648f361e821870ecf7749a6471c3d37a57b9b71813e3e5fe7ebb431": true,
+        "6860a59c2f29b7d5a521e6eacfc44c1e1e8983dc5d43db4bc081ae1f8f5e9125": true,
+        "53dbe6ec13e6cbdb3d170a5f21150afac8bd5e79a7d135c232142730edcc1f8f": true,
+        "31054b7ec6e6c64fe9953fc003b5f4c08109afa2fbb8e986031ead09555c536c": true,
+        "5ffbb8b92a1caf194dab97f0bca120d7748959ed123db286a36262a54665b394": true,
+        "93caf9b2f628f74ca2b7ce34f306d2c86945caa50b7a565a76e951b26b9c776c": true,
+        "4793543665e9badba4e0e43c9644feea65cbabadf4c434d0a1acf207758a7919": true
+    },
+    "failure_patterns_by_parameter": {
+        "starprice_max_upstep_fp": {
+            "count": 6,
+            "flags": []
+        },
+        "market_affordability_bias_fp": {
+            "count": 7,
+            "flags": {
+                "dominant_archetype_shifted": 3,
+                "long_run_concentration_worsened": 1,
+                "lock_in_down_but_expiry_dominance_up": 1,
+                "coupling_harness_failed:hoarding_pressure_imbalance": 1,
+                "archetype_viability_regressed": 2
+            }
+        },
+        "hoarding_min_factor_fp": {
+            "count": 6,
+            "flags": []
+        },
+        "base_ubi_active_per_tick": {
+            "count": 2,
+            "flags": []
+        },
+        "base_ubi_idle_factor_fp": {
+            "count": 2,
+            "flags": []
+        },
+        "starprice_max_downstep_fp": {
+            "count": 6,
+            "flags": []
+        }
+    }
+}
