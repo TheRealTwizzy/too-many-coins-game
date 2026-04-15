@@ -114,7 +114,7 @@ class SimulationConfigPreflight
         'starprice_model_version' => ['candidate_scope' => true, 'referenced' => false],
         'starprice_reactivation_window_ticks' => ['candidate_scope' => false, 'referenced' => false],
         'starprice_demand_table' => ['candidate_scope' => false, 'referenced' => false],
-        'market_affordability_bias_fp' => ['candidate_scope' => false, 'referenced' => false],
+        'market_affordability_bias_fp' => ['candidate_scope' => true, 'referenced' => true],
         'vault_config' => ['candidate_scope' => false, 'referenced' => false],
         'current_star_price' => ['candidate_scope' => false, 'referenced' => true],
         'market_anchor_price' => ['candidate_scope' => false, 'referenced' => false],

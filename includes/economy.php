@@ -818,6 +818,13 @@ class Economy {
             $price   = max($price, $prevPrice - $maxDown);
         }
 
+        // Apply market affordability bias (fp_1e6; 1000000 = no effect; < 1000000 = cheaper stars).
+        // Default to FP_SCALE (no effect) when absent.
+        $biasFp = max(1, (int)($season['market_affordability_bias_fp'] ?? FP_SCALE));
+        if ($biasFp !== FP_SCALE) {
+            $price = max(1, intdiv($price * $biasFp, FP_SCALE));
+        }
+
         // Hard cap and floor (preserved as final guardrails).
         $price = min($price, (int)$season['star_price_cap']);
         return max(1, $price);

@@ -28,7 +28,6 @@ class CanonicalEconomyConfigContract
         'target_spend_rate_per_tick' => 'Only referenced by Economy::hoardingFactor(), and that helper is not invoked by the canonical runtime/simulation path.',
         'starprice_reactivation_window_ticks' => 'Stored on the season row, but canonical star pricing and lock-in logic never consult it.',
         'starprice_demand_table' => 'Validated and stored, but canonical star pricing never applies the demand multiplier table.',
-        'market_affordability_bias_fp' => 'Declared as a tuning knob, but canonical star pricing and purchase logic never apply the affordability bias.',
         'vault_config' => 'Vault pricing helpers exist, but Phase 1 simulation/runtime search excludes vault-market spending from the canonical balance surface.',
     ];
 
@@ -234,11 +233,15 @@ class CanonicalEconomyConfigContract
         ],
         'market_affordability_bias_fp' => [
             'type' => 'int',
-            'subsystem' => 'lock_in_expiry_incentives',
+            'subsystem' => 'star_conversion_pricing',
             'units' => 'fp_1e6',
-            'min' => 1,
-            'max' => 5000000,
-            'description' => 'Bias multiplier that shapes affordability-driven price response.',
+            'min' => 500000,
+            'max' => 1000000,
+            'description' => 'Multiplicative affordability bias on the computed star price (fp_1e6). '
+                . '1000000 = no effect; 970000 = 3% cheaper; 940000 = 6% cheaper. '
+                . 'Applied after velocity clamp, before hard cap. '
+                . 'Reduces star-purchase friction for all archetypes equally but disproportionately '
+                . 'benefits high-purchase archetypes (Boost-Focused, Hardcore, Star-Focused).',
         ],
         'vault_config' => [
             'type' => 'vault_config',

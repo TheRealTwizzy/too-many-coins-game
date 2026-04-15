@@ -154,6 +154,25 @@ class SimulationConfigPreflightTest extends TestCase
         $this->assertFileExists((string)$payload['config_audit']['artifact_paths']['effective_config_audit_md']);
     }
 
+    public function testMarketAffordabilityBiasFpIsNowLiveAndAcceptedAsCandidate(): void
+    {
+        $resolved = SimulationConfigPreflight::resolve($this->options([
+            'candidate_patch' => ['market_affordability_bias_fp' => 940000],
+        ]));
+
+        $changes = $resolved['report']['requested_candidate_changes'];
+        $found = false;
+        foreach ($changes as $change) {
+            if (($change['raw_path'] ?? '') === 'market_affordability_bias_fp'
+                || ($change['path'] ?? '') === 'season.market_affordability_bias_fp') {
+                $this->assertTrue((bool)$change['is_active'],
+                    'market_affordability_bias_fp must be active after wiring into calculateStarPrice()');
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'market_affordability_bias_fp must appear in requested_candidate_changes');
+    }
+
     private function options(array $overrides = []): array
     {
         return array_merge([

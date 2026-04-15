@@ -1331,4 +1331,60 @@ class EconomyPrecisionTest extends TestCase
 
         $this->assertSame(900, $price, 'Price must remain stable when supply does not change.');
     }
+
+    public function testMarketAffordabilityBiasReducesStarPrice(): void
+    {
+        $baseSeason = [
+            'starprice_table' => '[{"m": 0, "price": 100}, {"m": 500000, "price": 500}]',
+            'star_price_cap' => 10000,
+            'starprice_active_only' => 0,
+            'effective_price_supply' => 100000,
+            'total_coins_supply_end_of_tick' => 100000,
+            'current_star_price' => 0,
+            'blackout_star_price_snapshot' => null,
+            'starprice_max_upstep_fp' => 1000000000, // no clamp
+            'starprice_max_downstep_fp' => 1000000000, // no clamp
+        ];
+
+        // Without bias (bias=1000000 = FP_SCALE): get baseline price
+        $noBypass = array_merge($baseSeason, ['market_affordability_bias_fp' => 1000000]);
+        $priceNoBias = Economy::calculateStarPrice($noBypass);
+
+        // With 3% bias (970000): price must be ~3% lower
+        $withBias = array_merge($baseSeason, ['market_affordability_bias_fp' => 970000]);
+        $priceWithBias = Economy::calculateStarPrice($withBias);
+
+        $this->assertLessThan($priceNoBias, $priceWithBias,
+            'market_affordability_bias_fp=970000 must reduce the star price vs no bias');
+
+        $expectedReduction = intdiv($priceNoBias * 970000, 1000000);
+        $this->assertSame($expectedReduction, $priceWithBias,
+            'bias must be applied as intdiv(price * bias_fp, FP_SCALE)');
+    }
+
+    public function testMarketAffordabilityBiasDefaultIsNoEffect(): void
+    {
+        $baseSeason = [
+            'starprice_table' => '[{"m": 0, "price": 100}, {"m": 500000, "price": 500}]',
+            'star_price_cap' => 10000,
+            'starprice_active_only' => 0,
+            'effective_price_supply' => 100000,
+            'total_coins_supply_end_of_tick' => 100000,
+            'current_star_price' => 0,
+            'blackout_star_price_snapshot' => null,
+            'starprice_max_upstep_fp' => 1000000000,
+            'starprice_max_downstep_fp' => 1000000000,
+        ];
+
+        // Bias absent from season should have no effect (default 1000000)
+        $withoutBiasKey = $baseSeason;
+        $price1 = Economy::calculateStarPrice($withoutBiasKey);
+
+        // Bias explicitly set to FP_SCALE = 1000000 should also have no effect
+        $withFullBias = array_merge($baseSeason, ['market_affordability_bias_fp' => 1000000]);
+        $price2 = Economy::calculateStarPrice($withFullBias);
+
+        $this->assertSame($price1, $price2,
+            'market_affordability_bias_fp=1000000 must not change price vs absent key');
+    }
 }
