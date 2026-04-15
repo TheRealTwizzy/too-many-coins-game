@@ -96,6 +96,17 @@ The shared simulator/play-test economy contract is documented in [ECONOMY_CONFIG
 Promotion-critical simulator/runtime mechanic certification is documented in [PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md](PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md).
 Promotion-eligible candidates can be converted into a staged play-test repo patch bundle with `php scripts/generate_promotion_patch.php --promotion-report=... --dry-run`.
 
+Semantic determinism excludes only operational metadata that can vary between equivalent runs:
+
+- top-level `generated_at`
+- payload `config_audit.artifact_paths.*`
+- Simulation D result `manifest_path`
+- Simulation D manifest `generated_at`
+- Simulation D manifest `config.base_season_config_path`
+- Simulation D manifest `runs[*].json`, `runs[*].csv`, and `runs[*].config_audit.*`
+
+Those raw fields are still emitted for inspection and debugging, but determinism assertions compare the remaining semantic output surface. Economic metrics, sweep metadata, requested candidate changes, audit status, and other payload content must still match exactly for a run to be considered deterministic.
+
 ## Project Structure
 
 ```

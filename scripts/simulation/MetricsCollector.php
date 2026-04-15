@@ -262,7 +262,7 @@ class MetricsCollector
             'global_stars_gained',
             't6_total_acquired',
             'blackout_conversions',
-        ]);
+        ], ',', '"', '\\');
 
         foreach ((array)$payload['archetypes'] as $metrics) {
             fputcsv($handle, [
@@ -275,7 +275,7 @@ class MetricsCollector
                 (int)$metrics['global_stars_gained'],
                 (int)$metrics['t6_total_acquired'],
                 (int)$metrics['blackout_conversions'],
-            ]);
+            ], ',', '"', '\\');
         }
 
         fclose($handle);
@@ -309,7 +309,7 @@ class MetricsCollector
             'lock_in_count',
             'natural_expiry_count',
             'avg_final_rank',
-        ]);
+        ], ',', '"', '\\');
 
         foreach ((array)$payload['players'] as $player) {
             fputcsv($handle, [
@@ -324,7 +324,7 @@ class MetricsCollector
                 (int)$player['lock_in_count'],
                 (int)$player['natural_expiry_count'],
                 round((float)$player['average_final_rank'], 4),
-            ]);
+            ], ',', '"', '\\');
         }
 
         fclose($handle);

@@ -17,6 +17,7 @@ require_once __DIR__ . '/../scripts/simulation/SimulationPopulationLifetime.php'
 require_once __DIR__ . '/../scripts/simulation/PolicyScenarioCatalog.php';
 require_once __DIR__ . '/../scripts/simulation/PolicySweepRunner.php';
 require_once __DIR__ . '/../scripts/simulation/ResultComparator.php';
+require_once __DIR__ . '/../scripts/simulation/SimulationDeterminismNormalizer.php';
 
 /**
  * Verifies that Simulations A, D, and E produce stable, identical outputs
@@ -34,11 +35,12 @@ class SimulationDeterminismTest extends TestCase
 
     public function testSimulationAIsFullyDeterministic(): void
     {
-        $first  = ContractSimulator::run('determinism-a');
-        $second = ContractSimulator::run('determinism-a');
-
-        // generated_at differs per run by design; exclude it from comparison.
-        unset($first['generated_at'], $second['generated_at']);
+        $first = SimulationDeterminismNormalizer::normalizePayload(
+            ContractSimulator::run('determinism-a')
+        );
+        $second = SimulationDeterminismNormalizer::normalizePayload(
+            ContractSimulator::run('determinism-a')
+        );
 
         $this->assertSame($first, $second, 'Simulation A produced different outputs on second run with the same seed.');
     }
@@ -64,19 +66,24 @@ class SimulationDeterminismTest extends TestCase
         $r1 = PolicySweepRunner::run(array_merge($opts, ['output_dir' => $outDir1]));
         $r2 = PolicySweepRunner::run(array_merge($opts, ['output_dir' => $outDir2]));
 
+        $this->assertSame(
+            SimulationDeterminismNormalizer::normalizePolicySweepResult($r1),
+            SimulationDeterminismNormalizer::normalizePolicySweepResult($r2),
+            'Simulation D manifest/result metadata drifted despite identical semantic inputs.'
+        );
+
         $runs1 = (array)$r1['manifest']['runs'];
         $runs2 = (array)$r2['manifest']['runs'];
 
         $this->assertCount(count($runs1), $runs2, 'Run count differs between sweeps with the same seed.');
 
         foreach ($runs1 as $i => $run1entry) {
-            $p1 = json_decode((string)file_get_contents((string)$run1entry['json']), true);
-            $p2 = json_decode((string)file_get_contents((string)$runs2[$i]['json']), true);
-
-            unset($p1['generated_at'], $p2['generated_at']);
-            // sweep block: scenario_name and metadata are stable; seed is deterministic.
-            // File paths are different by run; strip them before comparison.
-            unset($p1['sweep'], $p2['sweep']);
+            $p1 = SimulationDeterminismNormalizer::normalizePayload(
+                json_decode((string)file_get_contents((string)$run1entry['json']), true)
+            );
+            $p2 = SimulationDeterminismNormalizer::normalizePayload(
+                json_decode((string)file_get_contents((string)$runs2[$i]['json']), true)
+            );
 
             $label = sprintf(
                 'Simulation D payload mismatch on run %d (scenario=%s, sim=%s)',
@@ -117,6 +124,68 @@ class SimulationDeterminismTest extends TestCase
         $this->assertSame($cfg1['scenario_names'], $cfg2['scenario_names']);
     }
 
+    public function testSimulationDSemanticDriftStillFailsDeterminismComparison(): void
+    {
+        $outDir1 = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tmc_det_d_drift1_' . uniqid();
+        $outDir2 = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tmc_det_d_drift2_' . uniqid();
+
+        $stable = PolicySweepRunner::run([
+            'seed' => 'determinism-d-drift',
+            'players_per_archetype' => 1,
+            'season_count' => 4,
+            'simulators' => ['B'],
+            'scenarios' => [],
+            'include_baseline' => true,
+            'output_dir' => $outDir1,
+        ]);
+        $drifted = PolicySweepRunner::run([
+            'seed' => 'determinism-d-drift',
+            'players_per_archetype' => 2,
+            'season_count' => 4,
+            'simulators' => ['B'],
+            'scenarios' => [],
+            'include_baseline' => true,
+            'output_dir' => $outDir2,
+        ]);
+
+        $stablePayload = SimulationDeterminismNormalizer::normalizePayload(
+            json_decode((string)file_get_contents((string)$stable['manifest']['runs'][0]['json']), true)
+        );
+        $driftedPayload = SimulationDeterminismNormalizer::normalizePayload(
+            json_decode((string)file_get_contents((string)$drifted['manifest']['runs'][0]['json']), true)
+        );
+
+        $this->assertNotSame(
+            $stablePayload,
+            $driftedPayload,
+            'Semantic drift must still fail determinism comparison after normalization.'
+        );
+    }
+
+    public function testSimulationDNormalizationDoesNotHideMeaningfulOutputDifferences(): void
+    {
+        $outDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tmc_det_d_visible_' . uniqid();
+        $result = PolicySweepRunner::run([
+            'seed' => 'determinism-d-visible',
+            'players_per_archetype' => 1,
+            'season_count' => 4,
+            'simulators' => ['B'],
+            'scenarios' => [],
+            'include_baseline' => true,
+            'output_dir' => $outDir,
+        ]);
+
+        $payload = json_decode((string)file_get_contents((string)$result['manifest']['runs'][0]['json']), true);
+        $mutated = $payload;
+        $mutated['diagnostics']['natural_expiry_count'] = (int)($mutated['diagnostics']['natural_expiry_count'] ?? 0) + 1;
+
+        $this->assertNotSame(
+            SimulationDeterminismNormalizer::normalizePayload($payload),
+            SimulationDeterminismNormalizer::normalizePayload($mutated),
+            'Normalization must not erase meaningful output deltas.'
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Simulation E — ResultComparator
     // -------------------------------------------------------------------------
@@ -155,9 +224,8 @@ class SimulationDeterminismTest extends TestCase
         $r1 = ResultComparator::run(array_merge($commonOpts, ['output_dir' => $out1]));
         $r2 = ResultComparator::run(array_merge($commonOpts, ['output_dir' => $out2]));
 
-        $p1 = (array)$r1['payload'];
-        $p2 = (array)$r2['payload'];
-        unset($p1['generated_at'], $p2['generated_at']);
+        $p1 = SimulationDeterminismNormalizer::normalizePayload((array)$r1['payload']);
+        $p2 = SimulationDeterminismNormalizer::normalizePayload((array)$r2['payload']);
 
         $this->assertSame($p1, $p2, 'Simulation E produced different outputs on second run with the same inputs.');
     }

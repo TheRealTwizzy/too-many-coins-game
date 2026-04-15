@@ -523,7 +523,29 @@ php scripts/simulate_policy_sweep.php --seed=live-d --season-config=simulation_o
 
 ## Determinism
 
-All five simulators are fully deterministic for a given seed. Re-running with the same seed always produces identical economic outputs. Only `generated_at` timestamps change between runs.
+All five simulators are deterministic for a given seed at the semantic-output layer. Re-running with the same seed must produce identical economic outputs after excluding operational metadata that does not affect meaning.
+
+Excluded from semantic determinism comparison:
+
+- payload `generated_at`
+- payload `config_audit.artifact_paths.*`
+- Simulation D result `manifest_path`
+- Simulation D manifest `generated_at`
+- Simulation D manifest `config.base_season_config_path`
+- Simulation D manifest `runs[*].json`
+- Simulation D manifest `runs[*].csv`
+- Simulation D manifest `runs[*].config_audit.*`
+
+These fields remain in the raw artifacts for operator debugging, audit review, and traceability. They are not allowed to decide semantic determinism because equivalent runs can legitimately write to different directories or temp roots.
+
+Not excluded:
+
+- economic metrics and distributions
+- player/archetype outputs
+- sweep metadata such as scenario, simulator, seed, cohort, and horizon
+- config audit status and requested candidate changes
+
+If any of those semantic fields drift, determinism fails.
 
 `TMC_TICK_REAL_SECONDS` affects wall-clock speed only; it does not affect simulation outcome or determinism.
 
