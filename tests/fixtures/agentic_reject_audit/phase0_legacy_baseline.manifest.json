@@ -1,0 +1,60 @@
+{
+    "schema_version":  "tmc-reject-audit-phase0-manifest.v1",
+    "phase":  "phase0",
+    "baseline_id":  "phase0_legacy_baseline",
+    "captured_at_utc":  "2026-04-16T19:47:57.2159304Z",
+    "repo":  {
+                 "root":  ".",
+                 "git_commit_sha":  "c7f9747da288848fbb756bb347c2ab1391a210bc",
+                 "git_commit_short":  "c7f9747da288"
+             },
+    "execution":  {
+                      "entrypoint":  "AgenticRejectedIterationAuditor::run",
+                      "invocation_type":  "php-inline",
+                      "invocation_path":  "require_once scripts/optimization/AgenticOptimization.php; AgenticRejectedIterationAuditor::run(realpath(\".\"), RUN_OUT)",
+                      "run_outputs":  [
+                                          "C:\\Users\\trent\\AppData\\Local\\Temp\\tmc_phase0_light\\run1\\audit",
+                                          "C:\\Users\\trent\\AppData\\Local\\Temp\\tmc_phase0_light\\run2\\audit"
+                                      ],
+                      "pinned_input_identity":  "legacy-artifact-files-only",
+                      "php_version":  "PHP 8.5.4 (cli) (built: Mar 10 2026 23:30:42) (ZTS Visual C++ 2022 x64)"
+                  },
+    "source_artifacts":  [
+                             {
+                                 "id":  "verification_summary_v2",
+                                 "path":  "simulation_output/current-db/verification-v2/verification_summary_v2.json",
+                                 "checksum":  {
+                                                  "algorithm":  "sha256",
+                                                  "encoding":  "hex-lowercase",
+                                                  "value":  "824d055685295c2c90d080da7e0123327c06cfdf67333659b66c62ff0108f866"
+                                              },
+                                 "size_bytes":  12131,
+                                 "mtime_utc":  "2026-04-10T21:53:59.4902196Z"
+                             },
+                             {
+                                 "id":  "comparison_v3_fast_1",
+                                 "path":  "simulation_output/current-db/comparisons-v3-fast/comparison_tuning-verify-v3-fast-1.json",
+                                 "checksum":  {
+                                                  "algorithm":  "sha256",
+                                                  "encoding":  "hex-lowercase",
+                                                  "value":  "476185b4fd46e3badde952d10f032505fa4e40ceaa879c0826a03c8abb619219"
+                                              },
+                                 "size_bytes":  28173,
+                                 "mtime_utc":  "2026-04-12T06:51:11.0977982Z"
+                             }
+                         ],
+    "outputs":  {
+                    "baseline_fixture":  "tests/fixtures/agentic_reject_audit/phase0_legacy_baseline.json",
+                    "baseline_notes":  "tests/fixtures/agentic_reject_audit/phase0_legacy_baseline.md"
+                },
+    "parity_policy":  {
+                          "comparison_run_label":  "phase0-lightweight-recheck",
+                          "zero_tolerance_fields":  [
+                                                        "audited_events_count",
+                                                        "audited_events",
+                                                        "flag_histogram",
+                                                        "key_failure_patterns",
+                                                        "rejected_iteration_audit"
+                                                    ]
+                      }
+}
