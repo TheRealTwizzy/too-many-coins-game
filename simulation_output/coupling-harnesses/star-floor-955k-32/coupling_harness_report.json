@@ -1,0 +1,201 @@
+{
+    "schema_version": "tmc-coupling-harness-report.v1",
+    "generated_at": "2026-04-15T22:48:05+00:00",
+    "seed": "star-floor-955k-32",
+    "status": "pass",
+    "selected_family_ids": [
+        "star_affordability_pricing_instability"
+    ],
+    "failed_family_ids": [],
+    "baseline_provenance": {
+        "source": "season-config-file",
+        "resolved_at": "2026-04-15T22:47:54+00:00",
+        "path": "simulation_output/current-db/export/current_season.json",
+        "surface_sha256": "fa25a6fda32eeb1846d8f696ede4073149652a6597da2d0f9ab0926b7a9d7cab",
+        "db_errors": [
+            "Database connection failed: SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it"
+        ]
+    },
+    "candidate_patch": {
+        "source": "tmp/candidate_955k_floor32.json",
+        "raw": {
+            "market_affordability_bias_fp": 955000,
+            "star_price_minimum_absolute": 32
+        },
+        "normalized_season_values": {
+            "market_affordability_bias_fp": 955000,
+            "star_price_minimum_absolute": 32
+        }
+    },
+    "families": [
+        {
+            "family_id": "star_affordability_pricing_instability",
+            "label": "Star affordability and pricing instability",
+            "profile_id": "coupling_star_pricing",
+            "description": "Detects candidates that make early star access worse or create unstable pricing behavior even in a reduced star-market slice.",
+            "status": "pass",
+            "metric_results": [
+                {
+                    "metric": "star_purchase_density",
+                    "label": "Star purchase density must not fall.",
+                    "direction": "up",
+                    "baseline": 6659.333333333333,
+                    "candidate": 6661,
+                    "delta": 1.6666666666669698,
+                    "improvement_toward_goal": 1.6666666666669698,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "star_purchase_density rose by 1.666667; goal-facing improvement=1.666667 (need >= 0)."
+                },
+                {
+                    "metric": "first_choice_viability",
+                    "label": "Early star access must not fall.",
+                    "direction": "up",
+                    "baseline": 1,
+                    "candidate": 1,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "first_choice_viability held by 0; goal-facing improvement=0 (need >= 0)."
+                },
+                {
+                    "metric": "star_price_cap_share",
+                    "label": "Time at price cap must not rise.",
+                    "direction": "down",
+                    "baseline": 0,
+                    "candidate": 0,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "star_price_cap_share held by 0; goal-facing improvement=0 (need >= 0)."
+                },
+                {
+                    "metric": "star_price_range_ratio",
+                    "label": "Price range volatility must not rise.",
+                    "direction": "down",
+                    "baseline": 2.0268163392578735,
+                    "candidate": 1.9662921348314608,
+                    "delta": -0.06052420442641271,
+                    "improvement_toward_goal": 0.06052420442641271,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "star_price_range_ratio fell by 0.060524; goal-facing improvement=0.060524 (need >= 0)."
+                }
+            ],
+            "failed_metrics": [],
+            "blocking_flags": [],
+            "regression_flags": [],
+            "proves": "The focused star-market slice did not show weaker affordability or more unstable price movement.",
+            "cannot_prove": "Does not prove production star-price behavior under the full player mix or full-duration seasons.",
+            "profile": {
+                "tier": "tier1",
+                "simulators": [
+                    "B"
+                ],
+                "players_per_archetype": 1,
+                "season_count": 1,
+                "season_duration_ticks": 720,
+                "blackout_duration_ticks": 180,
+                "estimated_work_units": 2160,
+                "estimated_cost_ratio_vs_tier3_full": 0.003125,
+                "estimated_speedup_vs_tier3_full": 320
+            },
+            "baseline": {
+                "runtime_secs": 5.417,
+                "cache_hit": false,
+                "metrics": {
+                    "onboarding_liquidity": 72471.66666666667,
+                    "first_choice_viability": 1,
+                    "star_purchase_density": 6659.333333333333,
+                    "boost_roi": 17.715173606243283,
+                    "boost_mid_late_share": 0.6753312945973496,
+                    "sigil_counterplay_density": 201,
+                    "t6_theft_share": 0,
+                    "dead_mechanic_penalty": 0,
+                    "hoarder_advantage_gap": -6585,
+                    "boost_focused_gap": -6585,
+                    "lock_in_timing_entropy": 0.9182958340544894,
+                    "lock_in_total": 3,
+                    "expiry_rate_mean": 0,
+                    "blackout_action_density": 0,
+                    "archetype_viability_min_ratio": 0.5618830675778284,
+                    "strategic_diversity": 0.506918153388021,
+                    "dominant_strategy_pressure": 0.6138394533303296,
+                    "concentration_top10_share": 0,
+                    "concentration_top1_share": 0,
+                    "ranking_churn_proxy": 0.8367535567201382,
+                    "repeat_season_viability": 0,
+                    "lifecycle_coherence": 0,
+                    "skip_strategy_edge": 0,
+                    "throughput_lock_in_rate": 0,
+                    "star_price_cap_share": 0,
+                    "star_price_floor_share": 0,
+                    "star_price_range_ratio": 2.0268163392578735,
+                    "star_price_mean": 32.07,
+                    "dominant_archetype_label_b": "Star-Focused",
+                    "dominant_archetype_label_c": "none"
+                },
+                "season_paths": [
+                    "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\star-floor-955k-32\\tier1\\runs\\season_star-floor-955k-32-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.json"
+                ],
+                "lifetime_paths": [],
+                "season_audit_paths": [
+                    {
+                        "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\star-floor-955k-32\\tier1\\runs\\season_star-floor-955k-32-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config.json",
+                        "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\star-floor-955k-32\\tier1\\runs\\season_star-floor-955k-32-baseline-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config_audit.md"
+                    }
+                ],
+                "lifetime_audit_paths": []
+            },
+            "candidate": {
+                "runtime_secs": 5.427,
+                "cache_hit": false,
+                "metrics": {
+                    "onboarding_liquidity": 72406,
+                    "first_choice_viability": 1,
+                    "star_purchase_density": 6661,
+                    "boost_roi": 17.708584513295015,
+                    "boost_mid_late_share": 0.6753312945973496,
+                    "sigil_counterplay_density": 201,
+                    "t6_theft_share": 0,
+                    "dead_mechanic_penalty": 0,
+                    "hoarder_advantage_gap": -6587,
+                    "boost_focused_gap": -6587,
+                    "lock_in_timing_entropy": 0.9182958340544894,
+                    "lock_in_total": 3,
+                    "expiry_rate_mean": 0,
+                    "blackout_action_density": 0,
+                    "archetype_viability_min_ratio": 0.561560649764688,
+                    "strategic_diversity": 0.506918153388021,
+                    "dominant_strategy_pressure": 0.6138454030108496,
+                    "concentration_top10_share": 0,
+                    "concentration_top1_share": 0,
+                    "ranking_churn_proxy": 0.836720709957825,
+                    "repeat_season_viability": 0,
+                    "lifecycle_coherence": 0,
+                    "skip_strategy_edge": 0,
+                    "throughput_lock_in_rate": 0,
+                    "star_price_cap_share": 0,
+                    "star_price_floor_share": 0,
+                    "star_price_range_ratio": 1.9662921348314608,
+                    "star_price_mean": 32.04,
+                    "dominant_archetype_label_b": "Star-Focused",
+                    "dominant_archetype_label_c": "none"
+                },
+                "season_paths": [
+                    "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\star-floor-955k-32\\tier1\\runs\\season_star-floor-955k-32-candidate-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.json"
+                ],
+                "lifetime_paths": [],
+                "season_audit_paths": [
+                    {
+                        "effective_config_json": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\star-floor-955k-32\\tier1\\runs\\season_star-floor-955k-32-candidate-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config.json",
+                        "effective_config_audit_md": "C:\\Users\\trent\\Documents\\webgame too-many-coins\\too-many-coins-game\\scripts/../simulation_output/coupling-harnesses\\star-floor-955k-32\\tier1\\runs\\season_star-floor-955k-32-candidate-star_affordability_pricing_instability-coupling_star_pricing-coupling-star-pricing-a-1.audit\\effective_config_audit.md"
+                    }
+                ],
+                "lifetime_audit_paths": []
+            }
+        }
+    ]
+}

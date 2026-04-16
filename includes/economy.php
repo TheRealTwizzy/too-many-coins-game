@@ -827,7 +827,8 @@ class Economy {
 
         // Hard cap and floor (preserved as final guardrails).
         $price = min($price, (int)$season['star_price_cap']);
-        return max(1, $price);
+        $minPrice = (int)($season['star_price_minimum_absolute'] ?? 1);
+        return max($minPrice, $price);
     }
     
     /**

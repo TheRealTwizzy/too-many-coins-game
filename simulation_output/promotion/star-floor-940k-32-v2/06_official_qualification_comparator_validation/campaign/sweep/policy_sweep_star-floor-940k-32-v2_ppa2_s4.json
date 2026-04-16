@@ -1,0 +1,187 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T23:22:51+00:00",
+    "seed": "star-floor-940k-32-v2",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "star-floor-940k-32-v2"
+        ],
+        "base_season_config_path": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "star-floor-940k-32-v2|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_star-floor-940k-32-v2_scenario_baseline_sim_B_ppa2.json",
+            "csv": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_star-floor-940k-32-v2_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_star-floor-940k-32-v2_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_star-floor-940k-32-v2_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 33757,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 33761
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "star-floor-940k-32-v2|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_star-floor-940k-32-v2_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_star-floor-940k-32-v2_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_star-floor-940k-32-v2_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_star-floor-940k-32-v2_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 57177,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 57181
+            }
+        },
+        {
+            "scenario_name": "star-floor-940k-32-v2",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "star-floor-940k-32-v2|scenario|star-floor-940k-32-v2|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "star_conversion_pricing"
+            ],
+            "override_keys": [
+                "market_affordability_bias_fp",
+                "star_price_minimum_absolute"
+            ],
+            "json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_B_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_B_ppa2.json",
+            "csv": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_B_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_B_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_B_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 35968,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 35974
+            }
+        },
+        {
+            "scenario_name": "star-floor-940k-32-v2",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "star-floor-940k-32-v2|scenario|star-floor-940k-32-v2|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "star_conversion_pricing"
+            ],
+            "override_keys": [
+                "market_affordability_bias_fp",
+                "star_price_minimum_absolute"
+            ],
+            "json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_C_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_C_ppa2_s4.json",
+            "csv": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_C_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_C_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_star-floor-940k-32-v2_C_star-floor-940k-32-v2_scenario_star-floor-940k-32-v2_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 52178,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 52182
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing",
+        "sigil_drop_tier_combine"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 3,
+        "run_execution_duration_ms": 179098,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 179102,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 69735
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 109363
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 57181
+            },
+            {
+                "scenario_name": "star-floor-940k-32-v2",
+                "simulator_type": "C",
+                "total_duration_ms": 52182
+            },
+            {
+                "scenario_name": "star-floor-940k-32-v2",
+                "simulator_type": "B",
+                "total_duration_ms": 35974
+            }
+        ]
+    }
+}

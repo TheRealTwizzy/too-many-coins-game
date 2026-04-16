@@ -1,0 +1,374 @@
+{
+    "schema_version": "tmc-candidate-promotion-state.v1",
+    "generated_at": "2026-04-15T23:17:39+00:00",
+    "candidate_id": "star-floor-940k-32-v2",
+    "seed": "star-floor-940k-32-v2",
+    "status": "ineligible",
+    "patch_ready": false,
+    "promotion_eligible": false,
+    "debug_bypass_used": false,
+    "debug_bypass_stages": [],
+    "warnings": [],
+    "stage_order": [
+        "candidate_schema_validation",
+        "effective_config_preflight",
+        "targeted_subsystem_harnesses",
+        "full_single_season_validation",
+        "multi_season_exploit_regression_validation",
+        "official_qualification_comparator_validation",
+        "patch_serialization_validation",
+        "play_test_runtime_parity_certification",
+        "play_test_repo_compatibility_validation",
+        "promotion_eligibility_marking"
+    ],
+    "stages": [
+        {
+            "index": 1,
+            "id": "candidate_schema_validation",
+            "label": "candidate schema validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T23:17:39+00:00",
+            "completed_at": "2026-04-15T23:17:39+00:00",
+            "duration_ms": 3,
+            "summary": "Candidate schema validated successfully.",
+            "warnings": [],
+            "artifacts": {
+                "schema_validation_json": "simulation_output/promotion\\star-floor-940k-32-v2\\01_candidate_schema_validation\\candidate_schema_validation.json"
+            },
+            "details": {
+                "canonical_change_count": 2,
+                "canonical_changes": [
+                    {
+                        "raw_path": "market_affordability_bias_fp",
+                        "path": "season.market_affordability_bias_fp",
+                        "scope": "season",
+                        "key": "market_affordability_bias_fp",
+                        "requested_value": 940000,
+                        "path_status": "valid"
+                    },
+                    {
+                        "raw_path": "star_price_minimum_absolute",
+                        "path": "season.star_price_minimum_absolute",
+                        "scope": "season",
+                        "key": "star_price_minimum_absolute",
+                        "requested_value": 32,
+                        "path_status": "valid"
+                    }
+                ]
+            }
+        },
+        {
+            "index": 2,
+            "id": "effective_config_preflight",
+            "label": "effective-config preflight",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T23:17:39+00:00",
+            "completed_at": "2026-04-15T23:17:39+00:00",
+            "duration_ms": 5,
+            "summary": "Effective-config preflight passed and produced canonical audit artifacts.",
+            "warnings": [],
+            "artifacts": {
+                "effective_config_json": "simulation_output/promotion\\star-floor-940k-32-v2\\02_effective_config_preflight\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\star-floor-940k-32-v2\\02_effective_config_preflight\\effective_config_audit.md"
+            },
+            "details": {
+                "preflight_status": "pass",
+                "requested_candidate_changes": [
+                    {
+                        "path": "season.market_affordability_bias_fp",
+                        "raw_path": "season.market_affordability_bias_fp",
+                        "requested_value": 940000,
+                        "effective_value": 940000,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    },
+                    {
+                        "path": "season.star_price_minimum_absolute",
+                        "raw_path": "season.star_price_minimum_absolute",
+                        "requested_value": 32,
+                        "effective_value": 32,
+                        "effective_source": "candidate_patch",
+                        "is_active": true,
+                        "reason_code": null,
+                        "reason_detail": null
+                    }
+                ]
+            }
+        },
+        {
+            "index": 3,
+            "id": "targeted_subsystem_harnesses",
+            "label": "targeted subsystem harnesses",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T23:17:39+00:00",
+            "completed_at": "2026-04-15T23:18:28+00:00",
+            "duration_ms": 49456,
+            "summary": "Targeted subsystem harnesses passed.",
+            "warnings": [],
+            "artifacts": {
+                "targeted_harness_report_json": "simulation_output/promotion\\star-floor-940k-32-v2\\03_targeted_subsystem_harnesses\\targeted_harness_report.json"
+            },
+            "details": {
+                "selected_family_ids": [
+                    "hoarding_pressure_imbalance",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "skip_rejoin_exploit_worsened",
+                    "star_affordability_pricing_instability"
+                ],
+                "failed_family_ids": []
+            }
+        },
+        {
+            "index": 4,
+            "id": "full_single_season_validation",
+            "label": "full single-season validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T23:18:28+00:00",
+            "completed_at": "2026-04-15T23:18:51+00:00",
+            "duration_ms": 22232,
+            "summary": "Full single-season validation completed with config audit status `pass`.",
+            "warnings": [],
+            "artifacts": {
+                "single_season_json": "simulation_output/promotion\\star-floor-940k-32-v2\\04_full_single_season_validation\\promotion_single_season_star-floor-940k-32-v2.json",
+                "single_season_csv": "simulation_output/promotion\\star-floor-940k-32-v2\\04_full_single_season_validation\\promotion_single_season_star-floor-940k-32-v2.csv",
+                "effective_config_json": "simulation_output/promotion\\star-floor-940k-32-v2\\04_full_single_season_validation\\audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\star-floor-940k-32-v2\\04_full_single_season_validation\\audit\\effective_config_audit.md"
+            },
+            "details": {
+                "audit_status": "pass",
+                "schema_version": "tmc-sim-phase1.v1",
+                "simulator": "single-season-population"
+            }
+        },
+        {
+            "index": 5,
+            "id": "multi_season_exploit_regression_validation",
+            "label": "multi-season exploit/regression validation",
+            "required": true,
+            "status": "pass",
+            "started_at": "2026-04-15T23:18:51+00:00",
+            "completed_at": "2026-04-15T23:19:52+00:00",
+            "duration_ms": 61677,
+            "summary": "Multi-season exploit/regression validation passed without regression flags.",
+            "warnings": [],
+            "artifacts": {
+                "multi_season_validation_json": "simulation_output/promotion\\star-floor-940k-32-v2\\05_multi_season_exploit_regression_validation\\multi_season_validation.json",
+                "baseline_lifetime_json": "simulation_output/promotion\\star-floor-940k-32-v2\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.json",
+                "baseline_lifetime_csv": "simulation_output/promotion\\star-floor-940k-32-v2\\05_multi_season_exploit_regression_validation\\promotion_lifetime_baseline.csv",
+                "candidate_lifetime_json": "simulation_output/promotion\\star-floor-940k-32-v2\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.json",
+                "candidate_lifetime_csv": "simulation_output/promotion\\star-floor-940k-32-v2\\05_multi_season_exploit_regression_validation\\promotion_lifetime_candidate.csv"
+            },
+            "details": {
+                "regression_flags": [],
+                "global_score_delta": -0.0017499271789240822
+            }
+        },
+        {
+            "index": 6,
+            "id": "official_qualification_comparator_validation",
+            "label": "official qualification comparator validation",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T23:19:52+00:00",
+            "completed_at": "2026-04-15T23:22:51+00:00",
+            "duration_ms": 179136,
+            "summary": "Official qualification comparator rejected the candidate for promotion readiness (`reject`).",
+            "warnings": [],
+            "artifacts": {
+                "qualification_base_season_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\qualification_base_season.json",
+                "qualification_candidate_bundle_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\qualification_candidate_bundle.json",
+                "qualification_campaign_report_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep_comparator_report.json",
+                "qualification_campaign_report_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep_comparator_report.md",
+                "qualification_comparison_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\comparator\\comparison_star-floor-940k-32-v2.json",
+                "qualification_sweep_manifest_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\sweep\\policy_sweep_star-floor-940k-32-v2_ppa2_s4.json",
+                "qualification_rejection_attribution_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\star-floor-940k-32-v2\\star-floor-940k-32-v2\\rejection_attribution.json",
+                "qualification_rejection_attribution_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\star-floor-940k-32-v2\\star-floor-940k-32-v2\\rejection_attribution.md"
+            },
+            "details": {
+                "passes": false,
+                "required_disposition": "non-reject",
+                "actual_disposition": "reject",
+                "wins": 9,
+                "losses": 7,
+                "mixed_tradeoffs": 2,
+                "regression_flags": [
+                    "engagement_up_but_t6_supply_spike",
+                    "improves_engagement_but_t6_supply_spikes",
+                    "lock_in_down_but_expiry_dominance_up",
+                    "long_run_concentration_worsened",
+                    "reduces_lock_in_but_expiry_dominance_rises"
+                ],
+                "cross_simulator_regression_flags": [
+                    "improves_engagement_but_t6_supply_spikes",
+                    "reduces_lock_in_but_expiry_dominance_rises"
+                ],
+                "rejection_attribution": {
+                    "artifact_paths": {
+                        "rejection_attribution_json": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\star-floor-940k-32-v2\\star-floor-940k-32-v2\\rejection_attribution.json",
+                        "rejection_attribution_md": "simulation_output/promotion\\star-floor-940k-32-v2\\06_official_qualification_comparator_validation\\campaign\\comparator\\rejections\\star-floor-940k-32-v2\\star-floor-940k-32-v2\\rejection_attribution.md"
+                    },
+                    "primary_failed_gate": {
+                        "flag": "lock_in_down_but_expiry_dominance_up",
+                        "label": "Lock-in weakened while expiry pressure rose",
+                        "source": "simulator",
+                        "score": 302,
+                        "evidence": {
+                            "simulator_type": "B",
+                            "lock_in_delta": -2,
+                            "natural_expiry_delta": 2
+                        },
+                        "rationale": "This gate is driven by direct simulator deltas. Candidate output reduced lock-in while raising natural expiry."
+                    },
+                    "secondary_regressions": [
+                        {
+                            "flag": "long_run_concentration_worsened",
+                            "label": "Long-run concentration worsened",
+                            "source": "simulator",
+                            "score": 137.46321321411742,
+                            "evidence": {
+                                "simulator_type": "C",
+                                "top10_share_delta": 0.04546321321411742
+                            },
+                            "rationale": "This gate is driven by direct simulator deltas. Candidate increased long-run top-share concentration."
+                        },
+                        {
+                            "flag": "reduces_lock_in_but_expiry_dominance_rises",
+                            "label": "Lock-in weakened while expiry pressure rose",
+                            "source": "cross_simulator",
+                            "score": 96,
+                            "evidence": {
+                                "simulator_type": null,
+                                "lock_in_delta": 0,
+                                "natural_expiry_delta": 0
+                            },
+                            "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate output reduced lock-in while raising natural expiry."
+                        },
+                        {
+                            "flag": "engagement_up_but_t6_supply_spike",
+                            "label": "Engagement gain came with excess T6 supply",
+                            "source": "simulator",
+                            "score": 89,
+                            "evidence": {
+                                "simulator_type": "B",
+                                "late_active_engaged_rate_delta": 0.050000000000000044,
+                                "t6_total_delta": 4
+                            },
+                            "rationale": "This gate is driven by direct simulator deltas. Engagement gain appears coupled to excess T6 supply growth."
+                        },
+                        {
+                            "flag": "improves_engagement_but_t6_supply_spikes",
+                            "label": "Engagement gain came with excess T6 supply",
+                            "source": "cross_simulator",
+                            "score": 80,
+                            "evidence": {
+                                "simulator_type": null,
+                                "late_active_engaged_rate_delta": 0,
+                                "t6_total_delta": 0
+                            },
+                            "rationale": "This gate is driven by a cross-simulator regression pattern. Engagement gain appears coupled to excess T6 supply growth."
+                        }
+                    ],
+                    "interaction_ambiguity": {
+                        "present": true,
+                        "type": "multi_knob_bundle",
+                        "note": "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+                    },
+                    "confidence_notes": [
+                        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+                        "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+                    ],
+                    "timing_ms": 7
+                }
+            }
+        },
+        {
+            "index": 7,
+            "id": "patch_serialization_validation",
+            "label": "patch serialization validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T23:22:51+00:00",
+            "completed_at": "2026-04-15T23:22:51+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 8,
+            "id": "play_test_runtime_parity_certification",
+            "label": "play-test runtime parity certification",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T23:22:51+00:00",
+            "completed_at": "2026-04-15T23:22:51+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 9,
+            "id": "play_test_repo_compatibility_validation",
+            "label": "play-test repo compatibility validation",
+            "required": true,
+            "status": "blocked",
+            "started_at": "2026-04-15T23:22:51+00:00",
+            "completed_at": "2026-04-15T23:22:51+00:00",
+            "duration_ms": 0,
+            "summary": "blocked by failed prior required stage",
+            "warnings": [],
+            "artifacts": [],
+            "details": []
+        },
+        {
+            "index": 10,
+            "id": "promotion_eligibility_marking",
+            "label": "promotion eligibility marking",
+            "required": true,
+            "status": "fail",
+            "started_at": "2026-04-15T23:22:51+00:00",
+            "completed_at": "2026-04-15T23:22:51+00:00",
+            "duration_ms": 0,
+            "summary": "Candidate is not patch-ready because one or more required promotion stages did not pass.",
+            "warnings": [],
+            "artifacts": [],
+            "details": {
+                "promotion_eligible": false,
+                "patch_ready": false,
+                "blocking_stages": [
+                    {
+                        "stage_id": "official_qualification_comparator_validation",
+                        "status": "fail",
+                        "summary": "Official qualification comparator rejected the candidate for promotion readiness (`reject`)."
+                    },
+                    {
+                        "stage_id": "patch_serialization_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_runtime_parity_certification",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    },
+                    {
+                        "stage_id": "play_test_repo_compatibility_validation",
+                        "status": "blocked",
+                        "summary": "blocked by failed prior required stage"
+                    }
+                ]
+            }
+        }
+    ],
+    "artifact_paths": []
+}

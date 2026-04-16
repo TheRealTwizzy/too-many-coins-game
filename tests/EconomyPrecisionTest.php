@@ -366,15 +366,19 @@ class EconomyPrecisionTest extends TestCase
 
     public function testSigilSeasonPhaseAvailabilityAcrossBoundaries(): void
     {
+        // Use SEASON_DURATION constant (fixed at bootstrap) instead of ticks_from_real_seconds()
+        // to avoid test-isolation failures caused by other test files setting TMC_TICK_REAL_SECONDS=3600
+        // at file scope, which would make ticks_from_real_seconds() return a smaller value than
+        // SIGIL_BLACKOUT_DURATION_TICKS (also a bootstrap constant), collapsing the season.
         $season = [
             'season_id' => 2,
             'start_time' => 1000,
-            'end_time' => 1000 + ticks_from_real_seconds(1209600),
+            'end_time' => 1000 + (int)SEASON_DURATION,
             'season_seed' => str_repeat("\x03", 32),
         ];
 
         $earlyPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time']);
-        $midPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time'] + ticks_from_real_seconds(6 * 86400));
+        $midPhase = Economy::sigilSeasonPhase($season, (int)$season['start_time'] + (int)intdiv((int)SEASON_DURATION * 6, 14));
         $lateActivePhase = Economy::sigilSeasonPhase($season, (int)$season['end_time'] - (int)SIGIL_BLACKOUT_DURATION_TICKS - 1);
         $latePhase = Economy::sigilSeasonPhase($season, (int)$season['end_time'] - 1);
 
@@ -405,10 +409,11 @@ class EconomyPrecisionTest extends TestCase
 
     public function testTierSixMovesIntoLateActiveAndStaysOutOfBlackout(): void
     {
+        // Use SEASON_DURATION constant (fixed at bootstrap) — same isolation reason as above.
         $season = [
             'season_id' => 5,
             'start_time' => 1000,
-            'end_time' => 1000 + ticks_from_real_seconds(1209600),
+            'end_time' => 1000 + (int)SEASON_DURATION,
             'season_seed' => str_repeat("\x04", 32),
         ];
 

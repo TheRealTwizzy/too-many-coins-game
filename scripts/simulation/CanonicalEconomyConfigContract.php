@@ -243,6 +243,19 @@ class CanonicalEconomyConfigContract
                 . 'Reduces star-purchase friction for all archetypes equally but disproportionately '
                 . 'benefits high-purchase archetypes (Boost-Focused, Hardcore, Star-Focused).',
         ],
+        'star_price_minimum_absolute' => [
+            'type' => 'int',
+            'subsystem' => 'star_conversion_pricing',
+            'units' => 'coins_per_star',
+            'min' => 1,
+            'max' => 500,
+            'description' => 'Absolute minimum published star price after affordability bias and hard cap. '
+                . 'Replaces the hardcoded floor of 1 in calculateStarPrice(). '
+                . 'Default 1 preserves backward compatibility. '
+                . 'Raising this (e.g. 50) prevents low-supply prices from collapsing toward 1 when '
+                . 'market_affordability_bias_fp is active, breaking the floor-coupling that '
+                . 'artificially widens star_price_range_ratio.',
+        ],
         'vault_config' => [
             'type' => 'vault_config',
             'subsystem' => 'sigil_drop_tier_combine',

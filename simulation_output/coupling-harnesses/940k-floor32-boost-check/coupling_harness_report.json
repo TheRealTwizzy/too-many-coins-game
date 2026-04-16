@@ -1,0 +1,193 @@
+{
+    "schema_version": "tmc-coupling-harness-report.v1",
+    "generated_at": "2026-04-15T23:14:07+00:00",
+    "seed": "940k-floor32-boost-check",
+    "status": "fail",
+    "selected_family_ids": [
+        "boost_underperformance"
+    ],
+    "failed_family_ids": [
+        "boost_underperformance"
+    ],
+    "baseline_provenance": {
+        "source": "season-config-file",
+        "resolved_at": "2026-04-15T23:13:55+00:00",
+        "path": "simulation_output/current-db/export/current_season.json",
+        "surface_sha256": "fa25a6fda32eeb1846d8f696ede4073149652a6597da2d0f9ab0926b7a9d7cab",
+        "db_errors": [
+            "Database connection failed: SQLSTATE[HY000] [2002] No connection could be made because the target machine actively refused it"
+        ]
+    },
+    "candidate_patch": {
+        "source": "tmp/candidate_940k_floor32.json",
+        "raw": {
+            "market_affordability_bias_fp": 940000,
+            "star_price_minimum_absolute": 32
+        },
+        "normalized_season_values": {
+            "market_affordability_bias_fp": 940000,
+            "star_price_minimum_absolute": 32
+        }
+    },
+    "families": [
+        {
+            "family_id": "boost_underperformance",
+            "label": "Boost underperformance",
+            "profile_id": "coupling_boost",
+            "description": "Detects candidates where boost-focused play gets weaker, later boosts disappear, or boosts stop converting into score.",
+            "status": "fail",
+            "metric_results": [
+                {
+                    "metric": "boost_roi",
+                    "label": "Boost ROI must not fall.",
+                    "direction": "up",
+                    "baseline": 18.410000914160342,
+                    "candidate": 18.403967455891763,
+                    "delta": -0.0060334582685790394,
+                    "improvement_toward_goal": -0.0060334582685790394,
+                    "threshold_min_improvement": 0,
+                    "status": "fail",
+                    "diagnostic": "boost_roi fell by 0.006033; goal-facing improvement=-0.006033 (need >= 0)."
+                },
+                {
+                    "metric": "boost_mid_late_share",
+                    "label": "Mid/late boost usage must not fall.",
+                    "direction": "up",
+                    "baseline": 0.6601577168606835,
+                    "candidate": 0.6601577168606835,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "boost_mid_late_share held by 0; goal-facing improvement=0 (need >= 0)."
+                },
+                {
+                    "metric": "boost_focused_gap",
+                    "label": "Boost-focused score gap must not widen.",
+                    "direction": "down",
+                    "baseline": 2781,
+                    "candidate": 2781,
+                    "delta": 0,
+                    "improvement_toward_goal": 0,
+                    "threshold_min_improvement": 0,
+                    "status": "pass",
+                    "diagnostic": "boost_focused_gap held by 0; goal-facing improvement=0 (need >= 0)."
+                }
+            ],
+            "failed_metrics": [
+                "boost_roi"
+            ],
+            "blocking_flags": [],
+            "regression_flags": [],
+            "proves": "The reduced boost harness did not show the candidate weakening boost payoff or deployment timing.",
+            "cannot_prove": "Does not prove boost changes remain neutral once all other subsystems mutate together.",
+            "profile": {
+                "tier": "tier1",
+                "simulators": [
+                    "B"
+                ],
+                "players_per_archetype": 1,
+                "season_count": 1,
+                "season_duration_ticks": 720,
+                "blackout_duration_ticks": 180,
+                "estimated_work_units": 2160,
+                "estimated_cost_ratio_vs_tier3_full": 0.003125,
+                "estimated_speedup_vs_tier3_full": 320
+            },
+            "baseline": {
+                "runtime_secs": 5.978,
+                "cache_hit": false,
+                "metrics": {
+                    "onboarding_liquidity": 71557,
+                    "first_choice_viability": 1,
+                    "star_purchase_density": 6017.666666666667,
+                    "boost_roi": 18.410000914160342,
+                    "boost_mid_late_share": 0.6601577168606835,
+                    "sigil_counterplay_density": 84,
+                    "t6_theft_share": 0,
+                    "dead_mechanic_penalty": 0.3333333333333333,
+                    "hoarder_advantage_gap": -7342,
+                    "boost_focused_gap": 2781,
+                    "lock_in_timing_entropy": 0,
+                    "lock_in_total": 1,
+                    "expiry_rate_mean": 0.6666666666666666,
+                    "blackout_action_density": 0.3333333333333333,
+                    "archetype_viability_min_ratio": 0.43026423317897033,
+                    "strategic_diversity": 0.3205562260915176,
+                    "dominant_strategy_pressure": 0.49083591931730025,
+                    "concentration_top10_share": 0,
+                    "concentration_top1_share": 0,
+                    "ranking_churn_proxy": 0.9142132969319665,
+                    "repeat_season_viability": 0,
+                    "lifecycle_coherence": 0,
+                    "skip_strategy_edge": 0,
+                    "throughput_lock_in_rate": 0,
+                    "star_price_cap_share": 0,
+                    "star_price_floor_share": 0,
+                    "star_price_range_ratio": 2.0268163392578735,
+                    "star_price_mean": 32.07,
+                    "dominant_archetype_label_b": "Boost-Focused",
+                    "dominant_archetype_label_c": "none"
+                },
+                "season_paths": [
+                    "simulation_output/coupling-harnesses\\940k-floor32-boost-check\\tier1\\runs\\season_940k-floor32-boost-check-baseline-boost_underperformance-coupling_boost-coupling-boost-a-1.json"
+                ],
+                "lifetime_paths": [],
+                "season_audit_paths": [
+                    {
+                        "effective_config_json": "simulation_output/coupling-harnesses\\940k-floor32-boost-check\\tier1\\runs\\season_940k-floor32-boost-check-baseline-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config.json",
+                        "effective_config_audit_md": "simulation_output/coupling-harnesses\\940k-floor32-boost-check\\tier1\\runs\\season_940k-floor32-boost-check-baseline-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config_audit.md"
+                    }
+                ],
+                "lifetime_audit_paths": []
+            },
+            "candidate": {
+                "runtime_secs": 5.97,
+                "cache_hit": false,
+                "metrics": {
+                    "onboarding_liquidity": 71510,
+                    "first_choice_viability": 1,
+                    "star_purchase_density": 6018.666666666667,
+                    "boost_roi": 18.403967455891763,
+                    "boost_mid_late_share": 0.6601577168606835,
+                    "sigil_counterplay_density": 84,
+                    "t6_theft_share": 0,
+                    "dead_mechanic_penalty": 0.3333333333333333,
+                    "hoarder_advantage_gap": -7343,
+                    "boost_focused_gap": 2781,
+                    "lock_in_timing_entropy": 0,
+                    "lock_in_total": 1,
+                    "expiry_rate_mean": 0.6666666666666666,
+                    "blackout_action_density": 0.3333333333333333,
+                    "archetype_viability_min_ratio": 0.4302056380226066,
+                    "strategic_diversity": 0.3205562260915176,
+                    "dominant_strategy_pressure": 0.49083680791234363,
+                    "concentration_top10_share": 0,
+                    "concentration_top1_share": 0,
+                    "ranking_churn_proxy": 0.91420163483287,
+                    "repeat_season_viability": 0,
+                    "lifecycle_coherence": 0,
+                    "skip_strategy_edge": 0,
+                    "throughput_lock_in_rate": 0,
+                    "star_price_cap_share": 0,
+                    "star_price_floor_share": 0,
+                    "star_price_range_ratio": 1.9356852950359038,
+                    "star_price_mean": 32.03,
+                    "dominant_archetype_label_b": "Boost-Focused",
+                    "dominant_archetype_label_c": "none"
+                },
+                "season_paths": [
+                    "simulation_output/coupling-harnesses\\940k-floor32-boost-check\\tier1\\runs\\season_940k-floor32-boost-check-candidate-boost_underperformance-coupling_boost-coupling-boost-a-1.json"
+                ],
+                "lifetime_paths": [],
+                "season_audit_paths": [
+                    {
+                        "effective_config_json": "simulation_output/coupling-harnesses\\940k-floor32-boost-check\\tier1\\runs\\season_940k-floor32-boost-check-candidate-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config.json",
+                        "effective_config_audit_md": "simulation_output/coupling-harnesses\\940k-floor32-boost-check\\tier1\\runs\\season_940k-floor32-boost-check-candidate-boost_underperformance-coupling_boost-coupling-boost-a-1.audit\\effective_config_audit.md"
+                    }
+                ],
+                "lifetime_audit_paths": []
+            }
+        }
+    ]
+}

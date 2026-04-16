@@ -9,8 +9,12 @@ class SeasonTimingConfigTest extends TestCase
 {
     public function testSeasonDurationIsFourteenDaysInTicks(): void
     {
+        // Use TICK_REAL_SECONDS constant (fixed at bootstrap) instead of ticks_from_real_seconds()
+        // to avoid test-isolation failures when other test files set TMC_TICK_REAL_SECONDS=3600
+        // at file scope, causing the dynamic function to return a different value than the
+        // bootstrap-defined SEASON_DURATION constant.
         $this->assertSame(
-            ticks_from_real_seconds(1209600),
+            intdiv(1209600, TICK_REAL_SECONDS),
             SEASON_DURATION,
             'SEASON_DURATION must represent 14 real days in ticks.'
         );
@@ -19,7 +23,7 @@ class SeasonTimingConfigTest extends TestCase
     public function testSeasonCadenceIsSevenDaysInTicks(): void
     {
         $this->assertSame(
-            ticks_from_real_seconds(604800),
+            intdiv(604800, TICK_REAL_SECONDS),
             SEASON_CADENCE,
             'SEASON_CADENCE must represent 7 real days in ticks.'
         );

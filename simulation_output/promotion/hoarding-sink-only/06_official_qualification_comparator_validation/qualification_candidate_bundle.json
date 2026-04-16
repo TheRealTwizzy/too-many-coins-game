@@ -1,0 +1,18 @@
+{
+    "schema_version": "tmc-tuning-candidates.v1",
+    "description": "Temporary promotion-ladder qualification comparator bundle for `hoarding-sink-only`.",
+    "scenarios": [
+        {
+            "name": "hoarding-sink-only",
+            "description": "Canonical promotion readiness candidate generated from the promotion pipeline.",
+            "categories": [
+                "hoarding_preservation_pressure",
+                "phase_timing"
+            ],
+            "overrides": {
+                "hoarding_safe_hours": 24,
+                "hoarding_sink_enabled": 1
+            }
+        }
+    ]
+}

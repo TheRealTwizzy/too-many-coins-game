@@ -1,0 +1,189 @@
+{
+    "schema_version": "tmc-sim-phase1.v1",
+    "sweep_schema_version": "tmc-sim-sweep.v1",
+    "scenario_schema_version": "tmc-sim-scenarios.v1",
+    "generated_at": "2026-04-15T23:32:22+00:00",
+    "seed": "hoarding-sink-only",
+    "config": {
+        "simulators": [
+            "B",
+            "C"
+        ],
+        "include_baseline": true,
+        "players_per_archetype": 2,
+        "season_count": 4,
+        "scenario_names": [
+            "baseline",
+            "hoarding-sink-only"
+        ],
+        "base_season_config_path": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\qualification_base_season.json"
+    },
+    "runs": [
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "hoarding-sink-only|scenario|baseline|sim|B",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_hoarding-sink-only_scenario_baseline_sim_B_ppa2.json",
+            "csv": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_hoarding-sink-only_scenario_baseline_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_hoarding-sink-only_scenario_baseline_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_B_hoarding-sink-only_scenario_baseline_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 35988,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 3,
+                "total_duration_ms": 35993
+            }
+        },
+        {
+            "scenario_name": "baseline",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "hoarding-sink-only|scenario|baseline|sim|C",
+            "is_baseline": true,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [],
+            "override_keys": [],
+            "json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_hoarding-sink-only_scenario_baseline_sim_C_ppa2_s4.json",
+            "csv": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_hoarding-sink-only_scenario_baseline_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_hoarding-sink-only_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_baseline_C_hoarding-sink-only_scenario_baseline_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 67757,
+                "json_write_duration_ms": 3,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 67762
+            }
+        },
+        {
+            "scenario_name": "hoarding-sink-only",
+            "simulator_type": "B",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "hoarding-sink-only|scenario|hoarding-sink-only|sim|B",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 1
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_B_hoarding-sink-only_scenario_hoarding-sink-only_sim_B_ppa2.json",
+            "csv": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_B_hoarding-sink-only_scenario_hoarding-sink-only_sim_B_ppa2.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_B_hoarding-sink-only_scenario_hoarding-sink-only_sim_B_ppa2.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_B_hoarding-sink-only_scenario_hoarding-sink-only_sim_B_ppa2.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 36110,
+                "json_write_duration_ms": 4,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 36117
+            }
+        },
+        {
+            "scenario_name": "hoarding-sink-only",
+            "simulator_type": "C",
+            "schema_version": "tmc-sim-phase1.v1",
+            "seed": "hoarding-sink-only|scenario|hoarding-sink-only|sim|C",
+            "is_baseline": false,
+            "cohort": {
+                "players_per_archetype": 2,
+                "total_players": 20
+            },
+            "horizon": {
+                "season_count": 4
+            },
+            "override_categories": [
+                "hoarding_preservation_pressure",
+                "phase_timing"
+            ],
+            "override_keys": [
+                "hoarding_safe_hours",
+                "hoarding_sink_enabled"
+            ],
+            "json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_C_hoarding-sink-only_scenario_hoarding-sink-only_sim_C_ppa2_s4.json",
+            "csv": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_C_hoarding-sink-only_scenario_hoarding-sink-only_sim_C_ppa2_s4.csv",
+            "config_audit": {
+                "effective_config_json": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_C_hoarding-sink-only_scenario_hoarding-sink-only_sim_C_ppa2_s4.audit\\effective_config.json",
+                "effective_config_audit_md": "simulation_output/promotion\\hoarding-sink-only\\06_official_qualification_comparator_validation\\campaign\\sweep\\runs\\sweep_hoarding-sink-only_C_hoarding-sink-only_scenario_hoarding-sink-only_sim_C_ppa2_s4.audit\\effective_config_audit.md"
+            },
+            "timings": {
+                "simulation_duration_ms": 57241,
+                "json_write_duration_ms": 2,
+                "csv_write_duration_ms": 2,
+                "total_duration_ms": 57245
+            }
+        }
+    ],
+    "supported_override_categories": [
+        "star_conversion_pricing",
+        "boost_related",
+        "lock_in_expiry_incentives",
+        "hoarding_preservation_pressure",
+        "phase_timing",
+        "sigil_drop_tier_combine"
+    ],
+    "timing_summary": {
+        "run_count": 4,
+        "scenario_resolution_duration_ms": 2,
+        "run_execution_duration_ms": 197118,
+        "manifest_write_duration_ms": 2,
+        "total_duration_ms": 197123,
+        "by_simulator": {
+            "B": {
+                "run_count": 2,
+                "total_duration_ms": 72110
+            },
+            "C": {
+                "run_count": 2,
+                "total_duration_ms": 125007
+            }
+        },
+        "slowest_runs": [
+            {
+                "scenario_name": "baseline",
+                "simulator_type": "C",
+                "total_duration_ms": 67762
+            },
+            {
+                "scenario_name": "hoarding-sink-only",
+                "simulator_type": "C",
+                "total_duration_ms": 57245
+            },
+            {
+                "scenario_name": "hoarding-sink-only",
+                "simulator_type": "B",
+                "total_duration_ms": 36117
+            }
+        ]
+    }
+}

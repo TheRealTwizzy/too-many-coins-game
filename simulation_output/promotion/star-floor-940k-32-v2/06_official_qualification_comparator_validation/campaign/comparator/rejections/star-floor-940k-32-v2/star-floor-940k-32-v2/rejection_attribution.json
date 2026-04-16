@@ -1,0 +1,225 @@
+{
+    "schema_version": "tmc-sim-rejection-attribution.v1",
+    "generated_at": "2026-04-15T23:22:51+00:00",
+    "comparator_seed": "star-floor-940k-32-v2",
+    "scenario_name": "star-floor-940k-32-v2",
+    "recommended_disposition": "reject",
+    "control_baseline_comparison": {
+        "wins": 9,
+        "losses": 7,
+        "mixed_tradeoffs": 2,
+        "confidence_summary": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "regression_flags": [
+            "engagement_up_but_t6_supply_spike",
+            "improves_engagement_but_t6_supply_spikes",
+            "lock_in_down_but_expiry_dominance_up",
+            "long_run_concentration_worsened",
+            "reduces_lock_in_but_expiry_dominance_rises"
+        ],
+        "cross_simulator_regression_flags": [
+            "improves_engagement_but_t6_supply_spikes",
+            "reduces_lock_in_but_expiry_dominance_rises"
+        ],
+        "simulator_groups": [
+            {
+                "simulator_type": "B",
+                "signature": "B|ppa=2|seasons=1",
+                "paired_runs": 1,
+                "wins": 4,
+                "losses": 3,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "engagement_up_but_t6_supply_spike",
+                    "lock_in_down_but_expiry_dominance_up"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": -2.0,
+                    "natural_expiry_delta": 2.0,
+                    "late_active_engaged_rate_delta": 0.050000000000000044,
+                    "concentration_top10_share_delta": 0.0,
+                    "skip_strategy_edge_delta": 0.0
+                }
+            },
+            {
+                "simulator_type": "C",
+                "signature": "C|ppa=2|seasons=4",
+                "paired_runs": 1,
+                "wins": 5,
+                "losses": 4,
+                "mixed_tradeoffs": 1,
+                "regression_flags": [
+                    "lock_in_down_but_expiry_dominance_up",
+                    "long_run_concentration_worsened"
+                ],
+                "key_deltas": {
+                    "lock_in_delta": -0.08613445378151252,
+                    "natural_expiry_delta": 1.0,
+                    "late_active_engaged_rate_delta": 0.10268620268620265,
+                    "concentration_top10_share_delta": 0.04546321321411742,
+                    "skip_strategy_edge_delta": -3819.8859649122805
+                }
+            }
+        ]
+    },
+    "changed_knobs": [
+        {
+            "path": "season.market_affordability_bias_fp",
+            "key": "market_affordability_bias_fp",
+            "requested_value": 940000,
+            "baseline_value": 970000,
+            "candidate_effective_value": 940000,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "star_conversion_pricing",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 970000,
+                    "candidate_effective_value": 940000,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 970000,
+                    "candidate_effective_value": 940000,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        },
+        {
+            "path": "season.star_price_minimum_absolute",
+            "key": "star_price_minimum_absolute",
+            "requested_value": 32,
+            "baseline_value": 1,
+            "candidate_effective_value": 32,
+            "classification": "active",
+            "reason_code": null,
+            "reason_detail": null,
+            "effective_source": "candidate_patch",
+            "subsystem": "star_conversion_pricing",
+            "simulator_evidence": [
+                {
+                    "simulator_type": "B",
+                    "signature": "B|ppa=2|seasons=1",
+                    "baseline_value": 1,
+                    "candidate_effective_value": 32,
+                    "effective_source": "candidate_patch"
+                },
+                {
+                    "simulator_type": "C",
+                    "signature": "C|ppa=2|seasons=4",
+                    "baseline_value": 1,
+                    "candidate_effective_value": 32,
+                    "effective_source": "candidate_patch"
+                }
+            ]
+        }
+    ],
+    "knob_activity_summary": {
+        "active_count": 2,
+        "inactive_count": 0,
+        "unknown_count": 0,
+        "active_paths": [
+            "season.market_affordability_bias_fp",
+            "season.star_price_minimum_absolute"
+        ],
+        "inactive_paths": []
+    },
+    "primary_failed_gate": {
+        "flag": "lock_in_down_but_expiry_dominance_up",
+        "label": "Lock-in weakened while expiry pressure rose",
+        "source": "simulator",
+        "score": 302.0,
+        "evidence": {
+            "simulator_type": "B",
+            "lock_in_delta": -2.0,
+            "natural_expiry_delta": 2.0
+        },
+        "rationale": "This gate is driven by direct simulator deltas. Candidate output reduced lock-in while raising natural expiry."
+    },
+    "secondary_regressions": [
+        {
+            "flag": "long_run_concentration_worsened",
+            "label": "Long-run concentration worsened",
+            "source": "simulator",
+            "score": 137.46321321411742,
+            "evidence": {
+                "simulator_type": "C",
+                "top10_share_delta": 0.04546321321411742
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Candidate increased long-run top-share concentration."
+        },
+        {
+            "flag": "reduces_lock_in_but_expiry_dominance_rises",
+            "label": "Lock-in weakened while expiry pressure rose",
+            "source": "cross_simulator",
+            "score": 96.0,
+            "evidence": {
+                "simulator_type": null,
+                "lock_in_delta": 0.0,
+                "natural_expiry_delta": 0.0
+            },
+            "rationale": "This gate is driven by a cross-simulator regression pattern. Candidate output reduced lock-in while raising natural expiry."
+        },
+        {
+            "flag": "engagement_up_but_t6_supply_spike",
+            "label": "Engagement gain came with excess T6 supply",
+            "source": "simulator",
+            "score": 89.0,
+            "evidence": {
+                "simulator_type": "B",
+                "late_active_engaged_rate_delta": 0.050000000000000044,
+                "t6_total_delta": 4.0
+            },
+            "rationale": "This gate is driven by direct simulator deltas. Engagement gain appears coupled to excess T6 supply growth."
+        },
+        {
+            "flag": "improves_engagement_but_t6_supply_spikes",
+            "label": "Engagement gain came with excess T6 supply",
+            "source": "cross_simulator",
+            "score": 80.0,
+            "evidence": {
+                "simulator_type": null,
+                "late_active_engaged_rate_delta": 0.0,
+                "t6_total_delta": 0.0
+            },
+            "rationale": "This gate is driven by a cross-simulator regression pattern. Engagement gain appears coupled to excess T6 supply growth."
+        }
+    ],
+    "likely_causal_knob_ranking": [
+        {
+            "path": "season.market_affordability_bias_fp",
+            "key": "market_affordability_bias_fp",
+            "classification": "active",
+            "subsystem": "star_conversion_pricing",
+            "score": 4.014,
+            "confidence": "low",
+            "rationale": "Knob was active in the effective config. Its link to the primary gate is indirect. Bundle interaction ambiguity lowers confidence.",
+            "rank": 1
+        },
+        {
+            "path": "season.star_price_minimum_absolute",
+            "key": "star_price_minimum_absolute",
+            "classification": "active",
+            "subsystem": "star_conversion_pricing",
+            "score": 4.014,
+            "confidence": "low",
+            "rationale": "Knob was active in the effective config. Its link to the primary gate is indirect. Bundle interaction ambiguity lowers confidence.",
+            "rank": 2
+        }
+    ],
+    "interaction_ambiguity": {
+        "present": true,
+        "type": "multi_knob_bundle",
+        "note": "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+    },
+    "confidence_notes": [
+        "Paired samples: 2 group comparisons across 2 simulator group(s).",
+        "Evidence is sparse: only 2 paired simulator group(s) contributed to this rejection.",
+        "2 active knobs changed together, so the causal ranking is heuristic and interaction effects are not isolated."
+    ]
+}

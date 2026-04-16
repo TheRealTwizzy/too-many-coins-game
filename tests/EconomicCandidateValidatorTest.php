@@ -76,12 +76,13 @@ class EconomicCandidateValidatorTest extends TestCase
 
     public function testDormantSearchSurfaceKeysAreRejected(): void
     {
+        // market_affordability_bias_fp was removed from this list because it is now a live
+        // search parameter wired into calculateStarPrice().
         foreach ([
             'hoarding_window_ticks' => 120,
             'target_spend_rate_per_tick' => 18,
             'starprice_reactivation_window_ticks' => 90,
             'starprice_demand_table' => [['ratio_fp' => 1000000, 'multiplier_fp' => 1000000]],
-            'market_affordability_bias_fp' => 970000,
             'vault_config' => [
                 ['tier' => 1, 'supply' => 500, 'cost_table' => [['remaining' => 1, 'cost' => 50]]],
             ],
