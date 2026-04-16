@@ -1,0 +1,38 @@
+{
+    "generated_at_utc": "2026-04-16T22:34:29+00:00",
+    "policy": {
+        "missing_manifest": "fallback_legacy_or_fail_by_mode",
+        "missing_primary": "fallback_legacy_or_fail_by_mode",
+        "missing_secondary": "fallback_legacy_or_fail_by_mode",
+        "mode": "shadow-manifest",
+        "strict_unknown_keys": true
+    },
+    "producer": {
+        "name": "scripts/prepare_rejected_iteration_inputs.php",
+        "version": "v1"
+    },
+    "schema_version": "tmc-reject-audit-inputs.v1",
+    "source_commit": "cfa9219fea073a4dbea6b6fa27f4d0b7c73c81e8",
+    "sources": {
+        "primary": {
+            "checksum_sha256": "8487483b29993bf5eaac0776ee0afd5e04060ac1b99ba7ab6e0f68d67f149b59",
+            "event_count": 3,
+            "path": "reject_events_primary.json",
+            "provenance": {
+                "origin_checksum_sha256": "476185b4fd46e3badde952d10f032505fa4e40ceaa879c0826a03c8abb619219",
+                "origin_path": "simulation_output/current-db/comparisons-v3-fast/comparison_tuning-verify-v3-fast-1.json",
+                "origin_size_bytes": 28173
+            }
+        },
+        "secondary": {
+            "checksum_sha256": "b21419c1b260b1cbdbba7518ef88088b5baf3306d0bb316c6db2a31f208c6a8c",
+            "event_count": 7,
+            "path": "reject_events_secondary.json",
+            "provenance": {
+                "origin_checksum_sha256": "824d055685295c2c90d080da7e0123327c06cfdf67333659b66c62ff0108f866",
+                "origin_path": "simulation_output/current-db/verification-v2/verification_summary_v2.json",
+                "origin_size_bytes": 12131
+            }
+        }
+    }
+}

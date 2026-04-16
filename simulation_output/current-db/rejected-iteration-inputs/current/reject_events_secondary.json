@@ -1,0 +1,299 @@
+{
+    "comparison_files": [
+        "simulation_output/current-db/comparisons-v2/comparison_tuning-verify-v2-1.json",
+        "simulation_output/current-db/comparisons-v2/comparison_tuning-verify-v2-2.json",
+        "simulation_output/current-db/comparisons-v2/comparison_tuning-verify-v2-3.json"
+    ],
+    "cross_package_notes": [],
+    "generated_at": "2026-04-10T21:53:59+00:00",
+    "packages": [
+        {
+            "finding_results": [
+                {
+                    "finding_id": "B11",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "HIGH"
+                },
+                {
+                    "finding_id": "B5",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B6",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B7",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B10",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B12",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "regression_counterweight",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "UNKNOWN"
+                }
+            ],
+            "has_high_severity_regression": true,
+            "mixed_seeds": 0,
+            "overall_disposition": "REJECTED",
+            "package_name": "aggressive",
+            "pass_seeds": 1,
+            "per_seed": [
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 5,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "reduced_one_dominant_but_created_new_dominant",
+                        "reduces_lock_in_but_expiry_dominance_rises"
+                    ],
+                    "seed": "tuning-verify-v2-1",
+                    "wins": 10
+                },
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 7,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "reduces_lock_in_but_expiry_dominance_rises"
+                    ],
+                    "seed": "tuning-verify-v2-2",
+                    "wins": 8
+                },
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "candidate for production tuning",
+                    "losses": 3,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [],
+                    "seed": "tuning-verify-v2-3",
+                    "wins": 11
+                }
+            ],
+            "regression_flag_count": 4,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduced_one_dominant_but_created_new_dominant",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "reject_seeds": 2,
+            "scenario_name": "tuning-aggressive-v2",
+            "seed_count": 3,
+            "total_losses": 15,
+            "total_mixed": 6,
+            "total_wins": 29
+        },
+        {
+            "finding_results": [
+                {
+                    "finding_id": "B11",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "HIGH"
+                },
+                {
+                    "finding_id": "B5",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B6",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B7",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B10",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "B12",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "MEDIUM"
+                },
+                {
+                    "finding_id": "regression_counterweight",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "UNKNOWN"
+                }
+            ],
+            "has_high_severity_regression": true,
+            "mixed_seeds": 0,
+            "overall_disposition": "REJECTED",
+            "package_name": "balanced",
+            "pass_seeds": 0,
+            "per_seed": [
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 6,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "lock_in_down_but_expiry_dominance_up",
+                        "reduces_lock_in_but_expiry_dominance_rises"
+                    ],
+                    "seed": "tuning-verify-v2-1",
+                    "wins": 8
+                },
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 6,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "candidate_improves_B_but_worsens_C",
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "reduces_lock_in_but_expiry_dominance_rises"
+                    ],
+                    "seed": "tuning-verify-v2-2",
+                    "wins": 9
+                },
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 8,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "candidate_improves_B_but_worsens_C",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "long_run_concentration_worsened",
+                        "reduces_lock_in_but_expiry_dominance_rises",
+                        "skip_rejoin_exploit_worsened"
+                    ],
+                    "seed": "tuning-verify-v2-3",
+                    "wins": 7
+                }
+            ],
+            "regression_flag_count": 6,
+            "regression_flags": [
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises",
+                "candidate_improves_B_but_worsens_C",
+                "dominant_archetype_shifted",
+                "long_run_concentration_worsened",
+                "skip_rejoin_exploit_worsened"
+            ],
+            "reject_seeds": 3,
+            "scenario_name": "tuning-balanced-v2",
+            "seed_count": 3,
+            "total_losses": 20,
+            "total_mixed": 6,
+            "total_wins": 24
+        },
+        {
+            "finding_results": [
+                {
+                    "finding_id": "B11",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "HIGH"
+                },
+                {
+                    "finding_id": "regression_counterweight",
+                    "improved": true,
+                    "notes": "Net positive across seeds",
+                    "severity": "UNKNOWN"
+                }
+            ],
+            "has_high_severity_regression": true,
+            "mixed_seeds": 0,
+            "overall_disposition": "REJECTED",
+            "package_name": "conservative",
+            "pass_seeds": 1,
+            "per_seed": [
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 6,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "reduces_lock_in_but_expiry_dominance_rises"
+                    ],
+                    "seed": "tuning-verify-v2-1",
+                    "wins": 9
+                },
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "reject",
+                    "losses": 7,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [
+                        "dominant_archetype_shifted",
+                        "lock_in_down_but_expiry_dominance_up",
+                        "reduces_lock_in_but_expiry_dominance_rises"
+                    ],
+                    "seed": "tuning-verify-v2-2",
+                    "wins": 8
+                },
+                {
+                    "confidence_notes": "Paired samples: 2 group comparisons across 2 simulator group(s).",
+                    "disposition": "candidate for production tuning",
+                    "losses": 3,
+                    "mixed_tradeoffs": 2,
+                    "regression_flags": [],
+                    "seed": "tuning-verify-v2-3",
+                    "wins": 12
+                }
+            ],
+            "regression_flag_count": 3,
+            "regression_flags": [
+                "dominant_archetype_shifted",
+                "lock_in_down_but_expiry_dominance_up",
+                "reduces_lock_in_but_expiry_dominance_rises"
+            ],
+            "reject_seeds": 2,
+            "scenario_name": "tuning-conservative-v2",
+            "seed_count": 3,
+            "total_losses": 16,
+            "total_mixed": 6,
+            "total_wins": 29
+        }
+    ],
+    "recommendation": "No package meets VERIFIED threshold.",
+    "schema_version": "tmc-verification-summary.v1",
+    "seed_count": 3,
+    "stability_notes": [
+        "aggressive has inconsistent dispositions across seeds: tuning-verify-v2-1=reject, tuning-verify-v2-2=reject, tuning-verify-v2-3=candidate for production tuning",
+        "conservative has inconsistent dispositions across seeds: tuning-verify-v2-1=reject, tuning-verify-v2-2=reject, tuning-verify-v2-3=candidate for production tuning"
+    ]
+}

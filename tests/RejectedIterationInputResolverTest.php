@@ -147,6 +147,136 @@ class RejectedIterationInputResolverTest extends TestCase
         $this->assertErrorCodePresent($result['warnings'], 'artifact_missing');
     }
 
+    public function testCanonicalContractValidationAcceptsValidProvenanceChecksumsAndFreshness(): void
+    {
+        $primaryPath = $this->canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_primary.json';
+        $secondaryPath = $this->canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_secondary.json';
+        $this->writeJson($primaryPath, ['scenarios' => []]);
+        $this->writeJson($secondaryPath, ['packages' => []]);
+
+        $manifest = [
+            'schema_version' => 'tmc-reject-audit-inputs.v1',
+            'generated_at_utc' => '2026-04-16T00:00:00Z',
+            'source_commit' => str_repeat('a', 40),
+            'producer' => ['name' => 'producer', 'version' => 'v1'],
+            'sources' => [
+                'primary' => [
+                    'path' => 'reject_events_primary.json',
+                    'checksum_sha256' => hash_file('sha256', $primaryPath),
+                    'event_count' => 0,
+                    'provenance' => [
+                        'origin_path' => 'origin_primary.json',
+                        'origin_checksum_sha256' => hash_file('sha256', $primaryPath),
+                    ],
+                ],
+                'secondary' => [
+                    'path' => 'reject_events_secondary.json',
+                    'checksum_sha256' => hash_file('sha256', $secondaryPath),
+                    'event_count' => 0,
+                    'provenance' => [
+                        'origin_path' => 'origin_secondary.json',
+                        'origin_checksum_sha256' => hash_file('sha256', $secondaryPath),
+                    ],
+                ],
+            ],
+            'policy' => ['mode' => 'shadow-manifest'],
+        ];
+
+        // Copy canonical files to provenance paths for deterministic checksum match in test.
+        copy($primaryPath, $this->canonicalRoot . DIRECTORY_SEPARATOR . 'origin_primary.json');
+        copy($secondaryPath, $this->canonicalRoot . DIRECTORY_SEPARATOR . 'origin_secondary.json');
+
+        $manifestPath = $this->canonicalRoot . DIRECTORY_SEPARATOR . 'manifest.json';
+        $this->writeJson($manifestPath, $manifest);
+
+        $result = AgenticRejectAuditManifestResolver::resolve(
+            $manifestPath,
+            $this->canonicalRoot,
+            true,
+            [
+                'require_canonical_contract' => true,
+                'validate_provenance' => true,
+                'validate_checksums' => true,
+                'validate_freshness' => true,
+                'repo_root' => $this->canonicalRoot,
+                'max_age_seconds' => 86400,
+                'freshness_now_utc' => '2026-04-16T00:00:00Z',
+                'strict_integrity' => true,
+            ]
+        );
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('fresh', $result['integrity']['freshness']['status']);
+        $this->assertSame('ok', $result['integrity']['checksums']['primary']['status']);
+        $this->assertSame('ok', $result['integrity']['checksums']['secondary']['status']);
+        $this->assertSame('ok', $result['integrity']['provenance']['primary']['status']);
+        $this->assertSame('ok', $result['integrity']['provenance']['secondary']['status']);
+    }
+
+    public function testCanonicalContractValidationFlagsStaleAndChecksumMismatchInStrictMode(): void
+    {
+        $primaryPath = $this->canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_primary.json';
+        $secondaryPath = $this->canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_secondary.json';
+        $this->writeJson($primaryPath, ['scenarios' => [['recommended_disposition' => 'reject']]]);
+        $this->writeJson($secondaryPath, ['packages' => []]);
+
+        $manifest = [
+            'schema_version' => 'tmc-reject-audit-inputs.v1',
+            'generated_at_utc' => '2020-01-01T00:00:00Z',
+            'source_commit' => str_repeat('b', 40),
+            'producer' => ['name' => 'producer', 'version' => 'v1'],
+            'sources' => [
+                'primary' => [
+                    'path' => 'reject_events_primary.json',
+                    'checksum_sha256' => str_repeat('0', 64),
+                    'event_count' => 1,
+                    'provenance' => [
+                        'origin_path' => 'origin_primary.json',
+                        'origin_checksum_sha256' => str_repeat('0', 64),
+                    ],
+                ],
+                'secondary' => [
+                    'path' => 'reject_events_secondary.json',
+                    'checksum_sha256' => hash_file('sha256', $secondaryPath),
+                    'event_count' => 0,
+                    'provenance' => [
+                        'origin_path' => 'origin_secondary.json',
+                        'origin_checksum_sha256' => hash_file('sha256', $secondaryPath),
+                    ],
+                ],
+            ],
+            'policy' => ['mode' => 'shadow-manifest'],
+        ];
+        copy($primaryPath, $this->canonicalRoot . DIRECTORY_SEPARATOR . 'origin_primary.json');
+        copy($secondaryPath, $this->canonicalRoot . DIRECTORY_SEPARATOR . 'origin_secondary.json');
+        $manifestPath = $this->canonicalRoot . DIRECTORY_SEPARATOR . 'manifest.json';
+        $this->writeJson($manifestPath, $manifest);
+
+        $result = AgenticRejectAuditManifestResolver::resolve(
+            $manifestPath,
+            $this->canonicalRoot,
+            true,
+            [
+                'require_canonical_contract' => true,
+                'validate_provenance' => true,
+                'validate_checksums' => true,
+                'validate_freshness' => true,
+                'repo_root' => $this->canonicalRoot,
+                'max_age_seconds' => 300,
+                'freshness_now_utc' => '2026-04-16T00:00:00Z',
+                'strict_integrity' => true,
+            ]
+        );
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('stale', $result['integrity']['freshness']['status']);
+        $this->assertSame('checksum_mismatch', $result['integrity']['checksums']['primary']['status']);
+        $this->assertSame('origin_checksum_mismatch', $result['integrity']['provenance']['primary']['status']);
+        $this->assertErrorCodePresent($result['errors'], 'manifest_stale');
+        $this->assertErrorCodePresent($result['errors'], 'checksum_mismatch');
+        $this->assertErrorCodePresent($result['errors'], 'provenance_origin_checksum_mismatch');
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -121,11 +121,25 @@ class AgenticRejectAuditManifestValidator
             }
         }
 
+        $normalizedProducer = '';
+        if (array_key_exists('producer', $manifest)) {
+            if (is_string($manifest['producer'])) {
+                $normalizedProducer = (string)$manifest['producer'];
+            } elseif (is_array($manifest['producer'])) {
+                $normalizedProducer = [
+                    'name' => (string)($manifest['producer']['name'] ?? ''),
+                    'version' => (string)($manifest['producer']['version'] ?? ''),
+                ];
+            } else {
+                $errors[] = self::error('invalid_type', '/producer', 'producer must be a string or object');
+            }
+        }
+
         $normalized = [
             'schema_version' => (string)($manifest['schema_version'] ?? ''),
             'generated_at_utc' => (string)($manifest['generated_at_utc'] ?? ''),
             'source_commit' => (string)($manifest['source_commit'] ?? ''),
-            'producer' => (string)($manifest['producer'] ?? ''),
+            'producer' => $normalizedProducer,
             'sources' => $normalizedSources,
             'policy' => (array)($manifest['policy'] ?? []),
         ];
@@ -287,6 +301,10 @@ class AgenticRejectAuditPathGuard
 
 class AgenticRejectAuditManifestResolver
 {
+    public const SCHEMA_VERSION = 'tmc-reject-audit-inputs.v1';
+    public const PRIMARY_SOURCE_KEY = 'primary';
+    public const SECONDARY_SOURCE_KEY = 'secondary';
+
     /**
      * @return array{
      *   ok: bool,
@@ -296,10 +314,16 @@ class AgenticRejectAuditManifestResolver
      *   canonical_root: string,
      *   manifest: array<string, mixed>,
      *   resolved_sources: array<string, array<string, mixed>>,
-     *   missing_sources: array<int, string>
+     *   missing_sources: array<int, string>,
+     *   integrity?: array<string, mixed>
      * }
      */
-    public static function resolve(string $manifestPath, ?string $canonicalRoot = null, bool $strictUnknown = true): array
+    public static function resolve(
+        string $manifestPath,
+        ?string $canonicalRoot = null,
+        bool $strictUnknown = true,
+        array $integrityOptions = []
+    ): array
     {
         $result = [
             'ok' => false,
@@ -341,7 +365,7 @@ class AgenticRejectAuditManifestResolver
         }
         $result['canonical_root'] = $rootReal;
 
-        foreach (['primary', 'secondary'] as $sourceName) {
+        foreach ([self::PRIMARY_SOURCE_KEY, self::SECONDARY_SOURCE_KEY] as $sourceName) {
             $source = (array)($result['manifest']['sources'][$sourceName] ?? []);
             $sourcePath = (string)($source['path'] ?? '');
 
@@ -366,8 +390,244 @@ class AgenticRejectAuditManifestResolver
             }
         }
 
+        $integrity = self::runIntegrityChecks(
+            $result['manifest'],
+            $result['resolved_sources'],
+            $manifestPath,
+            $integrityOptions
+        );
+        if ($integrity['enabled']) {
+            $result['integrity'] = $integrity;
+            $result['warnings'] = array_values(array_merge($result['warnings'], $integrity['warnings']));
+            $result['errors'] = array_values(array_merge($result['errors'], $integrity['errors']));
+        }
+
         $result['ok'] = $result['errors'] === [];
         return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @param array<string, array<string, mixed>> $resolvedSources
+     * @param array<string, mixed> $integrityOptions
+     * @return array{
+     *   enabled: bool,
+     *   errors: array<int, array<string, string>>,
+     *   warnings: array<int, array<string, string>>,
+     *   provenance: array<string, mixed>,
+     *   checksums: array<string, mixed>,
+     *   freshness: array<string, mixed>
+     * }
+     */
+    private static function runIntegrityChecks(
+        array $manifest,
+        array $resolvedSources,
+        string $manifestPath,
+        array $integrityOptions
+    ): array {
+        $enabled = (bool)($integrityOptions['require_canonical_contract'] ?? false)
+            || (bool)($integrityOptions['validate_provenance'] ?? false)
+            || (bool)($integrityOptions['validate_checksums'] ?? false)
+            || (bool)($integrityOptions['validate_freshness'] ?? false);
+
+        $result = [
+            'enabled' => $enabled,
+            'errors' => [],
+            'warnings' => [],
+            'provenance' => [],
+            'checksums' => [],
+            'freshness' => ['status' => 'not_checked'],
+        ];
+        if (!$enabled) {
+            return $result;
+        }
+
+        if ((bool)($integrityOptions['require_canonical_contract'] ?? false)) {
+            if ((string)($manifest['schema_version'] ?? '') !== self::SCHEMA_VERSION) {
+                $result['errors'][] = self::error(
+                    'schema_version_mismatch',
+                    '/schema_version',
+                    'schema_version must be ' . self::SCHEMA_VERSION
+                );
+            }
+            $commit = (string)($manifest['source_commit'] ?? '');
+            if ($commit === '' || preg_match('/^[0-9a-f]{40}$/', $commit) !== 1) {
+                $result['errors'][] = self::error(
+                    'invalid_source_commit',
+                    '/source_commit',
+                    'source_commit must be a 40-character lowercase hex SHA'
+                );
+            }
+            $producer = $manifest['producer'] ?? null;
+            if (!is_array($producer)
+                || trim((string)($producer['name'] ?? '')) === ''
+                || trim((string)($producer['version'] ?? '')) === '') {
+                $result['errors'][] = self::error(
+                    'invalid_producer',
+                    '/producer',
+                    'producer must include non-empty name and version'
+                );
+            }
+        }
+
+        $strictIntegrity = (bool)($integrityOptions['strict_integrity'] ?? false);
+        $repoRoot = (string)($integrityOptions['repo_root'] ?? '');
+        $maxAgeSeconds = max(0, (int)($integrityOptions['max_age_seconds'] ?? 86400));
+        $freshnessNow = (string)($integrityOptions['freshness_now_utc'] ?? '');
+        foreach ([self::PRIMARY_SOURCE_KEY, self::SECONDARY_SOURCE_KEY] as $sourceName) {
+            $source = (array)($manifest['sources'][$sourceName] ?? []);
+            $resolved = (array)($resolvedSources[$sourceName] ?? []);
+            $path = '/sources/' . $sourceName;
+
+            if ((bool)($integrityOptions['validate_provenance'] ?? false)) {
+                $provenance = (array)($source['provenance'] ?? []);
+                $originPath = trim((string)($provenance['origin_path'] ?? ''));
+                $originChecksum = trim((string)($provenance['origin_checksum_sha256'] ?? ''));
+                $status = 'ok';
+                if ($originPath === '') {
+                    $status = 'missing_origin_path';
+                    $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                        'provenance_origin_missing',
+                        $path . '/provenance/origin_path',
+                        'provenance.origin_path is required'
+                    );
+                }
+
+                if ($originChecksum !== '' && preg_match('/^[0-9a-f]{64}$/', $originChecksum) !== 1) {
+                    $status = 'invalid_origin_checksum';
+                    $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                        'invalid_origin_checksum',
+                        $path . '/provenance/origin_checksum_sha256',
+                        'provenance.origin_checksum_sha256 must be lowercase hex sha256'
+                    );
+                }
+
+                if ($originPath !== '' && $repoRoot !== '') {
+                    $absoluteOrigin = self::resolvePath($originPath, $repoRoot);
+                    if (!is_file($absoluteOrigin)) {
+                        $status = 'origin_missing';
+                        $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                            'provenance_origin_missing_file',
+                            $path . '/provenance/origin_path',
+                            'Origin file not found: ' . $originPath
+                        );
+                    } elseif ($originChecksum !== '') {
+                        $actual = strtolower((string)(hash_file('sha256', $absoluteOrigin) ?: ''));
+                        if ($actual !== strtolower($originChecksum)) {
+                            $status = 'origin_checksum_mismatch';
+                            $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                                'provenance_origin_checksum_mismatch',
+                                $path . '/provenance/origin_checksum_sha256',
+                                'Origin checksum mismatch'
+                            );
+                        }
+                    }
+                }
+                $result['provenance'][$sourceName] = ['status' => $status];
+            }
+
+            if ((bool)($integrityOptions['validate_checksums'] ?? false)) {
+                $expected = strtolower(trim((string)($source['checksum_sha256'] ?? '')));
+                $status = 'ok';
+                if ($expected === '' || preg_match('/^[0-9a-f]{64}$/', $expected) !== 1) {
+                    $status = 'missing_or_invalid_expected';
+                    $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                        'missing_or_invalid_checksum',
+                        $path . '/checksum_sha256',
+                        'checksum_sha256 must be a 64-character lowercase hex string'
+                    );
+                } else {
+                    $resolvedPath = (string)($resolved['resolved_path'] ?? '');
+                    if ($resolvedPath === '' || !is_file($resolvedPath)) {
+                        $status = 'artifact_missing';
+                        $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                            'artifact_missing_for_checksum',
+                            $path . '/path',
+                            'Artifact missing for checksum validation'
+                        );
+                    } else {
+                        $actual = strtolower((string)(hash_file('sha256', $resolvedPath) ?: ''));
+                        if ($actual !== $expected) {
+                            $status = 'checksum_mismatch';
+                            $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                                'checksum_mismatch',
+                                $path . '/checksum_sha256',
+                                'checksum_sha256 does not match artifact contents'
+                            );
+                        }
+                    }
+                }
+                $result['checksums'][$sourceName] = ['status' => $status];
+            }
+        }
+
+        if ((bool)($integrityOptions['validate_freshness'] ?? false)) {
+            $generatedAtUtc = (string)($manifest['generated_at_utc'] ?? '');
+            $generatedTs = strtotime($generatedAtUtc);
+            $manifestMtime = @filemtime($manifestPath);
+            $nowTs = $freshnessNow !== '' ? strtotime($freshnessNow) : time();
+
+            if ($generatedTs === false || $nowTs === false) {
+                $result['freshness'] = ['status' => 'invalid_timestamp'];
+                $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                    'invalid_generated_at_utc',
+                    '/generated_at_utc',
+                    'generated_at_utc must be a valid UTC timestamp'
+                );
+            } else {
+                $status = 'fresh';
+                $reasons = [];
+                if (($nowTs - $generatedTs) > $maxAgeSeconds) {
+                    $status = 'stale';
+                    $reasons[] = 'stale_by_age';
+                }
+                if (is_int($manifestMtime)) {
+                    foreach ([self::PRIMARY_SOURCE_KEY, self::SECONDARY_SOURCE_KEY] as $sourceName) {
+                        $source = (array)($manifest['sources'][$sourceName] ?? []);
+                        $provenance = (array)($source['provenance'] ?? []);
+                        $originPath = trim((string)($provenance['origin_path'] ?? ''));
+                        if ($originPath === '' || $repoRoot === '') {
+                            continue;
+                        }
+                        $absoluteOrigin = self::resolvePath($originPath, $repoRoot);
+                        $originMtime = @filemtime($absoluteOrigin);
+                        if (is_int($originMtime) && $originMtime > $manifestMtime) {
+                            $status = 'stale';
+                            $reasons[] = 'stale_by_source_newer';
+                            break;
+                        }
+                    }
+                }
+                $result['freshness'] = [
+                    'status' => $status,
+                    'reasons' => array_values(array_unique($reasons)),
+                    'max_age_seconds' => $maxAgeSeconds,
+                ];
+                if ($status !== 'fresh') {
+                    $result[$strictIntegrity ? 'errors' : 'warnings'][] = self::error(
+                        'manifest_stale',
+                        '/generated_at_utc',
+                        'Manifest freshness check failed: ' . implode(', ', $reasons)
+                    );
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private static function resolvePath(string $path, string $repoRoot): string
+    {
+        $trimmed = trim($path);
+        if ($trimmed === '') {
+            return $repoRoot;
+        }
+        $isWindowsAbsolute = preg_match('/^[A-Za-z]:[\\\\\\/]/', $trimmed) === 1;
+        $isUnixAbsolute = str_starts_with($trimmed, '/');
+        if ($isWindowsAbsolute || $isUnixAbsolute) {
+            return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $trimmed);
+        }
+        return rtrim($repoRoot, "\\/") . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $trimmed);
     }
 
     /**
