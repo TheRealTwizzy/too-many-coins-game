@@ -8,6 +8,7 @@ require_once __DIR__ . '/../simulation/CanonicalEconomyConfigContract.php';
 require_once __DIR__ . '/../simulation/SimulationPopulationSeason.php';
 require_once __DIR__ . '/../simulation/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/../simulation/MetricsCollector.php';
+require_once __DIR__ . '/RejectedIterationInputResolver.php';
 
 class AgenticOptimizationUtils
 {
@@ -1852,6 +1853,393 @@ class AgenticRejectedIterationAuditor
     }
 }
 
+class AgenticRejectedIterationShadowParity
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public static function run(string $repoRoot, string $auditDir, array $legacyAudit, ?string $manifestPath = null): array
+    {
+        $resolvedManifestPath = self::resolveManifestPath($repoRoot, $manifestPath);
+
+        $diagnostic = [
+            'schema_version' => 'tmc-agentic-shadow-parity.v1',
+            'generated_at' => gmdate('c'),
+            'mode' => 'shadow-manifest',
+            'manifest_path' => $resolvedManifestPath,
+            'shadow_status' => 'not_started',
+            'fallback_occurred' => false,
+            'parity_result' => 'not_computed',
+            'parity_pass' => false,
+            'missing_sources' => [],
+            'resolver_errors' => [],
+            'resolver_warnings' => [],
+            'legacy_rejected_iteration_audit' => self::coreProjection($legacyAudit),
+            'shadow_rejected_iteration_audit' => null,
+            'mismatches' => [],
+        ];
+
+        $resolverResult = AgenticRejectAuditManifestResolver::resolve(
+            $resolvedManifestPath,
+            dirname($resolvedManifestPath),
+            true
+        );
+        $diagnostic['resolver_errors'] = array_values((array)($resolverResult['errors'] ?? []));
+        $diagnostic['resolver_warnings'] = array_values((array)($resolverResult['warnings'] ?? []));
+        $diagnostic['missing_sources'] = array_values((array)($resolverResult['missing_sources'] ?? []));
+
+        if (!(bool)($resolverResult['manifest_valid'] ?? false)) {
+            $diagnostic['fallback_occurred'] = true;
+            $diagnostic['shadow_status'] = self::resolverStatusToShadowStatus($resolverResult);
+            self::writeDiagnostic($auditDir, $diagnostic);
+            return $diagnostic;
+        }
+
+        if (in_array('primary', $diagnostic['missing_sources'], true)) {
+            $diagnostic['fallback_occurred'] = true;
+            $diagnostic['shadow_status'] = 'primary_missing';
+            self::writeDiagnostic($auditDir, $diagnostic);
+            return $diagnostic;
+        }
+
+        if (in_array('secondary', $diagnostic['missing_sources'], true)) {
+            $diagnostic['fallback_occurred'] = true;
+            $diagnostic['shadow_status'] = 'secondary_missing';
+            self::writeDiagnostic($auditDir, $diagnostic);
+            return $diagnostic;
+        }
+
+        $shadowBuild = self::buildShadowAuditFromResolvedSources((array)($resolverResult['resolved_sources'] ?? []));
+        if (!(bool)($shadowBuild['ok'] ?? false)) {
+            $diagnostic['fallback_occurred'] = true;
+            $diagnostic['shadow_status'] = 'shadow_build_failed';
+            $diagnostic['resolver_errors'][] = [
+                'code' => (string)($shadowBuild['error_code'] ?? 'shadow_build_failed'),
+                'path' => '/shadow',
+                'message' => (string)($shadowBuild['message'] ?? 'Failed to build shadow audit payload'),
+            ];
+            self::writeDiagnostic($auditDir, $diagnostic);
+            return $diagnostic;
+        }
+
+        $shadowAudit = (array)$shadowBuild['report'];
+        $diagnostic['shadow_rejected_iteration_audit'] = self::coreProjection($shadowAudit);
+
+        $parity = self::compareReports($legacyAudit, $shadowAudit);
+        $diagnostic['mismatches'] = (array)$parity['mismatches'];
+        $diagnostic['parity_pass'] = (bool)$parity['pass'];
+        $diagnostic['parity_result'] = (bool)$parity['pass'] ? 'pass' : 'fail';
+        $diagnostic['shadow_status'] = (bool)$parity['pass'] ? 'parity_pass' : 'parity_mismatch';
+        $diagnostic['fallback_occurred'] = false;
+
+        self::writeDiagnostic($auditDir, $diagnostic);
+        return $diagnostic;
+    }
+
+    private static function resolveManifestPath(string $repoRoot, ?string $manifestPath): string
+    {
+        $candidate = trim((string)$manifestPath);
+        if ($candidate === '') {
+            return $repoRoot
+                . DIRECTORY_SEPARATOR . 'simulation_output'
+                . DIRECTORY_SEPARATOR . 'current-db'
+                . DIRECTORY_SEPARATOR . 'rejected-iteration-inputs'
+                . DIRECTORY_SEPARATOR . 'current'
+                . DIRECTORY_SEPARATOR . 'manifest.json';
+        }
+
+        $isWindowsAbsolute = preg_match('/^[A-Za-z]:[\\\\\\/]/', $candidate) === 1;
+        $isUnixAbsolute = str_starts_with($candidate, '/');
+        if ($isWindowsAbsolute || $isUnixAbsolute) {
+            return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
+        }
+
+        return $repoRoot . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
+    }
+
+    /**
+     * @param array<string, mixed> $resolverResult
+     */
+    private static function resolverStatusToShadowStatus(array $resolverResult): string
+    {
+        foreach ((array)($resolverResult['errors'] ?? []) as $error) {
+            $code = (string)($error['code'] ?? '');
+            if ($code === 'manifest_missing') {
+                return 'manifest_missing';
+            }
+        }
+        return 'manifest_invalid';
+    }
+
+    /**
+     * @param array<string, mixed> $resolvedSources
+     * @return array<string, mixed>
+     */
+    private static function buildShadowAuditFromResolvedSources(array $resolvedSources): array
+    {
+        $primaryPath = (string)($resolvedSources['primary']['resolved_path'] ?? '');
+        $secondaryPath = (string)($resolvedSources['secondary']['resolved_path'] ?? '');
+        if ($primaryPath === '' || $secondaryPath === '') {
+            return [
+                'ok' => false,
+                'error_code' => 'source_path_unavailable',
+                'message' => 'Resolved source path missing for primary or secondary source',
+            ];
+        }
+
+        $primary = json_decode((string)file_get_contents($primaryPath), true);
+        if (!is_array($primary)) {
+            return [
+                'ok' => false,
+                'error_code' => 'primary_invalid_json',
+                'message' => 'Primary source JSON is invalid',
+            ];
+        }
+
+        $secondary = json_decode((string)file_get_contents($secondaryPath), true);
+        if (!is_array($secondary)) {
+            return [
+                'ok' => false,
+                'error_code' => 'secondary_invalid_json',
+                'message' => 'Secondary source JSON is invalid',
+            ];
+        }
+
+        $events = [];
+        $events = array_merge($events, self::extractEventsFromSecondarySummary($secondary));
+        $events = array_merge($events, self::extractEventsFromPrimaryComparison($primary));
+
+        return [
+            'ok' => true,
+            'report' => self::buildAuditReportFromEvents($events),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private static function extractEventsFromSecondarySummary(array $secondary): array
+    {
+        $events = [];
+        foreach ((array)($secondary['packages'] ?? []) as $package) {
+            $packageName = (string)($package['package_name'] ?? 'unknown');
+            foreach ((array)($package['per_seed'] ?? []) as $seedRow) {
+                if ((string)($seedRow['disposition'] ?? '') !== 'reject') {
+                    continue;
+                }
+                $events[] = [
+                    'source' => 'verification-v2',
+                    'event_id' => 'v2-' . $packageName . '-' . (string)$seedRow['seed'],
+                    'package' => $packageName,
+                    'seed' => (string)$seedRow['seed'],
+                    'wins' => (int)($seedRow['wins'] ?? 0),
+                    'losses' => (int)($seedRow['losses'] ?? 0),
+                    'regression_flags' => array_values((array)($seedRow['regression_flags'] ?? [])),
+                    'disposition' => (string)$seedRow['disposition'],
+                    'confidence_notes' => (string)($seedRow['confidence_notes'] ?? ''),
+                ];
+            }
+        }
+        return $events;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private static function extractEventsFromPrimaryComparison(array $primary): array
+    {
+        $events = [];
+        foreach ((array)($primary['scenarios'] ?? []) as $scenario) {
+            if ((string)($scenario['recommended_disposition'] ?? '') !== 'reject') {
+                continue;
+            }
+            $scenarioName = (string)($scenario['scenario_name'] ?? 'unknown');
+            $events[] = [
+                'source' => 'verification-v3-fast',
+                'event_id' => 'v3-fast-' . $scenarioName,
+                'package' => $scenarioName,
+                'seed' => (string)($primary['seed'] ?? 'v3-fast-seed'),
+                'wins' => (int)($scenario['wins'] ?? 0),
+                'losses' => (int)($scenario['losses'] ?? 0),
+                'regression_flags' => array_values((array)($scenario['regression_flags'] ?? [])),
+                'disposition' => (string)($scenario['recommended_disposition'] ?? 'reject'),
+                'confidence_notes' => (string)($scenario['confidence_notes'] ?? ''),
+            ];
+        }
+        return $events;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $events
+     * @return array<string, mixed>
+     */
+    private static function buildAuditReportFromEvents(array $events): array
+    {
+        usort($events, static function ($a, $b) {
+            $priorityA = str_contains((string)$a['source'], 'v3') ? 0 : 1;
+            $priorityB = str_contains((string)$b['source'], 'v3') ? 0 : 1;
+            if ($priorityA !== $priorityB) {
+                return $priorityA <=> $priorityB;
+            }
+            return strcmp((string)$a['event_id'], (string)$b['event_id']);
+        });
+
+        $recent = array_slice($events, 0, 8);
+
+        $flagHistogram = [];
+        foreach ($recent as &$event) {
+            $flags = (array)$event['regression_flags'];
+            foreach ($flags as $flag) {
+                $flagHistogram[$flag] = (int)($flagHistogram[$flag] ?? 0) + 1;
+            }
+            $event['classifications'] = self::classify($event);
+        }
+        unset($event);
+        arsort($flagHistogram);
+
+        return [
+            'schema_version' => 'tmc-agentic-reject-audit.v1',
+            'generated_at' => gmdate('c'),
+            'audited_events_count' => count($recent),
+            'audited_events' => $recent,
+            'flag_histogram' => $flagHistogram,
+            'key_failure_patterns' => array_slice(array_keys($flagHistogram), 0, 6),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function classify(array $event): array
+    {
+        $categories = [];
+        $wins = (int)($event['wins'] ?? 0);
+        $losses = (int)($event['losses'] ?? 0);
+        $flags = (array)($event['regression_flags'] ?? []);
+
+        if ($wins <= $losses) {
+            $categories[] = 'local_weakness';
+        }
+
+        if (in_array('candidate_improves_B_but_worsens_C', $flags, true)
+            || in_array('reduces_lock_in_but_expiry_dominance_rises', $flags, true)
+            || in_array('reduced_one_dominant_but_created_new_dominant', $flags, true)) {
+            $categories[] = 'cross_system_regression';
+        }
+
+        if (in_array('dominant_archetype_shifted', $flags, true)
+            || in_array('long_run_concentration_worsened', $flags, true)
+            || in_array('skip_rejoin_exploit_worsened', $flags, true)
+            || in_array('lock_in_down_but_expiry_dominance_up', $flags, true)) {
+            $categories[] = 'full_economy_regression';
+        }
+
+        if ($wins > $losses && !empty($flags)) {
+            $categories[] = 'bad_metric_targeting';
+        }
+
+        if (count($flags) >= 4) {
+            $categories[] = 'over_broad_change';
+        }
+
+        if (str_contains((string)($event['confidence_notes'] ?? ''), 'Paired samples: 2')) {
+            $categories[] = 'insufficient_signal';
+        }
+
+        $alwaysRepeated = [
+            'dominant_archetype_shifted',
+            'lock_in_down_but_expiry_dominance_up',
+            'reduces_lock_in_but_expiry_dominance_rises',
+        ];
+        $repeatHits = 0;
+        foreach ($alwaysRepeated as $flag) {
+            if (in_array($flag, $flags, true)) {
+                $repeatHits++;
+            }
+        }
+        if ($repeatHits >= 2) {
+            $categories[] = 'search_inefficiency';
+        }
+
+        if ($categories === []) {
+            $categories[] = 'uncategorized';
+        }
+
+        return array_values(array_unique($categories));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function compareReports(array $legacyAudit, array $shadowAudit): array
+    {
+        $mismatches = [];
+
+        foreach (['audited_events_count', 'flag_histogram', 'key_failure_patterns'] as $field) {
+            if (($legacyAudit[$field] ?? null) !== ($shadowAudit[$field] ?? null)) {
+                $mismatches[] = [
+                    'field' => $field,
+                    'legacy_value' => $legacyAudit[$field] ?? null,
+                    'shadow_value' => $shadowAudit[$field] ?? null,
+                ];
+            }
+        }
+
+        $legacyEvents = array_values((array)($legacyAudit['audited_events'] ?? []));
+        $shadowEvents = array_values((array)($shadowAudit['audited_events'] ?? []));
+        if ($legacyEvents !== $shadowEvents) {
+            $mismatches[] = [
+                'field' => 'audited_events',
+                'legacy_count' => count($legacyEvents),
+                'shadow_count' => count($shadowEvents),
+            ];
+
+            $max = min(max(count($legacyEvents), count($shadowEvents)), 25);
+            for ($i = 0; $i < $max; $i++) {
+                $legacyEvent = $legacyEvents[$i] ?? null;
+                $shadowEvent = $shadowEvents[$i] ?? null;
+                if ($legacyEvent !== $shadowEvent) {
+                    $mismatches[] = [
+                        'field' => 'audited_events[' . $i . ']',
+                        'legacy_event_id' => (string)($legacyEvent['event_id'] ?? ''),
+                        'shadow_event_id' => (string)($shadowEvent['event_id'] ?? ''),
+                        'legacy_value' => $legacyEvent,
+                        'shadow_value' => $shadowEvent,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'pass' => $mismatches === [],
+            'mismatches' => $mismatches,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function coreProjection(array $audit): array
+    {
+        return [
+            'audited_events_count' => (int)($audit['audited_events_count'] ?? 0),
+            'key_failure_patterns' => array_values((array)($audit['key_failure_patterns'] ?? [])),
+            'flag_histogram' => (array)($audit['flag_histogram'] ?? []),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $diagnostic
+     */
+    private static function writeDiagnostic(string $auditDir, array $diagnostic): void
+    {
+        AgenticOptimizationUtils::writeJson(
+            $auditDir . DIRECTORY_SEPARATOR . 'rejected_iteration_shadow_parity.json',
+            $diagnostic
+        );
+    }
+}
+
 class AgenticSubsystemAgent
 {
     private array $subsystem;
@@ -2279,11 +2667,19 @@ class AgenticSubsystemAgent
 
 class AgenticOptimizationCoordinator
 {
+    public static function resolveRejectAuditMode(array $options): string
+    {
+        $mode = strtolower(trim((string)($options['reject_audit_mode'] ?? 'legacy')));
+        return $mode === 'shadow-manifest' ? 'shadow-manifest' : 'legacy';
+    }
+
     public static function run(array $options): array
     {
         $repoRoot = (string)($options['repo_root'] ?? dirname(__DIR__, 2));
         $outputRoot = (string)($options['output_root'] ?? ($repoRoot . DIRECTORY_SEPARATOR . 'simulation_output' . DIRECTORY_SEPARATOR . 'current-db' . DIRECTORY_SEPARATOR . 'agentic-optimization'));
         $runSeed = (string)($options['seed'] ?? ('agentic-' . gmdate('Ymd-His')));
+        $rejectAuditMode = self::resolveRejectAuditMode($options);
+        $rejectAuditManifest = trim((string)($options['reject_audit_manifest'] ?? ''));
         $runId = AgenticOptimizationUtils::sanitize($runSeed);
 
         $runDir = $outputRoot . DIRECTORY_SEPARATOR . $runId;
@@ -2307,6 +2703,15 @@ class AgenticOptimizationCoordinator
         $decompositionPaths = AgenticEconomyDecomposition::writeArtifacts($decomposition, $runDir . DIRECTORY_SEPARATOR . 'decomposition');
 
         $auditReport = AgenticRejectedIterationAuditor::run($repoRoot, $runDir . DIRECTORY_SEPARATOR . 'audit');
+        $shadowParity = null;
+        if ($rejectAuditMode === 'shadow-manifest') {
+            $shadowParity = AgenticRejectedIterationShadowParity::run(
+                $repoRoot,
+                $runDir . DIRECTORY_SEPARATOR . 'audit',
+                $auditReport,
+                $rejectAuditManifest !== '' ? $rejectAuditManifest : null
+            );
+        }
 
         $memoryPath = $outputRoot . DIRECTORY_SEPARATOR . 'search-memory' . DIRECTORY_SEPARATOR . 'global_search_memory.json';
         $searchMemory = new AgenticSearchMemory($memoryPath);
@@ -2418,11 +2823,15 @@ class AgenticOptimizationCoordinator
         AgenticOptimizationUtils::writeJson($runDir . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . 'final_integration_report.json', $summary);
         self::writeSummaryMarkdown($runDir . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . 'final_integration_report.md', $summary);
 
-        return [
+        $result = [
             'run_id' => $runId,
             'run_dir' => $runDir,
             'summary' => $summary,
         ];
+        if (is_array($shadowParity)) {
+            $result['shadow_reject_audit_parity'] = $shadowParity;
+        }
+        return $result;
     }
 
     private static function detectConflicts(array $acceptedByPriority, array $changes): array

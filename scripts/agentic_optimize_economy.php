@@ -6,6 +6,8 @@ $options = [
     'seed' => 'agentic-' . gmdate('Ymd-His'),
     'season-config' => null,
     'output' => __DIR__ . '/../simulation_output/current-db/agentic-optimization',
+    'reject-audit-mode' => 'legacy',
+    'reject-audit-manifest' => null,
 ];
 
 foreach (array_slice($argv, 1) as $arg) {
@@ -15,6 +17,10 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['season-config'] = substr($arg, 16);
     } elseif (str_starts_with($arg, '--output=')) {
         $options['output'] = substr($arg, 9);
+    } elseif (str_starts_with($arg, '--reject-audit-mode=')) {
+        $options['reject-audit-mode'] = strtolower(trim(substr($arg, 20)));
+    } elseif (str_starts_with($arg, '--reject-audit-manifest=')) {
+        $options['reject-audit-manifest'] = substr($arg, 24);
     } elseif ($arg === '--help') {
         echo <<<'HELP'
 Agentic Hierarchical Economy Optimizer
@@ -32,6 +38,10 @@ Options:
   --seed=VALUE            Run identifier (default: agentic-<UTC timestamp>)
   --season-config=FILE    Optional fallback season config JSON if DB baseline load fails
   --output=DIR            Output root (default: simulation_output/current-db/agentic-optimization)
+  --reject-audit-mode=VALUE
+                          Optional rejected-audit mode (`shadow-manifest` only; default legacy behavior when omitted)
+  --reject-audit-manifest=FILE
+                          Optional manifest path override used only with --reject-audit-mode=shadow-manifest
   --help                  Show this help
 
 Output structure:
@@ -52,6 +62,11 @@ Output structure:
 HELP;
         exit(0);
     }
+}
+
+if (!in_array((string)$options['reject-audit-mode'], ['legacy', 'shadow-manifest'], true)) {
+    fwrite(STDERR, "Invalid --reject-audit-mode. Supported values: shadow-manifest\n");
+    exit(2);
 }
 
 $repoRoot = realpath(__DIR__ . '/..');
@@ -76,6 +91,8 @@ try {
         'seed' => (string)$options['seed'],
         'season_config' => $options['season-config'],
         'output_root' => $outputRoot,
+        'reject_audit_mode' => (string)$options['reject-audit-mode'],
+        'reject_audit_manifest' => $options['reject-audit-manifest'],
     ]);
 } catch (Throwable $e) {
     fwrite(STDERR, 'Agentic optimizer failed: ' . $e->getMessage() . PHP_EOL);
@@ -98,3 +115,10 @@ if (is_array($bestVariant)) {
 }
 echo "Best config: " . (string)$summary['best_config_path'] . PHP_EOL;
 echo "Final report: " . (string)$result['run_dir'] . DIRECTORY_SEPARATOR . 'reports' . DIRECTORY_SEPARATOR . 'final_integration_report.md' . PHP_EOL;
+
+if ((string)$options['reject-audit-mode'] === 'shadow-manifest' && is_array($result['shadow_reject_audit_parity'] ?? null)) {
+    $shadow = (array)$result['shadow_reject_audit_parity'];
+    echo "Shadow Audit Status: " . (string)($shadow['shadow_status'] ?? 'unknown') . PHP_EOL;
+    echo "Shadow Parity: " . (string)($shadow['parity_result'] ?? 'unknown') . PHP_EOL;
+    echo "Shadow Diagnostic: " . (string)$result['run_dir'] . DIRECTORY_SEPARATOR . 'audit' . DIRECTORY_SEPARATOR . 'rejected_iteration_shadow_parity.json' . PHP_EOL;
+}
