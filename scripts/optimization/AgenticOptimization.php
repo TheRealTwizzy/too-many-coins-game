@@ -1967,6 +1967,153 @@ class AgenticRejectedIterationShadowParity
     }
 
     /**
+     * @return array{
+     *   authoritative_source: string,
+     *   authoritative_audit: array<string, mixed>,
+     *   manifest_audit: array<string, mixed>|null,
+     *   diagnostic: array<string, mixed>
+     * }
+     */
+    public static function runManifestPreferred(string $repoRoot, string $auditDir, array $legacyAudit, ?string $manifestPath = null): array
+    {
+        $manifestSelection = self::resolveManifestSelection($repoRoot, $manifestPath);
+        $resolvedManifestPath = (string)$manifestSelection['selected_manifest_path'];
+        $manifestSource = (string)$manifestSelection['manifest_source'];
+
+        $diagnostic = [
+            'schema_version' => 'tmc.rejected_iteration_manifest_preferred.v1',
+            'generated_at_utc' => gmdate('c'),
+            'mode' => 'manifest_preferred',
+            'manifest_source' => $manifestSource,
+            'requested_manifest_path' => $manifestSelection['requested_manifest_path'],
+            'selected_manifest_path' => $resolvedManifestPath,
+            'authoritative_source' => 'legacy_fallback',
+            'fallback_occurred' => true,
+            'fallback_reason' => null,
+            'freshness_status' => 'unknown',
+            'freshness_reasons' => [],
+            'parity_result' => 'not_computed',
+            'parity_pass' => false,
+            'mismatches' => [],
+            'missing_sources' => [],
+            'resolver_errors' => [],
+            'resolver_warnings' => [],
+            'legacy_rejected_iteration_audit' => self::coreProjection($legacyAudit),
+            'manifest_rejected_iteration_audit' => null,
+        ];
+
+        $resolverResult = AgenticRejectAuditManifestResolver::resolve(
+            $resolvedManifestPath,
+            dirname($resolvedManifestPath),
+            true,
+            [
+                'validate_freshness' => $manifestSource === 'canonical_default',
+                'validate_checksums' => $manifestSource === 'canonical_default',
+                'repo_root' => $repoRoot,
+                'max_age_seconds' => 86400,
+                'strict_integrity' => false,
+            ]
+        );
+        $diagnostic['resolver_errors'] = array_values((array)($resolverResult['errors'] ?? []));
+        $diagnostic['resolver_warnings'] = array_values((array)($resolverResult['warnings'] ?? []));
+        $diagnostic['missing_sources'] = array_values((array)($resolverResult['missing_sources'] ?? []));
+        $diagnostic['freshness_status'] = self::resolveFreshnessStatus($resolverResult, $manifestSource);
+        $diagnostic['freshness_reasons'] = self::resolveFreshnessReasons($resolverResult, $manifestSource);
+
+        if (!(bool)($resolverResult['manifest_valid'] ?? false)) {
+            $diagnostic['fallback_reason'] = self::resolverStatusToShadowStatus($resolverResult, $manifestSource);
+            self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+            return [
+                'authoritative_source' => 'legacy_fallback',
+                'authoritative_audit' => $legacyAudit,
+                'manifest_audit' => null,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+
+        if ($manifestSource === 'canonical_default' && $diagnostic['freshness_status'] === 'stale') {
+            $diagnostic['fallback_reason'] = 'canonical_manifest_stale';
+            self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+            return [
+                'authoritative_source' => 'legacy_fallback',
+                'authoritative_audit' => $legacyAudit,
+                'manifest_audit' => null,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+
+        if (in_array('primary', $diagnostic['missing_sources'], true)) {
+            $diagnostic['fallback_reason'] = 'primary_missing';
+            self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+            return [
+                'authoritative_source' => 'legacy_fallback',
+                'authoritative_audit' => $legacyAudit,
+                'manifest_audit' => null,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+
+        if (in_array('secondary', $diagnostic['missing_sources'], true)) {
+            $diagnostic['fallback_reason'] = 'secondary_missing';
+            self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+            return [
+                'authoritative_source' => 'legacy_fallback',
+                'authoritative_audit' => $legacyAudit,
+                'manifest_audit' => null,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+
+        $shadowBuild = self::buildShadowAuditFromResolvedSources((array)($resolverResult['resolved_sources'] ?? []));
+        if (!(bool)($shadowBuild['ok'] ?? false)) {
+            $diagnostic['fallback_reason'] = 'manifest_build_failed';
+            $diagnostic['resolver_errors'][] = [
+                'code' => (string)($shadowBuild['error_code'] ?? 'manifest_build_failed'),
+                'path' => '/manifest',
+                'message' => (string)($shadowBuild['message'] ?? 'Failed to build manifest-derived audit payload'),
+            ];
+            self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+            return [
+                'authoritative_source' => 'legacy_fallback',
+                'authoritative_audit' => $legacyAudit,
+                'manifest_audit' => null,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+
+        $manifestAudit = (array)$shadowBuild['report'];
+        $diagnostic['manifest_rejected_iteration_audit'] = self::coreProjection($manifestAudit);
+
+        $parity = self::compareReports($legacyAudit, $manifestAudit);
+        $diagnostic['mismatches'] = (array)$parity['mismatches'];
+        $diagnostic['parity_pass'] = (bool)$parity['pass'];
+        $diagnostic['parity_result'] = (bool)$parity['pass'] ? 'pass' : 'fail';
+
+        if (!(bool)$parity['pass']) {
+            $diagnostic['fallback_reason'] = 'parity_mismatch';
+            self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+            return [
+                'authoritative_source' => 'legacy_fallback',
+                'authoritative_audit' => $legacyAudit,
+                'manifest_audit' => $manifestAudit,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+
+        $diagnostic['authoritative_source'] = 'manifest';
+        $diagnostic['fallback_occurred'] = false;
+        $diagnostic['fallback_reason'] = null;
+
+        self::writeManifestPreferredDiagnostic($auditDir, $diagnostic);
+        return [
+            'authoritative_source' => 'manifest',
+            'authoritative_audit' => $manifestAudit,
+            'manifest_audit' => $manifestAudit,
+            'diagnostic' => $diagnostic,
+        ];
+    }
+
+    /**
      * @return array{manifest_source: string, requested_manifest_path: ?string, selected_manifest_path: string}
      */
     private static function resolveManifestSelection(string $repoRoot, ?string $manifestPath): array
@@ -2333,6 +2480,17 @@ class AgenticRejectedIterationShadowParity
     {
         AgenticOptimizationUtils::writeJson(
             $auditDir . DIRECTORY_SEPARATOR . 'rejected_iteration_shadow_parity.json',
+            $diagnostic
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $diagnostic
+     */
+    private static function writeManifestPreferredDiagnostic(string $auditDir, array $diagnostic): void
+    {
+        AgenticOptimizationUtils::writeJson(
+            $auditDir . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_preferred_diagnostic.json',
             $diagnostic
         );
     }
@@ -2768,7 +2926,13 @@ class AgenticOptimizationCoordinator
     public static function resolveRejectAuditMode(array $options): string
     {
         $mode = strtolower(trim((string)($options['reject_audit_mode'] ?? 'legacy')));
-        return $mode === 'shadow-manifest' ? 'shadow-manifest' : 'legacy';
+        if ($mode === 'shadow-manifest') {
+            return 'shadow-manifest';
+        }
+        if ($mode === 'manifest_preferred') {
+            return 'manifest_preferred';
+        }
+        return 'legacy';
     }
 
     public static function run(array $options): array
@@ -2802,6 +2966,7 @@ class AgenticOptimizationCoordinator
 
         $auditReport = AgenticRejectedIterationAuditor::run($repoRoot, $runDir . DIRECTORY_SEPARATOR . 'audit');
         $shadowParity = null;
+        $manifestPreferred = null;
         if ($rejectAuditMode === 'shadow-manifest') {
             $shadowParity = AgenticRejectedIterationShadowParity::run(
                 $repoRoot,
@@ -2809,6 +2974,14 @@ class AgenticOptimizationCoordinator
                 $auditReport,
                 $rejectAuditManifest !== '' ? $rejectAuditManifest : null
             );
+        } elseif ($rejectAuditMode === 'manifest_preferred') {
+            $manifestPreferred = AgenticRejectedIterationShadowParity::runManifestPreferred(
+                $repoRoot,
+                $runDir . DIRECTORY_SEPARATOR . 'audit',
+                $auditReport,
+                $rejectAuditManifest !== '' ? $rejectAuditManifest : null
+            );
+            $auditReport = (array)($manifestPreferred['authoritative_audit'] ?? $auditReport);
         }
 
         $memoryPath = $outputRoot . DIRECTORY_SEPARATOR . 'search-memory' . DIRECTORY_SEPARATOR . 'global_search_memory.json';
@@ -2928,6 +3101,9 @@ class AgenticOptimizationCoordinator
         ];
         if (is_array($shadowParity)) {
             $result['shadow_reject_audit_parity'] = $shadowParity;
+        }
+        if (is_array($manifestPreferred)) {
+            $result['manifest_preferred_diagnostic'] = (array)($manifestPreferred['diagnostic'] ?? []);
         }
         return $result;
     }

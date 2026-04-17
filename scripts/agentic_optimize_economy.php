@@ -39,9 +39,9 @@ Options:
   --season-config=FILE    Optional fallback season config JSON if DB baseline load fails
   --output=DIR            Output root (default: simulation_output/current-db/agentic-optimization)
   --reject-audit-mode=VALUE
-                          Optional rejected-audit mode (`shadow-manifest` only; default legacy behavior when omitted)
+                          Optional rejected-audit mode (`shadow-manifest` or `manifest_preferred`; default legacy behavior when omitted)
   --reject-audit-manifest=FILE
-                          Optional manifest path override used only with --reject-audit-mode=shadow-manifest
+                          Optional manifest path override used with --reject-audit-mode=shadow-manifest or manifest_preferred
   --help                  Show this help
 
 Output structure:
@@ -64,8 +64,8 @@ HELP;
     }
 }
 
-if (!in_array((string)$options['reject-audit-mode'], ['legacy', 'shadow-manifest'], true)) {
-    fwrite(STDERR, "Invalid --reject-audit-mode. Supported values: shadow-manifest\n");
+if (!in_array((string)$options['reject-audit-mode'], ['legacy', 'shadow-manifest', 'manifest_preferred'], true)) {
+    fwrite(STDERR, "Invalid --reject-audit-mode. Supported values: shadow-manifest, manifest_preferred\n");
     exit(2);
 }
 
@@ -121,4 +121,12 @@ if ((string)$options['reject-audit-mode'] === 'shadow-manifest' && is_array($res
     echo "Shadow Audit Status: " . (string)($shadow['shadow_status'] ?? 'unknown') . PHP_EOL;
     echo "Shadow Parity: " . (string)($shadow['parity_result'] ?? 'unknown') . PHP_EOL;
     echo "Shadow Diagnostic: " . (string)$result['run_dir'] . DIRECTORY_SEPARATOR . 'audit' . DIRECTORY_SEPARATOR . 'rejected_iteration_shadow_parity.json' . PHP_EOL;
+}
+
+if ((string)$options['reject-audit-mode'] === 'manifest_preferred' && is_array($result['manifest_preferred_diagnostic'] ?? null)) {
+    $preferred = (array)$result['manifest_preferred_diagnostic'];
+    echo "Manifest Preferred Source: " . (string)($preferred['authoritative_source'] ?? 'unknown') . PHP_EOL;
+    echo "Manifest Preferred Fallback: " . ((bool)($preferred['fallback_occurred'] ?? false) ? 'YES' : 'NO') . PHP_EOL;
+    echo "Manifest Preferred Reason: " . (string)($preferred['fallback_reason'] ?? '') . PHP_EOL;
+    echo "Manifest Preferred Diagnostic: " . (string)$result['run_dir'] . DIRECTORY_SEPARATOR . 'audit' . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_preferred_diagnostic.json' . PHP_EOL;
 }
