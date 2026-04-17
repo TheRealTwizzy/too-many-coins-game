@@ -10,6 +10,22 @@ require_once __DIR__ . '/../simulation/SimulationPopulationLifetime.php';
 require_once __DIR__ . '/../simulation/MetricsCollector.php';
 require_once __DIR__ . '/RejectedIterationInputResolver.php';
 
+class AgenticStrictModeFailureException extends RuntimeException
+{
+    private int $strictExitCode;
+
+    public function __construct(string $message, int $strictExitCode)
+    {
+        parent::__construct($message);
+        $this->strictExitCode = $strictExitCode;
+    }
+
+    public function strictExitCode(): int
+    {
+        return $this->strictExitCode;
+    }
+}
+
 class AgenticOptimizationUtils
 {
     public static function ensureDir(string $path): void
@@ -2114,6 +2130,205 @@ class AgenticRejectedIterationShadowParity
     }
 
     /**
+     * @return array{
+     *   strict_success: bool,
+     *   exit_code: int,
+     *   authoritative_source: string,
+     *   authoritative_audit: array<string, mixed>|null,
+     *   diagnostic: array<string, mixed>
+     * }
+     */
+    public static function runManifestStrict(string $repoRoot, string $auditDir, array $legacyAudit, ?string $manifestPath = null): array
+    {
+        $manifestSelection = self::resolveManifestSelection($repoRoot, $manifestPath);
+        $resolvedManifestPath = (string)$manifestSelection['selected_manifest_path'];
+        $manifestSource = (string)$manifestSelection['manifest_source'];
+
+        $diagnostic = [
+            'schema_version' => 'tmc.rejected_iteration_manifest_strict.v1',
+            'generated_at_utc' => gmdate('c'),
+            'mode' => 'manifest_strict',
+            'manifest_source' => $manifestSource,
+            'requested_manifest_path' => $manifestSelection['requested_manifest_path'],
+            'selected_manifest_path' => $resolvedManifestPath,
+            'authoritative_source' => 'none_due_to_failure',
+            'strict_result' => 'failure',
+            'failure_reason' => null,
+            'fallback_occurred' => false,
+            'freshness_status' => 'unknown',
+            'freshness_reasons' => [],
+            'parity_result' => 'not_computed',
+            'parity_pass' => false,
+            'mismatches' => [],
+            'missing_sources' => [],
+            'resolver_errors' => [],
+            'resolver_warnings' => [],
+            'exit_code' => 28,
+            'legacy_rejected_iteration_audit' => self::coreProjection($legacyAudit),
+            'manifest_rejected_iteration_audit' => null,
+        ];
+
+        try {
+            $resolverResult = AgenticRejectAuditManifestResolver::resolve(
+                $resolvedManifestPath,
+                dirname($resolvedManifestPath),
+                true,
+                [
+                    'validate_freshness' => $manifestSource === 'canonical_default',
+                    'validate_checksums' => true,
+                    'validate_provenance' => true,
+                    'require_canonical_contract' => true,
+                    'repo_root' => $repoRoot,
+                    'max_age_seconds' => 86400,
+                    'strict_integrity' => true,
+                ]
+            );
+            $diagnostic['resolver_errors'] = array_values((array)($resolverResult['errors'] ?? []));
+            $diagnostic['resolver_warnings'] = array_values((array)($resolverResult['warnings'] ?? []));
+            $diagnostic['missing_sources'] = array_values((array)($resolverResult['missing_sources'] ?? []));
+
+            $rawFreshness = (string)($resolverResult['integrity']['freshness']['status'] ?? 'unknown');
+            $diagnostic['freshness_status'] = in_array($rawFreshness, ['fresh', 'stale'], true) ? $rawFreshness : 'unknown';
+            $diagnostic['freshness_reasons'] = self::resolveFreshnessReasons($resolverResult, $manifestSource);
+
+            if (!(bool)($resolverResult['manifest_valid'] ?? false)) {
+                $reason = self::resolverStatusToShadowStatus($resolverResult, $manifestSource);
+                $diagnostic['failure_reason'] = $reason;
+                $diagnostic['exit_code'] = self::strictExitCodeForReason($reason);
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            if ($manifestSource === 'canonical_default' && $diagnostic['freshness_status'] === 'stale') {
+                $diagnostic['failure_reason'] = 'canonical_manifest_stale';
+                $diagnostic['exit_code'] = self::strictExitCodeForReason('canonical_manifest_stale');
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            if (in_array('primary', $diagnostic['missing_sources'], true)) {
+                $diagnostic['failure_reason'] = 'primary_missing';
+                $diagnostic['exit_code'] = self::strictExitCodeForReason('primary_missing');
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            if (in_array('secondary', $diagnostic['missing_sources'], true)) {
+                $diagnostic['failure_reason'] = 'secondary_missing';
+                $diagnostic['exit_code'] = self::strictExitCodeForReason('secondary_missing');
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            if (self::hasStrictIntegrityFailure($resolverResult)) {
+                $diagnostic['failure_reason'] = 'integrity_failed';
+                $diagnostic['exit_code'] = self::strictExitCodeForReason('integrity_failed');
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            $shadowBuild = self::buildShadowAuditFromResolvedSources((array)($resolverResult['resolved_sources'] ?? []));
+            if (!(bool)($shadowBuild['ok'] ?? false)) {
+                $diagnostic['failure_reason'] = 'manifest_build_failed';
+                $diagnostic['exit_code'] = self::strictExitCodeForReason('manifest_build_failed');
+                $diagnostic['resolver_errors'][] = [
+                    'code' => (string)($shadowBuild['error_code'] ?? 'manifest_build_failed'),
+                    'path' => '/manifest',
+                    'message' => (string)($shadowBuild['message'] ?? 'Failed to build manifest-derived audit payload'),
+                ];
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            $manifestAudit = (array)$shadowBuild['report'];
+            $diagnostic['manifest_rejected_iteration_audit'] = self::coreProjection($manifestAudit);
+            $parity = self::compareReports($legacyAudit, $manifestAudit);
+            $diagnostic['mismatches'] = (array)$parity['mismatches'];
+            $diagnostic['parity_pass'] = (bool)$parity['pass'];
+            $diagnostic['parity_result'] = (bool)$parity['pass'] ? 'pass' : 'fail';
+
+            if (!(bool)$parity['pass']) {
+                $diagnostic['failure_reason'] = 'parity_mismatch';
+                $diagnostic['exit_code'] = self::strictExitCodeForReason('parity_mismatch');
+                self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+                return [
+                    'strict_success' => false,
+                    'exit_code' => (int)$diagnostic['exit_code'],
+                    'authoritative_source' => 'none_due_to_failure',
+                    'authoritative_audit' => null,
+                    'diagnostic' => $diagnostic,
+                ];
+            }
+
+            $diagnostic['authoritative_source'] = 'manifest';
+            $diagnostic['strict_result'] = 'success';
+            $diagnostic['failure_reason'] = null;
+            $diagnostic['exit_code'] = 0;
+            self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+            return [
+                'strict_success' => true,
+                'exit_code' => 0,
+                'authoritative_source' => 'manifest',
+                'authoritative_audit' => $manifestAudit,
+                'diagnostic' => $diagnostic,
+            ];
+        } catch (Throwable $e) {
+            $diagnostic['strict_result'] = 'failure';
+            $diagnostic['failure_reason'] = 'strict_internal_error';
+            $diagnostic['exit_code'] = self::strictExitCodeForReason('strict_internal_error');
+            $diagnostic['resolver_errors'][] = [
+                'code' => 'strict_internal_error',
+                'path' => '/strict',
+                'message' => $e->getMessage(),
+            ];
+            self::writeManifestStrictDiagnostic($auditDir, $diagnostic);
+            return [
+                'strict_success' => false,
+                'exit_code' => (int)$diagnostic['exit_code'],
+                'authoritative_source' => 'none_due_to_failure',
+                'authoritative_audit' => null,
+                'diagnostic' => $diagnostic,
+            ];
+        }
+    }
+
+    /**
      * @return array{manifest_source: string, requested_manifest_path: ?string, selected_manifest_path: string}
      */
     private static function resolveManifestSelection(string $repoRoot, ?string $manifestPath): array
@@ -2474,6 +2689,46 @@ class AgenticRejectedIterationShadowParity
     }
 
     /**
+     * @param array<string, mixed> $resolverResult
+     */
+    private static function hasStrictIntegrityFailure(array $resolverResult): bool
+    {
+        $integrityCodes = [
+            'checksum_mismatch',
+            'missing_or_invalid_checksum',
+            'artifact_missing_for_checksum',
+            'provenance_origin_missing',
+            'provenance_origin_missing_file',
+            'provenance_origin_checksum_mismatch',
+            'invalid_origin_checksum',
+            'schema_version_mismatch',
+            'invalid_source_commit',
+            'invalid_producer',
+        ];
+        foreach (array_merge((array)($resolverResult['errors'] ?? []), (array)($resolverResult['warnings'] ?? [])) as $entry) {
+            if (in_array((string)($entry['code'] ?? ''), $integrityCodes, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function strictExitCodeForReason(string $reason): int
+    {
+        return match ($reason) {
+            'manifest_missing', 'canonical_manifest_missing' => 20,
+            'manifest_invalid', 'canonical_manifest_invalid' => 21,
+            'canonical_manifest_stale' => 22,
+            'integrity_failed' => 23,
+            'primary_missing' => 24,
+            'secondary_missing' => 25,
+            'manifest_build_failed' => 26,
+            'parity_mismatch' => 27,
+            default => 28,
+        };
+    }
+
+    /**
      * @param array<string, mixed> $diagnostic
      */
     private static function writeDiagnostic(string $auditDir, array $diagnostic): void
@@ -2491,6 +2746,17 @@ class AgenticRejectedIterationShadowParity
     {
         AgenticOptimizationUtils::writeJson(
             $auditDir . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_preferred_diagnostic.json',
+            $diagnostic
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $diagnostic
+     */
+    private static function writeManifestStrictDiagnostic(string $auditDir, array $diagnostic): void
+    {
+        AgenticOptimizationUtils::writeJson(
+            $auditDir . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_strict_diagnostic.json',
             $diagnostic
         );
     }
@@ -2932,6 +3198,9 @@ class AgenticOptimizationCoordinator
         if ($mode === 'manifest_preferred') {
             return 'manifest_preferred';
         }
+        if ($mode === 'manifest_strict') {
+            return 'manifest_strict';
+        }
         return 'legacy';
     }
 
@@ -2967,6 +3236,7 @@ class AgenticOptimizationCoordinator
         $auditReport = AgenticRejectedIterationAuditor::run($repoRoot, $runDir . DIRECTORY_SEPARATOR . 'audit');
         $shadowParity = null;
         $manifestPreferred = null;
+        $manifestStrict = null;
         if ($rejectAuditMode === 'shadow-manifest') {
             $shadowParity = AgenticRejectedIterationShadowParity::run(
                 $repoRoot,
@@ -2982,6 +3252,23 @@ class AgenticOptimizationCoordinator
                 $rejectAuditManifest !== '' ? $rejectAuditManifest : null
             );
             $auditReport = (array)($manifestPreferred['authoritative_audit'] ?? $auditReport);
+        } elseif ($rejectAuditMode === 'manifest_strict') {
+            $manifestStrict = AgenticRejectedIterationShadowParity::runManifestStrict(
+                $repoRoot,
+                $runDir . DIRECTORY_SEPARATOR . 'audit',
+                $auditReport,
+                $rejectAuditManifest !== '' ? $rejectAuditManifest : null
+            );
+            if (!(bool)($manifestStrict['strict_success'] ?? false)) {
+                $reason = (string)($manifestStrict['diagnostic']['failure_reason'] ?? 'strict_internal_error');
+                $exitCode = (int)($manifestStrict['exit_code'] ?? 28);
+                $diagPath = $runDir . DIRECTORY_SEPARATOR . 'audit' . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_strict_diagnostic.json';
+                throw new AgenticStrictModeFailureException(
+                    'manifest_strict failed: ' . $reason . ' (diagnostic: ' . $diagPath . ')',
+                    $exitCode
+                );
+            }
+            $auditReport = (array)($manifestStrict['authoritative_audit'] ?? $auditReport);
         }
 
         $memoryPath = $outputRoot . DIRECTORY_SEPARATOR . 'search-memory' . DIRECTORY_SEPARATOR . 'global_search_memory.json';
@@ -3104,6 +3391,9 @@ class AgenticOptimizationCoordinator
         }
         if (is_array($manifestPreferred)) {
             $result['manifest_preferred_diagnostic'] = (array)($manifestPreferred['diagnostic'] ?? []);
+        }
+        if (is_array($manifestStrict)) {
+            $result['manifest_strict_diagnostic'] = (array)($manifestStrict['diagnostic'] ?? []);
         }
         return $result;
     }

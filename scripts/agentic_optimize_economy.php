@@ -39,9 +39,9 @@ Options:
   --season-config=FILE    Optional fallback season config JSON if DB baseline load fails
   --output=DIR            Output root (default: simulation_output/current-db/agentic-optimization)
   --reject-audit-mode=VALUE
-                          Optional rejected-audit mode (`shadow-manifest` or `manifest_preferred`; default legacy behavior when omitted)
+                          Optional rejected-audit mode (`shadow-manifest`, `manifest_preferred`, or `manifest_strict`; default legacy behavior when omitted)
   --reject-audit-manifest=FILE
-                          Optional manifest path override used with --reject-audit-mode=shadow-manifest or manifest_preferred
+                          Optional manifest path override used with --reject-audit-mode=shadow-manifest, manifest_preferred, or manifest_strict
   --help                  Show this help
 
 Output structure:
@@ -64,8 +64,8 @@ HELP;
     }
 }
 
-if (!in_array((string)$options['reject-audit-mode'], ['legacy', 'shadow-manifest', 'manifest_preferred'], true)) {
-    fwrite(STDERR, "Invalid --reject-audit-mode. Supported values: shadow-manifest, manifest_preferred\n");
+if (!in_array((string)$options['reject-audit-mode'], ['legacy', 'shadow-manifest', 'manifest_preferred', 'manifest_strict'], true)) {
+    fwrite(STDERR, "Invalid --reject-audit-mode. Supported values: shadow-manifest, manifest_preferred, manifest_strict\n");
     exit(2);
 }
 
@@ -94,6 +94,9 @@ try {
         'reject_audit_mode' => (string)$options['reject-audit-mode'],
         'reject_audit_manifest' => $options['reject-audit-manifest'],
     ]);
+} catch (AgenticStrictModeFailureException $e) {
+    fwrite(STDERR, 'Agentic optimizer failed: ' . $e->getMessage() . PHP_EOL);
+    exit($e->strictExitCode());
 } catch (Throwable $e) {
     fwrite(STDERR, 'Agentic optimizer failed: ' . $e->getMessage() . PHP_EOL);
     exit(2);
@@ -129,4 +132,12 @@ if ((string)$options['reject-audit-mode'] === 'manifest_preferred' && is_array($
     echo "Manifest Preferred Fallback: " . ((bool)($preferred['fallback_occurred'] ?? false) ? 'YES' : 'NO') . PHP_EOL;
     echo "Manifest Preferred Reason: " . (string)($preferred['fallback_reason'] ?? '') . PHP_EOL;
     echo "Manifest Preferred Diagnostic: " . (string)$result['run_dir'] . DIRECTORY_SEPARATOR . 'audit' . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_preferred_diagnostic.json' . PHP_EOL;
+}
+
+if ((string)$options['reject-audit-mode'] === 'manifest_strict' && is_array($result['manifest_strict_diagnostic'] ?? null)) {
+    $strict = (array)$result['manifest_strict_diagnostic'];
+    echo "Manifest Strict Result: " . (string)($strict['strict_result'] ?? 'unknown') . PHP_EOL;
+    echo "Manifest Strict Authoritative Source: " . (string)($strict['authoritative_source'] ?? 'unknown') . PHP_EOL;
+    echo "Manifest Strict Exit Code: " . (int)($strict['exit_code'] ?? 0) . PHP_EOL;
+    echo "Manifest Strict Diagnostic: " . (string)$result['run_dir'] . DIRECTORY_SEPARATOR . 'audit' . DIRECTORY_SEPARATOR . 'rejected_iteration_manifest_strict_diagnostic.json' . PHP_EOL;
 }
