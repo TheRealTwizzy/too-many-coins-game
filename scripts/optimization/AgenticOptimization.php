@@ -1860,15 +1860,23 @@ class AgenticRejectedIterationShadowParity
      */
     public static function run(string $repoRoot, string $auditDir, array $legacyAudit, ?string $manifestPath = null): array
     {
-        $resolvedManifestPath = self::resolveManifestPath($repoRoot, $manifestPath);
+        $manifestSelection = self::resolveManifestSelection($repoRoot, $manifestPath);
+        $resolvedManifestPath = (string)$manifestSelection['selected_manifest_path'];
+        $manifestSource = (string)$manifestSelection['manifest_source'];
 
         $diagnostic = [
             'schema_version' => 'tmc-agentic-shadow-parity.v1',
             'generated_at' => gmdate('c'),
             'mode' => 'shadow-manifest',
+            'manifest_source' => $manifestSource,
+            'requested_manifest_path' => $manifestSelection['requested_manifest_path'],
+            'selected_manifest_path' => $resolvedManifestPath,
             'manifest_path' => $resolvedManifestPath,
             'shadow_status' => 'not_started',
             'fallback_occurred' => false,
+            'fallback_reason' => null,
+            'freshness_status' => 'unknown',
+            'freshness_reasons' => [],
             'parity_result' => 'not_computed',
             'parity_pass' => false,
             'missing_sources' => [],
@@ -1882,15 +1890,33 @@ class AgenticRejectedIterationShadowParity
         $resolverResult = AgenticRejectAuditManifestResolver::resolve(
             $resolvedManifestPath,
             dirname($resolvedManifestPath),
-            true
+            true,
+            [
+                'validate_freshness' => $manifestSource === 'canonical_default',
+                'validate_checksums' => $manifestSource === 'canonical_default',
+                'repo_root' => $repoRoot,
+                'max_age_seconds' => 86400,
+                'strict_integrity' => false,
+            ]
         );
         $diagnostic['resolver_errors'] = array_values((array)($resolverResult['errors'] ?? []));
         $diagnostic['resolver_warnings'] = array_values((array)($resolverResult['warnings'] ?? []));
         $diagnostic['missing_sources'] = array_values((array)($resolverResult['missing_sources'] ?? []));
+        $diagnostic['freshness_status'] = self::resolveFreshnessStatus($resolverResult, $manifestSource);
+        $diagnostic['freshness_reasons'] = self::resolveFreshnessReasons($resolverResult, $manifestSource);
 
         if (!(bool)($resolverResult['manifest_valid'] ?? false)) {
             $diagnostic['fallback_occurred'] = true;
-            $diagnostic['shadow_status'] = self::resolverStatusToShadowStatus($resolverResult);
+            $diagnostic['shadow_status'] = self::resolverStatusToShadowStatus($resolverResult, $manifestSource);
+            $diagnostic['fallback_reason'] = $diagnostic['shadow_status'];
+            self::writeDiagnostic($auditDir, $diagnostic);
+            return $diagnostic;
+        }
+
+        if ($manifestSource === 'canonical_default' && $diagnostic['freshness_status'] === 'stale') {
+            $diagnostic['fallback_occurred'] = true;
+            $diagnostic['shadow_status'] = 'canonical_manifest_stale';
+            $diagnostic['fallback_reason'] = 'canonical_manifest_stale';
             self::writeDiagnostic($auditDir, $diagnostic);
             return $diagnostic;
         }
@@ -1898,6 +1924,7 @@ class AgenticRejectedIterationShadowParity
         if (in_array('primary', $diagnostic['missing_sources'], true)) {
             $diagnostic['fallback_occurred'] = true;
             $diagnostic['shadow_status'] = 'primary_missing';
+            $diagnostic['fallback_reason'] = 'primary_missing';
             self::writeDiagnostic($auditDir, $diagnostic);
             return $diagnostic;
         }
@@ -1905,6 +1932,7 @@ class AgenticRejectedIterationShadowParity
         if (in_array('secondary', $diagnostic['missing_sources'], true)) {
             $diagnostic['fallback_occurred'] = true;
             $diagnostic['shadow_status'] = 'secondary_missing';
+            $diagnostic['fallback_reason'] = 'secondary_missing';
             self::writeDiagnostic($auditDir, $diagnostic);
             return $diagnostic;
         }
@@ -1913,6 +1941,7 @@ class AgenticRejectedIterationShadowParity
         if (!(bool)($shadowBuild['ok'] ?? false)) {
             $diagnostic['fallback_occurred'] = true;
             $diagnostic['shadow_status'] = 'shadow_build_failed';
+            $diagnostic['fallback_reason'] = 'shadow_build_failed';
             $diagnostic['resolver_errors'][] = [
                 'code' => (string)($shadowBuild['error_code'] ?? 'shadow_build_failed'),
                 'path' => '/shadow',
@@ -1930,45 +1959,114 @@ class AgenticRejectedIterationShadowParity
         $diagnostic['parity_pass'] = (bool)$parity['pass'];
         $diagnostic['parity_result'] = (bool)$parity['pass'] ? 'pass' : 'fail';
         $diagnostic['shadow_status'] = (bool)$parity['pass'] ? 'parity_pass' : 'parity_mismatch';
-        $diagnostic['fallback_occurred'] = false;
+        $diagnostic['fallback_occurred'] = !(bool)$parity['pass'];
+        $diagnostic['fallback_reason'] = (bool)$parity['pass'] ? null : 'parity_mismatch';
 
         self::writeDiagnostic($auditDir, $diagnostic);
         return $diagnostic;
     }
 
-    private static function resolveManifestPath(string $repoRoot, ?string $manifestPath): string
+    /**
+     * @return array{manifest_source: string, requested_manifest_path: ?string, selected_manifest_path: string}
+     */
+    private static function resolveManifestSelection(string $repoRoot, ?string $manifestPath): array
     {
         $candidate = trim((string)$manifestPath);
         if ($candidate === '') {
-            return $repoRoot
+            return [
+                'manifest_source' => 'canonical_default',
+                'requested_manifest_path' => null,
+                'selected_manifest_path' => $repoRoot
                 . DIRECTORY_SEPARATOR . 'simulation_output'
                 . DIRECTORY_SEPARATOR . 'current-db'
                 . DIRECTORY_SEPARATOR . 'rejected-iteration-inputs'
                 . DIRECTORY_SEPARATOR . 'current'
-                . DIRECTORY_SEPARATOR . 'manifest.json';
+                . DIRECTORY_SEPARATOR . 'manifest.json',
+            ];
         }
 
         $isWindowsAbsolute = preg_match('/^[A-Za-z]:[\\\\\\/]/', $candidate) === 1;
         $isUnixAbsolute = str_starts_with($candidate, '/');
+        $selectedPath = '';
         if ($isWindowsAbsolute || $isUnixAbsolute) {
-            return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
+            $selectedPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
+        } else {
+            $selectedPath = $repoRoot . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
         }
 
-        return $repoRoot . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $candidate);
+        return [
+            'manifest_source' => 'override',
+            'requested_manifest_path' => $candidate,
+            'selected_manifest_path' => $selectedPath,
+        ];
     }
 
     /**
      * @param array<string, mixed> $resolverResult
      */
-    private static function resolverStatusToShadowStatus(array $resolverResult): string
+    private static function resolverStatusToShadowStatus(array $resolverResult, string $manifestSource): string
     {
+        $manifestMissing = false;
         foreach ((array)($resolverResult['errors'] ?? []) as $error) {
             $code = (string)($error['code'] ?? '');
             if ($code === 'manifest_missing') {
-                return 'manifest_missing';
+                $manifestMissing = true;
+                break;
             }
         }
-        return 'manifest_invalid';
+        if ($manifestSource === 'canonical_default') {
+            return $manifestMissing ? 'canonical_manifest_missing' : 'canonical_manifest_invalid';
+        }
+        return $manifestMissing ? 'manifest_missing' : 'manifest_invalid';
+    }
+
+    /**
+     * @param array<string, mixed> $resolverResult
+     * @return array<int, string>
+     */
+    private static function resolveFreshnessReasons(array $resolverResult, string $manifestSource): array
+    {
+        if ($manifestSource !== 'canonical_default') {
+            return [];
+        }
+
+        $reasons = array_values((array)($resolverResult['integrity']['freshness']['reasons'] ?? []));
+        foreach (array_merge((array)($resolverResult['errors'] ?? []), (array)($resolverResult['warnings'] ?? [])) as $entry) {
+            $code = (string)($entry['code'] ?? '');
+            if ($code === 'manifest_missing') {
+                $reasons[] = 'manifest_not_found';
+            } elseif (in_array($code, ['manifest_invalid_json', 'required_key_missing', 'invalid_type', 'unknown_key'], true)) {
+                $reasons[] = 'schema_invalid';
+            } elseif ($code === 'checksum_mismatch') {
+                $path = (string)($entry['path'] ?? '');
+                if (str_contains($path, '/primary/')) {
+                    $reasons[] = 'checksum_mismatch_primary';
+                } elseif (str_contains($path, '/secondary/')) {
+                    $reasons[] = 'checksum_mismatch_secondary';
+                }
+            }
+        }
+
+        return array_values(array_unique($reasons));
+    }
+
+    /**
+     * @param array<string, mixed> $resolverResult
+     */
+    private static function resolveFreshnessStatus(array $resolverResult, string $manifestSource): string
+    {
+        if ($manifestSource !== 'canonical_default') {
+            return 'unknown';
+        }
+        $status = (string)($resolverResult['integrity']['freshness']['status'] ?? 'unknown');
+        $reasons = self::resolveFreshnessReasons($resolverResult, $manifestSource);
+        if ($status === 'stale' || in_array('checksum_mismatch_primary', $reasons, true) || in_array('checksum_mismatch_secondary', $reasons, true)) {
+            return 'stale';
+        }
+        if ($status === 'fresh') {
+            return 'fresh';
+        }
+        return 'unknown';
     }
 
     /**

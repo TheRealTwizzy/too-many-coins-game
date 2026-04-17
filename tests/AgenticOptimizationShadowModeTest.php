@@ -48,32 +48,96 @@ class AgenticOptimizationShadowModeTest extends TestCase
         ]));
     }
 
-    public function testManifestMissingStatusIsReported(): void
+    public function testShadowModeWithoutOverrideUsesCanonicalDefaultManifestPath(): void
     {
         $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
-        $diagnostic = AgenticRejectedIterationShadowParity::run(
-            $this->repoRoot,
-            $this->auditDir,
-            $legacyAudit,
-            $this->manifestRoot . DIRECTORY_SEPARATOR . 'missing.json'
-        );
+        $this->writeCanonicalManifestAndSourceFiles($this->primaryPayload(), $this->secondaryPayload());
 
-        $this->assertSame('manifest_missing', $diagnostic['shadow_status']);
-        $this->assertTrue($diagnostic['fallback_occurred']);
-        $this->assertSame('not_computed', $diagnostic['parity_result']);
-        $this->assertFileExists($this->auditDir . DIRECTORY_SEPARATOR . 'rejected_iteration_shadow_parity.json');
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, null);
+
+        $this->assertShadowDiagnosticContract($diagnostic);
+        $this->assertSame('canonical_default', $diagnostic['manifest_source']);
+        $this->assertNull($diagnostic['requested_manifest_path']);
+        $this->assertSame($this->canonicalManifestPath(), $diagnostic['selected_manifest_path']);
+        $this->assertSame('parity_pass', $diagnostic['shadow_status']);
+        $this->assertSame('pass', $diagnostic['parity_result']);
+        $this->assertSame('fresh', $diagnostic['freshness_status']);
+        $this->assertSame([], (array)$diagnostic['mismatches']);
+        $this->assertLegacyProjectionUnchanged($legacyAudit, $diagnostic);
     }
 
-    public function testManifestInvalidStatusIsReported(): void
+    public function testShadowModeOverrideManifestWinsOverCanonicalDefault(): void
     {
         $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
-        $manifestPath = $this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.invalid.json';
+
+        $canonicalPrimary = $this->primaryPayload();
+        $canonicalPrimary['scenarios'][0]['wins'] = 99;
+        $this->writeCanonicalManifestAndSourceFiles($canonicalPrimary, $this->secondaryPayload());
+
+        $overrideManifestPath = $this->writeOverrideManifestAndSourceFiles($this->primaryPayload(), $this->secondaryPayload());
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, $overrideManifestPath);
+
+        $this->assertShadowDiagnosticContract($diagnostic);
+        $this->assertSame('override', $diagnostic['manifest_source']);
+        $this->assertSame($overrideManifestPath, $diagnostic['requested_manifest_path']);
+        $this->assertSame($overrideManifestPath, $diagnostic['selected_manifest_path']);
+        $this->assertSame('parity_pass', $diagnostic['shadow_status']);
+        $this->assertSame('pass', $diagnostic['parity_result']);
+        $this->assertSame('unknown', $diagnostic['freshness_status']);
+        $this->assertSame([], (array)$diagnostic['freshness_reasons']);
+    }
+
+    public function testCanonicalDefaultMissingManifestStatusIsExplicit(): void
+    {
+        $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
+
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, null);
+
+        $this->assertShadowDiagnosticContract($diagnostic);
+        $this->assertSame('canonical_default', $diagnostic['manifest_source']);
+        $this->assertSame('canonical_manifest_missing', $diagnostic['shadow_status']);
+        $this->assertTrue($diagnostic['fallback_occurred']);
+        $this->assertSame('canonical_manifest_missing', $diagnostic['fallback_reason']);
+        $this->assertSame('not_computed', $diagnostic['parity_result']);
+        $this->assertSame('unknown', $diagnostic['freshness_status']);
+        $this->assertContains('manifest_not_found', (array)$diagnostic['freshness_reasons']);
+        $this->assertLegacyProjectionUnchanged($legacyAudit, $diagnostic);
+    }
+
+    public function testCanonicalDefaultInvalidManifestStatusIsExplicit(): void
+    {
+        $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
+        $manifestPath = $this->canonicalManifestPath();
+        $this->ensureDir(dirname($manifestPath));
         file_put_contents($manifestPath, '{"schema_version":"x"}');
 
-        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, $manifestPath);
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, null);
 
-        $this->assertSame('manifest_invalid', $diagnostic['shadow_status']);
+        $this->assertShadowDiagnosticContract($diagnostic);
+        $this->assertSame('canonical_manifest_invalid', $diagnostic['shadow_status']);
         $this->assertTrue($diagnostic['fallback_occurred']);
+        $this->assertSame('canonical_manifest_invalid', $diagnostic['fallback_reason']);
+        $this->assertSame('not_computed', $diagnostic['parity_result']);
+        $this->assertContains('schema_invalid', (array)$diagnostic['freshness_reasons']);
+    }
+
+    public function testCanonicalDefaultStaleManifestStatusIsExplicit(): void
+    {
+        $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
+        $this->writeCanonicalManifestAndSourceFiles(
+            $this->primaryPayload(),
+            $this->secondaryPayload(),
+            '2020-01-01T00:00:00Z'
+        );
+
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, null);
+
+        $this->assertShadowDiagnosticContract($diagnostic);
+        $this->assertSame('canonical_manifest_stale', $diagnostic['shadow_status']);
+        $this->assertTrue($diagnostic['fallback_occurred']);
+        $this->assertSame('canonical_manifest_stale', $diagnostic['fallback_reason']);
+        $this->assertSame('stale', $diagnostic['freshness_status']);
+        $this->assertNotEmpty((array)$diagnostic['freshness_reasons']);
         $this->assertSame('not_computed', $diagnostic['parity_result']);
     }
 
@@ -84,7 +148,7 @@ class AgenticOptimizationShadowModeTest extends TestCase
         $manifestPath = $this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.json';
         $this->writeJson($manifestPath, [
             'schema_version' => 'tmc-reject-audit-inputs.v1',
-            'generated_at_utc' => '2026-04-16T00:00:00Z',
+            'generated_at_utc' => '2026-04-17T00:00:00Z',
             'sources' => [
                 'primary' => ['path' => 'missing_primary.json'],
                 'secondary' => ['path' => 'reject_events_secondary.json'],
@@ -94,7 +158,9 @@ class AgenticOptimizationShadowModeTest extends TestCase
         $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, $manifestPath);
 
         $this->assertSame('primary_missing', $diagnostic['shadow_status']);
+        $this->assertSame('primary_missing', $diagnostic['fallback_reason']);
         $this->assertContains('primary', (array)$diagnostic['missing_sources']);
+        $this->assertTrue($diagnostic['fallback_occurred']);
     }
 
     public function testSecondaryMissingStatusIsReported(): void
@@ -104,7 +170,7 @@ class AgenticOptimizationShadowModeTest extends TestCase
         $manifestPath = $this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.json';
         $this->writeJson($manifestPath, [
             'schema_version' => 'tmc-reject-audit-inputs.v1',
-            'generated_at_utc' => '2026-04-16T00:00:00Z',
+            'generated_at_utc' => '2026-04-17T00:00:00Z',
             'sources' => [
                 'primary' => ['path' => 'reject_events_primary.json'],
                 'secondary' => ['path' => 'missing_secondary.json'],
@@ -114,24 +180,23 @@ class AgenticOptimizationShadowModeTest extends TestCase
         $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, $manifestPath);
 
         $this->assertSame('secondary_missing', $diagnostic['shadow_status']);
+        $this->assertSame('secondary_missing', $diagnostic['fallback_reason']);
         $this->assertContains('secondary', (array)$diagnostic['missing_sources']);
+        $this->assertTrue($diagnostic['fallback_occurred']);
     }
 
     public function testParitySuccessPathInShadowMode(): void
     {
         $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
-        $this->writeManifestAndSourceFiles($this->primaryPayload(), $this->secondaryPayload());
+        $this->writeCanonicalManifestAndSourceFiles($this->primaryPayload(), $this->secondaryPayload());
 
-        $diagnostic = AgenticRejectedIterationShadowParity::run(
-            $this->repoRoot,
-            $this->auditDir,
-            $legacyAudit,
-            $this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.json'
-        );
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, null);
 
         $this->assertSame('parity_pass', $diagnostic['shadow_status']);
         $this->assertSame('pass', $diagnostic['parity_result']);
         $this->assertTrue($diagnostic['parity_pass']);
+        $this->assertFalse($diagnostic['fallback_occurred']);
+        $this->assertNull($diagnostic['fallback_reason']);
         $this->assertSame([], $diagnostic['mismatches']);
     }
 
@@ -140,19 +205,17 @@ class AgenticOptimizationShadowModeTest extends TestCase
         $legacyAudit = $this->buildLegacyAuditFromRepoInputs();
         $modifiedPrimary = $this->primaryPayload();
         $modifiedPrimary['scenarios'][0]['wins'] = 99;
-        $this->writeManifestAndSourceFiles($modifiedPrimary, $this->secondaryPayload());
+        $this->writeCanonicalManifestAndSourceFiles($modifiedPrimary, $this->secondaryPayload());
 
-        $diagnostic = AgenticRejectedIterationShadowParity::run(
-            $this->repoRoot,
-            $this->auditDir,
-            $legacyAudit,
-            $this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.json'
-        );
+        $diagnostic = AgenticRejectedIterationShadowParity::run($this->repoRoot, $this->auditDir, $legacyAudit, null);
 
         $this->assertSame('parity_mismatch', $diagnostic['shadow_status']);
         $this->assertSame('fail', $diagnostic['parity_result']);
         $this->assertFalse($diagnostic['parity_pass']);
+        $this->assertTrue($diagnostic['fallback_occurred']);
+        $this->assertSame('parity_mismatch', $diagnostic['fallback_reason']);
         $this->assertNotEmpty($diagnostic['mismatches']);
+        $this->assertLegacyProjectionUnchanged($legacyAudit, $diagnostic);
     }
 
     /**
@@ -177,18 +240,108 @@ class AgenticOptimizationShadowModeTest extends TestCase
      * @param array<string, mixed> $primary
      * @param array<string, mixed> $secondary
      */
-    private function writeManifestAndSourceFiles(array $primary, array $secondary): void
-    {
-        $this->writeJson($this->manifestRoot . DIRECTORY_SEPARATOR . 'reject_events_primary.json', $primary);
-        $this->writeJson($this->manifestRoot . DIRECTORY_SEPARATOR . 'reject_events_secondary.json', $secondary);
-        $this->writeJson($this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.json', [
+    private function writeCanonicalManifestAndSourceFiles(
+        array $primary,
+        array $secondary,
+        string $generatedAtUtc = '2026-04-17T00:00:00Z'
+    ): void {
+        $canonicalRoot = $this->canonicalRoot();
+        $this->ensureDir($canonicalRoot);
+        $primaryPath = $canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_primary.json';
+        $secondaryPath = $canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_secondary.json';
+        $this->writeJson($primaryPath, $primary);
+        $this->writeJson($secondaryPath, $secondary);
+
+        $this->writeJson($this->canonicalManifestPath(), [
             'schema_version' => 'tmc-reject-audit-inputs.v1',
-            'generated_at_utc' => '2026-04-16T00:00:00Z',
+            'generated_at_utc' => $generatedAtUtc,
+            'source_commit' => str_repeat('a', 40),
+            'producer' => ['name' => 'test', 'version' => 'v1'],
+            'sources' => [
+                'primary' => [
+                    'path' => 'reject_events_primary.json',
+                    'checksum_sha256' => hash_file('sha256', $primaryPath),
+                    'event_count' => 1,
+                    'provenance' => [
+                        'origin_path' => 'simulation_output/current-db/comparisons-v3-fast/comparison_tuning-verify-v3-fast-1.json',
+                        'origin_checksum_sha256' => hash_file(
+                            'sha256',
+                            $this->repoRoot . DIRECTORY_SEPARATOR . 'simulation_output' . DIRECTORY_SEPARATOR
+                            . 'current-db' . DIRECTORY_SEPARATOR . 'comparisons-v3-fast' . DIRECTORY_SEPARATOR
+                            . 'comparison_tuning-verify-v3-fast-1.json'
+                        ),
+                    ],
+                ],
+                'secondary' => [
+                    'path' => 'reject_events_secondary.json',
+                    'checksum_sha256' => hash_file('sha256', $secondaryPath),
+                    'event_count' => 1,
+                    'provenance' => [
+                        'origin_path' => 'simulation_output/current-db/verification-v2/verification_summary_v2.json',
+                        'origin_checksum_sha256' => hash_file(
+                            'sha256',
+                            $this->repoRoot . DIRECTORY_SEPARATOR . 'simulation_output' . DIRECTORY_SEPARATOR
+                            . 'current-db' . DIRECTORY_SEPARATOR . 'verification-v2' . DIRECTORY_SEPARATOR
+                            . 'verification_summary_v2.json'
+                        ),
+                    ],
+                ],
+            ],
+            'policy' => ['mode' => 'shadow-manifest'],
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $primary
+     * @param array<string, mixed> $secondary
+     */
+    private function writeOverrideManifestAndSourceFiles(array $primary, array $secondary): string
+    {
+        $primaryPath = $this->manifestRoot . DIRECTORY_SEPARATOR . 'reject_events_primary.json';
+        $secondaryPath = $this->manifestRoot . DIRECTORY_SEPARATOR . 'reject_events_secondary.json';
+        $manifestPath = $this->manifestRoot . DIRECTORY_SEPARATOR . 'manifest.json';
+        $this->writeJson($primaryPath, $primary);
+        $this->writeJson($secondaryPath, $secondary);
+        $this->writeJson($manifestPath, [
+            'schema_version' => 'tmc-reject-audit-inputs.v1',
+            'generated_at_utc' => '2026-04-17T00:00:00Z',
             'sources' => [
                 'primary' => ['path' => 'reject_events_primary.json'],
                 'secondary' => ['path' => 'reject_events_secondary.json'],
             ],
         ]);
+        return $manifestPath;
+    }
+
+    private function assertShadowDiagnosticContract(array $diagnostic): void
+    {
+        foreach ([
+            'mode',
+            'manifest_source',
+            'requested_manifest_path',
+            'selected_manifest_path',
+            'shadow_status',
+            'fallback_occurred',
+            'fallback_reason',
+            'freshness_status',
+            'freshness_reasons',
+            'parity_result',
+            'parity_pass',
+            'mismatches',
+        ] as $field) {
+            $this->assertArrayHasKey($field, $diagnostic);
+        }
+        $this->assertSame('shadow-manifest', $diagnostic['mode']);
+    }
+
+    private function assertLegacyProjectionUnchanged(array $legacyAudit, array $diagnostic): void
+    {
+        $expected = [
+            'audited_events_count' => (int)($legacyAudit['audited_events_count'] ?? 0),
+            'key_failure_patterns' => array_values((array)($legacyAudit['key_failure_patterns'] ?? [])),
+            'flag_histogram' => (array)($legacyAudit['flag_histogram'] ?? []),
+        ];
+        $this->assertSame($expected, (array)($diagnostic['legacy_rejected_iteration_audit'] ?? []));
     }
 
     /**
@@ -233,6 +386,19 @@ class AgenticOptimizationShadowModeTest extends TestCase
                 ],
             ],
         ];
+    }
+
+    private function canonicalRoot(): string
+    {
+        return $this->repoRoot . DIRECTORY_SEPARATOR . 'simulation_output'
+            . DIRECTORY_SEPARATOR . 'current-db'
+            . DIRECTORY_SEPARATOR . 'rejected-iteration-inputs'
+            . DIRECTORY_SEPARATOR . 'current';
+    }
+
+    private function canonicalManifestPath(): string
+    {
+        return $this->canonicalRoot() . DIRECTORY_SEPARATOR . 'manifest.json';
     }
 
     /**
