@@ -3041,10 +3041,12 @@ const TMC = {
         }, 5000);
     },
 
-    switchChat(channel) {
+    switchChat(channel, evt = null) {
         this.state.currentChat = channel;
         document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
+        if (evt && evt.target) {
+            evt.target.classList.add('active');
+        }
         this.loadChat();
     },
 

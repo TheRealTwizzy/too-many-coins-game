@@ -248,8 +248,8 @@
             <section id="screen-chat" class="screen">
                 <h2 class="screen-title">Chat</h2>
                 <div class="chat-tabs">
-                    <button class="chat-tab active" onclick="TMC.switchChat('GLOBAL')">Global</button>
-                    <button class="chat-tab" id="chat-season-tab" onclick="TMC.switchChat('SEASON')" style="display:none;">Season</button>
+                    <button class="chat-tab active" onclick="TMC.switchChat('GLOBAL', event)">Global</button>
+                    <button class="chat-tab" id="chat-season-tab" onclick="TMC.switchChat('SEASON', event)" style="display:none;">Season</button>
                 </div>
                 <div id="chat-container" class="chat-container">
                     <div id="chat-messages" class="chat-messages">
