@@ -143,7 +143,7 @@ class FeatureFactoryBriefTest extends TestCase
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryBriefTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryBriefTest.php --no-coverage
 ```
 
 Expected: FAIL because `scripts/feature_factory/MechanicBrief.php` does not exist.
@@ -364,7 +364,7 @@ class MechanicBrief
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryBriefTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryBriefTest.php --no-coverage
 ```
 
 Expected: PASS with 3 tests.
@@ -469,7 +469,7 @@ class FeatureFactoryGuardrailTest extends TestCase
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryGuardrailTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryGuardrailTest.php --no-coverage
 ```
 
 Expected: FAIL because guardrail classes do not exist.
@@ -643,7 +643,7 @@ class ApprovalManifest
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryGuardrailTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryGuardrailTest.php --no-coverage
 ```
 
 Expected: PASS with 2 tests.
@@ -805,7 +805,7 @@ class FeatureFactoryScaffolderTest extends TestCase
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryScaffolderTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryScaffolderTest.php --no-coverage
 ```
 
 Expected: FAIL because `BalanceImpactModel` and `MechanicScaffolder` do not exist.
@@ -1078,7 +1078,7 @@ class MechanicScaffolder
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryScaffolderTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryScaffolderTest.php --no-coverage
 ```
 
 Expected: PASS with 2 tests.
@@ -1222,7 +1222,7 @@ class FeatureFactoryCliTest extends TestCase
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryCliTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryCliTest.php --no-coverage
 ```
 
 Expected: FAIL because `scripts/generate_feature_factory_bundle.php` does not exist.
@@ -1352,7 +1352,7 @@ exit(0);
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryCliTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryCliTest.php --no-coverage
 ```
 
 Expected: PASS with 2 tests.
@@ -1379,7 +1379,7 @@ git commit -m "feat: add feature factory bundle CLI"
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/FeatureFactoryBriefTest.php tests/FeatureFactoryGuardrailTest.php tests/FeatureFactoryScaffolderTest.php tests/FeatureFactoryCliTest.php --no-coverage -v
+php vendor/bin/phpunit tests/FeatureFactoryBriefTest.php tests/FeatureFactoryGuardrailTest.php tests/FeatureFactoryScaffolderTest.php tests/FeatureFactoryCliTest.php --no-coverage
 ```
 
 Expected: PASS with 9 tests.
@@ -1389,7 +1389,7 @@ Expected: PASS with 9 tests.
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/EconomicCandidateValidatorTest.php --no-coverage -v
+php vendor/bin/phpunit tests/EconomicCandidateValidatorTest.php --no-coverage
 ```
 
 Expected: PASS. This confirms the feature factory still relies on the canonical candidate surface.
@@ -1399,7 +1399,7 @@ Expected: PASS. This confirms the feature factory still relies on the canonical 
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/SimulationConfigPreflightTest.php --no-coverage -v
+php vendor/bin/phpunit tests/SimulationConfigPreflightTest.php --no-coverage
 ```
 
 Expected: PASS. This confirms existing simulation preflight and audit artifact behavior is preserved.
@@ -1409,7 +1409,7 @@ Expected: PASS. This confirms existing simulation preflight and audit artifact b
 Run:
 
 ```bash
-php vendor/bin/phpunit tests/RuntimeParityCertificationTest.php --no-coverage -v
+php vendor/bin/phpunit tests/RuntimeParityCertificationTest.php --no-coverage
 ```
 
 Expected: PASS. This confirms the new scaffolding workflow did not weaken parity assumptions for mechanics.
