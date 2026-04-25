@@ -84,4 +84,16 @@ class TestConfigIsolationTest extends TestCase
                 'DB_HOST should be "stub" when no explicit DB_HOST is provided');
         }
     }
+
+    public function testPhpunitBindsAcceleratedTickCadenceBeforeConfigLoads(): void
+    {
+        require_once __DIR__ . '/../includes/config.php';
+
+        $this->assertSame(3600, TICK_REAL_SECONDS,
+            'PHPUnit must bind the accelerated simulation cadence before config.php defines timing constants');
+        $this->assertSame(336, SEASON_DURATION,
+            'A 14-day season should be 336 hourly ticks in the test suite');
+        $this->assertSame(168, SEASON_CADENCE,
+            'A 7-day cadence should be 168 hourly ticks in the test suite');
+    }
 }

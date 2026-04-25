@@ -237,8 +237,9 @@ class AgenticOptimizationManifestPreferredModeTest extends TestCase
     private function writeCanonicalManifestAndSourceFiles(
         array $primary,
         array $secondary,
-        string $generatedAtUtc = '2026-04-17T00:00:00Z'
+        ?string $generatedAtUtc = null
     ): void {
+        $generatedAtUtc ??= gmdate('Y-m-d\TH:i:s\Z');
         $canonicalRoot = $this->canonicalRoot();
         $this->ensureDir($canonicalRoot);
         $primaryPath = $canonicalRoot . DIRECTORY_SEPARATOR . 'reject_events_primary.json';

@@ -30,8 +30,8 @@ class EconomyPrecisionTest extends TestCase
 
     public function testSigilThrottleWindowCeilingMatchesConfig(): void
     {
-        $maxRealizedRate = SIGIL_MAX_DROPS_WINDOW / SIGIL_DROP_WINDOW_TICKS;
-        $this->assertEqualsWithDelta(8 / 1440, $maxRealizedRate, 0.000001);
+        $this->assertSame(8, SIGIL_MAX_DROPS_WINDOW);
+        $this->assertSame(86400, SIGIL_DROP_WINDOW_TICKS * TICK_REAL_SECONDS);
     }
 
     public function testTenPercentBoostPreservesFractionalRate(): void

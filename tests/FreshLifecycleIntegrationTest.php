@@ -20,15 +20,15 @@ require_once __DIR__ . '/../scripts/simulation/FreshRunSafety.php';
  */
 class FreshLifecycleIntegrationTest extends TestCase
 {
-    private string $dbName;
-    private array $baseConfig;
-    private string $origSimMode;
-    private string $origDestructive;
-    private string $origDbHost;
-    private string $origDbPort;
-    private string $origDbName;
-    private string $origDbUser;
-    private string $origDbPass;
+    private string $dbName = '';
+    private array $baseConfig = [];
+    private string $origSimMode = '';
+    private string $origDestructive = '';
+    private string $origDbHost = '';
+    private string $origDbPort = '';
+    private string $origDbName = '';
+    private string $origDbUser = '';
+    private string $origDbPass = '';
 
     protected function setUp(): void
     {
@@ -88,17 +88,19 @@ class FreshLifecycleIntegrationTest extends TestCase
         }
 
         // Attempt DB teardown
-        try {
-            $bootstrap = new FreshRunBootstrap(
-                $this->baseConfig['db_host'],
-                $this->baseConfig['db_port'],
-                $this->baseConfig['db_name'],
-                $this->baseConfig['db_user'],
-                $this->baseConfig['db_pass']
-            );
-            $bootstrap->teardown();
-        } catch (\Throwable $e) {
-            // Best-effort cleanup
+        if ($this->baseConfig !== []) {
+            try {
+                $bootstrap = new FreshRunBootstrap(
+                    $this->baseConfig['db_host'],
+                    $this->baseConfig['db_port'],
+                    $this->baseConfig['db_name'],
+                    $this->baseConfig['db_user'],
+                    $this->baseConfig['db_pass']
+                );
+                $bootstrap->teardown();
+            } catch (\Throwable $e) {
+                // Best-effort cleanup
+            }
         }
 
         // Restore env

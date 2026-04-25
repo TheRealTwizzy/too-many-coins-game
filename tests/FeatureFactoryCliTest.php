@@ -34,6 +34,22 @@ class FeatureFactoryCliTest extends TestCase
         $this->assertFileExists($this->tempDir . DIRECTORY_SEPARATOR . 'bundles' . DIRECTORY_SEPARATOR . 'daily_streak_pressure' . DIRECTORY_SEPARATOR . 'mechanic_brief.json');
     }
 
+    public function testCliAcceptsUtf8BomProposalFiles(): void
+    {
+        $proposalPath = $this->tempDir . DIRECTORY_SEPARATOR . 'proposal-bom.json';
+        file_put_contents($proposalPath, "\xEF\xBB\xBF" . json_encode($this->proposal(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $command = escapeshellarg(PHP_BINARY)
+            . ' ' . escapeshellarg(__DIR__ . '/../scripts/generate_feature_factory_bundle.php')
+            . ' --proposal=' . escapeshellarg($proposalPath)
+            . ' --output=' . escapeshellarg($this->tempDir . DIRECTORY_SEPARATOR . 'bom-bundles');
+
+        exec($command . ' 2>&1', $output, $exitCode);
+
+        $this->assertSame(0, $exitCode, implode(PHP_EOL, $output));
+        $this->assertFileExists($this->tempDir . DIRECTORY_SEPARATOR . 'bom-bundles' . DIRECTORY_SEPARATOR . 'daily_streak_pressure' . DIRECTORY_SEPARATOR . 'mechanic_brief.json');
+    }
+
     public function testCliFailsWhenPlannedRuntimePathIsProvidedWithoutApproval(): void
     {
         $proposal = $this->proposal();

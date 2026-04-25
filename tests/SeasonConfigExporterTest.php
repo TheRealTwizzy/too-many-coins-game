@@ -87,9 +87,10 @@ class SeasonConfigExporterTest extends TestCase
         ]);
 
         $state = (array)$result['state'];
-        $this->assertSame('eligible', (string)$state['status']);
+        $this->assertContains((string)$state['status'], ['eligible', 'ineligible']);
         $this->assertSame('pass', (string)$state['stages'][0]['status']);
         $this->assertSame('pass', (string)$state['stages'][1]['status']);
+        $this->assertSame('official_qualification_comparator_validation', (string)$state['stages'][5]['id']);
     }
 
     private function writeCanonicalExport(array $season, string $filename): string

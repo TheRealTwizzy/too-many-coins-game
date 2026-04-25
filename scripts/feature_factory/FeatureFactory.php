@@ -17,7 +17,12 @@ class FeatureFactory
             ]]);
         }
 
-        $decoded = json_decode((string)file_get_contents($proposalPath), true);
+        $json = (string)file_get_contents($proposalPath);
+        if (str_starts_with($json, "\xEF\xBB\xBF")) {
+            $json = substr($json, 3);
+        }
+
+        $decoded = json_decode($json, true);
         if (!is_array($decoded)) {
             throw new FeatureFactoryException('Proposal JSON must decode to an object', [[
                 'path' => $proposalPath,
