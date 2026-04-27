@@ -138,6 +138,54 @@ class Actions {
         return empty($parts) ? 'none' : implode(', ', $parts);
     }
 
+    private static function normalizeSigilTierList(array $tiers) {
+        $normalized = [];
+        foreach ($tiers as $tier) {
+            $tier = (int)$tier;
+            if ($tier < 1 || $tier > SIGIL_MAX_TIER || in_array($tier, $normalized, true)) {
+                continue;
+            }
+            $normalized[] = $tier;
+        }
+        return $normalized;
+    }
+
+    private static function formatSigilTierList(array $tiers) {
+        $labels = array_map(
+            static fn($tier) => 'Tier ' . (int)$tier,
+            self::normalizeSigilTierList($tiers)
+        );
+        $count = count($labels);
+        if ($count === 0) {
+            return 'configured-tier';
+        }
+        if ($count === 1) {
+            return $labels[0];
+        }
+        if ($count === 2) {
+            return $labels[0] . ' or ' . $labels[1];
+        }
+        $last = array_pop($labels);
+        return implode(', ', $labels) . ', or ' . $last;
+    }
+
+    private static function selectOwnedSigilTier(array $participation, array $tiers, bool $preferHighest = true) {
+        $tiers = self::normalizeSigilTierList($tiers);
+        if ($preferHighest) {
+            rsort($tiers, SORT_NUMERIC);
+        } else {
+            sort($tiers, SORT_NUMERIC);
+        }
+
+        foreach ($tiers as $tier) {
+            if ((int)($participation['sigils_t' . $tier] ?? 0) > 0) {
+                return $tier;
+            }
+        }
+
+        return null;
+    }
+
     private static function getSigilResourceType($tier) {
         return 'Sigil_T' . (int)$tier;
     }
@@ -505,7 +553,7 @@ class Actions {
     }
     
     /**
-     * Spend Tier 4/5 sigils to attempt unilateral sigil theft from another player.
+     * Spend configured utility sigils to attempt unilateral sigil theft from another player.
      */
     public static function attemptSigilTheft($playerId, $targetPlayerId, $spentSigils, $requestedSigils) {
         $db = Database::getInstance();
@@ -546,11 +594,11 @@ class Actions {
 
         $spentCount = self::sumSigilVector($spentSigils, SIGIL_THEFT_SPEND_TIERS);
         if ($spentCount <= 0) {
-            return ['error' => 'Select at least one Tier 4 or Tier 5 sigil to spend'];
+            return ['error' => 'Select at least one ' . self::formatSigilTierList(SIGIL_THEFT_SPEND_TIERS) . ' sigil to spend'];
         }
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
             if (!in_array($tier, SIGIL_THEFT_SPEND_TIERS, true) && (int)($spentSigils[$tier - 1] ?? 0) > 0) {
-                return ['error' => 'Only Tier 4 and Tier 5 sigils can be spent on theft'];
+                return ['error' => 'Only ' . self::formatSigilTierList(SIGIL_THEFT_SPEND_TIERS) . ' sigils can be spent on theft'];
             }
         }
 
@@ -947,8 +995,14 @@ class Actions {
 
         $sigilCost = 1;
         $scope = 'SELF';
+        $productPowerCapFp = BoostCatalog::POWER_CAP_FP_PER_PRODUCT;
         $totalPowerCapFp = BoostCatalog::TOTAL_POWER_CAP_FP;
-        $timeCapTicks = ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT);
+        $timeCapTicks = BoostCatalog::getTimeCapTicks();
+        $recoveryTicks = BoostCatalog::getRecoveryTicks();
+        $recoveryLabel = ((int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION % 3600 === 0)
+            ? ((int)(BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION / 3600) . 'h')
+            : ((int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION . 's');
+        $recoveryError = "Boost is recovering ({$recoveryLabel})";
         $powerIncrementFp = max(1, BoostCatalog::getSpendPowerFpForTier($sigilTier));
         $timeIncrementTicks = max(1, BoostCatalog::getSpendTimeTicksForTier($sigilTier));
         $timeIncrementRealSeconds = max(1, BoostCatalog::getSpendTimeRealSecondsForTier($sigilTier));
@@ -984,8 +1038,9 @@ class Actions {
         $activeRows = $db->fetchAll(
             "SELECT * FROM active_boosts
              WHERE player_id = ? AND season_id = ? AND scope = 'SELF' AND is_active = 1 AND expires_tick >= ?
+               AND (activated_tick <= 0 OR activated_tick + ? >= ?)
              ORDER BY expires_tick DESC, id ASC",
-            [$playerId, $seasonId, $gameTime]
+            [$playerId, $seasonId, $gameTime, $timeCapTicks, $gameTime]
         );
 
         $active = count($activeRows) > 0 ? $activeRows[0] : null;
@@ -1000,25 +1055,63 @@ class Actions {
                 "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
                  FROM active_boosts
                  WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
+                   AND (activated_tick <= 0 OR activated_tick + ? >= ?)
                    AND scope = 'SELF' AND player_id = ?",
-                [$seasonId, $gameTime, $playerId]
+                [$seasonId, $gameTime, $timeCapTicks, $gameTime, $playerId]
             );
         $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
 
         $currentModifier = max(0, (int)($active['modifier_fp'] ?? 0));
-        $currentExpiresTick = max($gameTime, (int)($active['expires_tick'] ?? 0));
-        $maxExpiresTick = $gameTime + $timeCapTicks;
+        $currentActivatedTick = max(0, (int)($active['activated_tick'] ?? 0));
+        $currentRawExpiresTick = max($gameTime, (int)($active['expires_tick'] ?? 0));
+        if ($active && $currentActivatedTick <= 0) {
+            $currentActivatedTick = max(0, $currentRawExpiresTick - $timeCapTicks);
+        }
+        $currentExpiresTick = $active
+            ? BoostCatalog::getEffectiveExpiresTick($currentRawExpiresTick, $currentActivatedTick)
+            : $currentRawExpiresTick;
+        $maxExpiresTick = $active
+            ? BoostCatalog::getSessionMaxExpiresTick($currentActivatedTick)
+            : ($gameTime + $timeCapTicks);
+
+        if (!$active) {
+            $recentSelfBoosts = $db->fetchAll(
+                "SELECT expires_tick, activated_tick FROM active_boosts
+                 WHERE player_id = ? AND season_id = ? AND scope = 'SELF'
+                 ORDER BY id DESC
+                 LIMIT 50",
+                [$playerId, $seasonId]
+            );
+            $latestExpiresTick = 0;
+            foreach ($recentSelfBoosts as $row) {
+                $latestExpiresTick = max(
+                    $latestExpiresTick,
+                    BoostCatalog::getEffectiveExpiresTick(
+                        (int)($row['expires_tick'] ?? 0),
+                        (int)($row['activated_tick'] ?? 0)
+                    )
+                );
+            }
+            if ($latestExpiresTick > 0 && $latestExpiresTick < $gameTime && BoostCatalog::isRecoveringAfterSession($latestExpiresTick, $gameTime)) {
+                return [
+                    'error' => $recoveryError,
+                    'reason_code' => 'boost_recovery',
+                    'recovery_until_tick' => BoostCatalog::getRecoveryUntilTick($latestExpiresTick),
+                    'recovery_ticks' => $recoveryTicks,
+                ];
+            }
+        }
 
         if ($active && $purchaseKind === 'power') {
-            $projectedModifier = min($totalPowerCapFp, $currentModifier + $powerIncrementFp);
+            $projectedModifier = min($productPowerCapFp, $currentModifier + $powerIncrementFp);
             $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $projectedModifier;
             if ($projectedCombinedFp > $totalPowerCapFp || $projectedModifier <= $currentModifier) {
-                return ['error' => 'Total boost cap reached (500% combined)'];
+                return ['error' => 'Boost power cap reached (100% per active boost)'];
             }
         }
         if ($active && $purchaseKind === 'time') {
             if ($currentExpiresTick >= $maxExpiresTick) {
-                return ['error' => 'Maximum boost time reached (48h)'];
+                return ['error' => 'Maximum boost session time reached'];
             }
         }
         
@@ -1045,17 +1138,17 @@ class Actions {
                 );
             } else {
                 if ($purchaseKind === 'power') {
-                    $newModifier = min($totalPowerCapFp, $currentModifier + $powerIncrementFp);
+                    $newModifier = min($productPowerCapFp, $currentModifier + $powerIncrementFp);
                     $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $newModifier;
                     if ($projectedCombinedFp > $totalPowerCapFp || $newModifier <= $currentModifier) {
-                        throw new Exception('Total boost cap reached (500% combined)');
+                        throw new Exception('Boost power cap reached (100% per active boost)');
                     }
                     $expiresTick = $currentExpiresTick;
                 } else {
                     $newModifier = $currentModifier;
                     $expiresTick = min($maxExpiresTick, $currentExpiresTick + $timeIncrementTicks);
                     if ($expiresTick <= $currentExpiresTick) {
-                        throw new Exception('Maximum boost time reached (48h)');
+                        throw new Exception('Maximum boost session time reached');
                     }
                 }
 
@@ -1063,7 +1156,7 @@ class Actions {
                     "UPDATE active_boosts
                      SET boost_id = ?, modifier_fp = ?, expires_tick = ?, activated_tick = ?, is_active = 1
                      WHERE id = ?",
-                    [$resolvedBoostId, $newModifier, $expiresTick, $gameTime, (int)$active['id']]
+                    [$resolvedBoostId, $newModifier, $expiresTick, $currentActivatedTick, (int)$active['id']]
                 );
             }
 
@@ -1101,9 +1194,10 @@ class Actions {
                 'purchased_time_real_seconds' => $purchasedTimeRealSeconds,
                 'stack_count' => 0,
                 'max_stack' => 0,
-                'power_cap_fp' => $totalPowerCapFp,
+                'power_cap_fp' => $productPowerCapFp,
                 'total_power_cap_fp' => $totalPowerCapFp,
                 'time_cap_ticks' => $timeCapTicks,
+                'recovery_ticks' => $recoveryTicks,
                 'duration_ticks' => $didInitialize ? $initialDurationTicks : max(0, $expiresTick - $gameTime),
                 'time_extension_ticks' => $didInitialize ? $initialDurationTicks : ($purchaseKind === 'time' ? $timeIncrementTicks : 0),
                 'time_extension_real_seconds' => $didInitialize ? $initialDurationRealSeconds : ($purchaseKind === 'time' ? $timeIncrementRealSeconds : 0),
@@ -1121,11 +1215,14 @@ class Actions {
         } catch (Exception $e) {
             $db->rollback();
             $msg = $e->getMessage();
+            if ($msg === 'Boost power cap reached (100% per active boost)') {
+                return ['error' => 'Boost power cap reached (100% per active boost)'];
+            }
             if ($msg === 'Total boost cap reached (500% combined)') {
                 return ['error' => 'Total boost cap reached (500% combined)'];
             }
-            if ($msg === 'Maximum boost time reached (48h)') {
-                return ['error' => 'Maximum boost time reached (48h)'];
+            if ($msg === 'Maximum boost session time reached') {
+                return ['error' => 'Maximum boost session time reached'];
             }
             return ['error' => 'Boost activation failed: ' . $msg];
         }
@@ -1274,9 +1371,9 @@ class Actions {
     }
 
     /**
-     * Consume a Tier 6 sigil to freeze another player's UBI accrual to 0/tick.
+     * Consume a configured utility sigil to freeze another player's UBI accrual to 0/tick.
      */
-    public static function freezePlayerUbi($playerId, $targetPlayerId = null, $targetHandle = null) {
+    public static function freezePlayerUbi($playerId, $targetPlayerId = null, $targetHandle = null, $requestedTier = null) {
         $db = Database::getInstance();
         $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
 
@@ -1315,12 +1412,28 @@ class Actions {
             return ['error' => 'You cannot freeze yourself'];
         }
 
+        $freezeSpendTiers = self::normalizeSigilTierList(SIGIL_FREEZE_SPEND_TIERS);
+        if ($freezeSpendTiers === []) {
+            return ['error' => 'Freeze is not configured'];
+        }
+        $sigilColumns = implode(', ', array_map(static fn($tier) => 'sigils_t' . (int)$tier, $freezeSpendTiers));
         $participation = $db->fetch(
-            "SELECT sigils_t6 FROM season_participation WHERE player_id = ? AND season_id = ?",
+            "SELECT {$sigilColumns} FROM season_participation WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
-        if ((int)($participation['sigils_t6'] ?? 0) < 1) {
-            return ['error' => 'You need at least 1 Tier 6 sigil'];
+
+        $requestedTier = ($requestedTier === null || $requestedTier === '') ? null : (int)$requestedTier;
+        if ($requestedTier === null) {
+            $requestedTier = self::selectOwnedSigilTier((array)$participation, $freezeSpendTiers, true);
+        }
+
+        if (!in_array((int)$requestedTier, $freezeSpendTiers, true)) {
+            return ['error' => 'Freeze requires a ' . self::formatSigilTierList($freezeSpendTiers) . ' sigil'];
+        }
+
+        $sigilCol = 'sigils_t' . (int)$requestedTier;
+        if ((int)($participation[$sigilCol] ?? 0) < 1) {
+            return ['error' => 'You do not own the selected sigil tier for Freeze'];
         }
 
         $nowTick = GameTime::now();
@@ -1331,8 +1444,10 @@ class Actions {
             [$seasonId, (int)$target['player_id'], $nowTick]
         );
 
-        $freezeBaseTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_BASE_DURATION_TICKS : FREEZE_BASE_DURATION_TICKS);
-        $freezeStackTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_STACK_EXTENSION_TICKS : FREEZE_STACK_EXTENSION_TICKS);
+        $durationMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER : SIGIL_FREEZE_DURATION_TICKS_BY_TIER);
+        $stackMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_STACK_EXTENSION_TICKS_BY_TIER : SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER);
+        $freezeBaseTicks = (int)($durationMap[(int)$requestedTier] ?? FREEZE_BASE_DURATION_TICKS);
+        $freezeStackTicks = (int)($stackMap[(int)$requestedTier] ?? FREEZE_STACK_EXTENSION_TICKS);
         $newRemaining = $freezeBaseTicks;
         if ($existing) {
             // Flat extension: add stack ticks to the current expiry (preserving
@@ -1347,7 +1462,7 @@ class Actions {
         $db->beginTransaction();
         try {
             $db->query(
-                "UPDATE season_participation SET sigils_t6 = sigils_t6 - 1 WHERE player_id = ? AND season_id = ?",
+                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1 WHERE player_id = ? AND season_id = ?",
                 [$playerId, $seasonId]
             );
 
@@ -1378,9 +1493,10 @@ class Actions {
                 'success' => true,
                 'target_player_id' => (int)$target['player_id'],
                 'target_handle' => (string)$target['handle'],
+                'consumed_tier' => (int)$requestedTier,
                 'freeze_duration_ticks' => $newRemaining,
                 'expires_tick' => $newExpires,
-                'message' => 'Freeze applied to ' . $target['handle'] . ' for ' . $newRemaining . ' ticks.'
+                'message' => 'Tier ' . (int)$requestedTier . ' Freeze applied to ' . $target['handle'] . ' for ' . $newRemaining . ' ticks.'
             ];
         } catch (Exception $e) {
             $db->rollback();

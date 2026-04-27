@@ -241,7 +241,9 @@ Boosts consume sigils and can be:
 - **SELF** scope
 - **GLOBAL** scope
 
-Global and self boosts stack additively in fixed-point logic and are capped by a total modifier clamp.`
+Global and self boosts stack additively in fixed-point logic and are capped by a total modifier clamp.
+
+Each boost session has a 4-hour uptime cap from its original activation tick, followed by a 4-hour recovery window before a new boost can be activated.`
           },
           {
             id: "default-boost-catalog",
@@ -250,11 +252,11 @@ Global and self boosts stack additively in fixed-point logic and are capped by a
 
 | Boost | Tier | Scope | Duration | Modifier |
 |---|---|---|---|---|
-| Trickle | I | SELF | 60 ticks (1 hour) | +10% |
-| Surge | II | SELF | 180 ticks (3 hours) | +15% |
-| Flow | III | SELF | 360 ticks (6 hours) | +25% |
-| Tide | IV | SELF | 720 ticks (12 hours) | +50% |
-| Age | V | SELF | 1440 ticks (24 hours) | +100% |`
+| Trickle | I | SELF | 240 ticks (4 hours) | +5% |
+| Surge | II | SELF | 180 ticks (3 hours) | +10% |
+| Flow | III | SELF | 120 ticks (2 hours) | +25% |
+| Tide | IV | SELF | 60 ticks (1 hour) | +50% |
+| Age | V | SELF | 30 ticks (30 minutes) | +100% |`
           }
         ]
       },
@@ -270,9 +272,9 @@ Global and self boosts stack additively in fixed-point logic and are capped by a
             title: "What Theft Attempts Are Allowed",
             content: `Sigil theft constraints:
 - Attacker and target must be in the same season.
-- Only Tier 4 and Tier 5 sigils can be spent to initiate theft.
+- Only Tier 3, Tier 4, and Tier 5 sigils can be spent to initiate theft.
 - Requested loot can target any visible sigil tier, including Tier 6.
-- Theft attempts are disabled in Blackout.
+- Theft attempts are available in Active and Blackout phases.
 - Idle targets can still be selected.`
           },
           {

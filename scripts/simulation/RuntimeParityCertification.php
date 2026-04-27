@@ -531,31 +531,34 @@ class RuntimeParityCertification
             return;
         }
 
-        $timeCapTicks = ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT);
         $powerIncrementFp = max(1, BoostCatalog::getSpendPowerFpForTier($sigilTier));
         $timeIncrementTicks = max(1, BoostCatalog::getSpendTimeTicksForTier($sigilTier));
         $initialPowerFp = max(1, BoostCatalog::getInitialPowerFpForTier($sigilTier));
         $initialDurationTicks = max(1, BoostCatalog::getInitialDurationTicksForTier($sigilTier));
 
         if (empty($state['boost']['is_active'])) {
+            if ((int)($state['boost']['recovery_until_tick'] ?? 0) > $tick) {
+                return;
+            }
             $state['boost'] = [
                 'is_active' => true,
                 'modifier_fp' => $initialPowerFp,
                 'activated_tick' => $tick,
                 'expires_tick' => $tick + $initialDurationTicks,
+                'recovery_until_tick' => 0,
             ];
             $state['participation'][$sigilCol]--;
             return;
         }
 
         if ($purchaseKind === 'time') {
-            $maxExpiresTick = $tick + $timeCapTicks;
+            $maxExpiresTick = BoostCatalog::getSessionMaxExpiresTick((int)($state['boost']['activated_tick'] ?? 0));
             if ((int)$state['boost']['expires_tick'] >= $maxExpiresTick) {
                 return;
             }
             $state['boost']['expires_tick'] = min($maxExpiresTick, (int)$state['boost']['expires_tick'] + $timeIncrementTicks);
         } else {
-            $projected = min(BoostCatalog::TOTAL_POWER_CAP_FP, (int)$state['boost']['modifier_fp'] + $powerIncrementFp);
+            $projected = min(BoostCatalog::POWER_CAP_FP_PER_PRODUCT, (int)$state['boost']['modifier_fp'] + $powerIncrementFp);
             if ($projected <= (int)$state['boost']['modifier_fp']) {
                 return;
             }
@@ -567,11 +570,25 @@ class RuntimeParityCertification
 
     private static function runtimeBoostAccrualTick(array &$state, array $season, int $tick, string $phase): bool
     {
-        if (!empty($state['boost']['is_active']) && (int)$state['boost']['expires_tick'] < $tick) {
-            $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $effectiveBoostExpiresTick = BoostCatalog::getEffectiveExpiresTick(
+            (int)($state['boost']['expires_tick'] ?? 0),
+            (int)($state['boost']['activated_tick'] ?? 0)
+        );
+        if (!empty($state['boost']['is_active']) && $effectiveBoostExpiresTick < $tick) {
+            $state['boost'] = [
+                'is_active' => false,
+                'modifier_fp' => 0,
+                'activated_tick' => 0,
+                'expires_tick' => 0,
+                'recovery_until_tick' => BoostCatalog::getRecoveryUntilTick($effectiveBoostExpiresTick),
+            ];
         }
 
-        $boostApplied = !empty($state['boost']['is_active']) && (int)$state['boost']['expires_tick'] >= $tick;
+        $boostApplied = !empty($state['boost']['is_active'])
+            && BoostCatalog::getEffectiveExpiresTick(
+                (int)($state['boost']['expires_tick'] ?? 0),
+                (int)($state['boost']['activated_tick'] ?? 0)
+            ) >= $tick;
         $boostModFp = $boostApplied ? (int)$state['boost']['modifier_fp'] : 0;
         self::runtimeAccrueTick($season, $state['player'], $state['participation'], $tick, $phase, $boostModFp, false);
         if ($boostApplied) {
@@ -643,7 +660,7 @@ class RuntimeParityCertification
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
             $state['participation']['sigils_t' . $tier] = 0;
         }
-        $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0, 'recovery_until_tick' => 0];
         $state['player']['joined_season_id'] = null;
         $state['player']['participation_enabled'] = 0;
         if ($status === 'Blackout') {
@@ -676,7 +693,7 @@ class RuntimeParityCertification
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
             $state['participation']['sigils_t' . $tier] = 0;
         }
-        $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0, 'recovery_until_tick' => 0];
         $state['player']['joined_season_id'] = null;
         $state['player']['participation_enabled'] = 0;
     }
@@ -723,7 +740,7 @@ class RuntimeParityCertification
             'last_activity_tick' => $gameTime,
             'online_current' => 1,
         ]);
-        $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $state['boost'] = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0, 'recovery_until_tick' => 0];
         $state['freeze'] = ['is_active' => false, 'expires_tick' => 0, 'applied_count' => 0];
     }
 
@@ -838,6 +855,7 @@ class RuntimeParityCertification
                 'modifier_fp' => 0,
                 'activated_tick' => 0,
                 'expires_tick' => 0,
+                'recovery_until_tick' => 0,
             ], (array)($fixture['boost_overrides'] ?? [])),
             'freeze' => array_replace([
                 'is_active' => false,

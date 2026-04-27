@@ -420,7 +420,8 @@ try {
             echo json_encode(Actions::freezePlayerUbi(
                 $player['player_id'],
                 (int)($input['target_player_id'] ?? 0),
-                isset($input['target_handle']) ? (string)$input['target_handle'] : null
+                isset($input['target_handle']) ? (string)$input['target_handle'] : null,
+                isset($input['requested_tier']) ? (int)$input['requested_tier'] : null
             ));
             break;
 
@@ -901,13 +902,13 @@ function getGameState($player) {
                 'combine_recipes' => getCombineRecipesForParticipation($participation),
                 'tier6_visible' => shouldRevealTier6($participation),
                 'can_freeze' => in_array($joinedSeasonStatus, ['Active', 'Blackout'], true)
-                    && ((int)($participation['sigils_t6'] ?? 0) > 0),
+                    && playerHasSigilInTiers($participation, SIGIL_FREEZE_SPEND_TIERS),
                 'can_melt' => in_array($joinedSeasonStatus, ['Active', 'Blackout'], true)
                     && ($freezeStatus['is_frozen'] ?? false)
                     && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
                 'can_steal' => in_array($joinedSeasonStatus, ['Active', 'Blackout'], true)
                     && !($theftStatus['is_on_cooldown'] ?? false)
-                    && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
+                    && playerHasSigilInTiers($participation, SIGIL_THEFT_SPEND_TIERS),
                 'freeze' => $freezeStatus,
                 'theft' => $theftStatus,
                 'rate_per_tick' => (float)$rateMetrics['rate_per_tick'],
@@ -1129,13 +1130,13 @@ function getSeasonDetail($player, $seasonId) {
             $playerTheft = getTheftStatusForPlayer((int)$player['player_id'], (int)$seasonId, $participation);
             $seasonStatus = (string)($season['computed_status'] ?? GameTime::getSeasonStatus($season, $gameTime));
             $season['player_can_freeze'] = in_array($seasonStatus, ['Active', 'Blackout'], true)
-                && ((int)($participation['sigils_t6'] ?? 0) > 0);
+                && playerHasSigilInTiers($participation, SIGIL_FREEZE_SPEND_TIERS);
             $season['player_can_melt'] = in_array($seasonStatus, ['Active', 'Blackout'], true)
                 && ($playerFreeze['is_frozen'] ?? false)
                 && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0));
             $season['player_can_steal'] = in_array($seasonStatus, ['Active', 'Blackout'], true)
                 && !($playerTheft['is_on_cooldown'] ?? false)
-                && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0));
+                && playerHasSigilInTiers($participation, SIGIL_THEFT_SPEND_TIERS);
             $season['player_freeze'] = $playerFreeze;
             $season['player_theft'] = $playerTheft;
         }
@@ -1197,6 +1198,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
     if ($status === 'Active' || $status === 'Blackout') {
         $gameTime = GameTime::now();
         $boostCapFp = (int)BoostCatalog::TOTAL_POWER_CAP_FP;
+        $boostTimeCapTicks = BoostCatalog::getTimeCapTicks();
         $hasBoostTables = tableExists($db, 'active_boosts');
         $hasFreezeTable = tableExists($db, 'active_freezes');
 
@@ -1223,6 +1225,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                      SELECT player_id, SUM(modifier_fp) AS self_fp
                      FROM active_boosts
                      WHERE season_id = ? AND is_active = 1 AND scope = 'SELF' AND expires_tick >= ?
+                       AND (activated_tick <= 0 OR activated_tick + ? >= ?)
                      GROUP BY player_id
                  ) self_b ON self_b.player_id = p.player_id
                  LEFT JOIN (
@@ -1234,8 +1237,8 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
                 $limit > 0
-                    ? [$boostCapFp, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                    : [$boostCapFp, $seasonId, $gameTime, $seasonId, $gameTime, $seasonId]
+                    ? [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
+                    : [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId]
             );
         } elseif ($hasFreezeTable) {
             $rows = $db->fetchAll(
@@ -1361,6 +1364,33 @@ function calculateSigilCountsValue(array $counts, array $valueTable): int {
         $total += max(0, (int)($counts[$tier - 1] ?? 0)) * max(0, (int)($valueTable[$tier] ?? 0));
     }
     return $total;
+}
+
+function playerHasSigilInTiers(array $participation, array $tiers): bool {
+    foreach ($tiers as $tier) {
+        $tier = (int)$tier;
+        if ($tier >= 1 && $tier <= 6 && (int)($participation['sigils_t' . $tier] ?? 0) > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function formatSigilTierList(array $tiers): string {
+    $labels = [];
+    foreach ($tiers as $tier) {
+        $tier = (int)$tier;
+        if ($tier >= 1 && $tier <= 6) {
+            $labels[] = 'Tier ' . $tier;
+        }
+    }
+    $labels = array_values(array_unique($labels));
+    $count = count($labels);
+    if ($count === 0) return 'configured-tier';
+    if ($count === 1) return $labels[0];
+    if ($count === 2) return $labels[0] . ' or ' . $labels[1];
+    $last = array_pop($labels);
+    return implode(', ', $labels) . ', or ' . $last;
 }
 
 function getGlobalStarsProgressPayload($fractionalFp): array {
@@ -1620,13 +1650,13 @@ function getProfile($viewer, $targetId) {
                         'freeze' => $profileFreeze,
                         'theft' => $profileTheft,
                         'can_freeze' => in_array($status, ['Active', 'Blackout'], true)
-                            && ((int)($participation['sigils_t6'] ?? 0) > 0),
+                            && playerHasSigilInTiers($participation, SIGIL_FREEZE_SPEND_TIERS),
                         'can_melt' => in_array($status, ['Active', 'Blackout'], true)
                             && ($profileFreeze['is_frozen'] ?? false)
                             && (((int)($participation['sigils_t5'] ?? 0) > 0) || ((int)($participation['sigils_t6'] ?? 0) > 0)),
                         'can_steal' => in_array($status, ['Active', 'Blackout'], true)
                             && !($profileTheft['is_on_cooldown'] ?? false)
-                            && (((int)($participation['sigils_t4'] ?? 0) > 0) || ((int)($participation['sigils_t5'] ?? 0) > 0)),
+                            && playerHasSigilInTiers($participation, SIGIL_THEFT_SPEND_TIERS),
                     ];
                 }
             }
@@ -1707,6 +1737,7 @@ function getActiveBoosts($player, $participation = null) {
     $serverNowUnix = time();
     $seasonId = $player['joined_season_id'];
     $runStartTick = getSeasonRunStartTick((int)$player['player_id'], (int)$seasonId, $participation);
+    $timeCapTicks = BoostCatalog::getTimeCapTicks();
     
     $selfBoosts = $db->fetchAll(
         "SELECT ab.*, bc.name, bc.description, bc.tier_required, bc.icon
@@ -1714,9 +1745,10 @@ function getActiveBoosts($player, $participation = null) {
          JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
          WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?
            AND ab.activated_tick >= ?
+           AND (ab.activated_tick <= 0 OR ab.activated_tick + ? >= ?)
          ORDER BY ab.expires_tick DESC, ab.id ASC
          LIMIT 1",
-        [$player['player_id'], $seasonId, $gameTime, $runStartTick]
+        [$player['player_id'], $seasonId, $gameTime, $runStartTick, $timeCapTicks, $gameTime]
     );
     
     // Annotate each boost with wall-clock expiry data for client-side real-time countdown.
@@ -1728,6 +1760,10 @@ function getActiveBoosts($player, $participation = null) {
     // remaining_real_seconds is derived from the same stable timestamp so it matches.
     foreach ($selfBoosts as &$b) {
         $b = BoostCatalog::normalize($b);
+        $b['expires_tick'] = BoostCatalog::getEffectiveExpiresTick(
+            (int)$b['expires_tick'],
+            (int)($b['activated_tick'] ?? 0)
+        );
         $expiresAtReal = GameTime::tickStartRealUnix((int)$b['expires_tick'] + 1);
         $b['expires_at_real'] = $expiresAtReal;
         $b['remaining_real_seconds'] = max(0, $expiresAtReal - $serverNowUnix);
@@ -2075,11 +2111,11 @@ function previewSigilTheft(
 
     $spentCount = sumSigilCounts($spentSigils, SIGIL_THEFT_SPEND_TIERS);
     if ($spentCount <= 0) {
-        return ['error' => 'Select at least one Tier 4 or Tier 5 sigil to spend'];
+        return ['error' => 'Select at least one ' . formatSigilTierList(SIGIL_THEFT_SPEND_TIERS) . ' sigil to spend'];
     }
     for ($tier = 1; $tier <= 6; $tier++) {
         if (!in_array($tier, SIGIL_THEFT_SPEND_TIERS, true) && (int)($spentSigils[$tier - 1] ?? 0) > 0) {
-            return ['error' => 'Only Tier 4 and Tier 5 sigils can be spent on theft'];
+            return ['error' => 'Only ' . formatSigilTierList(SIGIL_THEFT_SPEND_TIERS) . ' sigils can be spent on theft'];
         }
     }
 
@@ -2133,11 +2169,12 @@ function previewSigilTheft(
         return ['error' => $capError];
     }
 
-    $availableSpendValue = calculateSigilCountsValue(
-        [0, 0, 0, (int)($participation['sigils_t4'] ?? 0), (int)($participation['sigils_t5'] ?? 0), 0],
-        SIGIL_UTILITY_VALUE_BY_TIER
-    );
-    $availableSpendCount = max(0, (int)($participation['sigils_t4'] ?? 0)) + max(0, (int)($participation['sigils_t5'] ?? 0));
+    $availableSpendSigils = array_fill(0, 6, 0);
+    foreach (SIGIL_THEFT_SPEND_TIERS as $tier) {
+        $availableSpendSigils[$tier - 1] = max(0, (int)($participation['sigils_t' . $tier] ?? 0));
+    }
+    $availableSpendValue = calculateSigilCountsValue($availableSpendSigils, SIGIL_UTILITY_VALUE_BY_TIER);
+    $availableSpendCount = sumSigilCounts($availableSpendSigils, SIGIL_THEFT_SPEND_TIERS);
     $spendFraction = $availableSpendValue > 0 ? min(1.0, $spendValue / $availableSpendValue) : 1.0;
     $risk = computeEconomicRisk($spendFraction);
     if (($risk['severity'] ?? 'low') === 'low') {
@@ -2199,6 +2236,7 @@ function gatedSigilTheftAttempt(
     $result = Actions::attemptSigilTheft($player['player_id'], $targetPlayerId, $spentSigils, $requestedSigils);
     if (!empty($result['error']) && !empty($confirmed)) {
         $dynamicErrors = [
+            'Insufficient Tier 3 Sigils',
             'Insufficient Tier 4 Sigils',
             'Insufficient Tier 5 Sigils',
             'Requested sigils exceed target inventory',
@@ -2290,7 +2328,12 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
     $initialDurationTicks = max(1, BoostCatalog::getInitialDurationTicksForTier($sigilTier));
     $initialDurationRealSeconds = max(1, BoostCatalog::getInitialDurationRealSecondsForTier($sigilTier));
     $totalPowerCapFp = BoostCatalog::TOTAL_POWER_CAP_FP;
-    $timeCapTicks = ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT);
+    $timeCapTicks = BoostCatalog::getTimeCapTicks();
+    $recoveryTicks = BoostCatalog::getRecoveryTicks();
+    $recoveryLabel = ((int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION % 3600 === 0)
+        ? ((int)(BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION / 3600) . 'h')
+        : ((int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION . 's');
+    $recoveryError = "Boost is recovering ({$recoveryLabel})";
 
     $participation = $db->fetch(
         "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
@@ -2305,8 +2348,11 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
 
     $gameTime = GameTime::now();
     $activeRows = $db->fetchAll(
-        "SELECT * FROM active_boosts WHERE player_id = ? AND season_id = ? AND scope = 'SELF' AND is_active = 1 AND expires_tick >= ? ORDER BY expires_tick DESC, id ASC",
-        [$playerId, $seasonId, $gameTime]
+        "SELECT * FROM active_boosts
+         WHERE player_id = ? AND season_id = ? AND scope = 'SELF' AND is_active = 1 AND expires_tick >= ?
+           AND (activated_tick <= 0 OR activated_tick + ? >= ?)
+         ORDER BY expires_tick DESC, id ASC",
+        [$playerId, $seasonId, $gameTime, $timeCapTicks, $gameTime]
     );
     $activeRow = count($activeRows) > 0 ? $activeRows[0] : null;
 
@@ -2319,12 +2365,39 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
         "SELECT COALESCE(SUM(modifier_fp), 0) AS total_fp
          FROM active_boosts
          WHERE season_id = ? AND is_active = 1 AND expires_tick >= ?
+           AND (activated_tick <= 0 OR activated_tick + ? >= ?)
            AND scope = 'SELF' AND player_id = ?",
-        [$seasonId, $gameTime, $playerId]
+        [$seasonId, $gameTime, $timeCapTicks, $gameTime, $playerId]
     );
     $combinedCurrentFp = max(0, (int)($combinedRow['total_fp'] ?? 0));
 
     if (!$activeRow) {
+        $recentSelfBoosts = $db->fetchAll(
+            "SELECT expires_tick, activated_tick FROM active_boosts
+             WHERE player_id = ? AND season_id = ? AND scope = 'SELF'
+             ORDER BY id DESC
+             LIMIT 50",
+            [$playerId, $seasonId]
+        );
+        $latestExpiresTick = 0;
+        foreach ($recentSelfBoosts as $row) {
+            $latestExpiresTick = max(
+                $latestExpiresTick,
+                BoostCatalog::getEffectiveExpiresTick(
+                    (int)($row['expires_tick'] ?? 0),
+                    (int)($row['activated_tick'] ?? 0)
+                )
+            );
+        }
+        if ($latestExpiresTick > 0 && $latestExpiresTick < $gameTime && BoostCatalog::isRecoveringAfterSession($latestExpiresTick, $gameTime)) {
+            return [
+                'error' => $recoveryError,
+                'reason_code' => 'boost_recovery',
+                'recovery_until_tick' => BoostCatalog::getRecoveryUntilTick($latestExpiresTick),
+                'recovery_ticks' => $recoveryTicks,
+            ];
+        }
+
         $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $initialPowerFp;
         if ($projectedCombinedFp > $totalPowerCapFp) {
             return ['error' => 'Total boost cap reached (500% combined)'];
@@ -2341,10 +2414,15 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
     }
 
     if ($purchaseKind === 'time' && $activeRow) {
-        $currentExpiresTick = max($gameTime, (int)$activeRow['expires_tick']);
-        $maxExpiresTick = $gameTime + $timeCapTicks;
+        $currentRawExpiresTick = max($gameTime, (int)$activeRow['expires_tick']);
+        $currentActivatedTick = max(0, (int)($activeRow['activated_tick'] ?? 0));
+        if ($currentActivatedTick <= 0) {
+            $currentActivatedTick = max(0, $currentRawExpiresTick - $timeCapTicks);
+        }
+        $currentExpiresTick = BoostCatalog::getEffectiveExpiresTick($currentRawExpiresTick, $currentActivatedTick);
+        $maxExpiresTick = BoostCatalog::getSessionMaxExpiresTick($currentActivatedTick);
         if ($currentExpiresTick >= $maxExpiresTick) {
-            return ['error' => 'Maximum boost time reached (48h)'];
+            return ['error' => 'Maximum boost session time reached'];
         }
     }
 
@@ -2380,6 +2458,7 @@ function previewBoostActivate(array $player, int $sigilTier, string $purchaseKin
     $payload['power_cap_fp'] = $totalPowerCapFp;
     $payload['total_power_cap_fp'] = $totalPowerCapFp;
     $payload['time_cap_ticks'] = $timeCapTicks;
+    $payload['recovery_ticks'] = $recoveryTicks;
     $payload['initialized_from_inactive'] = !$activeRow;
 
     return array_merge(['success' => true, 'preview_type' => 'boost_activate'], $payload);

@@ -15,6 +15,8 @@ class ContractSimulator
             'season_id' => 1,
             'simulator' => 'A',
             'run_label' => $options['run_label'] ?? null,
+            'base_season_config_path' => $options['base_season_config_path'] ?? null,
+            'candidate_patch' => $options['candidate_patch'] ?? [],
             'artifact_dir' => $options['preflight_artifact_dir'] ?? '',
             'debug_allow_inactive_candidate' => !empty($options['debug_allow_inactive_candidate']),
         ]);

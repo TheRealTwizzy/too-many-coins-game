@@ -7,12 +7,14 @@ require_once __DIR__ . '/simulation/PolicyBehavior.php';
 require_once __DIR__ . '/simulation/MetricsCollector.php';
 require_once __DIR__ . '/simulation/SimulationPlayer.php';
 require_once __DIR__ . '/simulation/SimulationPopulationSeason.php';
+require_once __DIR__ . '/simulation/CandidatePatchLoader.php';
 
 $options = [
     'seed' => 'phase1',
     'players-per-archetype' => 5,
     'output' => __DIR__ . '/../simulation_output/season',
     'season-config' => null,
+    'candidate-patch' => null,
     'archetypes' => null,
     'phase-stop' => null,
     'allow-inactive-candidate-config' => false,
@@ -27,6 +29,8 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['output'] = substr($arg, 9);
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--candidate-patch=')) {
+        $options['candidate-patch'] = substr($arg, 18);
     } elseif (str_starts_with($arg, '--archetypes=')) {
         $options['archetypes'] = substr($arg, 13);
     } elseif (str_starts_with($arg, '--phase-stop=')) {
@@ -48,6 +52,7 @@ Options:
   --players-per-archetype=N   Players per archetype cohort (default: 5)
   --output=DIR                Output directory (default: simulation_output/season)
   --season-config=FILE        JSON file with season config overrides
+  --candidate-patch=FILE      JSON candidate patch validated by effective-config preflight
   --archetypes=A,B,C          Optional archetype key subset for focused harness runs
   --phase-stop=EARLY|MID|LATE_ACTIVE|BLACKOUT
                               Optional phase-limited stop for proxy harnesses
@@ -76,6 +81,7 @@ HELP;
 $baseName = 'season_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string)$options['seed']) . '_ppa' . (int)$options['players-per-archetype'];
 
 try {
+    $candidatePatch = CandidatePatchLoader::load($options['candidate-patch']);
     $payload = SimulationPopulationSeason::run(
         (string)$options['seed'],
         (int)$options['players-per-archetype'],
@@ -85,6 +91,7 @@ try {
                 ? array_values(array_filter(array_map('trim', explode(',', (string)$options['archetypes']))))
                 : [],
             'phase_stop' => $options['phase-stop'] !== null ? (string)$options['phase-stop'] : null,
+            'candidate_patch' => $candidatePatch,
             'run_label' => $baseName,
             'preflight_artifact_dir' => rtrim((string)$options['output'], DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $baseName . '.audit',
             'debug_allow_inactive_candidate' => (bool)$options['allow-inactive-candidate-config'],

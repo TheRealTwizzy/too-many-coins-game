@@ -432,7 +432,7 @@ class TickEngine {
      * Process Sigil drops for a player over a batch of ticks.
      * Deterministic model:
      * - One drop attempt per tick
-     * - Activity scales gate chance (Active=1.0, Idle=0.5, Offline=0)
+     * - Activity, inventory pressure, and boost pressure scale gate chance
      * - Season progression scales tier weights only
      */
     private static function processSigilDrops($season, $player, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp = 0) {
@@ -448,7 +448,7 @@ class TickEngine {
             $tickIndex = $lastSeasonTick + $t;
             $absoluteTick = $startTime + $tickIndex;
 
-            $drop = Economy::evaluateSigilDropForTick($season, $player, $absoluteTick);
+            $drop = Economy::evaluateSigilDropForTick($season, $player, $absoluteTick, $player, $boostModFp);
             if ($drop !== null) {
                 $dropMetadata = (array)($drop['metadata'] ?? []);
                 $dropMetadata['activity_state'] = (string)($drop['activity_state'] ?? 'Unknown');
@@ -541,8 +541,9 @@ class TickEngine {
         $db = Database::getInstance();
         $db->query(
             "UPDATE active_boosts SET is_active = 0 
-             WHERE season_id = ? AND is_active = 1 AND expires_tick < ?",
-            [$seasonId, $gameTime]
+             WHERE season_id = ? AND is_active = 1
+               AND (expires_tick < ? OR (activated_tick > 0 AND activated_tick + ? < ?))",
+            [$seasonId, $gameTime, BoostCatalog::getTimeCapTicks(), $gameTime]
         );
     }
 
@@ -581,9 +582,10 @@ class TickEngine {
              FROM active_boosts ab
              JOIN boost_catalog bc ON bc.boost_id = ab.boost_id
              WHERE ab.player_id = ? AND ab.season_id = ? AND ab.is_active = 1 AND ab.scope = 'SELF' AND ab.expires_tick >= ?
+               AND (ab.activated_tick <= 0 OR ab.activated_tick + ? >= ?)
              ORDER BY ab.expires_tick DESC, ab.id ASC
              LIMIT 1",
-            [$playerId, $seasonId, $gameTime]
+            [$playerId, $seasonId, $gameTime, BoostCatalog::getTimeCapTicks(), $gameTime]
         );
     }
 
@@ -601,6 +603,8 @@ class TickEngine {
         $params = $playerIds;
         $params[] = $seasonId;
         $params[] = $gameTime;
+        $params[] = BoostCatalog::getTimeCapTicks();
+        $params[] = $gameTime;
 
         $rows = $db->fetchAll(
             "SELECT ab.*, bc.name, bc.tier_required, bc.modifier_fp as catalog_modifier_fp
@@ -610,8 +614,9 @@ class TickEngine {
                AND ab.season_id = ?
                AND ab.is_active = 1
                AND ab.scope = 'SELF'
-                             AND ab.expires_tick >= ?
-                         ORDER BY ab.player_id ASC, ab.expires_tick DESC, ab.id ASC",
+               AND ab.expires_tick >= ?
+               AND (ab.activated_tick <= 0 OR ab.activated_tick + ? >= ?)
+             ORDER BY ab.player_id ASC, ab.expires_tick DESC, ab.id ASC",
             $params
         );
 

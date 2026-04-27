@@ -1868,7 +1868,12 @@ const TMC = {
     },
 
     async freezeByPlayerId(targetPlayerId, refreshProfileId = null) {
-        const result = await this.api('freeze_player_ubi', { target_player_id: targetPlayerId });
+        const tierSelect = document.getElementById('profile-freeze-tier');
+        const requestedTier = parseInt(tierSelect ? tierSelect.value : '0', 10) || 0;
+        const payload = { target_player_id: targetPlayerId };
+        if (requestedTier) payload.requested_tier = requestedTier;
+
+        const result = await this.api('freeze_player_ubi', payload);
         if (result.error) {
             this.toast(result.error, 'error', { category: 'error_action' });
             return;
@@ -1957,11 +1962,11 @@ const TMC = {
     _selectedSigilActionTier: null,
     _lastSigilActionTier: null,
     _sigilActionFallbackValuesByTier: {
-        1: { powerFp: 50000, timeExtensionRealSeconds: 30 * 60 },
-        2: { powerFp: 100000, timeExtensionRealSeconds: 60 * 60 },
-        3: { powerFp: 250000, timeExtensionRealSeconds: 3 * 60 * 60 },
-        4: { powerFp: 500000, timeExtensionRealSeconds: 6 * 60 * 60 },
-        5: { powerFp: 1000000, timeExtensionRealSeconds: 12 * 60 * 60 },
+        1: { powerFp: 50000, timeExtensionRealSeconds: 5 * 60 },
+        2: { powerFp: 100000, timeExtensionRealSeconds: 10 * 60 },
+        3: { powerFp: 250000, timeExtensionRealSeconds: 30 * 60 },
+        4: { powerFp: 500000, timeExtensionRealSeconds: 60 * 60 },
+        5: { powerFp: 1000000, timeExtensionRealSeconds: 2 * 60 * 60 },
     },
 
     async loadBoostCatalog() {
@@ -2966,7 +2971,7 @@ const TMC = {
         const targetPart = profile.active_participation;
         const targetTheft = targetPart.theft || {};
         const viewerTheft = viewerPart.theft || {};
-        const spendTiers = [4, 5];
+        const spendTiers = [3, 4, 5];
         const lootTiers = [1, 2, 3, 4, 5, 6];
         const targetActivityState = targetPart.activity_state || profile.activity_state || 'Active';
         const canSubmit = !viewerTheft.is_on_cooldown && !targetTheft.is_protected;
@@ -2980,7 +2985,7 @@ const TMC = {
 
             <div class="theft-form-container">
                 <h3>Target: ${this.escapeHtml(profile.handle)}</h3>
-                <p class="panel-info">Spend Tier 4 and Tier 5 sigils for a chance-based theft. Spent sigils are always lost, even on failure. Idle targets are valid.</p>
+                <p class="panel-info">Spend Tier 3, Tier 4, or Tier 5 sigils for a chance-based theft. Spent sigils are always lost, even on failure. Idle targets are valid.</p>
                 <p class="panel-info">Target status: <strong>${this.escapeHtml(String(targetActivityState))}</strong></p>
                 ${viewerTheft.is_on_cooldown ? `<p class="panel-warning">Your theft cooldown: ${this.formatDurationFromSeconds(Number(viewerTheft.cooldown_remaining_real_seconds || 0), 'short')}</p>` : ''}
                 ${targetTheft.is_protected ? `<p class="panel-warning">Target protection: ${this.formatDurationFromSeconds(Number(targetTheft.protection_remaining_real_seconds || 0), 'short')}</p>` : ''}
@@ -3172,6 +3177,9 @@ const TMC = {
         const viewerParticipation = this.state.player ? this.state.player.participation : null;
         const viewerTheftState = viewerParticipation?.theft || null;
         const targetTheftState = activeParticipation?.theft || null;
+        const viewerT3Count = Array.isArray(viewerParticipation?.sigils)
+            ? Number(viewerParticipation.sigils[2] || 0)
+            : 0;
         const viewerT4Count = Array.isArray(viewerParticipation?.sigils)
             ? Number(viewerParticipation.sigils[3] || 0)
             : 0;
@@ -3181,11 +3189,11 @@ const TMC = {
         const viewerT6Count = Array.isArray(viewerParticipation?.sigils)
             ? Number(viewerParticipation.sigils[5] || 0)
             : 0;
-        const viewerCanFreeze = !!(viewerParticipation && (viewerParticipation.can_freeze || viewerT6Count > 0));
+        const viewerCanFreeze = !!(viewerParticipation && (viewerParticipation.can_freeze || viewerT4Count > 0 || viewerT5Count > 0 || viewerT6Count > 0));
         const viewerCanSteal = !!(
             viewerParticipation && (
                 viewerParticipation.can_steal
-                || ((!viewerTheftState?.is_on_cooldown) && (viewerT4Count > 0 || viewerT5Count > 0))
+                || ((!viewerTheftState?.is_on_cooldown) && (viewerT3Count > 0 || viewerT4Count > 0 || viewerT5Count > 0))
             )
         );
         const ownFreeze = isOwnProfile
@@ -3219,6 +3227,11 @@ const TMC = {
             Number(ownFreeze.remaining_real_seconds || 0) > 0 &&
             (ownT5Count > 0 || ownT6Count > 0)
         );
+        const freezeTierOptions = [
+            viewerT4Count > 0 ? { tier: 4, count: viewerT4Count, label: 'Tier 4' } : null,
+            viewerT5Count > 0 ? { tier: 5, count: viewerT5Count, label: 'Tier 5' } : null,
+            viewerT6Count > 0 ? { tier: 6, count: viewerT6Count, label: 'Tier 6' } : null,
+        ].filter(Boolean);
         const meltTierOptions = [
             ownT5Count > 0 ? { tier: 5, count: ownT5Count, label: 'Tier 5 (-15m max)' } : null,
             ownT6Count > 0 ? { tier: 6, count: ownT6Count, label: 'Tier 6 (-30m max)' } : null,
@@ -3227,10 +3240,17 @@ const TMC = {
             ? 'Theft Protected'
             : (viewerTheftState?.is_on_cooldown
                 ? 'Theft Cooldown Active'
-                : ((viewerT4Count > 0 || viewerT5Count > 0) ? 'Attempt Theft' : 'Need T4/T5 Sigils'));
+                : ((viewerT3Count > 0 || viewerT4Count > 0 || viewerT5Count > 0) ? 'Attempt Theft' : 'Need T3/T4/T5 Sigils'));
         const actionButtons = [
             canOpenTheft ? `<button class="btn btn-primary" onclick="TMC.openTheftRequest(${profile.player_id}, ${activeParticipation.season_id})" ${(viewerCanSteal && !targetTheftState?.is_protected) ? '' : 'disabled'}>${theftButtonLabel}</button>` : '',
-            canFreezeFromProfile ? `<button class="btn btn-danger" onclick="TMC.freezeByPlayerId(${profile.player_id}, ${profile.player_id})">Freeze Player</button>` : '',
+            canFreezeFromProfile ? `
+                <div class="profile-inline-action">
+                    <select id="profile-freeze-tier" class="input-field input-sm">
+                        ${freezeTierOptions.map((option) => `<option value="${option.tier}">${option.label} (${option.count} owned)</option>`).join('')}
+                    </select>
+                    <button class="btn btn-danger" onclick="TMC.freezeByPlayerId(${profile.player_id}, ${profile.player_id})">Freeze Player</button>
+                </div>
+            ` : '',
             canMeltOwnFreeze ? `
                 <div class="profile-inline-action">
                     <select id="profile-melt-tier" class="input-field input-sm">

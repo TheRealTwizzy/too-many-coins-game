@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS seasons (
     expiration_finalized TINYINT(1) NOT NULL DEFAULT 0,
     -- Immutable per-season economy config
     base_ubi_active_per_tick BIGINT NOT NULL DEFAULT 100,
-    base_ubi_idle_factor_fp INT NOT NULL DEFAULT 250000,  -- 0.25
+    base_ubi_idle_factor_fp INT NOT NULL DEFAULT 300000,  -- 0.30
     ubi_min_per_tick BIGINT NOT NULL DEFAULT 1,
     inflation_table JSON NOT NULL,
     hoarding_window_ticks INT NOT NULL DEFAULT 86400,
