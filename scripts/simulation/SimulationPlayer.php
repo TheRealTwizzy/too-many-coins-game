@@ -475,7 +475,7 @@ class SimulationPlayer
             }
             $this->boost['expires_tick'] = min($maxExpiresTick, (int)$this->boost['expires_tick'] + $timeIncrementTicks);
         } else {
-            $projected = min(BoostCatalog::TOTAL_POWER_CAP_FP, (int)$this->boost['modifier_fp'] + $powerIncrementFp);
+            $projected = min(BoostCatalog::POWER_CAP_FP_PER_PRODUCT, (int)$this->boost['modifier_fp'] + $powerIncrementFp);
             if ($projected <= (int)$this->boost['modifier_fp']) {
                 return;
             }

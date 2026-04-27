@@ -995,6 +995,7 @@ class Actions {
 
         $sigilCost = 1;
         $scope = 'SELF';
+        $productPowerCapFp = BoostCatalog::POWER_CAP_FP_PER_PRODUCT;
         $totalPowerCapFp = BoostCatalog::TOTAL_POWER_CAP_FP;
         $timeCapTicks = BoostCatalog::getTimeCapTicks();
         $recoveryTicks = BoostCatalog::getRecoveryTicks();
@@ -1102,10 +1103,10 @@ class Actions {
         }
 
         if ($active && $purchaseKind === 'power') {
-            $projectedModifier = min($totalPowerCapFp, $currentModifier + $powerIncrementFp);
+            $projectedModifier = min($productPowerCapFp, $currentModifier + $powerIncrementFp);
             $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $projectedModifier;
             if ($projectedCombinedFp > $totalPowerCapFp || $projectedModifier <= $currentModifier) {
-                return ['error' => 'Total boost cap reached (500% combined)'];
+                return ['error' => 'Boost power cap reached (100% per active boost)'];
             }
         }
         if ($active && $purchaseKind === 'time') {
@@ -1137,10 +1138,10 @@ class Actions {
                 );
             } else {
                 if ($purchaseKind === 'power') {
-                    $newModifier = min($totalPowerCapFp, $currentModifier + $powerIncrementFp);
+                    $newModifier = min($productPowerCapFp, $currentModifier + $powerIncrementFp);
                     $projectedCombinedFp = $combinedCurrentFp - $currentBoostTotalFp + $newModifier;
                     if ($projectedCombinedFp > $totalPowerCapFp || $newModifier <= $currentModifier) {
-                        throw new Exception('Total boost cap reached (500% combined)');
+                        throw new Exception('Boost power cap reached (100% per active boost)');
                     }
                     $expiresTick = $currentExpiresTick;
                 } else {
@@ -1193,7 +1194,7 @@ class Actions {
                 'purchased_time_real_seconds' => $purchasedTimeRealSeconds,
                 'stack_count' => 0,
                 'max_stack' => 0,
-                'power_cap_fp' => $totalPowerCapFp,
+                'power_cap_fp' => $productPowerCapFp,
                 'total_power_cap_fp' => $totalPowerCapFp,
                 'time_cap_ticks' => $timeCapTicks,
                 'recovery_ticks' => $recoveryTicks,
@@ -1214,6 +1215,9 @@ class Actions {
         } catch (Exception $e) {
             $db->rollback();
             $msg = $e->getMessage();
+            if ($msg === 'Boost power cap reached (100% per active boost)') {
+                return ['error' => 'Boost power cap reached (100% per active boost)'];
+            }
             if ($msg === 'Total boost cap reached (500% combined)') {
                 return ['error' => 'Total boost cap reached (500% combined)'];
             }

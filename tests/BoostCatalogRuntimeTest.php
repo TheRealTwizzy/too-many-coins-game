@@ -16,6 +16,13 @@ class BoostCatalogRuntimeTest extends TestCase
         );
     }
 
+    public function testPerProductPowerCapStaysBelowCombinedTotalCap(): void
+    {
+        $this->assertSame(1000000, BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
+        $this->assertSame(5000000, BoostCatalog::TOTAL_POWER_CAP_FP);
+        $this->assertLessThan(BoostCatalog::TOTAL_POWER_CAP_FP, BoostCatalog::POWER_CAP_FP_PER_PRODUCT);
+    }
+
     public function testTierOneInitialDurationIsCappedToFourHourWindow(): void
     {
         $this->assertSame(

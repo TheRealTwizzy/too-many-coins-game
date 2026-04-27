@@ -154,6 +154,7 @@ class SimulationConfigPreflightTest extends TestCase
         $this->assertSame((int)SIGIL_BOOST_DROP_PRESSURE_STEP_FP, $runtime['sigil_boost_drop_pressure_step_fp']);
         $this->assertSame((int)SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP, $runtime['sigil_boost_drop_pressure_step_penalty_fp']);
         $this->assertSame((int)SIGIL_BOOST_DROP_PRESSURE_MIN_FP, $runtime['sigil_boost_drop_pressure_min_fp']);
+        $this->assertSame((int)BoostCatalog::POWER_CAP_FP_PER_PRODUCT, $runtime['boost_power_cap_fp_per_product']);
         $this->assertSame((int)BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT, $runtime['boost_time_cap_seconds_per_product']);
         $this->assertSame((int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION, $runtime['boost_recovery_seconds_after_session']);
         $this->assertSame(array_values(SIGIL_FREEZE_SPEND_TIERS), $runtime['sigil_freeze_spend_tiers']);

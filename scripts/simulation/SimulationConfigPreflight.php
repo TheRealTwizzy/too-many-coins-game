@@ -110,6 +110,10 @@ class SimulationConfigPreflight
             'constant' => true,
             'referenced' => true,
         ],
+        'boost_power_cap_fp_per_product' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
         'boost_time_cap_seconds_per_product' => [
             'constant' => true,
             'referenced' => true,
@@ -430,6 +434,7 @@ class SimulationConfigPreflight
                 'sigil_boost_drop_pressure_step_fp' => (int)SIGIL_BOOST_DROP_PRESSURE_STEP_FP,
                 'sigil_boost_drop_pressure_step_penalty_fp' => (int)SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP,
                 'sigil_boost_drop_pressure_min_fp' => (int)SIGIL_BOOST_DROP_PRESSURE_MIN_FP,
+                'boost_power_cap_fp_per_product' => (int)BoostCatalog::POWER_CAP_FP_PER_PRODUCT,
                 'boost_time_cap_seconds_per_product' => (int)BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT,
                 'boost_recovery_seconds_after_session' => (int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION,
                 'sigil_freeze_spend_tiers' => array_values(SIGIL_FREEZE_SPEND_TIERS),

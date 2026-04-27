@@ -47,6 +47,43 @@ class BoostUptimeGovernorTest extends TestCase
         $this->assertSame(1, (int)$state['participation']['sigils_t5']);
     }
 
+    public function testSimulatorPowerPurchaseCannotStackSingleSessionPastPerProductCap(): void
+    {
+        $player = new SimulationPlayer(
+            1,
+            'boost_focused',
+            Archetypes::get('boost_focused'),
+            'boost-power-cap-test',
+            1
+        );
+        $this->seedPlayer($player, ['sigils_t5' => 2]);
+
+        $this->invokePlayerMethod($player, 'purchaseBoost', [5, 'power', 10, 'EARLY']);
+        $afterInitial = $player->snapshot();
+
+        $this->assertSame(BoostCatalog::POWER_CAP_FP_PER_PRODUCT, (int)$afterInitial['boost']['modifier_fp']);
+
+        $this->invokePlayerMethod($player, 'purchaseBoost', [5, 'power', 11, 'EARLY']);
+        $afterSecondAttempt = $player->snapshot();
+
+        $this->assertSame(BoostCatalog::POWER_CAP_FP_PER_PRODUCT, (int)$afterSecondAttempt['boost']['modifier_fp']);
+        $this->assertSame(1, (int)$afterSecondAttempt['participation']['sigils_t5']);
+        $this->assertSame(1, (int)$afterSecondAttempt['metrics']['sigils_spent_by_action']['boost']);
+    }
+
+    public function testRuntimeParityPowerPurchaseCannotStackSingleSessionPastPerProductCap(): void
+    {
+        $state = $this->runtimeState(['sigils_t5' => 2]);
+
+        $this->invokeRuntimeMethod('runtimePurchaseBoost', [&$state, 5, 'power', 10]);
+        $this->assertSame(BoostCatalog::POWER_CAP_FP_PER_PRODUCT, (int)$state['boost']['modifier_fp']);
+
+        $this->invokeRuntimeMethod('runtimePurchaseBoost', [&$state, 5, 'power', 11]);
+
+        $this->assertSame(BoostCatalog::POWER_CAP_FP_PER_PRODUCT, (int)$state['boost']['modifier_fp']);
+        $this->assertSame(1, (int)$state['participation']['sigils_t5']);
+    }
+
     public function testSimulatorRequiresRecoveryAfterBoostSessionExpiresBeforeReactivation(): void
     {
         $player = new SimulationPlayer(
