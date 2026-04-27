@@ -8,6 +8,7 @@ require_once __DIR__ . '/simulation/MetricsCollector.php';
 require_once __DIR__ . '/simulation/SimulationPlayer.php';
 require_once __DIR__ . '/simulation/SimulationPopulationSeason.php';
 require_once __DIR__ . '/simulation/SimulationPopulationLifetime.php';
+require_once __DIR__ . '/simulation/CandidatePatchLoader.php';
 
 $options = [
     'seed' => 'phase1-lifetime',
@@ -15,6 +16,7 @@ $options = [
     'seasons' => 12,
     'output' => __DIR__ . '/../simulation_output/lifetime',
     'season-config' => null,
+    'candidate-patch' => null,
     'archetypes' => null,
     'allow-inactive-candidate-config' => false,
 ];
@@ -30,6 +32,8 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['output'] = substr($arg, 9);
     } elseif (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--candidate-patch=')) {
+        $options['candidate-patch'] = substr($arg, 18);
     } elseif (str_starts_with($arg, '--archetypes=')) {
         $options['archetypes'] = substr($arg, 13);
     } elseif (str_starts_with($arg, '--allow-inactive-candidate-config=')) {
@@ -50,6 +54,7 @@ Options:
   --seasons=N                 Number of seasons to simulate (default: 12, min 2)
   --output=DIR                Output directory (default: simulation_output/lifetime)
   --season-config=FILE        JSON file with season config overrides (applied to all seasons)
+  --candidate-patch=FILE      JSON candidate patch validated by effective-config preflight
   --archetypes=A,B,C          Optional archetype key subset for focused harness runs
   --allow-inactive-candidate-config
                               Debug-only bypass for failed effective-config preflight
@@ -79,6 +84,7 @@ HELP;
 $baseName = 'lifetime_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string)$options['seed']) . '_s' . (int)$options['seasons'] . '_ppa' . (int)$options['players-per-archetype'];
 
 try {
+    $candidatePatch = CandidatePatchLoader::load($options['candidate-patch']);
     $payload = SimulationPopulationLifetime::run(
         (string)$options['seed'],
         (int)$options['players-per-archetype'],
@@ -88,6 +94,7 @@ try {
             'archetype_keys' => $options['archetypes'] !== null
                 ? array_values(array_filter(array_map('trim', explode(',', (string)$options['archetypes']))))
                 : [],
+            'candidate_patch' => $candidatePatch,
             'run_label' => $baseName,
             'preflight_artifact_dir' => rtrim((string)$options['output'], DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $baseName . '.audit',
             'debug_allow_inactive_candidate' => (bool)$options['allow-inactive-candidate-config'],

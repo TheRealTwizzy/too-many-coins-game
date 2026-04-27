@@ -256,7 +256,7 @@ class GameTime {
                      pending_star_burn_coins, star_burn_ema_fp, net_mint_ema_fp, market_pressure_fp,
                      coins_offline_total,
                      vault_config, current_star_price, last_processed_tick)
-                     VALUES (?, ?, ?, ?, 'Scheduled', 30, 250000, 1, ?, ?, 15, 100000,
+                     VALUES (?, ?, ?, ?, 'Scheduled', 30, 300000, 1, ?, ?, 15, 100000,
                      0, 12, 20000, 50000, 200000, 200, 535, 1070, 350000, 1287500,
                      ?, 6000, 0, 1, 1000, 12960,
                      ?, ?, ?,
@@ -713,6 +713,7 @@ class GameTime {
         $db->query(
             "UPDATE seasons
              SET base_ubi_active_per_tick = 30,
+                 base_ubi_idle_factor_fp = 300000,
                  target_spend_rate_per_tick = 15,
                  hoarding_min_factor_fp = 100000,
                  hoarding_sink_enabled = 0,

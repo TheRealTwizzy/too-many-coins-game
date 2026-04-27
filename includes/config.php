@@ -118,7 +118,7 @@ define('MIN_SEASONAL_LOCK_IN_TICKS', ticks_from_real_seconds(43200));
 // - One drop attempt per tick
 // - Activity, inventory pressure, and boost pressure scale the gate chance
 // - Season phase gates tier availability and weights
-define('SIGIL_DROP_CHANCE_FP', 10000); // 1.0% base gate chance
+define('SIGIL_DROP_CHANCE_FP', 3500); // 0.35% base gate chance
 define('SIGIL_ACTIVITY_MULTIPLIER_FP', [
     'Active' => 1000000,
     'Idle' => 500000,
@@ -215,7 +215,7 @@ define('SIGIL_BOOST_DROP_RATE_FLOOR',            5); // Absolute minimum denomin
 define('SIGIL_BOOST_DROP_RATE_CEILING',         20); // Absolute maximum denominator (most restrictive rate)
 define('SIGIL_BOOST_DROP_PRESSURE_STEP_FP', 100000); // Each 10% active boost modifier adds pressure
 define('SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP', 100000); // Each pressure step removes 10% drop chance
-define('SIGIL_BOOST_DROP_PRESSURE_MIN_FP', 250000); // Boosted drops never fall below 25% of pre-boost chance
+define('SIGIL_BOOST_DROP_PRESSURE_MIN_FP', 100000); // Boosted drops never fall below 10% of pre-boost chance
 define('SIGIL_PACING_JITTER_MIN_FP',        500000); // 50% of base interval
 define('SIGIL_PACING_JITTER_MAX_FP',       1500000); // 150% of base interval
 

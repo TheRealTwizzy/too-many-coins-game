@@ -107,7 +107,7 @@ class SimulationSeason
             'season_expired' => 0,
             'expiration_finalized' => 0,
             'base_ubi_active_per_tick' => 30,
-            'base_ubi_idle_factor_fp' => 250000,
+            'base_ubi_idle_factor_fp' => 300000,
             'ubi_min_per_tick' => 1,
             'inflation_table' => $inflationTable,
             'hoarding_window_ticks' => ticks_from_real_seconds(86400),

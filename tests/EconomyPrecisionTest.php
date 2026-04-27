@@ -223,11 +223,11 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(0, $offline);
     }
 
-    public function testSigilBaseDropChanceIsTacticalOnePercentGate(): void
+    public function testSigilBaseDropChanceIsTacticalThrottleGate(): void
     {
-        $this->assertSame(10000, (int)SIGIL_DROP_CHANCE_FP);
-        $this->assertSame(10000, Economy::sigilEffectiveDropChanceFp('Active', null, 0));
-        $this->assertSame(5000, Economy::sigilEffectiveDropChanceFp('Idle', null, 0));
+        $this->assertSame(3500, (int)SIGIL_DROP_CHANCE_FP);
+        $this->assertSame(3500, Economy::sigilEffectiveDropChanceFp('Active', null, 0));
+        $this->assertSame(1750, Economy::sigilEffectiveDropChanceFp('Idle', null, 0));
     }
 
     public function testSigilInventoryPressureBlocksDropsAtTotalCap(): void
@@ -274,6 +274,9 @@ class EconomyPrecisionTest extends TestCase
         $unboosted = Economy::sigilEffectiveDropChanceFp('Active', [], 0);
         $boosted = Economy::sigilEffectiveDropChanceFp('Active', [], FP_SCALE);
 
+        $this->assertSame(100000, (int)SIGIL_BOOST_DROP_PRESSURE_MIN_FP);
+        $this->assertSame(100000, Economy::sigilBoostDropPressureFp(FP_SCALE));
+        $this->assertSame(350, $boosted);
         $this->assertLessThan($unboosted, $boosted);
         $this->assertGreaterThan(0, $boosted);
     }

@@ -10,6 +10,7 @@
  *
  * Options:
  *   --season-config=FILE   Path to exported season config JSON (required)
+ *   --candidate-patch=FILE Path to canonical candidate patch JSON (optional)
  *   --output=DIR           Output directory (default: simulation_output/current-db/baseline-batch)
  *   --dry-run              Print the run matrix without executing
  *   --skip-existing        Skip runs whose output JSON already exists
@@ -19,8 +20,11 @@
  * The batch manifest is written to <output>/batch_manifest.json after all runs.
  */
 
+require_once __DIR__ . '/simulation/CandidatePatchLoader.php';
+
 $options = [
     'season-config' => null,
+    'candidate-patch' => null,
     'output'        => __DIR__ . '/../simulation_output/current-db/baseline-batch',
     'dry-run'       => false,
     'skip-existing' => false,
@@ -30,6 +34,8 @@ $options = [
 foreach (array_slice($argv, 1) as $arg) {
     if (str_starts_with($arg, '--season-config=')) {
         $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--candidate-patch=')) {
+        $options['candidate-patch'] = substr($arg, 18);
     } elseif (str_starts_with($arg, '--output=')) {
         $options['output'] = substr($arg, 9);
     } elseif ($arg === '--dry-run') {
@@ -50,6 +56,7 @@ Usage:
 
 Options:
   --season-config=FILE   Path to exported season config JSON (required)
+  --candidate-patch=FILE Path to canonical candidate patch JSON
   --output=DIR           Output directory (default: simulation_output/current-db/baseline-batch)
   --dry-run              Print the run matrix without executing
   --skip-existing        Skip runs whose output JSON already exists
@@ -89,6 +96,22 @@ if (!is_array($seasonConfigData) || empty($seasonConfigData)) {
     exit(1);
 }
 
+$candidatePatchPath = null;
+if ($options['candidate-patch'] !== null && $options['candidate-patch'] !== '') {
+    try {
+        CandidatePatchLoader::load((string)$options['candidate-patch']);
+    } catch (Throwable $e) {
+        fwrite(STDERR, "ERROR: " . $e->getMessage() . "\n");
+        exit(1);
+    }
+
+    $candidatePatchPath = realpath((string)$options['candidate-patch']);
+    if ($candidatePatchPath === false || !is_file($candidatePatchPath)) {
+        fwrite(STDERR, "ERROR: Candidate patch not found: {$options['candidate-patch']}\n");
+        exit(1);
+    }
+}
+
 $outputDir = $options['output'];
 if (!is_dir($outputDir)) {
     mkdir($outputDir, 0777, true);
@@ -123,6 +146,9 @@ foreach ($simBSeeds as $seed) {
                 "--output={$outputDir}",
             ],
         ];
+        if ($candidatePatchPath !== null) {
+            $runMatrix[count($runMatrix) - 1]['args'][] = "--candidate-patch={$candidatePatchPath}";
+        }
     }
 }
 
@@ -145,12 +171,18 @@ foreach ($simCSeeds as $seed) {
                 "--output={$outputDir}",
             ],
         ];
+        if ($candidatePatchPath !== null) {
+            $runMatrix[count($runMatrix) - 1]['args'][] = "--candidate-patch={$candidatePatchPath}";
+        }
     }
 }
 
 $totalRuns = count($runMatrix);
 echo "Baseline batch: {$totalRuns} runs planned (Sim B: " . (count($simBSeeds) * count($simBPpa)) . ", Sim C: " . (count($simCSeeds) * count($simCPpa)) . ")\n";
 echo "Season config: {$seasonConfigPath}\n";
+if ($candidatePatchPath !== null) {
+    echo "Candidate patch: {$candidatePatchPath}\n";
+}
 echo "Output dir: {$outputDir}\n\n";
 
 if ($options['dry-run']) {
@@ -175,8 +207,12 @@ if (!$options['skip-contracts']) {
     $contractArgs   = [
         $contractScript,
         "--seed={$contractSeed}",
+        "--season-config={$seasonConfigPath}",
         "--output={$contractOutput}",
     ];
+    if ($candidatePatchPath !== null) {
+        $contractArgs[] = "--candidate-patch={$candidatePatchPath}";
+    }
 
     $contractStart = microtime(true);
     $contractCmd = PHP_BINARY . ' ' . implode(' ', array_map('escapeshellarg', $contractArgs));
@@ -217,6 +253,7 @@ $manifest = [
     'generated_at'     => gmdate('c'),
     'season_config'    => $seasonConfigPath,
     'season_config_id' => $seasonConfigData['season_id'] ?? null,
+    'candidate_patch'  => $candidatePatchPath,
     'total_planned'    => $totalRuns,
     'matrix'           => [
         'sim_b_seeds'   => $simBSeeds,
@@ -244,6 +281,7 @@ foreach ($runMatrix as $i => $run) {
         'ppa'             => $run['ppa'],
         'seasons'         => $run['seasons'],
         'season_config'   => $seasonConfigPath,
+        'candidate_patch' => $candidatePatchPath,
         'output_json'     => $run['output_json'],
         'base_name'       => $run['base_name'],
     ];

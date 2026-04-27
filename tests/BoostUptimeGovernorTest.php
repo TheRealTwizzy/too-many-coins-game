@@ -8,6 +8,19 @@ require_once __DIR__ . '/../scripts/simulation/RuntimeParityCertification.php';
 
 class BoostUptimeGovernorTest extends TestCase
 {
+    public function testRecoveryWindowIsTwelveHoursAfterSessionExpiry(): void
+    {
+        $this->assertSame(12 * 60 * 60, BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION);
+        $this->assertSame(
+            ticks_from_real_seconds(12 * 60 * 60),
+            BoostCatalog::getRecoveryTicks()
+        );
+        $this->assertSame(
+            100 + ticks_from_real_seconds(12 * 60 * 60),
+            BoostCatalog::getRecoveryUntilTick(100)
+        );
+    }
+
     public function testSimulatorTimePurchaseCannotRollSessionPastOriginalTimeCap(): void
     {
         $player = new SimulationPlayer(

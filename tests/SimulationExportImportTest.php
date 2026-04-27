@@ -83,6 +83,13 @@ class SimulationExportImportTest extends TestCase
         }
     }
 
+    public function testDefaultSeasonUsesIdleViabilityV26Factor(): void
+    {
+        $season = SimulationSeason::build(1, 'idle-viability-default');
+
+        $this->assertSame(300000, (int)$season['base_ubi_idle_factor_fp']);
+    }
+
     // -------------------------------------------------------------------------
     // Simulation B — accepts exported config
     // -------------------------------------------------------------------------

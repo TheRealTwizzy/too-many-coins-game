@@ -12,7 +12,7 @@ class BoostCatalog
     public const POWER_CAP_FP_PER_PRODUCT = 1000000; // 100%
     public const TOTAL_POWER_CAP_FP = 5000000; // 500%
     public const TIME_CAP_SECONDS_PER_PRODUCT = 4 * 60 * 60; // 4 hours
-    public const RECOVERY_SECONDS_AFTER_SESSION = 4 * 60 * 60; // 4 hours
+    public const RECOVERY_SECONDS_AFTER_SESSION = 12 * 60 * 60; // 12 hours
 
     // Unified sigil spend effects (active boost already exists).
     private const SPEND_EFFECTS_BY_TIER = [

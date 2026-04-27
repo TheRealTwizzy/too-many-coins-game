@@ -141,6 +141,21 @@ class SimulationConfigPreflightTest extends TestCase
         $this->assertFileExists($resolved['artifact_paths']['effective_config_audit_md']);
     }
 
+    public function testIdleViabilityFactorCandidatePatchIsActiveAndAudited(): void
+    {
+        $resolved = SimulationConfigPreflight::resolve($this->options([
+            'candidate_patch' => ['base_ubi_idle_factor_fp' => 300000],
+        ]));
+
+        $change = $resolved['report']['requested_candidate_changes'][0];
+        $this->assertSame('season.base_ubi_idle_factor_fp', $change['path']);
+        $this->assertTrue($change['is_active']);
+        $this->assertNull($change['reason_code']);
+        $this->assertSame(300000, $change['effective_value']);
+        $this->assertSame('candidate_patch', $change['effective_source']);
+        $this->assertSame(300000, $resolved['report']['effective_config']['season']['base_ubi_idle_factor_fp']);
+    }
+
     public function testRuntimeAuditIncludesSigilScarcityControls(): void
     {
         $resolved = SimulationConfigPreflight::resolve($this->options());
@@ -148,15 +163,18 @@ class SimulationConfigPreflightTest extends TestCase
 
         $this->assertSame((string)SIGIL_DROP_ALGORITHM_VERSION, $runtime['sigil_drop_algorithm_version']);
         $this->assertSame((int)SIGIL_DROP_CHANCE_FP, $runtime['sigil_drop_chance_fp']);
+        $this->assertSame(3500, $runtime['sigil_drop_chance_fp']);
         $this->assertSame((int)SIGIL_INVENTORY_TOTAL_CAP, $runtime['sigil_inventory_total_cap']);
         $this->assertSame((int)SIGIL_INVENTORY_DROP_PRESSURE_START, $runtime['sigil_inventory_drop_pressure_start']);
         $this->assertSame((int)SIGIL_INVENTORY_DROP_PRESSURE_FULL, $runtime['sigil_inventory_drop_pressure_full']);
         $this->assertSame((int)SIGIL_BOOST_DROP_PRESSURE_STEP_FP, $runtime['sigil_boost_drop_pressure_step_fp']);
         $this->assertSame((int)SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP, $runtime['sigil_boost_drop_pressure_step_penalty_fp']);
         $this->assertSame((int)SIGIL_BOOST_DROP_PRESSURE_MIN_FP, $runtime['sigil_boost_drop_pressure_min_fp']);
+        $this->assertSame(100000, $runtime['sigil_boost_drop_pressure_min_fp']);
         $this->assertSame((int)BoostCatalog::POWER_CAP_FP_PER_PRODUCT, $runtime['boost_power_cap_fp_per_product']);
         $this->assertSame((int)BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT, $runtime['boost_time_cap_seconds_per_product']);
         $this->assertSame((int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION, $runtime['boost_recovery_seconds_after_session']);
+        $this->assertSame(12 * 60 * 60, $runtime['boost_recovery_seconds_after_session']);
         $this->assertSame(array_values(SIGIL_FREEZE_SPEND_TIERS), $runtime['sigil_freeze_spend_tiers']);
         $this->assertSame(SIGIL_FREEZE_DURATION_TICKS_BY_TIER, $runtime['sigil_freeze_duration_ticks_by_tier']);
         $this->assertSame(SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER, $runtime['sigil_freeze_stack_extension_ticks_by_tier']);

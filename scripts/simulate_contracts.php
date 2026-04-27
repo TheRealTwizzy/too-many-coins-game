@@ -3,10 +3,13 @@
 require_once __DIR__ . '/simulation/SimulationSeason.php';
 require_once __DIR__ . '/simulation/MetricsCollector.php';
 require_once __DIR__ . '/simulation/ContractSimulator.php';
+require_once __DIR__ . '/simulation/CandidatePatchLoader.php';
 
 $options = [
     'seed' => 'phase1',
     'output' => __DIR__ . '/../simulation_output/contracts',
+    'season-config' => null,
+    'candidate-patch' => null,
     'allow-inactive-candidate-config' => false,
 ];
 
@@ -15,6 +18,10 @@ foreach (array_slice($argv, 1) as $arg) {
         $options['seed'] = substr($arg, 7);
     } elseif (str_starts_with($arg, '--output=')) {
         $options['output'] = substr($arg, 9);
+    } elseif (str_starts_with($arg, '--season-config=')) {
+        $options['season-config'] = substr($arg, 16);
+    } elseif (str_starts_with($arg, '--candidate-patch=')) {
+        $options['candidate-patch'] = substr($arg, 18);
     } elseif (str_starts_with($arg, '--allow-inactive-candidate-config=')) {
         $value = strtolower(trim(substr($arg, 34)));
         $options['allow-inactive-candidate-config'] = in_array($value, ['1', 'true', 'yes'], true);
@@ -28,8 +35,10 @@ Usage:
   php scripts/simulate_contracts.php [OPTIONS]
 
 Options:
-  --seed=VALUE   Run identifier (default: phase1)
-  --output=DIR   Output directory (default: simulation_output/contracts)
+  --seed=VALUE             Run identifier (default: phase1)
+  --output=DIR             Output directory (default: simulation_output/contracts)
+  --season-config=FILE     JSON file with base season config overrides
+  --candidate-patch=FILE   JSON candidate patch validated by effective-config preflight
   --allow-inactive-candidate-config
                   Debug-only bypass for failed effective-config preflight
   --help         Show this help
@@ -50,8 +59,11 @@ HELP;
 $baseName = 'contract_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string)$options['seed']);
 
 try {
+    $candidatePatch = CandidatePatchLoader::load($options['candidate-patch']);
     $payload = ContractSimulator::run((string)$options['seed'], [
         'run_label' => $baseName,
+        'base_season_config_path' => $options['season-config'],
+        'candidate_patch' => $candidatePatch,
         'preflight_artifact_dir' => rtrim((string)$options['output'], DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $baseName . '.audit',
         'debug_allow_inactive_candidate' => (bool)$options['allow-inactive-candidate-config'],
     ]);
