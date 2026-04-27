@@ -1,0 +1,232 @@
+# Economy Diagnosis Summary
+
+Generated: 2026-04-27T07:59:53+00:00
+Source: baseline_analysis_report.json
+Sim B runs: 15 | Sim C runs: 6
+
+## Overview
+
+Total findings: **14**
+
+| Severity | Count |
+|---|---|
+| HIGH | 0 |
+| MEDIUM | 14 |
+| LOW | 0 |
+
+## MEDIUM Severity Findings
+
+### [B1] underused_mechanics
+
+Action 'freeze' has only 0.1% usage rate across all archetypes and phases (threshold: <5%).
+
+**Evidence:**
+- `action`: freeze
+- `count`: 119
+- `grand_total`: 97386
+- `share`: 0.0012
+
+**Threshold:** 0.05 | **Observed:** 0.0012
+
+**Affected phases:** EARLY, MID, LATE_ACTIVE, BLACKOUT
+
+---
+
+### [B2] underused_mechanics
+
+Action 'theft' has only 1.3% usage rate across all archetypes and phases (threshold: <5%).
+
+**Evidence:**
+- `action`: theft
+- `count`: 1249
+- `grand_total`: 97386
+- `share`: 0.0128
+
+**Threshold:** 0.05 | **Observed:** 0.0128
+
+**Affected phases:** EARLY, MID, LATE_ACTIVE, BLACKOUT
+
+---
+
+### [B3] overpowered_mechanics
+
+Archetype Casual earns 90.7% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: casual
+- `boost_coin_share`: 0.9069
+- `mean_ticks_boosted`: 74198.33
+
+**Threshold:** 0.6 | **Observed:** 0.9069
+
+**Affected archetypes:** casual
+
+---
+
+### [B4] overpowered_mechanics
+
+Archetype Regular earns 93.5% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: regular
+- `boost_coin_share`: 0.9347
+- `mean_ticks_boosted`: 96620.6
+
+**Threshold:** 0.6 | **Observed:** 0.9347
+
+**Affected archetypes:** regular
+
+---
+
+### [B5] overpowered_mechanics
+
+Archetype Hardcore earns 95.1% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: hardcore
+- `boost_coin_share`: 0.9509
+- `mean_ticks_boosted`: 152494.47
+
+**Threshold:** 0.6 | **Observed:** 0.9509
+
+**Affected archetypes:** hardcore
+
+---
+
+### [B6] overpowered_mechanics
+
+Archetype Hoarder earns 86.7% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: hoarder
+- `boost_coin_share`: 0.8666
+- `mean_ticks_boosted`: 89087.8
+
+**Threshold:** 0.6 | **Observed:** 0.8666
+
+**Affected archetypes:** hoarder
+
+---
+
+### [B7] overpowered_mechanics
+
+Archetype Early Locker earns 94.8% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: early_locker
+- `boost_coin_share`: 0.9482
+- `mean_ticks_boosted`: 71669
+
+**Threshold:** 0.6 | **Observed:** 0.9482
+
+**Affected archetypes:** early_locker
+
+---
+
+### [B8] overpowered_mechanics
+
+Archetype Late Deployer earns 91.7% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: late_deployer
+- `boost_coin_share`: 0.9166
+- `mean_ticks_boosted`: 108990.27
+
+**Threshold:** 0.6 | **Observed:** 0.9166
+
+**Affected archetypes:** late_deployer
+
+---
+
+### [B9] overpowered_mechanics
+
+Archetype Boost-Focused earns 95.6% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: boost_focused
+- `boost_coin_share`: 0.9557
+- `mean_ticks_boosted`: 155939.6
+
+**Threshold:** 0.6 | **Observed:** 0.9557
+
+**Affected archetypes:** boost_focused
+
+---
+
+### [B10] overpowered_mechanics
+
+Archetype Star-Focused earns 91.1% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: star_focused
+- `boost_coin_share`: 0.9105
+- `mean_ticks_boosted`: 102763.53
+
+**Threshold:** 0.6 | **Observed:** 0.9105
+
+**Affected archetypes:** star_focused
+
+---
+
+### [B11] overpowered_mechanics
+
+Archetype Aggressive Sigil User earns 95.1% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: aggressive_sigil_user
+- `boost_coin_share`: 0.9508
+- `mean_ticks_boosted`: 118165.87
+
+**Threshold:** 0.6 | **Observed:** 0.9508
+
+**Affected archetypes:** aggressive_sigil_user
+
+---
+
+### [B12] overpowered_mechanics
+
+Archetype Mostly Idle earns 90.7% of coins while boosted (threshold: >60% per archetype).
+
+**Evidence:**
+- `archetype`: mostly_idle
+- `boost_coin_share`: 0.9074
+- `mean_ticks_boosted`: 57765.13
+
+**Threshold:** 0.6 | **Observed:** 0.9074
+
+**Affected archetypes:** mostly_idle
+
+---
+
+### [B13] sigil_overabundance
+
+Median total sigil inventory is 71.9 per player (threshold: >20, cap is 25).
+
+**Evidence:**
+- `median_total_per_player`: 71.9
+- `per_archetype`: {"casual":42.8,"regular":61.8,"hardcore":106.8,"hoarder":81.9,"early_locker":45.8,"late_deployer":64.8,"boost_focused":98.7,"star_focused":78.9,"aggressive_sigil_user":80.1,"mostly_idle":31.6}
+
+**Threshold:** 20 | **Observed:** 71.9
+
+**Affected archetypes:** casual, regular, hardcore, hoarder, early_locker, late_deployer, boost_focused, star_focused, aggressive_sigil_user, mostly_idle
+
+---
+
+### [B14] phase_dead_zones
+
+BLACKOUT phase has only 0% of total actions (threshold: <10%).
+
+**Evidence:**
+- `phase`: BLACKOUT
+- `phase_total`: 7
+- `share`: 0.0001
+- `grand_total`: 97386
+
+**Threshold:** 0.1 | **Observed:** 0.0001
+
+**Affected phases:** BLACKOUT
+
+---
+
+---
+*This report is auto-generated by `scripts/diagnose_economy.php` and is deterministic for a given baseline analysis input.*

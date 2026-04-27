@@ -1,0 +1,368 @@
+{
+    "schema_version": "tmc-diagnosis.v1",
+    "generated_at": "2026-04-27T13:52:09+00:00",
+    "source_report": "C:\\xampp\\htdocs\\too-many-coins-game\\simulation_output\\current-db\\boost-burst-v22-batch-20260427-snapshot\\baseline_analysis_report.json",
+    "source_schema": "tmc-baseline-analysis.v1",
+    "sim_b_runs": 15,
+    "sim_c_runs": 6,
+    "total_findings": 16,
+    "findings_by_severity": {
+        "HIGH": 1,
+        "MEDIUM": 15,
+        "LOW": 0
+    },
+    "findings": [
+        {
+            "id": "B4",
+            "severity": "HIGH",
+            "category": "overpowered_mechanics",
+            "description": "Boost mechanic contributes 83.9% of coin earning delta between top-quartile and remaining players (threshold: >40%).",
+            "metric_evidence": {
+                "boost_share_of_coin_delta": 0.8394,
+                "coin_delta_top_vs_rest": 113427.46,
+                "boosted_coin_delta": 95214.72,
+                "players_in_top_quartile": 438
+            },
+            "affected_archetypes": [],
+            "affected_phases": [],
+            "trigger_rule": "boost share of top-quartile coin delta >40%",
+            "threshold": 0.4,
+            "observed_value": 0.8394,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B1",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'combine' has only 4.9% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "combine",
+                "count": 6232,
+                "grand_total": 127698,
+                "share": 0.0488
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0488,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B2",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'freeze' has only 4.3% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "freeze",
+                "count": 5465,
+                "grand_total": 127698,
+                "share": 0.0428
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0428,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B3",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'theft' has only 1.7% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "theft",
+                "count": 2210,
+                "grand_total": 127698,
+                "share": 0.0173
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0173,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B5",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Casual earns 68% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "casual",
+                "boost_coin_share": 0.6795,
+                "mean_ticks_boosted": 52387.47
+            },
+            "affected_archetypes": [
+                "casual"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.6795,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B6",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Regular earns 73.9% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "regular",
+                "boost_coin_share": 0.7385,
+                "mean_ticks_boosted": 81239.33
+            },
+            "affected_archetypes": [
+                "regular"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.7385,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B7",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Hardcore earns 79.1% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "hardcore",
+                "boost_coin_share": 0.7908,
+                "mean_ticks_boosted": 116396.53
+            },
+            "affected_archetypes": [
+                "hardcore"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.7908,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B8",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Hoarder earns 63.8% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "hoarder",
+                "boost_coin_share": 0.6379,
+                "mean_ticks_boosted": 67539.07
+            },
+            "affected_archetypes": [
+                "hoarder"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.6379,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B9",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Early Locker earns 78.1% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "early_locker",
+                "boost_coin_share": 0.7814,
+                "mean_ticks_boosted": 57567.27
+            },
+            "affected_archetypes": [
+                "early_locker"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.7814,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B10",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Late Deployer earns 70.6% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "late_deployer",
+                "boost_coin_share": 0.7062,
+                "mean_ticks_boosted": 79830.33
+            },
+            "affected_archetypes": [
+                "late_deployer"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.7062,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B11",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Boost-Focused earns 79.7% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "boost_focused",
+                "boost_coin_share": 0.7974,
+                "mean_ticks_boosted": 115036.87
+            },
+            "affected_archetypes": [
+                "boost_focused"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.7974,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B12",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Star-Focused earns 69.2% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "star_focused",
+                "boost_coin_share": 0.6918,
+                "mean_ticks_boosted": 76550.33
+            },
+            "affected_archetypes": [
+                "star_focused"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.6918,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B13",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Aggressive Sigil User earns 77.4% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "aggressive_sigil_user",
+                "boost_coin_share": 0.7737,
+                "mean_ticks_boosted": 105634.73
+            },
+            "affected_archetypes": [
+                "aggressive_sigil_user"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.7737,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B14",
+            "severity": "MEDIUM",
+            "category": "overpowered_mechanics",
+            "description": "Archetype Mostly Idle earns 68.4% of coins while boosted (threshold: >60% per archetype).",
+            "metric_evidence": {
+                "archetype": "mostly_idle",
+                "boost_coin_share": 0.6838,
+                "mean_ticks_boosted": 35670.13
+            },
+            "affected_archetypes": [
+                "mostly_idle"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "single archetype boost coin share >60%",
+            "threshold": 0.6,
+            "observed_value": 0.6838,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B15",
+            "severity": "MEDIUM",
+            "category": "sigil_overabundance",
+            "description": "Median total sigil inventory is 87.7 per player (threshold: >20, cap is 25).",
+            "metric_evidence": {
+                "median_total_per_player": 87.7,
+                "per_archetype": {
+                    "casual": 50.8,
+                    "regular": 83.5,
+                    "hardcore": 133.5,
+                    "hoarder": 97.5,
+                    "early_locker": 58.4,
+                    "late_deployer": 81.9,
+                    "boost_focused": 122,
+                    "star_focused": 92,
+                    "aggressive_sigil_user": 112.4,
+                    "mostly_idle": 34.7
+                }
+            },
+            "affected_archetypes": [
+                "casual",
+                "regular",
+                "hardcore",
+                "hoarder",
+                "early_locker",
+                "late_deployer",
+                "boost_focused",
+                "star_focused",
+                "aggressive_sigil_user",
+                "mostly_idle"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "median total sigil inventory >20 per player",
+            "threshold": 20,
+            "observed_value": 87.7,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B16",
+            "severity": "MEDIUM",
+            "category": "phase_dead_zones",
+            "description": "BLACKOUT phase has only 0% of total actions (threshold: <10%).",
+            "metric_evidence": {
+                "phase": "BLACKOUT",
+                "phase_total": 14,
+                "share": 0.0001,
+                "grand_total": 127698
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any phase with <10% of total actions",
+            "threshold": 0.1,
+            "observed_value": 0.0001,
+            "confidence": "HIGH",
+            "notes": ""
+        }
+    ],
+    "unsupported_rules": []
+}

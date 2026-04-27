@@ -1,0 +1,1317 @@
+{
+    "schema_version": "tmc-baseline-analysis.v1",
+    "generated_at": "2026-04-26T17:36:48+00:00",
+    "manifest_path": "C:\\xampp\\htdocs\\too-many-coins-game\\simulation_output\\current-db\\baseline-batch-20260426-snapshot\\batch_manifest.json",
+    "season_config": "C:\\xampp\\htdocs\\too-many-coins-game\\simulation_output\\current-db\\export\\current_season_economy_only.json",
+    "sim_b_runs_loaded": 15,
+    "sim_c_runs_loaded": 6,
+    "lock_in_vs_expiry": {
+        "overall_lock_in_rate": 0.7269,
+        "overall_natural_expiry_rate": 0.2731,
+        "overall_sample_size": 1750,
+        "by_archetype": {
+            "casual": {
+                "label": "Casual",
+                "lock_in_rate": 0.92,
+                "natural_expiry_rate": 0.08,
+                "sample_size": 175
+            },
+            "regular": {
+                "label": "Regular",
+                "lock_in_rate": 0.8857,
+                "natural_expiry_rate": 0.1143,
+                "sample_size": 175
+            },
+            "hardcore": {
+                "label": "Hardcore",
+                "lock_in_rate": 0.4286,
+                "natural_expiry_rate": 0.5714,
+                "sample_size": 175
+            },
+            "hoarder": {
+                "label": "Hoarder",
+                "lock_in_rate": 0.9829,
+                "natural_expiry_rate": 0.0171,
+                "sample_size": 175
+            },
+            "early_locker": {
+                "label": "Early Locker",
+                "lock_in_rate": 1,
+                "natural_expiry_rate": 0,
+                "sample_size": 175
+            },
+            "late_deployer": {
+                "label": "Late Deployer",
+                "lock_in_rate": 0.2343,
+                "natural_expiry_rate": 0.7657,
+                "sample_size": 175
+            },
+            "boost_focused": {
+                "label": "Boost-Focused",
+                "lock_in_rate": 0.12,
+                "natural_expiry_rate": 0.88,
+                "sample_size": 175
+            },
+            "star_focused": {
+                "label": "Star-Focused",
+                "lock_in_rate": 0.9943,
+                "natural_expiry_rate": 0.0057,
+                "sample_size": 175
+            },
+            "aggressive_sigil_user": {
+                "label": "Aggressive Sigil User",
+                "lock_in_rate": 0.7086,
+                "natural_expiry_rate": 0.2914,
+                "sample_size": 175
+            },
+            "mostly_idle": {
+                "label": "Mostly Idle",
+                "lock_in_rate": 0.9943,
+                "natural_expiry_rate": 0.0057,
+                "sample_size": 175
+            }
+        },
+        "lock_in_timing_distribution": {
+            "EARLY": 0,
+            "MID": 0.2714,
+            "LATE_ACTIVE": 0.4211,
+            "BLACKOUT": 0.0343,
+            "NONE": 0.2731
+        },
+        "lock_in_timing_counts": {
+            "EARLY": 0,
+            "MID": 475,
+            "LATE_ACTIVE": 737,
+            "BLACKOUT": 60,
+            "NONE": 478
+        }
+    },
+    "star_accumulation": {
+        "casual": {
+            "label": "Casual",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 11777.2,
+                    "median": 10148
+                },
+                "MID": {
+                    "mean": 18928.87,
+                    "median": 15194
+                },
+                "LATE_ACTIVE": {
+                    "mean": 10221.93,
+                    "median": 8429
+                },
+                "BLACKOUT": {
+                    "mean": 4039.2,
+                    "median": 4211
+                }
+            },
+            "global_stars_mean": 109032.67,
+            "global_stars_median": 91149,
+            "score_mean": 13937.76,
+            "score_median": 13683
+        },
+        "regular": {
+            "label": "Regular",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 17908.4,
+                    "median": 15548
+                },
+                "MID": {
+                    "mean": 42545.93,
+                    "median": 37412
+                },
+                "LATE_ACTIVE": {
+                    "mean": 27643.4,
+                    "median": 23271
+                },
+                "BLACKOUT": {
+                    "mean": 12098.8,
+                    "median": 10621
+                }
+            },
+            "global_stars_mean": 145325.67,
+            "global_stars_median": 117610,
+            "score_mean": 18015.42,
+            "score_median": 18009
+        },
+        "hardcore": {
+            "label": "Hardcore",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 40575.27,
+                    "median": 34609
+                },
+                "MID": {
+                    "mean": 82441.27,
+                    "median": 69787
+                },
+                "LATE_ACTIVE": {
+                    "mean": 73306.53,
+                    "median": 72177
+                },
+                "BLACKOUT": {
+                    "mean": 14668,
+                    "median": 16193
+                }
+            },
+            "global_stars_mean": 218161.8,
+            "global_stars_median": 192661,
+            "score_mean": 22205.23,
+            "score_median": 21634
+        },
+        "hoarder": {
+            "label": "Hoarder",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 1833.73,
+                    "median": 1593
+                },
+                "MID": {
+                    "mean": 10652.87,
+                    "median": 9218
+                },
+                "LATE_ACTIVE": {
+                    "mean": 7787,
+                    "median": 7186
+                },
+                "BLACKOUT": {
+                    "mean": 924.67,
+                    "median": 0
+                }
+            },
+            "global_stars_mean": 101446.2,
+            "global_stars_median": 88592,
+            "score_mean": 13292.71,
+            "score_median": 13483
+        },
+        "early_locker": {
+            "label": "Early Locker",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 33347.33,
+                    "median": 29162
+                },
+                "MID": {
+                    "mean": 19781.93,
+                    "median": 16480
+                },
+                "LATE_ACTIVE": {
+                    "mean": 2035.47,
+                    "median": 1269
+                },
+                "BLACKOUT": {
+                    "mean": 85.6,
+                    "median": 0
+                }
+            },
+            "global_stars_mean": 130450.07,
+            "global_stars_median": 111440,
+            "score_mean": 17202.89,
+            "score_median": 17355
+        },
+        "late_deployer": {
+            "label": "Late Deployer",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 12423.47,
+                    "median": 10772
+                },
+                "MID": {
+                    "mean": 33138.93,
+                    "median": 28396
+                },
+                "LATE_ACTIVE": {
+                    "mean": 99511.47,
+                    "median": 84699
+                },
+                "BLACKOUT": {
+                    "mean": 59176.93,
+                    "median": 47116
+                }
+            },
+            "global_stars_mean": 212015.33,
+            "global_stars_median": 179646,
+            "score_mean": 19829.5,
+            "score_median": 19748
+        },
+        "boost_focused": {
+            "label": "Boost-Focused",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 17145.8,
+                    "median": 15565
+                },
+                "MID": {
+                    "mean": 49272.47,
+                    "median": 41896
+                },
+                "LATE_ACTIVE": {
+                    "mean": 66026.27,
+                    "median": 56495
+                },
+                "BLACKOUT": {
+                    "mean": 73776.93,
+                    "median": 64030
+                }
+            },
+            "global_stars_mean": 199929.53,
+            "global_stars_median": 172602,
+            "score_mean": 17727.55,
+            "score_median": 17727
+        },
+        "star_focused": {
+            "label": "Star-Focused",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 59095.73,
+                    "median": 50080
+                },
+                "MID": {
+                    "mean": 93601.73,
+                    "median": 82071
+                },
+                "LATE_ACTIVE": {
+                    "mean": 14580.6,
+                    "median": 12515
+                },
+                "BLACKOUT": {
+                    "mean": 0.07,
+                    "median": 0
+                }
+            },
+            "global_stars_mean": 185714.07,
+            "global_stars_median": 157867,
+            "score_mean": 24430.7,
+            "score_median": 25025
+        },
+        "aggressive_sigil_user": {
+            "label": "Aggressive Sigil User",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 13269.6,
+                    "median": 11405
+                },
+                "MID": {
+                    "mean": 44149.33,
+                    "median": 36926
+                },
+                "LATE_ACTIVE": {
+                    "mean": 31352.2,
+                    "median": 25551
+                },
+                "BLACKOUT": {
+                    "mean": 21538.4,
+                    "median": 19001
+                }
+            },
+            "global_stars_mean": 163915.67,
+            "global_stars_median": 135347,
+            "score_mean": 19089.1,
+            "score_median": 19161
+        },
+        "mostly_idle": {
+            "label": "Mostly Idle",
+            "stars_by_phase": {
+                "EARLY": {
+                    "mean": 8151.47,
+                    "median": 6734
+                },
+                "MID": {
+                    "mean": 7105.73,
+                    "median": 5433
+                },
+                "LATE_ACTIVE": {
+                    "mean": 759.8,
+                    "median": 4
+                },
+                "BLACKOUT": {
+                    "mean": 283.93,
+                    "median": 0
+                }
+            },
+            "global_stars_mean": 104715.4,
+            "global_stars_median": 94556,
+            "score_mean": 13788.65,
+            "score_median": 14396
+        }
+    },
+    "sigil_tier_distribution": {
+        "casual": {
+            "label": "Casual",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 4616.8,
+                    "per_player_mean": 419.71
+                },
+                "2": {
+                    "total_mean": 2396.67,
+                    "per_player_mean": 217.88
+                },
+                "3": {
+                    "total_mean": 765,
+                    "per_player_mean": 69.55
+                },
+                "4": {
+                    "total_mean": 118.8,
+                    "per_player_mean": 10.8
+                },
+                "5": {
+                    "total_mean": 20.53,
+                    "per_player_mean": 1.87
+                },
+                "6": {
+                    "total_mean": 1.47,
+                    "per_player_mean": 0.13
+                }
+            },
+            "spent_by_action": {
+                "boost": 4018.13,
+                "combine": 4919.4,
+                "freeze": 31,
+                "theft": 249.2,
+                "melt": 0
+            },
+            "t6_mean_total": 31,
+            "t6_by_source": {
+                "drop": 1.47,
+                "combine": 29.53,
+                "theft": 0
+            }
+        },
+        "regular": {
+            "label": "Regular",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 6744.07,
+                    "per_player_mean": 613.1
+                },
+                "2": {
+                    "total_mean": 3551.33,
+                    "per_player_mean": 322.85
+                },
+                "3": {
+                    "total_mean": 1199.33,
+                    "per_player_mean": 109.03
+                },
+                "4": {
+                    "total_mean": 211.73,
+                    "per_player_mean": 19.25
+                },
+                "5": {
+                    "total_mean": 40.8,
+                    "per_player_mean": 3.71
+                },
+                "6": {
+                    "total_mean": 1.8,
+                    "per_player_mean": 0.16
+                }
+            },
+            "spent_by_action": {
+                "boost": 7835.27,
+                "combine": 4995.33,
+                "freeze": 63.2,
+                "theft": 216.47,
+                "melt": 0
+            },
+            "t6_mean_total": 63.2,
+            "t6_by_source": {
+                "drop": 1.8,
+                "combine": 61.4,
+                "theft": 0
+            }
+        },
+        "hardcore": {
+            "label": "Hardcore",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 10822.8,
+                    "per_player_mean": 983.89
+                },
+                "2": {
+                    "total_mean": 5825.73,
+                    "per_player_mean": 529.61
+                },
+                "3": {
+                    "total_mean": 2137.4,
+                    "per_player_mean": 194.31
+                },
+                "4": {
+                    "total_mean": 441.27,
+                    "per_player_mean": 40.12
+                },
+                "5": {
+                    "total_mean": 77.87,
+                    "per_player_mean": 7.08
+                },
+                "6": {
+                    "total_mean": 5.73,
+                    "per_player_mean": 0.52
+                }
+            },
+            "spent_by_action": {
+                "boost": 16101.67,
+                "combine": 3889.93,
+                "freeze": 41.93,
+                "theft": 195.93,
+                "melt": 0
+            },
+            "t6_mean_total": 41.93,
+            "t6_by_source": {
+                "drop": 5.73,
+                "combine": 36.2,
+                "theft": 0
+            }
+        },
+        "hoarder": {
+            "label": "Hoarder",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 7617.73,
+                    "per_player_mean": 692.52
+                },
+                "2": {
+                    "total_mean": 3973.27,
+                    "per_player_mean": 361.21
+                },
+                "3": {
+                    "total_mean": 1305.47,
+                    "per_player_mean": 118.68
+                },
+                "4": {
+                    "total_mean": 189.27,
+                    "per_player_mean": 17.21
+                },
+                "5": {
+                    "total_mean": 36.2,
+                    "per_player_mean": 3.29
+                },
+                "6": {
+                    "total_mean": 1.93,
+                    "per_player_mean": 0.18
+                }
+            },
+            "spent_by_action": {
+                "boost": 3389.93,
+                "combine": 12501.53,
+                "freeze": 145.87,
+                "theft": 68.47,
+                "melt": 0
+            },
+            "t6_mean_total": 145.87,
+            "t6_by_source": {
+                "drop": 1.93,
+                "combine": 143.93,
+                "theft": 0
+            }
+        },
+        "early_locker": {
+            "label": "Early Locker",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 5044.13,
+                    "per_player_mean": 458.56
+                },
+                "2": {
+                    "total_mean": 2460.6,
+                    "per_player_mean": 223.69
+                },
+                "3": {
+                    "total_mean": 688.2,
+                    "per_player_mean": 62.56
+                },
+                "4": {
+                    "total_mean": 65.87,
+                    "per_player_mean": 5.99
+                },
+                "5": {
+                    "total_mean": 11.13,
+                    "per_player_mean": 1.01
+                },
+                "6": {
+                    "total_mean": 0.13,
+                    "per_player_mean": 0.01
+                }
+            },
+            "spent_by_action": {
+                "boost": 4789.33,
+                "combine": 4418.4,
+                "freeze": 42.33,
+                "theft": 35.07,
+                "melt": 0
+            },
+            "t6_mean_total": 42.33,
+            "t6_by_source": {
+                "drop": 0.13,
+                "combine": 42.2,
+                "theft": 0
+            }
+        },
+        "late_deployer": {
+            "label": "Late Deployer",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 6850,
+                    "per_player_mean": 622.73
+                },
+                "2": {
+                    "total_mean": 3773,
+                    "per_player_mean": 343
+                },
+                "3": {
+                    "total_mean": 1481.2,
+                    "per_player_mean": 134.65
+                },
+                "4": {
+                    "total_mean": 346.47,
+                    "per_player_mean": 31.5
+                },
+                "5": {
+                    "total_mean": 60.67,
+                    "per_player_mean": 5.52
+                },
+                "6": {
+                    "total_mean": 5.73,
+                    "per_player_mean": 0.52
+                }
+            },
+            "spent_by_action": {
+                "boost": 8340.8,
+                "combine": 5437.33,
+                "freeze": 100.8,
+                "theft": 72.13,
+                "melt": 0
+            },
+            "t6_mean_total": 100.8,
+            "t6_by_source": {
+                "drop": 5.73,
+                "combine": 95.07,
+                "theft": 0
+            }
+        },
+        "boost_focused": {
+            "label": "Boost-Focused",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 10423.13,
+                    "per_player_mean": 947.56
+                },
+                "2": {
+                    "total_mean": 5733.93,
+                    "per_player_mean": 521.27
+                },
+                "3": {
+                    "total_mean": 2157.67,
+                    "per_player_mean": 196.15
+                },
+                "4": {
+                    "total_mean": 465.4,
+                    "per_player_mean": 42.31
+                },
+                "5": {
+                    "total_mean": 84.73,
+                    "per_player_mean": 7.7
+                },
+                "6": {
+                    "total_mean": 8.8,
+                    "per_player_mean": 0.8
+                }
+            },
+            "spent_by_action": {
+                "boost": 18514.4,
+                "combine": 429.4,
+                "freeze": 19.13,
+                "theft": 7,
+                "melt": 0
+            },
+            "t6_mean_total": 19.13,
+            "t6_by_source": {
+                "drop": 8.8,
+                "combine": 10.33,
+                "theft": 0
+            }
+        },
+        "star_focused": {
+            "label": "Star-Focused",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 7430.13,
+                    "per_player_mean": 675.47
+                },
+                "2": {
+                    "total_mean": 3895.67,
+                    "per_player_mean": 354.15
+                },
+                "3": {
+                    "total_mean": 1311.4,
+                    "per_player_mean": 119.22
+                },
+                "4": {
+                    "total_mean": 194.33,
+                    "per_player_mean": 17.67
+                },
+                "5": {
+                    "total_mean": 34.93,
+                    "per_player_mean": 3.18
+                },
+                "6": {
+                    "total_mean": 1.07,
+                    "per_player_mean": 0.1
+                }
+            },
+            "spent_by_action": {
+                "boost": 6146.8,
+                "combine": 8063.47,
+                "freeze": 123.73,
+                "theft": 65.2,
+                "melt": 0
+            },
+            "t6_mean_total": 123.93,
+            "t6_by_source": {
+                "drop": 1.07,
+                "combine": 122.87,
+                "theft": 0
+            }
+        },
+        "aggressive_sigil_user": {
+            "label": "Aggressive Sigil User",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 8651.07,
+                    "per_player_mean": 786.46
+                },
+                "2": {
+                    "total_mean": 4630,
+                    "per_player_mean": 420.91
+                },
+                "3": {
+                    "total_mean": 1637.07,
+                    "per_player_mean": 148.82
+                },
+                "4": {
+                    "total_mean": 302.73,
+                    "per_player_mean": 27.52
+                },
+                "5": {
+                    "total_mean": 51.6,
+                    "per_player_mean": 4.69
+                },
+                "6": {
+                    "total_mean": 5.07,
+                    "per_player_mean": 0.46
+                }
+            },
+            "spent_by_action": {
+                "boost": 11003.73,
+                "combine": 5501.67,
+                "freeze": 115.13,
+                "theft": 111.53,
+                "melt": 0
+            },
+            "t6_mean_total": 115.13,
+            "t6_by_source": {
+                "drop": 5.07,
+                "combine": 110.07,
+                "theft": 0
+            }
+        },
+        "mostly_idle": {
+            "label": "Mostly Idle",
+            "acquired_by_tier": {
+                "1": {
+                    "total_mean": 3128.27,
+                    "per_player_mean": 284.39
+                },
+                "2": {
+                    "total_mean": 1531.4,
+                    "per_player_mean": 139.22
+                },
+                "3": {
+                    "total_mean": 427.53,
+                    "per_player_mean": 38.87
+                },
+                "4": {
+                    "total_mean": 39.33,
+                    "per_player_mean": 3.58
+                },
+                "5": {
+                    "total_mean": 7.4,
+                    "per_player_mean": 0.67
+                },
+                "6": {
+                    "total_mean": 0.07,
+                    "per_player_mean": 0.01
+                }
+            },
+            "spent_by_action": {
+                "boost": 2068.27,
+                "combine": 3889.67,
+                "freeze": 41.93,
+                "theft": 12.4,
+                "melt": 0
+            },
+            "t6_mean_total": 41.93,
+            "t6_by_source": {
+                "drop": 0.07,
+                "combine": 41.87,
+                "theft": 0
+            }
+        }
+    },
+    "boost_usage": {
+        "by_archetype": {
+            "casual": {
+                "label": "Casual",
+                "mean_boost_activations": 4018.13,
+                "mean_score": 13885.13
+            },
+            "regular": {
+                "label": "Regular",
+                "mean_boost_activations": 7835.27,
+                "mean_score": 17820.4
+            },
+            "hardcore": {
+                "label": "Hardcore",
+                "mean_boost_activations": 16101.67,
+                "mean_score": 22028.6
+            },
+            "hoarder": {
+                "label": "Hoarder",
+                "mean_boost_activations": 3389.93,
+                "mean_score": 12956.07
+            },
+            "early_locker": {
+                "label": "Early Locker",
+                "mean_boost_activations": 4789.33,
+                "mean_score": 17012.07
+            },
+            "late_deployer": {
+                "label": "Late Deployer",
+                "mean_boost_activations": 8340.8,
+                "mean_score": 19790.07
+            },
+            "boost_focused": {
+                "label": "Boost-Focused",
+                "mean_boost_activations": 18514.4,
+                "mean_score": 17666.8
+            },
+            "star_focused": {
+                "label": "Star-Focused",
+                "mean_boost_activations": 6146.8,
+                "mean_score": 23724.53
+            },
+            "aggressive_sigil_user": {
+                "label": "Aggressive Sigil User",
+                "mean_boost_activations": 11003.73,
+                "mean_score": 18460.53
+            },
+            "mostly_idle": {
+                "label": "Mostly Idle",
+                "mean_boost_activations": 2068.27,
+                "mean_score": 13658.87
+            }
+        },
+        "boost_focused_vs_regular_ratio": 0.9914
+    },
+    "ranking_concentration": {
+        "sim_b_top10_share_mean": 0.1472,
+        "sim_b_top10_share_median": 0.1483,
+        "sim_b_top10_share_values": [
+            0.1375,
+            0.141,
+            0.1481,
+            0.1478,
+            0.1517,
+            0.1514,
+            0.1399,
+            0.1401,
+            0.1484,
+            0.139,
+            0.1546,
+            0.1488,
+            0.1483,
+            0.1603,
+            0.1514
+        ],
+        "sim_c_final_top10_share_mean": 0.2232,
+        "sim_c_final_top10_share_values": [
+            0.2138,
+            0.246,
+            0.2172,
+            0.2356,
+            0.1969,
+            0.2295
+        ]
+    },
+    "archetype_outcome_spread": {
+        "overall_mean_of_medians": 17480.34,
+        "by_archetype": {
+            "casual": {
+                "label": "Casual",
+                "cross_seed_mean": 13135.07,
+                "ratio_to_overall": 0.7514
+            },
+            "regular": {
+                "label": "Regular",
+                "cross_seed_mean": 17715.8,
+                "ratio_to_overall": 1.0135
+            },
+            "hardcore": {
+                "label": "Hardcore",
+                "cross_seed_mean": 21496.27,
+                "ratio_to_overall": 1.2297
+            },
+            "hoarder": {
+                "label": "Hoarder",
+                "cross_seed_mean": 12753.33,
+                "ratio_to_overall": 0.7296
+            },
+            "early_locker": {
+                "label": "Early Locker",
+                "cross_seed_mean": 16605.4,
+                "ratio_to_overall": 0.9499
+            },
+            "late_deployer": {
+                "label": "Late Deployer",
+                "cross_seed_mean": 19705.73,
+                "ratio_to_overall": 1.1273
+            },
+            "boost_focused": {
+                "label": "Boost-Focused",
+                "cross_seed_mean": 17479.33,
+                "ratio_to_overall": 0.9999
+            },
+            "star_focused": {
+                "label": "Star-Focused",
+                "cross_seed_mean": 23734.8,
+                "ratio_to_overall": 1.3578
+            },
+            "aggressive_sigil_user": {
+                "label": "Aggressive Sigil User",
+                "cross_seed_mean": 18418.27,
+                "ratio_to_overall": 1.0537
+            },
+            "mostly_idle": {
+                "label": "Mostly Idle",
+                "cross_seed_mean": 13759.4,
+                "ratio_to_overall": 0.7871
+            }
+        },
+        "dominant_archetypes": [],
+        "non_viable_archetypes": []
+    },
+    "final_standing_distribution": {
+        "total_players": 1750,
+        "mean_score": 17951.95,
+        "median_score": 18389.5,
+        "p10": 11198.4,
+        "p25": 15014.75,
+        "p75": 20756.25,
+        "p90": 23661.9,
+        "locked_in_mean": 17703.25,
+        "locked_in_median": 17625,
+        "expired_mean": 18613.76,
+        "expired_median": 19352.5,
+        "locked_in_expired_gap": -910.51,
+        "score_histogram": {
+            "0": 0,
+            "50": 0,
+            "100": 0,
+            "200": 0,
+            "300": 0,
+            "500": 0,
+            "750": 0,
+            "1000": 0,
+            "2000": 1,
+            "5000": 1749
+        }
+    },
+    "dominant_strategies": {
+        "overall_median_score": 18001.5,
+        "dominant_combos": []
+    },
+    "hoarding_vs_spending": {
+        "by_archetype": {
+            "casual": {
+                "label": "Casual",
+                "mean_coins_earned": 419241.2,
+                "mean_stars_purchased": 3854.33,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 108.77
+            },
+            "regular": {
+                "label": "Regular",
+                "mean_coins_earned": 500515.21,
+                "mean_stars_purchased": 8588.27,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 58.28
+            },
+            "hardcore": {
+                "label": "Hardcore",
+                "mean_coins_earned": 631901.37,
+                "mean_stars_purchased": 18084.95,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 34.94
+            },
+            "hoarder": {
+                "label": "Hoarder",
+                "mean_coins_earned": 321772.61,
+                "mean_stars_purchased": 1816.99,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 177.09
+            },
+            "early_locker": {
+                "label": "Early Locker",
+                "mean_coins_earned": 340000.47,
+                "mean_stars_purchased": 4735.74,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 71.79
+            },
+            "late_deployer": {
+                "label": "Late Deployer",
+                "mean_coins_earned": 614398.08,
+                "mean_stars_purchased": 17507.21,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 35.09
+            },
+            "boost_focused": {
+                "label": "Boost-Focused",
+                "mean_coins_earned": 683127.58,
+                "mean_stars_purchased": 17676.13,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 38.65
+            },
+            "star_focused": {
+                "label": "Star-Focused",
+                "mean_coins_earned": 463451.96,
+                "mean_stars_purchased": 14338.13,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 32.32
+            },
+            "aggressive_sigil_user": {
+                "label": "Aggressive Sigil User",
+                "mean_coins_earned": 576605.14,
+                "mean_stars_purchased": 9455.1,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 60.98
+            },
+            "mostly_idle": {
+                "label": "Mostly Idle",
+                "mean_coins_earned": 264236.47,
+                "mean_stars_purchased": 1397.22,
+                "mean_hoarding_sink": 0,
+                "mean_spend_window": 0,
+                "coin_to_star_ratio": 189.12
+            }
+        },
+        "hoarder_vs_regular_ratio": 0.7199
+    },
+    "phase_by_phase_behavior": {
+        "action_distribution": {
+            "EARLY": {
+                "actions": {
+                    "boost": 428979,
+                    "combine": 113855,
+                    "freeze": 2035,
+                    "theft": 5880
+                },
+                "phase_total": 550749,
+                "share": 0.3774
+            },
+            "MID": {
+                "actions": {
+                    "boost": 504085,
+                    "combine": 79116,
+                    "freeze": 6827,
+                    "theft": 5969
+                },
+                "phase_total": 595997,
+                "share": 0.4084
+            },
+            "LATE_ACTIVE": {
+                "actions": {
+                    "boost": 299821,
+                    "combine": 6993,
+                    "freeze": 2014,
+                    "theft": 3634
+                },
+                "phase_total": 312462,
+                "share": 0.2141
+            },
+            "BLACKOUT": {
+                "actions": {
+                    "boost": 240,
+                    "combine": 0,
+                    "freeze": 0,
+                    "theft": 18
+                },
+                "phase_total": 258,
+                "share": 0.0002
+            }
+        },
+        "grand_total_actions": 1459466,
+        "late_active_engaged_rate_mean": 0.707
+    },
+    "cross_seed_stability": {
+        "seed_count": 5,
+        "metrics": {
+            "lock_in_rate": {
+                "values": [
+                    0.72,
+                    0.69,
+                    0.7117,
+                    0.7,
+                    0.7283
+                ],
+                "cv": 0.0193
+            },
+            "mean_score": {
+                "values": [
+                    17840.77,
+                    17473.22,
+                    17912.34,
+                    17807.4,
+                    17470.15
+                ],
+                "cv": 0.0107
+            },
+            "expiry_rate": {
+                "values": [
+                    0.28,
+                    0.31,
+                    0.2883,
+                    0.3,
+                    0.2717
+                ],
+                "cv": 0.0473
+            }
+        },
+        "unstable_metrics": [],
+        "stability_threshold": 0.15
+    },
+    "star_pricing": {
+        "available": true,
+        "seed_count": 5,
+        "mean_price_by_seed": [
+            32.07,
+            32.07,
+            32.07,
+            32.07,
+            32.07
+        ],
+        "price_cv_across_seeds": 0,
+        "mean_cap_share": 0,
+        "mean_floor_share": 0,
+        "stuck_at_cap_or_floor_share": 0,
+        "global_min_price": 32,
+        "global_max_price": 97
+    },
+    "progression_pacing": {
+        "available": false,
+        "overall_final_median": 18389.5,
+        "aggregated": {
+            "EARLY": null,
+            "MID": null,
+            "LATE_ACTIVE": null
+        },
+        "by_archetype": {
+            "casual": {
+                "label": "Casual",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 13450
+            },
+            "regular": {
+                "label": "Regular",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 18009
+            },
+            "hardcore": {
+                "label": "Hardcore",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 21568
+            },
+            "hoarder": {
+                "label": "Hoarder",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 12691
+            },
+            "early_locker": {
+                "label": "Early Locker",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 17056
+            },
+            "late_deployer": {
+                "label": "Late Deployer",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 19748
+            },
+            "boost_focused": {
+                "label": "Boost-Focused",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 17507
+            },
+            "star_focused": {
+                "label": "Star-Focused",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 24296
+            },
+            "aggressive_sigil_user": {
+                "label": "Aggressive Sigil User",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 18496
+            },
+            "mostly_idle": {
+                "label": "Mostly Idle",
+                "phase_end_scores": {
+                    "EARLY": null,
+                    "MID": null,
+                    "LATE_ACTIVE": null
+                },
+                "archetype_final_median": 14216
+            }
+        }
+    },
+    "mechanic_attribution": {
+        "available": true,
+        "attribution_method": "coins_earned_while_boosted: fraction of total coin accrual that occurred during active boost ticks",
+        "by_archetype": {
+            "casual": {
+                "label": "Casual",
+                "mean_total_coins": 4891147.33,
+                "mean_boosted_coins": 4886115.07,
+                "boost_coin_share": 0.999,
+                "mean_ticks_boosted": 133359.87,
+                "mean_ticks_frozen": 0
+            },
+            "regular": {
+                "label": "Regular",
+                "mean_total_coins": 5839344.07,
+                "mean_boosted_coins": 5833510.8,
+                "boost_coin_share": 0.999,
+                "mean_ticks_boosted": 149525.53,
+                "mean_ticks_frozen": 0
+            },
+            "hardcore": {
+                "label": "Hardcore",
+                "mean_total_coins": 7372182.67,
+                "mean_boosted_coins": 7367371.73,
+                "boost_coin_share": 0.9993,
+                "mean_ticks_boosted": 191016.93,
+                "mean_ticks_frozen": 1000
+            },
+            "hoarder": {
+                "label": "Hoarder",
+                "mean_total_coins": 3754013.73,
+                "mean_boosted_coins": 3707030.33,
+                "boost_coin_share": 0.9875,
+                "mean_ticks_boosted": 125151.47,
+                "mean_ticks_frozen": 0
+            },
+            "early_locker": {
+                "label": "Early Locker",
+                "mean_total_coins": 3966672.13,
+                "mean_boosted_coins": 3960975.87,
+                "boost_coin_share": 0.9986,
+                "mean_ticks_boosted": 95282.07,
+                "mean_ticks_frozen": 0
+            },
+            "late_deployer": {
+                "label": "Late Deployer",
+                "mean_total_coins": 7167977.6,
+                "mean_boosted_coins": 7163847.33,
+                "boost_coin_share": 0.9994,
+                "mean_ticks_boosted": 206372.13,
+                "mean_ticks_frozen": 0
+            },
+            "boost_focused": {
+                "label": "Boost-Focused",
+                "mean_total_coins": 7969821.8,
+                "mean_boosted_coins": 7966380.87,
+                "boost_coin_share": 0.9996,
+                "mean_ticks_boosted": 216538.4,
+                "mean_ticks_frozen": 0
+            },
+            "star_focused": {
+                "label": "Star-Focused",
+                "mean_total_coins": 5406939.53,
+                "mean_boosted_coins": 5400028.53,
+                "boost_coin_share": 0.9987,
+                "mean_ticks_boosted": 143629.4,
+                "mean_ticks_frozen": 11490.4
+            },
+            "aggressive_sigil_user": {
+                "label": "Aggressive Sigil User",
+                "mean_total_coins": 6727060,
+                "mean_boosted_coins": 6722079,
+                "boost_coin_share": 0.9993,
+                "mean_ticks_boosted": 169682.33,
+                "mean_ticks_frozen": 0
+            },
+            "mostly_idle": {
+                "label": "Mostly Idle",
+                "mean_total_coins": 3082758.87,
+                "mean_boosted_coins": 3077069,
+                "boost_coin_share": 0.9982,
+                "mean_ticks_boosted": 95294.2,
+                "mean_ticks_frozen": 0
+            }
+        },
+        "top_quartile_analysis": {
+            "players_in_top_quartile": 438,
+            "top_mean_coins": 554178.97,
+            "top_mean_boosted_coins": 553690.5,
+            "bottom_mean_coins": 457270.1,
+            "bottom_mean_boosted_coins": 456364.09,
+            "coin_delta_top_vs_rest": 96908.87,
+            "boosted_coin_delta": 97326.41,
+            "boost_share_of_coin_delta": 1.0043
+        }
+    }
+}

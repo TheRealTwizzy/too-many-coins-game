@@ -1,0 +1,205 @@
+{
+    "schema_version": "tmc-diagnosis.v1",
+    "generated_at": "2026-04-27T19:37:35+00:00",
+    "source_report": "C:\\xampp\\htdocs\\too-many-coins-game\\simulation_output\\current-db\\boost-recovery-sigil-throttle-v25-batch-20260427-snapshot\\baseline_analysis_report.json",
+    "source_schema": "tmc-baseline-analysis.v1",
+    "sim_b_runs": 15,
+    "sim_c_runs": 6,
+    "total_findings": 7,
+    "findings_by_severity": {
+        "HIGH": 1,
+        "MEDIUM": 6,
+        "LOW": 0
+    },
+    "findings": [
+        {
+            "id": "B6",
+            "severity": "HIGH",
+            "category": "non_viable_archetype",
+            "description": "Archetype 'mostly_idle' (Mostly Idle) has median score at 49.5% of overall median (threshold: <50%).",
+            "metric_evidence": {
+                "archetype": "mostly_idle",
+                "label": "Mostly Idle",
+                "cross_seed_mean": 1836.13,
+                "ratio_to_overall": 0.4952,
+                "overall_mean": 3707.62
+            },
+            "affected_archetypes": [
+                "mostly_idle"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "any archetype with median final score <50% of overall median",
+            "threshold": 0.5,
+            "observed_value": 0.4952,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B1",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'combine' has only 3.6% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "combine",
+                "count": 1648,
+                "grand_total": 45170,
+                "share": 0.0365
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0365,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B2",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'freeze' has only 3.8% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "freeze",
+                "count": 1723,
+                "grand_total": 45170,
+                "share": 0.0381
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0381,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B3",
+            "severity": "MEDIUM",
+            "category": "underused_mechanics",
+            "description": "Action 'theft' has only 3.4% usage rate across all archetypes and phases (threshold: <5%).",
+            "metric_evidence": {
+                "action": "theft",
+                "count": 1531,
+                "grand_total": 45170,
+                "share": 0.0339
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "EARLY",
+                "MID",
+                "LATE_ACTIVE",
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any action type with <5% usage rate across all archetypes",
+            "threshold": 0.05,
+            "observed_value": 0.0339,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B4",
+            "severity": "MEDIUM",
+            "category": "sigil_scarcity",
+            "description": "Median T4+ sigil acquisition is 0.69 per player per season (threshold: <1.0).",
+            "metric_evidence": {
+                "median_t4_plus_per_player": 0.69,
+                "per_archetype": {
+                    "casual": 0.24,
+                    "regular": 0.64,
+                    "hardcore": 1.47,
+                    "hoarder": 0.67,
+                    "early_locker": 0.33,
+                    "late_deployer": 0.77,
+                    "boost_focused": 1.34,
+                    "star_focused": 0.7,
+                    "aggressive_sigil_user": 1,
+                    "mostly_idle": 0.09
+                }
+            },
+            "affected_archetypes": [
+                "casual",
+                "regular",
+                "hoarder",
+                "early_locker",
+                "late_deployer",
+                "star_focused",
+                "mostly_idle"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "median T4+ acquisition <1.0 per player per season",
+            "threshold": 1,
+            "observed_value": 0.69,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B5",
+            "severity": "MEDIUM",
+            "category": "sigil_overabundance",
+            "description": "Median total sigil inventory is 31.9 per player (threshold: >20, cap is 25).",
+            "metric_evidence": {
+                "median_total_per_player": 31.9,
+                "per_archetype": {
+                    "casual": 18.2,
+                    "regular": 29.9,
+                    "hardcore": 49.6,
+                    "hoarder": 34.7,
+                    "early_locker": 23.7,
+                    "late_deployer": 28.3,
+                    "boost_focused": 44.1,
+                    "star_focused": 34,
+                    "aggressive_sigil_user": 40.1,
+                    "mostly_idle": 12.6
+                }
+            },
+            "affected_archetypes": [
+                "regular",
+                "hardcore",
+                "hoarder",
+                "early_locker",
+                "late_deployer",
+                "boost_focused",
+                "star_focused",
+                "aggressive_sigil_user"
+            ],
+            "affected_phases": [],
+            "trigger_rule": "median total sigil inventory >20 per player",
+            "threshold": 20,
+            "observed_value": 31.9,
+            "confidence": "HIGH",
+            "notes": ""
+        },
+        {
+            "id": "B7",
+            "severity": "MEDIUM",
+            "category": "phase_dead_zones",
+            "description": "BLACKOUT phase has only 0.9% of total actions (threshold: <10%).",
+            "metric_evidence": {
+                "phase": "BLACKOUT",
+                "phase_total": 394,
+                "share": 0.0087,
+                "grand_total": 45170
+            },
+            "affected_archetypes": [],
+            "affected_phases": [
+                "BLACKOUT"
+            ],
+            "trigger_rule": "any phase with <10% of total actions",
+            "threshold": 0.1,
+            "observed_value": 0.0087,
+            "confidence": "HIGH",
+            "notes": ""
+        }
+    ],
+    "unsupported_rules": []
+}
