@@ -3,6 +3,7 @@
 require_once __DIR__ . '/SimulationSeason.php';
 require_once __DIR__ . '/EconomicCandidateValidator.php';
 require_once __DIR__ . '/SeasonConfigExporter.php';
+require_once __DIR__ . '/../../includes/boost_catalog.php';
 
 class SimulationConfigPreflightException extends RuntimeException
 {
@@ -74,6 +75,70 @@ class SimulationConfigPreflight
             'referenced' => true,
         ],
         'sigil_early_phase_fraction_fp' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_drop_algorithm_version' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_drop_chance_fp' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_inventory_total_cap' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_inventory_drop_pressure_start' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_inventory_drop_pressure_full' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_boost_drop_pressure_step_fp' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_boost_drop_pressure_step_penalty_fp' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_boost_drop_pressure_min_fp' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'boost_time_cap_seconds_per_product' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'boost_recovery_seconds_after_session' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_freeze_spend_tiers' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_freeze_duration_ticks_by_tier' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_freeze_stack_extension_ticks_by_tier' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_freeze_blackout_duration_ticks_by_tier' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_freeze_blackout_stack_extension_ticks_by_tier' => [
+            'constant' => true,
+            'referenced' => true,
+        ],
+        'sigil_theft_spend_tiers' => [
             'constant' => true,
             'referenced' => true,
         ],
@@ -357,6 +422,22 @@ class SimulationConfigPreflight
                 'sigil_blackout_duration_ticks' => (int)SIGIL_BLACKOUT_DURATION_TICKS,
                 'sigil_late_active_duration_ticks' => (int)SIGIL_LATE_ACTIVE_DURATION_TICKS,
                 'sigil_early_phase_fraction_fp' => (int)SIGIL_EARLY_PHASE_FRACTION_FP,
+                'sigil_drop_algorithm_version' => (string)SIGIL_DROP_ALGORITHM_VERSION,
+                'sigil_drop_chance_fp' => (int)SIGIL_DROP_CHANCE_FP,
+                'sigil_inventory_total_cap' => (int)SIGIL_INVENTORY_TOTAL_CAP,
+                'sigil_inventory_drop_pressure_start' => (int)SIGIL_INVENTORY_DROP_PRESSURE_START,
+                'sigil_inventory_drop_pressure_full' => (int)SIGIL_INVENTORY_DROP_PRESSURE_FULL,
+                'sigil_boost_drop_pressure_step_fp' => (int)SIGIL_BOOST_DROP_PRESSURE_STEP_FP,
+                'sigil_boost_drop_pressure_step_penalty_fp' => (int)SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP,
+                'sigil_boost_drop_pressure_min_fp' => (int)SIGIL_BOOST_DROP_PRESSURE_MIN_FP,
+                'boost_time_cap_seconds_per_product' => (int)BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT,
+                'boost_recovery_seconds_after_session' => (int)BoostCatalog::RECOVERY_SECONDS_AFTER_SESSION,
+                'sigil_freeze_spend_tiers' => array_values(SIGIL_FREEZE_SPEND_TIERS),
+                'sigil_freeze_duration_ticks_by_tier' => SIGIL_FREEZE_DURATION_TICKS_BY_TIER,
+                'sigil_freeze_stack_extension_ticks_by_tier' => SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER,
+                'sigil_freeze_blackout_duration_ticks_by_tier' => SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER,
+                'sigil_freeze_blackout_stack_extension_ticks_by_tier' => SIGIL_FREEZE_BLACKOUT_STACK_EXTENSION_TICKS_BY_TIER,
+                'sigil_theft_spend_tiers' => array_values(SIGIL_THEFT_SPEND_TIERS),
                 default => null,
             };
             $sources[$key] = 'code_default';

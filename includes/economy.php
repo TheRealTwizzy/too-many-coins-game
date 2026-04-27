@@ -30,6 +30,50 @@ class Economy {
         return (int)$total;
     }
 
+    public static function sigilInventoryDropPressureFp($participation) {
+        if (!$participation || !is_array($participation)) {
+            return FP_SCALE;
+        }
+
+        $totalCap = self::getSigilTotalCap();
+        if ($totalCap <= 0) {
+            return FP_SCALE;
+        }
+
+        $total = self::getSigilTotal($participation);
+        if ($total >= $totalCap) {
+            return 0;
+        }
+
+        $start = max(0, min($totalCap - 1, (int)(defined('SIGIL_INVENTORY_DROP_PRESSURE_START') ? SIGIL_INVENTORY_DROP_PRESSURE_START : intdiv($totalCap, 2))));
+        if ($total <= $start) {
+            return FP_SCALE;
+        }
+
+        $full = max($start + 1, min($totalCap, (int)(defined('SIGIL_INVENTORY_DROP_PRESSURE_FULL') ? SIGIL_INVENTORY_DROP_PRESSURE_FULL : $totalCap)));
+        if ($total >= $full) {
+            return 0;
+        }
+
+        $span = max(1, $full - $start);
+        $remaining = max(0, $full - $total);
+        return max(0, min(FP_SCALE, intdiv($remaining * FP_SCALE, $span)));
+    }
+
+    public static function sigilBoostDropPressureFp($boostModFp) {
+        $boostModFp = max(0, (int)$boostModFp);
+        if ($boostModFp <= 0) {
+            return FP_SCALE;
+        }
+
+        $stepFp = max(1, (int)(defined('SIGIL_BOOST_DROP_PRESSURE_STEP_FP') ? SIGIL_BOOST_DROP_PRESSURE_STEP_FP : 100000));
+        $penaltyPerStepFp = max(0, (int)(defined('SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP') ? SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP : 100000));
+        $minPressureFp = max(0, min(FP_SCALE, (int)(defined('SIGIL_BOOST_DROP_PRESSURE_MIN_FP') ? SIGIL_BOOST_DROP_PRESSURE_MIN_FP : 250000)));
+        $steps = intdiv($boostModFp + $stepFp - 1, $stepFp);
+        $pressureFp = FP_SCALE - ($steps * $penaltyPerStepFp);
+        return max($minPressureFp, min(FP_SCALE, (int)$pressureFp));
+    }
+
     public static function canReceiveSigilTier($participation, $tier, $amount = 1, $consumedAmount = 0) {
         if (!$participation || !is_array($participation)) {
             return false;
@@ -1011,16 +1055,18 @@ class Economy {
      * Deterministically evaluate one sigil drop attempt for one tick.
      * Returns null (no drop) or a payload with tier and metadata.
      */
-    public static function evaluateSigilDropForTick($season, $player, $tickIndex) {
+    public static function evaluateSigilDropForTick($season, $player, $tickIndex, $participation = null, $boostModFp = 0) {
         $activityState = self::resolveSigilDropActivityState($player);
         $activityMultiplierFp = self::sigilActivityMultiplierFp($activityState);
+        $inventoryPressureFp = self::sigilInventoryDropPressureFp($participation);
+        $boostPressureFp = self::sigilBoostDropPressureFp($boostModFp);
 
         // Offline short-circuit: no RNG draws and no drop.
         if ($activityMultiplierFp <= 0) {
             return null;
         }
 
-        $effectiveDropChanceFp = self::sigilEffectiveDropChanceFp($activityState);
+        $effectiveDropChanceFp = self::sigilEffectiveDropChanceFp($activityState, $participation, $boostModFp);
         if ($effectiveDropChanceFp <= 0) {
             return null;
         }
@@ -1057,6 +1103,8 @@ class Economy {
                 'algorithm_version' => (string)SIGIL_DROP_ALGORITHM_VERSION,
                 'effective_drop_chance_fp' => $effectiveDropChanceFp,
                 'activity_multiplier_fp' => $activityMultiplierFp,
+                'inventory_pressure_fp' => $inventoryPressureFp,
+                'boost_pressure_fp' => $boostPressureFp,
                 'season_phase' => $seasonPhase,
                 'season_progress_fp' => $seasonProgressFp,
                 'gate_roll_u32' => $gateRoll,
@@ -1072,10 +1120,15 @@ class Economy {
         return max(0, (int)($multiplierMap[(string)$activityState] ?? 0));
     }
 
-    public static function sigilEffectiveDropChanceFp($activityState) {
+    public static function sigilEffectiveDropChanceFp($activityState, $participation = null, $boostModFp = 0) {
         $baseChanceFp = max(0, min(FP_SCALE, (int)SIGIL_DROP_CHANCE_FP));
         $activityMultiplierFp = self::sigilActivityMultiplierFp($activityState);
-        return intdiv($baseChanceFp * $activityMultiplierFp, FP_SCALE);
+        $inventoryPressureFp = self::sigilInventoryDropPressureFp($participation);
+        $boostPressureFp = self::sigilBoostDropPressureFp($boostModFp);
+
+        $chanceFp = intdiv($baseChanceFp * $activityMultiplierFp, FP_SCALE);
+        $chanceFp = intdiv($chanceFp * $inventoryPressureFp, FP_SCALE);
+        return intdiv($chanceFp * $boostPressureFp, FP_SCALE);
     }
 
     public static function sigilSeasonProgressFp($season, $tickIndex) {

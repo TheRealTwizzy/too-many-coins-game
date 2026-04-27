@@ -116,9 +116,9 @@ define('MIN_SEASONAL_LOCK_IN_TICKS', ticks_from_real_seconds(43200));
 // Sigil drops
 // Deterministic per-tick drop model:
 // - One drop attempt per tick
-// - Activity scales only the gate chance
+// - Activity, inventory pressure, and boost pressure scale the gate chance
 // - Season phase gates tier availability and weights
-define('SIGIL_DROP_CHANCE_FP', 125000); // 12.5% base gate chance
+define('SIGIL_DROP_CHANCE_FP', 10000); // 1.0% base gate chance
 define('SIGIL_ACTIVITY_MULTIPLIER_FP', [
     'Active' => 1000000,
     'Idle' => 500000,
@@ -167,7 +167,7 @@ define('SIGIL_PHASE_TIER_WEIGHTS', [
         5 => 22,
     ],
 ]);
-define('SIGIL_DROP_ALGORITHM_VERSION', 'deterministic_v3');
+define('SIGIL_DROP_ALGORITHM_VERSION', 'deterministic_v4');
 
 // Legacy queued/pity sigil controls are retained for compatibility but are
 // no longer part of the active deterministic drop pipeline.
@@ -213,6 +213,9 @@ define('SIGIL_BOOST_DROP_RATE_STEP_FP',     30000); // 3% boost per denominator-
 define('SIGIL_BOOST_DROP_RATE_MAX_PENALTY',      3); // Maximum denominator increase from boost activity
 define('SIGIL_BOOST_DROP_RATE_FLOOR',            5); // Absolute minimum denominator (most generous rate)
 define('SIGIL_BOOST_DROP_RATE_CEILING',         20); // Absolute maximum denominator (most restrictive rate)
+define('SIGIL_BOOST_DROP_PRESSURE_STEP_FP', 100000); // Each 10% active boost modifier adds pressure
+define('SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP', 100000); // Each pressure step removes 10% drop chance
+define('SIGIL_BOOST_DROP_PRESSURE_MIN_FP', 250000); // Boosted drops never fall below 25% of pre-boost chance
 define('SIGIL_PACING_JITTER_MIN_FP',        500000); // 50% of base interval
 define('SIGIL_PACING_JITTER_MAX_FP',       1500000); // 150% of base interval
 
@@ -257,6 +260,8 @@ define('SIGIL_INVENTORY_TIER_CAPS', [
     5 => 0,
     6 => 0,
 ]);
+define('SIGIL_INVENTORY_DROP_PRESSURE_START', 10);
+define('SIGIL_INVENTORY_DROP_PRESSURE_FULL', SIGIL_INVENTORY_TOTAL_CAP);
 define('SIGIL_COMBINE_RECIPES', [
     1 => 5,
     2 => 5,
@@ -291,10 +296,22 @@ define('SIGIL_UTILITY_VALUE_BY_TIER', [
 define('ABILITY_UNIT_DURATION_TICKS', ticks_from_real_seconds(900));
 
 // Ability tier gates.
-define('SIGIL_FREEZE_SPEND_TIERS', [6]);
+define('SIGIL_FREEZE_SPEND_TIERS', [4, 5, 6]);
 define('SIGIL_MELT_SPEND_TIERS', [5, 6]);
-define('SIGIL_THEFT_SPEND_TIERS', [4, 5]);
+define('SIGIL_THEFT_SPEND_TIERS', [3, 4, 5]);
 define('SIGIL_THEFT_TARGET_TIERS', [1, 2, 3, 4, 5, 6]);
+
+// Freeze durations by consumed tier. Tier 6 preserves the original premium freeze.
+define('SIGIL_FREEZE_DURATION_TICKS_BY_TIER', [
+    4 => max(1, intdiv((int)ABILITY_UNIT_DURATION_TICKS, 2)),
+    5 => ABILITY_UNIT_DURATION_TICKS,
+    6 => ABILITY_UNIT_DURATION_TICKS * 2,
+]);
+define('SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER', [
+    4 => max(1, intdiv((int)ABILITY_UNIT_DURATION_TICKS, 4)),
+    5 => max(1, intdiv((int)ABILITY_UNIT_DURATION_TICKS, 2)),
+    6 => ABILITY_UNIT_DURATION_TICKS,
+]);
 
 // Melt reductions by consumed tier.
 define('SIGIL_MELT_REDUCTION_TICKS_BY_TIER', [
@@ -318,13 +335,23 @@ define('SIGIL_TIER_ODDS_MAX_POWER', [
     5 =>   5000,
 ]);
 
-// Freeze mechanics (Tier 6 sigil action)
+// Freeze mechanics (legacy Tier 6 aliases)
 define('FREEZE_BASE_DURATION_TICKS', ABILITY_UNIT_DURATION_TICKS * 2); // 30 minutes
 define('FREEZE_STACK_EXTENSION_TICKS', ABILITY_UNIT_DURATION_TICKS); // +15 minutes per additional freeze
 
 // Blackout-phase pacing (50% of Active timers for cut-throat end-game pressure).
 define('SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS', intdiv((int)SIGIL_THEFT_COOLDOWN_TICKS, 2));
 define('SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS', intdiv((int)SIGIL_THEFT_PROTECTION_TICKS, 2));
+define('SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER', [
+    4 => max(1, intdiv((int)SIGIL_FREEZE_DURATION_TICKS_BY_TIER[4], 2)),
+    5 => max(1, intdiv((int)SIGIL_FREEZE_DURATION_TICKS_BY_TIER[5], 2)),
+    6 => max(1, intdiv((int)SIGIL_FREEZE_DURATION_TICKS_BY_TIER[6], 2)),
+]);
+define('SIGIL_FREEZE_BLACKOUT_STACK_EXTENSION_TICKS_BY_TIER', [
+    4 => max(1, intdiv((int)SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER[4], 2)),
+    5 => max(1, intdiv((int)SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER[5], 2)),
+    6 => max(1, intdiv((int)SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER[6], 2)),
+]);
 define('FREEZE_BLACKOUT_BASE_DURATION_TICKS', intdiv((int)FREEZE_BASE_DURATION_TICKS, 2));
 define('FREEZE_BLACKOUT_STACK_EXTENSION_TICKS', intdiv((int)FREEZE_STACK_EXTENSION_TICKS, 2));
 

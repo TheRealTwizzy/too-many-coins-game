@@ -84,6 +84,10 @@ class PolicyBehavior
 
     public static function decideBoostPurchase(array $archetype, array $playerState, string $phase, string $seed, int $tick): ?array
     {
+        if (empty($playerState['boost']['is_active']) && (int)($playerState['boost']['recovery_until_tick'] ?? 0) > $tick) {
+            return null;
+        }
+
         $profile = self::phaseProfile($archetype, $phase);
         $behavior = self::behaviorProfile($archetype, $seed, (int)$playerState['player_id']);
         $probability = (float)($profile['buy_boost_probability'] ?? 0.0);
@@ -241,12 +245,15 @@ class PolicyBehavior
     {
         $profile = self::phaseProfile($archetype, $phase);
         $behavior = self::behaviorProfile($archetype, $seed, (int)$playerState['player_id']);
-        if ((int)($playerState['participation']['sigils_t6'] ?? 0) < 1) {
+        $utilitySigils = self::ownedSigilCountForTiers((array)$playerState['participation'], SIGIL_FREEZE_SPEND_TIERS);
+        if ($utilitySigils < 1) {
             return null;
         }
         $probability = (float)($profile['freeze_probability'] ?? 0.0);
         $probability += 0.10 * $behavior['aggression'];
         $probability += 0.08 * self::phaseWeight($phase, ['EARLY' => 0.0, 'MID' => 0.15, 'LATE_ACTIVE' => 1.0, 'BLACKOUT' => 0.70]);
+        $probability += min(0.12, $utilitySigils * 0.04);
+        $probability += 0.08 * self::phaseWeight($phase, ['EARLY' => 0.0, 'MID' => 0.10, 'LATE_ACTIVE' => 0.80, 'BLACKOUT' => 1.0]);
         $probability += self::noise($seed, ['freeze-noise', $playerState['player_id'], $tick, $phase], 0.05 + (0.06 * (1.0 - $behavior['discipline'])));
         if (!SimulationRandom::chance($seed, self::clamp01($probability), ['freeze', $playerState['player_id'], $tick, $phase])) {
             return null;
@@ -259,12 +266,15 @@ class PolicyBehavior
     {
         $profile = self::phaseProfile($archetype, $phase);
         $behavior = self::behaviorProfile($archetype, $seed, (int)$playerState['player_id']);
-        if (((int)($playerState['participation']['sigils_t4'] ?? 0) + (int)($playerState['participation']['sigils_t5'] ?? 0)) < 1) {
+        $utilitySigils = self::ownedSigilCountForTiers((array)$playerState['participation'], SIGIL_THEFT_SPEND_TIERS);
+        if ($utilitySigils < 1) {
             return null;
         }
         $probability = (float)($profile['theft_probability'] ?? 0.0);
         $probability += 0.12 * $behavior['aggression'];
         $probability += 0.08 * self::phaseWeight($phase, ['EARLY' => 0.0, 'MID' => 0.20, 'LATE_ACTIVE' => 1.0, 'BLACKOUT' => 0.75]);
+        $probability += min(0.10, $utilitySigils * 0.03);
+        $probability += 0.07 * self::phaseWeight($phase, ['EARLY' => 0.0, 'MID' => 0.20, 'LATE_ACTIVE' => 0.90, 'BLACKOUT' => 1.0]);
         $probability += self::noise($seed, ['theft-noise', $playerState['player_id'], $tick, $phase], 0.05 + (0.07 * (1.0 - $behavior['discipline'])));
         if (!SimulationRandom::chance($seed, self::clamp01($probability), ['theft', $playerState['player_id'], $tick, $phase])) {
             return null;
@@ -292,6 +302,20 @@ class PolicyBehavior
         }
 
         return $bestId;
+    }
+
+    private static function ownedSigilCountForTiers(array $participation, array $tiers): int
+    {
+        $count = 0;
+        foreach ($tiers as $tier) {
+            $tier = (int)$tier;
+            if ($tier < 1 || $tier > SIGIL_MAX_TIER) {
+                continue;
+            }
+            $count += max(0, (int)($participation['sigils_t' . $tier] ?? 0));
+        }
+
+        return $count;
     }
 
     private static function behaviorProfile(array $archetype, string $seed, int $playerId): array

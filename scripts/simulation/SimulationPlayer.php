@@ -75,6 +75,7 @@ class SimulationPlayer
             'modifier_fp' => 0,
             'activated_tick' => 0,
             'expires_tick' => 0,
+            'recovery_until_tick' => 0,
         ];
         $this->freeze = [
             'is_active' => false,
@@ -113,8 +114,18 @@ class SimulationPlayer
 
     public function expireEffects(int $tick): void
     {
-        if ($this->boost['is_active'] && (int)$this->boost['expires_tick'] < $tick) {
-            $this->boost = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $effectiveBoostExpiresTick = BoostCatalog::getEffectiveExpiresTick(
+            (int)$this->boost['expires_tick'],
+            (int)$this->boost['activated_tick']
+        );
+        if ($this->boost['is_active'] && $effectiveBoostExpiresTick < $tick) {
+            $this->boost = [
+                'is_active' => false,
+                'modifier_fp' => 0,
+                'activated_tick' => 0,
+                'expires_tick' => 0,
+                'recovery_until_tick' => BoostCatalog::getRecoveryUntilTick($effectiveBoostExpiresTick),
+            ];
         }
         if ($this->freeze['is_active'] && (int)$this->freeze['expires_tick'] < $tick) {
             $this->freeze = ['is_active' => false, 'expires_tick' => 0, 'applied_count' => 0];
@@ -142,7 +153,13 @@ class SimulationPlayer
             return;
         }
 
-        $drop = Economy::evaluateSigilDropForTick($season, $this->player, $tick);
+        $drop = Economy::evaluateSigilDropForTick(
+            $season,
+            $this->player,
+            $tick,
+            $this->participation,
+            $this->currentBoostModifier()
+        );
         if ($drop === null) {
             return;
         }
@@ -294,7 +311,7 @@ class SimulationPlayer
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
             $this->participation['sigils_t' . $tier] = 0;
         }
-        $this->boost = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $this->boost = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0, 'recovery_until_tick' => 0];
         $this->player['joined_season_id'] = null;
         $this->player['participation_enabled'] = 0;
         $this->metrics['natural_expiry'] = true;
@@ -429,18 +446,21 @@ class SimulationPlayer
             return;
         }
 
-        $timeCapTicks = ticks_from_real_seconds(BoostCatalog::TIME_CAP_SECONDS_PER_PRODUCT);
         $powerIncrementFp = max(1, BoostCatalog::getSpendPowerFpForTier($sigilTier));
         $timeIncrementTicks = max(1, BoostCatalog::getSpendTimeTicksForTier($sigilTier));
         $initialPowerFp = max(1, BoostCatalog::getInitialPowerFpForTier($sigilTier));
         $initialDurationTicks = max(1, BoostCatalog::getInitialDurationTicksForTier($sigilTier));
 
         if (!$this->boost['is_active']) {
+            if ((int)($this->boost['recovery_until_tick'] ?? 0) > $tick) {
+                return;
+            }
             $this->boost = [
                 'is_active' => true,
                 'modifier_fp' => $initialPowerFp,
                 'activated_tick' => $tick,
                 'expires_tick' => $tick + $initialDurationTicks,
+                'recovery_until_tick' => 0,
             ];
             $this->participation[$sigilCol] -= 1;
             $this->metrics['sigils_spent_by_action']['boost']++;
@@ -449,7 +469,7 @@ class SimulationPlayer
         }
 
         if ($purchaseKind === 'time') {
-            $maxExpiresTick = $tick + $timeCapTicks;
+            $maxExpiresTick = BoostCatalog::getSessionMaxExpiresTick((int)($this->boost['activated_tick'] ?? 0));
             if ((int)$this->boost['expires_tick'] >= $maxExpiresTick) {
                 return;
             }
@@ -469,13 +489,16 @@ class SimulationPlayer
 
     private function freezeTarget(self $target, string $status, int $tick, string $phase): void
     {
-        if ((int)$this->participation['sigils_t6'] < 1 || !$target->isParticipating()) {
+        $spendTier = $this->selectOwnedSigilTier(SIGIL_FREEZE_SPEND_TIERS, false);
+        if ($spendTier === 0 || !$target->isParticipating()) {
             return;
         }
 
-        $baseTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_BASE_DURATION_TICKS : FREEZE_BASE_DURATION_TICKS);
-        $stackTicks = (int)($status === 'Blackout' ? FREEZE_BLACKOUT_STACK_EXTENSION_TICKS : FREEZE_STACK_EXTENSION_TICKS);
-        $this->participation['sigils_t6'] -= 1;
+        $durationMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER : SIGIL_FREEZE_DURATION_TICKS_BY_TIER);
+        $stackMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_STACK_EXTENSION_TICKS_BY_TIER : SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER);
+        $baseTicks = (int)($durationMap[$spendTier] ?? FREEZE_BASE_DURATION_TICKS);
+        $stackTicks = (int)($stackMap[$spendTier] ?? FREEZE_STACK_EXTENSION_TICKS);
+        $this->participation['sigils_t' . $spendTier] -= 1;
         $this->metrics['sigils_spent_by_action']['freeze']++;
         $this->recordAction($phase, 'freeze');
 
@@ -503,7 +526,7 @@ class SimulationPlayer
             return;
         }
 
-        $spendTier = ((int)$this->participation['sigils_t5'] > 0) ? 5 : (((int)$this->participation['sigils_t4'] > 0) ? 4 : 0);
+        $spendTier = $this->selectOwnedSigilTier(SIGIL_THEFT_SPEND_TIERS, true);
         if ($spendTier === 0) {
             return;
         }
@@ -560,6 +583,31 @@ class SimulationPlayer
         return min((int)SIGIL_THEFT_SUCCESS_CAP_FP, intdiv($spendValue * FP_SCALE, max(1, $denominator)));
     }
 
+    private function selectOwnedSigilTier(array $tiers, bool $preferHighest): int
+    {
+        $usableTiers = [];
+        foreach ($tiers as $tier) {
+            $tier = (int)$tier;
+            if ($tier >= 1 && $tier <= SIGIL_MAX_TIER && !in_array($tier, $usableTiers, true)) {
+                $usableTiers[] = $tier;
+            }
+        }
+
+        if ($preferHighest) {
+            rsort($usableTiers, SORT_NUMERIC);
+        } else {
+            sort($usableTiers, SORT_NUMERIC);
+        }
+
+        foreach ($usableTiers as $tier) {
+            if ((int)($this->participation['sigils_t' . $tier] ?? 0) > 0) {
+                return $tier;
+            }
+        }
+
+        return 0;
+    }
+
     private function lockIn(string $status, int $tick, string $phase): void
     {
         // Enforce MIN_SEASONAL_LOCK_IN_TICKS (mirrors production lockIn gate).
@@ -604,7 +652,7 @@ class SimulationPlayer
         for ($tier = 1; $tier <= SIGIL_MAX_TIER; $tier++) {
             $this->participation['sigils_t' . $tier] = 0;
         }
-        $this->boost = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0];
+        $this->boost = ['is_active' => false, 'modifier_fp' => 0, 'activated_tick' => 0, 'expires_tick' => 0, 'recovery_until_tick' => 0];
         $this->player['joined_season_id'] = null;
         $this->player['participation_enabled'] = 0;
         $this->lockedIn = true;

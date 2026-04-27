@@ -223,6 +223,88 @@ class EconomyPrecisionTest extends TestCase
         $this->assertSame(0, $offline);
     }
 
+    public function testSigilBaseDropChanceIsTacticalOnePercentGate(): void
+    {
+        $this->assertSame(10000, (int)SIGIL_DROP_CHANCE_FP);
+        $this->assertSame(10000, Economy::sigilEffectiveDropChanceFp('Active', null, 0));
+        $this->assertSame(5000, Economy::sigilEffectiveDropChanceFp('Idle', null, 0));
+    }
+
+    public function testSigilInventoryPressureBlocksDropsAtTotalCap(): void
+    {
+        $participation = [
+            'sigils_t1' => 5,
+            'sigils_t2' => 20,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        $this->assertSame(0, Economy::sigilInventoryDropPressureFp($participation));
+        $this->assertSame(0, Economy::sigilEffectiveDropChanceFp('Active', $participation, 0));
+    }
+
+    public function testSigilInventoryPressureStartsAfterLowInventoryBuffer(): void
+    {
+        $lowInventory = [
+            'sigils_t1' => 2,
+            'sigils_t2' => 1,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+        $midInventory = [
+            'sigils_t1' => 15,
+            'sigils_t2' => 0,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        $this->assertSame(FP_SCALE, Economy::sigilInventoryDropPressureFp($lowInventory));
+        $this->assertLessThan(FP_SCALE, Economy::sigilInventoryDropPressureFp($midInventory));
+        $this->assertGreaterThan(0, Economy::sigilInventoryDropPressureFp($midInventory));
+    }
+
+    public function testBoostedPlayerReceivesLowerSigilDropChance(): void
+    {
+        $unboosted = Economy::sigilEffectiveDropChanceFp('Active', [], 0);
+        $boosted = Economy::sigilEffectiveDropChanceFp('Active', [], FP_SCALE);
+
+        $this->assertLessThan($unboosted, $boosted);
+        $this->assertGreaterThan(0, $boosted);
+    }
+
+    public function testEvaluateSigilDropForTickBlocksAtSigilCapRegardlessOfRoll(): void
+    {
+        $season = [
+            'season_id' => 11,
+            'start_time' => 1000,
+            'end_time' => 1000 + (int)SEASON_DURATION,
+            'season_seed' => str_repeat("\x06", 32),
+        ];
+        $player = [
+            'player_id' => 99,
+            'online_current' => 1,
+            'activity_state' => 'Active',
+        ];
+        $participation = [
+            'sigils_t1' => 5,
+            'sigils_t2' => 20,
+            'sigils_t3' => 0,
+            'sigils_t4' => 0,
+            'sigils_t5' => 0,
+            'sigils_t6' => 0,
+        ];
+
+        for ($tick = 1000; $tick < 2000; $tick++) {
+            $this->assertNull(Economy::evaluateSigilDropForTick($season, $player, $tick, $participation, 0));
+        }
+    }
+
     public function testSigilSeasonProgressBoundariesClampToZeroAndOne(): void
     {
         $season = [

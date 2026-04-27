@@ -28,9 +28,9 @@ class SigilTheftLogic
 
 class SigilTheftLogicTest extends TestCase
 {
-    public function testOnlyTierFourAndFiveAreValidSpendTiers(): void
+    public function testTierThreeFourAndFiveAreValidSpendTiers(): void
     {
-        $this->assertSame([4, 5], array_values(SIGIL_THEFT_SPEND_TIERS));
+        $this->assertSame([3, 4, 5], array_values(SIGIL_THEFT_SPEND_TIERS));
     }
 
     public function testTierSixIsValidTheftTargetTier(): void
@@ -46,6 +46,16 @@ class SigilTheftLogicTest extends TestCase
     public function testTheftChanceIsCappedAtSixtyPercent(): void
     {
         $this->assertSame(600000, SigilTheftLogic::computeChanceFp(100000, 100));
+    }
+
+    public function testTierThreeCanFundLowValueTheft(): void
+    {
+        $tierThreeSpend = SigilTheftLogic::computeValue([0, 0, 1, 0, 0, 0]);
+        $twoTierTwoLoot = SigilTheftLogic::computeValue([0, 2, 0, 0, 0, 0]);
+
+        $this->assertGreaterThan(0, $tierThreeSpend);
+        $this->assertLessThanOrEqual($tierThreeSpend, $twoTierTwoLoot);
+        $this->assertGreaterThan(0, SigilTheftLogic::computeChanceFp($tierThreeSpend, $twoTierTwoLoot));
     }
 
     public function testTierSixLootRequiresMoreThanOneTierFiveSpend(): void

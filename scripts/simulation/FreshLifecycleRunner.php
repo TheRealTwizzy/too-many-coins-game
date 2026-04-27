@@ -933,7 +933,8 @@ class FreshLifecycleRunner
             );
             if ($freezeTarget !== null) {
                 $counts['freeze']['attempted']++;
-                $result = Actions::freezePlayerUbi($pid, $freezeTarget);
+                $requestedFreezeTier = $this->selectOwnedSigilTier($snapshot['participation'], SIGIL_FREEZE_SPEND_TIERS, false);
+                $result = Actions::freezePlayerUbi($pid, $freezeTarget, null, $requestedFreezeTier ?: null);
                 if (!empty($result['success'])) {
                     $counts['freeze']['succeeded']++;
                 }
@@ -1016,13 +1017,7 @@ class FreshLifecycleRunner
     {
         $participation = $attackerSnapshot['participation'];
 
-        // Determine spend tier (prefer t5 over t4).
-        $spendTier = 0;
-        if ((int)($participation['sigils_t5'] ?? 0) > 0) {
-            $spendTier = 5;
-        } elseif ((int)($participation['sigils_t4'] ?? 0) > 0) {
-            $spendTier = 4;
-        }
+        $spendTier = $this->selectOwnedSigilTier($participation, SIGIL_THEFT_SPEND_TIERS, true);
         if ($spendTier === 0) {
             return false;
         }
@@ -1059,6 +1054,31 @@ class FreshLifecycleRunner
 
         $result = Actions::attemptSigilTheft($attackerId, $targetId, $spent, $requested);
         return !empty($result['success']);
+    }
+
+    private function selectOwnedSigilTier(array $participation, array $tiers, bool $preferHighest): int
+    {
+        $usableTiers = [];
+        foreach ($tiers as $tier) {
+            $tier = (int)$tier;
+            if ($tier >= 1 && $tier <= SIGIL_MAX_TIER && !in_array($tier, $usableTiers, true)) {
+                $usableTiers[] = $tier;
+            }
+        }
+
+        if ($preferHighest) {
+            rsort($usableTiers, SORT_NUMERIC);
+        } else {
+            sort($usableTiers, SORT_NUMERIC);
+        }
+
+        foreach ($usableTiers as $tier) {
+            if ((int)($participation['sigils_t' . $tier] ?? 0) > 0) {
+                return $tier;
+            }
+        }
+
+        return 0;
     }
 
     // --- Milestone 5B: Archetype-aware presence simulation ---
