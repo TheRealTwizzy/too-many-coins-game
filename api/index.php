@@ -197,6 +197,7 @@ require_once __DIR__ . '/../includes/permissions.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/account.php';
+require_once __DIR__ . '/../includes/admin.php';
 require_once __DIR__ . '/../includes/social.php';
 require_once __DIR__ . '/../includes/moderation.php';
 require_once __DIR__ . '/../includes/staff_chat.php';
@@ -535,6 +536,20 @@ try {
             echo json_encode(AccountService::confirmSelfDeletion((string)($input['token'] ?? '')));
             break;
 
+        case 'staff_account_delete_request':
+            $actor = Permissions::requireStaff();
+            echo json_encode(AccountService::requestStaffDeletion(
+                $actor,
+                (int)($input['target_player_id'] ?? 0),
+                trim((string)($input['reason'] ?? 'Staff-requested deletion'))
+            ));
+            break;
+
+        case 'staff_account_delete_confirm':
+            $actor = Permissions::requireStaff();
+            echo json_encode(AccountService::confirmStaffDeletion($actor, (string)($input['token'] ?? '')));
+            break;
+
         // ==================== NOTIFICATIONS ====================
         case 'notifications_list':
             $player = Auth::requireAuth();
@@ -667,6 +682,35 @@ try {
         case 'staff_user_update':
             $actor = Permissions::requireStaff();
             echo json_encode(ModerationService::updateUser($actor, (int)($input['target_player_id'] ?? 0), $input));
+            break;
+
+        case 'admin_role_update':
+            $actor = Permissions::requireAdmin();
+            echo json_encode(AdminService::updateRole(
+                $actor,
+                (int)($input['target_player_id'] ?? 0),
+                (string)($input['role'] ?? ''),
+                trim((string)($input['reason'] ?? 'Admin role update'))
+            ));
+            break;
+
+        case 'admin_economy_reset_global':
+            $actor = Permissions::requireAdmin();
+            echo json_encode(AdminService::globalEconomyReset(
+                $actor,
+                (string)($input['confirmation'] ?? ''),
+                trim((string)($input['reason'] ?? 'Admin global economy reset'))
+            ));
+            break;
+
+        case 'admin_economy_reset_player':
+            $actor = Permissions::requireAdmin();
+            echo json_encode(AdminService::playerEconomyReset(
+                $actor,
+                (int)($input['target_player_id'] ?? 0),
+                (string)($input['confirmation'] ?? ''),
+                trim((string)($input['reason'] ?? 'Admin player economy reset'))
+            ));
             break;
 
         case 'staff_chat_start':
@@ -837,12 +881,14 @@ try {
                 'purchase_cosmetic', 'equip_cosmetic', 'my_cosmetics', 'chat_send',
                 'account_get', 'account_update', 'account_change_password',
                 'account_delete_request', 'account_delete_confirm',
+                'staff_account_delete_request', 'staff_account_delete_confirm',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
                 'friends_list', 'friend_requests_list', 'friend_request_send',
                 'friend_request_respond', 'friend_remove', 'blocks_list',
                 'block_add', 'block_remove',
                 'staff_users_search', 'staff_user_get', 'staff_user_update',
+                'admin_role_update', 'admin_economy_reset_global', 'admin_economy_reset_player',
                 'staff_chat_start', 'staff_chat_threads', 'staff_chat_messages',
                 'staff_chat_send', 'staff_chat_remove_message', 'staff_chat_mute_user',
                 'staff_chat_unmute_user', 'staff_notifications_send_player',
