@@ -100,7 +100,13 @@ class AccountService {
             [$hash, $actionType]
         );
         if (!$row) return null;
-        $db->query("UPDATE account_verification_tokens SET consumed_at = NOW() WHERE token_id = ?", [(int)$row['token_id']]);
+        $stmt = $db->query(
+            "UPDATE account_verification_tokens
+             SET consumed_at = NOW()
+             WHERE token_id = ? AND consumed_at IS NULL AND expires_at > NOW()",
+            [(int)$row['token_id']]
+        );
+        if ($stmt->rowCount() !== 1) return null;
         return $row;
     }
 
