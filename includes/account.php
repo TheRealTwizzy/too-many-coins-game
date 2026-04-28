@@ -93,22 +93,31 @@ class AccountService {
     }
 
     private static function consumeVerificationToken(string $token, string $actionType): ?array {
+        $row = self::findVerificationToken($token, $actionType);
+        if (!$row) return null;
+        if (!self::consumeVerificationTokenRow($row)) return null;
+        return $row;
+    }
+
+    private static function findVerificationToken(string $token, string $actionType): ?array {
         $hash = hash('sha256', $token);
-        $db = Database::getInstance();
-        $row = $db->fetch(
+        $row = Database::getInstance()->fetch(
             "SELECT * FROM account_verification_tokens
              WHERE token_hash = ? AND action_type = ? AND consumed_at IS NULL AND expires_at > NOW()",
             [$hash, $actionType]
         );
-        if (!$row) return null;
+        return $row ?: null;
+    }
+
+    private static function consumeVerificationTokenRow(array $row): bool {
+        $db = Database::getInstance();
         $stmt = $db->query(
             "UPDATE account_verification_tokens
              SET consumed_at = NOW()
              WHERE token_id = ? AND consumed_at IS NULL AND expires_at > NOW()",
             [(int)$row['token_id']]
         );
-        if ($stmt->rowCount() !== 1) return null;
-        return $row;
+        return $stmt->rowCount() === 1;
     }
 
     public static function requestSelfDeletion(array $player, string $reason): array {
@@ -159,7 +168,7 @@ class AccountService {
     }
 
     public static function confirmStaffDeletion(array $actor, string $token): array {
-        $row = self::consumeVerificationToken($token, 'STAFF_DELETE');
+        $row = self::findVerificationToken($token, 'STAFF_DELETE');
         if (!$row) return ['error' => 'Verification token is invalid or expired'];
         if ((int)$row['actor_player_id'] !== (int)$actor['player_id']) {
             Audit::record((int)$actor['player_id'], (int)$row['target_player_id'], 'staff_account_delete_confirm_rejected', 'Verification actor mismatch');
@@ -173,21 +182,62 @@ class AccountService {
         if (!empty($target['profile_deleted_at'])) return ['error' => 'Player is already deleted'];
         if (!Permissions::canActOnTarget($actor, $target)) return ['error' => 'Insufficient permission for target'];
 
-        return self::softDelete((int)$actor['player_id'], $targetId, self::payloadReason($row), 'staff_account_delete_confirm');
+        try {
+            $db->beginTransaction();
+
+            $target = $db->fetch("SELECT * FROM players WHERE player_id = ? FOR UPDATE", [$targetId]);
+            if (!$target) {
+                $db->rollback();
+                return ['error' => 'Player not found'];
+            }
+            if (!empty($target['profile_deleted_at'])) {
+                $db->rollback();
+                return ['error' => 'Player is already deleted'];
+            }
+            if (!Permissions::canActOnTarget($actor, $target)) {
+                $db->rollback();
+                return ['error' => 'Insufficient permission for target'];
+            }
+            if (!self::consumeVerificationTokenRow($row)) {
+                $db->rollback();
+                return ['error' => 'Verification token is invalid or expired'];
+            }
+
+            $result = self::softDeleteLoadedTarget((int)$actor['player_id'], $target, self::payloadReason($row), 'staff_account_delete_confirm');
+            if (!empty($result['error'])) {
+                $db->rollback();
+                return $result;
+            }
+
+            $db->commit();
+            return $result;
+        } catch (Throwable $e) {
+            if ($db->getConnection()->inTransaction()) {
+                $db->rollback();
+            }
+            throw $e;
+        }
     }
 
     public static function softDelete(int $actorId, int $targetId, ?string $reason, string $auditAction): array {
         $db = Database::getInstance();
         $target = $db->fetch("SELECT player_id, handle, email, profile_deleted_at FROM players WHERE player_id = ?", [$targetId]);
         if (!$target) return ['error' => 'Player not found'];
+        return self::softDeleteLoadedTarget($actorId, $target, $reason, $auditAction);
+    }
+
+    private static function softDeleteLoadedTarget(int $actorId, array $target, ?string $reason, string $auditAction): array {
+        $db = Database::getInstance();
+        $targetId = (int)$target['player_id'];
         if (!empty($target['profile_deleted_at'])) return ['success' => true, 'already_deleted' => true];
-        $db->query(
+        $stmt = $db->query(
             "UPDATE players
              SET profile_deleted_at = NOW(), profile_deleted_by = ?, profile_deletion_reason = ?,
                  session_token = NULL, online_current = 0
-             WHERE player_id = ?",
+             WHERE player_id = ? AND profile_deleted_at IS NULL",
             [$actorId, $reason, $targetId]
         );
+        if ($stmt->rowCount() !== 1) return ['success' => true, 'already_deleted' => true];
         Notifications::create($targetId, 'account_security', 'Account deleted', 'Your account has been deleted.', ['severity' => 'danger']);
         Audit::record($actorId, $targetId, $auditAction, $reason, $target, ['profile_deleted_at' => 'NOW']);
         return ['success' => true];
