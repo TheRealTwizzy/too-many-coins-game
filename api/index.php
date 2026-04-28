@@ -198,6 +198,7 @@ require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/account.php';
 require_once __DIR__ . '/../includes/social.php';
+require_once __DIR__ . '/../includes/moderation.php';
 require_once __DIR__ . '/../includes/sigil_drops_api.php';
 require_once __DIR__ . '/../includes/runtime_readiness.php';
 
@@ -650,6 +651,37 @@ try {
             $player = Auth::requireAuth();
             echo json_encode(SocialService::blockRemove((int)$player['player_id'], (int)($input['target_player_id'] ?? 0)));
             break;
+
+        // ==================== STAFF ====================
+        case 'staff_users_search':
+            $actor = Permissions::requireStaff();
+            echo json_encode(['success' => true, 'users' => ModerationService::searchUsers($actor, (string)($input['query'] ?? ''))]);
+            break;
+
+        case 'staff_user_get':
+            $actor = Permissions::requireStaff();
+            echo json_encode(ModerationService::getUser($actor, (int)($input['target_player_id'] ?? 0)));
+            break;
+
+        case 'staff_user_update':
+            $actor = Permissions::requireStaff();
+            echo json_encode(ModerationService::updateUser($actor, (int)($input['target_player_id'] ?? 0), $input));
+            break;
+
+        case 'staff_chat_remove_message':
+            $actor = Permissions::requireStaff();
+            echo json_encode(ModerationService::removeMessage($actor, (int)($input['message_id'] ?? 0), trim((string)($input['reason'] ?? 'Removed by staff'))));
+            break;
+
+        case 'staff_chat_mute_user':
+            $actor = Permissions::requireStaff();
+            echo json_encode(ModerationService::muteUser($actor, (int)($input['target_player_id'] ?? 0), (string)($input['scope'] ?? 'ALL'), isset($input['minutes']) ? (int)$input['minutes'] : null, trim((string)($input['reason'] ?? 'Muted by staff'))));
+            break;
+
+        case 'staff_chat_unmute_user':
+            $actor = Permissions::requireStaff();
+            echo json_encode(ModerationService::unmuteUser($actor, (int)($input['mute_id'] ?? 0), trim((string)($input['reason'] ?? 'Unmuted by staff'))));
+            break;
             
         // ==================== COSMETICS ====================
         case 'cosmetic_catalog':
@@ -722,6 +754,9 @@ try {
                 'friends_list', 'friend_requests_list', 'friend_request_send',
                 'friend_request_respond', 'friend_remove', 'blocks_list',
                 'block_add', 'block_remove',
+                'staff_users_search', 'staff_user_get', 'staff_user_update',
+                'staff_chat_remove_message', 'staff_chat_mute_user',
+                'staff_chat_unmute_user',
                 'profile', 'my_badges', 'season_history', 'tick',
                 'star_purchase_preview', 'boost_activate_preview',
                 'rate_limit_diagnostics'
@@ -1593,6 +1628,12 @@ function sendChat($player, $input) {
         $seasonId = $player['joined_season_id'];
     }
     if ($channelKind === 'DM' && !$recipientId) return ['error' => 'Recipient required for DM'];
+
+    $muteScope = $channelKind === 'SEASON' ? 'SEASON' : 'GLOBAL';
+    $mute = ModerationService::isMuted((int)$player['player_id'], $muteScope);
+    if ($mute) {
+        return ['error' => 'You are muted in this chat', 'mute' => $mute];
+    }
     
     $db->query(
         "INSERT INTO chat_messages (channel_kind, season_id, sender_id, recipient_id, handle_snapshot, content)
@@ -1607,12 +1648,14 @@ function getChatMessages($player, $input) {
     $db = Database::getInstance();
     $channelKind = strtoupper($input['channel'] ?? 'GLOBAL');
     $seasonId = $input['season_id'] ?? null;
+    $canViewRemoved = $player && Permissions::isStaff($player);
+    $removedSql = $canViewRemoved ? "1=1" : "is_removed = 0";
     
     if ($channelKind === 'GLOBAL') {
         $messages = $db->fetchAll(
-            "SELECT message_id, sender_id, handle_snapshot, content, is_admin_post, is_removed, created_at
+            "SELECT message_id, sender_id, handle_snapshot, content, is_admin_post, is_removed, removed_by, removed_at, removal_reason, created_at
              FROM chat_messages 
-             WHERE channel_kind = 'GLOBAL' AND is_removed = 0
+             WHERE channel_kind = 'GLOBAL' AND {$removedSql}
              ORDER BY created_at DESC LIMIT ?",
             [CHAT_MAX_ROWS]
         );
@@ -1624,9 +1667,9 @@ function getChatMessages($player, $input) {
     
     if ($channelKind === 'SEASON' && $seasonId) {
         $messages = $db->fetchAll(
-            "SELECT message_id, sender_id, handle_snapshot, content, is_removed, created_at
+            "SELECT message_id, sender_id, handle_snapshot, content, is_removed, removed_by, removed_at, removal_reason, created_at
              FROM chat_messages 
-             WHERE channel_kind = 'SEASON' AND season_id = ? AND is_removed = 0
+             WHERE channel_kind = 'SEASON' AND season_id = ? AND {$removedSql}
              ORDER BY created_at DESC LIMIT ?",
             [$seasonId, CHAT_MAX_ROWS]
         );
