@@ -197,6 +197,7 @@ require_once __DIR__ . '/../includes/permissions.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/account.php';
+require_once __DIR__ . '/../includes/social.php';
 require_once __DIR__ . '/../includes/sigil_drops_api.php';
 require_once __DIR__ . '/../includes/runtime_readiness.php';
 
@@ -608,6 +609,47 @@ try {
                 'unread_count' => Notifications::unreadCount($player['player_id'])
             ]);
             break;
+
+        // ==================== SOCIAL ====================
+        case 'friends_list':
+            $player = Auth::requireAuth();
+            echo json_encode(['success' => true, 'friends' => SocialService::friendsList((int)$player['player_id'])]);
+            break;
+
+        case 'friend_requests_list':
+            $player = Auth::requireAuth();
+            echo json_encode(['success' => true, 'requests' => SocialService::requestsList((int)$player['player_id'])]);
+            break;
+
+        case 'friend_request_send':
+            $player = Auth::requireAuth();
+            echo json_encode(SocialService::sendRequest((int)$player['player_id'], (int)($input['target_player_id'] ?? 0)));
+            break;
+
+        case 'friend_request_respond':
+            $player = Auth::requireAuth();
+            echo json_encode(SocialService::respondRequest((int)$player['player_id'], (int)($input['request_id'] ?? 0), (string)($input['decision'] ?? '')));
+            break;
+
+        case 'friend_remove':
+            $player = Auth::requireAuth();
+            echo json_encode(SocialService::removeFriend((int)$player['player_id'], (int)($input['target_player_id'] ?? 0)));
+            break;
+
+        case 'blocks_list':
+            $player = Auth::requireAuth();
+            echo json_encode(['success' => true, 'blocks' => SocialService::blocksList((int)$player['player_id'])]);
+            break;
+
+        case 'block_add':
+            $player = Auth::requireAuth();
+            echo json_encode(SocialService::blockAdd((int)$player['player_id'], (int)($input['target_player_id'] ?? 0)));
+            break;
+
+        case 'block_remove':
+            $player = Auth::requireAuth();
+            echo json_encode(SocialService::blockRemove((int)$player['player_id'], (int)($input['target_player_id'] ?? 0)));
+            break;
             
         // ==================== COSMETICS ====================
         case 'cosmetic_catalog':
@@ -677,6 +719,9 @@ try {
                 'account_delete_request', 'account_delete_confirm',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
+                'friends_list', 'friend_requests_list', 'friend_request_send',
+                'friend_request_respond', 'friend_remove', 'blocks_list',
+                'block_add', 'block_remove',
                 'profile', 'my_badges', 'season_history', 'tick',
                 'star_purchase_preview', 'boost_activate_preview',
                 'rate_limit_diagnostics'
