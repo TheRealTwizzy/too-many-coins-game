@@ -141,6 +141,24 @@ Backward-compatibility alias still works:
 
 - `TMC_AUTO_SQL_HOTFIX=false`
 
+## Account, Social, and Moderation Operations
+
+Account verification emails, staff deletion confirmation, staff chat, user social controls, and staff/admin moderation use the schema in `migration_20260428_social_account_moderation.sql`.
+
+Email verification uses these environment variables:
+
+- `TMC_PUBLIC_BASE_URL`: public base URL used for verification links.
+- `TMC_MAIL_FROM`: sender address for account/security emails.
+- `TMC_MAIL_FROM_NAME`: sender display name.
+- `TMC_MAIL_DEV_LOG`: when true, verification emails are logged instead of sent.
+- `TMC_VERIFICATION_TOKEN_MINUTES`: verification token lifetime.
+
+Player accounts support editable profile metadata, current-password-verified password changes, friend/block lists, and self-deletion by emailed verification link. Staff and admin account deletion requests send the confirmation link to the acting staff/admin email, notify the target player, and audit the action.
+
+Staff and admin actions are role-gated by `players.role`. Staff can moderate chat, mute users, manage eligible player accounts, open dedicated Staff chat threads, and send custom notifications to individual players or all players. Admins inherit staff scope and can also update roles and run day-0 economy reset controls.
+
+Admin reset controls are intended to clear persisted economic play state while preserving account/auth, social, staff chat, notifications, and moderation audit data. They must not be used to change economy configuration, tick logic, pricing, rewards, simulation behavior, or season cadence.
+
 ## Season Reset (Preserve Accounts/Auth)
 
 To rebuild season timelines/state without removing player accounts or authentication data,
