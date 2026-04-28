@@ -8,7 +8,7 @@ require_once __DIR__ . '/notifications.php';
 class ModerationService {
     public static function searchUsers(array $actor, string $query): array {
         $like = '%' . strtolower(trim($query)) . '%';
-        return Database::getInstance()->fetchAll(
+        $rows = Database::getInstance()->fetchAll(
             "SELECT player_id, handle, email, role, profile_visibility, profile_deleted_at, created_at, last_seen_at
              FROM players
              WHERE LOWER(handle) LIKE ? OR LOWER(email) LIKE ? OR player_id = ?
@@ -16,6 +16,10 @@ class ModerationService {
              LIMIT 50",
             [$like, $like, (int)$query]
         );
+
+        return array_values(array_filter($rows, function ($row) use ($actor) {
+            return Permissions::canActOnTarget($actor, $row) || (int)$actor['player_id'] === (int)$row['player_id'];
+        }));
     }
 
     public static function getUser(array $actor, int $targetId): array {
@@ -70,6 +74,10 @@ class ModerationService {
         $db = Database::getInstance();
         $msg = $db->fetch("SELECT * FROM chat_messages WHERE message_id = ?", [$messageId]);
         if (!$msg) return ['error' => 'Message not found'];
+        $sender = $db->fetch("SELECT * FROM players WHERE player_id = ?", [(int)$msg['sender_id']]);
+        if (!$sender) return ['error' => 'Message sender not found'];
+        if (!Permissions::canActOnTarget($actor, $sender)) return ['error' => 'Insufficient permission for target'];
+
         $db->query(
             "UPDATE chat_messages SET is_removed = 1, removed_by = ?, removed_at = NOW(), removal_reason = ? WHERE message_id = ?",
             [(int)$actor['player_id'], $reason, $messageId]
