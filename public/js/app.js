@@ -30,6 +30,8 @@ const TMC = {
         chatBackoffMs: 0,
         chatBackoffUntil: 0,
         lastRateLimitToastAt: 0,
+        staffChatThreadId: null,
+        staffUserDetailId: null,
     },
 
     API_BASE: '/api/index.php',
@@ -197,6 +199,7 @@ const TMC = {
         this.syncBoostCountdowns();
         this.syncFreezeCountdown();
         this.renderUserArea();
+        this.updateRoleNav();
 
         if (this.state.currentScreen === 'auth' && this.state.player) {
             this.navigate('home', null, { history: 'replace', source: 'auth-refresh' });
@@ -239,6 +242,7 @@ const TMC = {
             };
         }
         this.renderUserArea();
+        this.updateRoleNav();
         localStorage.removeItem('tmc_route');
         this.navigate('home', null, { history: 'replace', source: 'login' });
     },
@@ -268,6 +272,7 @@ const TMC = {
             };
         }
         this.renderUserArea();
+        this.updateRoleNav();
         localStorage.removeItem('tmc_route');
         this.navigate('home', null, { history: 'replace', source: 'register' });
     },
@@ -283,6 +288,7 @@ const TMC = {
         this.state.notificationsUnread = 0;
         this.state.notificationsOpen = false;
         this.renderUserArea();
+        this.updateRoleNav();
         this.updateNotificationUI();
         this.navigate('home', null, { history: 'replace', source: 'logout' });
         this.toast('Logged out.', 'info');
@@ -296,6 +302,7 @@ const TMC = {
         this.state.notificationsUnread = 0;
         this.state.notificationsOpen = false;
         this.renderUserArea();
+        this.updateRoleNav();
         this.updateNotificationUI();
     },
 
@@ -392,6 +399,15 @@ const TMC = {
             case 'profile':
                 this.loadProfile(data);
                 break;
+            case 'account':
+                this.loadAccount();
+                break;
+            case 'staff':
+                this.renderStaffPanel();
+                break;
+            case 'admin':
+                this.renderAdminPanel();
+                break;
             case 'theft':
                 this.renderTheftScreen(data);
                 break;
@@ -441,7 +457,7 @@ const TMC = {
     },
 
     _normalizeRoute(screen, data) {
-        const allowed = ['home', 'auth', 'seasons', 'season-detail', 'global-lb', 'shop', 'chat', 'profile', 'theft'];
+        const allowed = ['home', 'auth', 'seasons', 'season-detail', 'global-lb', 'shop', 'chat', 'profile', 'account', 'staff', 'admin', 'theft'];
         const safeScreen = allowed.includes(screen) ? screen : 'home';
 
         if (safeScreen === 'season-detail') {
@@ -870,6 +886,44 @@ const TMC = {
             area.innerHTML = `
                 <button class="btn btn-primary btn-sm" onclick="TMC.navigate('auth')">Login / Register</button>
             `;
+        }
+    },
+
+    getPlayerRole() {
+        return String((this.state.player && this.state.player.role) || 'Player');
+    },
+
+    isStaff() {
+        const role = this.getPlayerRole();
+        return role === 'Moderator' || role === 'Admin';
+    },
+
+    isAdmin() {
+        return this.getPlayerRole() === 'Admin';
+    },
+
+    updateRoleNav() {
+        const loggedIn = !!this.state.player;
+        const showAccount = loggedIn;
+        const showStaff = loggedIn && this.isStaff();
+        const showAdmin = loggedIn && this.isAdmin();
+        const groups = [
+            ['.role-nav-account', showAccount],
+            ['.role-nav-staff', showStaff],
+            ['.role-nav-admin', showAdmin],
+        ];
+
+        groups.forEach(([selector, visible]) => {
+            document.querySelectorAll(selector).forEach((el) => {
+                el.style.display = visible ? '' : 'none';
+                el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            });
+        });
+
+        if ((!showAccount && this.state.currentScreen === 'account')
+            || (!showStaff && this.state.currentScreen === 'staff')
+            || (!showAdmin && this.state.currentScreen === 'admin')) {
+            this.navigate('home', null, { history: 'replace', source: 'role-nav' });
         }
     },
 
@@ -3023,6 +3077,448 @@ const TMC = {
         this.state.pendingTheftTargetId = null;
     },
 
+    // ==================== ACCOUNT / SOCIAL / OPS ====================
+    async loadAccount() {
+        const content = document.getElementById('account-content');
+        if (!content) return;
+        if (!this.state.player) {
+            content.innerHTML = '<div class="empty-state">Login to manage your account.</div>';
+            return;
+        }
+
+        const result = await this.api('account_get');
+        if (result.error) {
+            content.innerHTML = `<div class="error-state">${this.escapeHtml(result.error)}</div>`;
+            return;
+        }
+
+        const account = result.account || {};
+        content.innerHTML = `
+            <h2 class="screen-title">Account</h2>
+            <div class="ops-layout">
+                <section class="ops-panel">
+                    <h3>Profile</h3>
+                    <div class="ops-row"><span>Handle</span><strong>${this.escapeHtml(account.handle || '')}</strong></div>
+                    <div class="ops-row"><span>Email</span><strong>${this.escapeHtml(account.email || '')}</strong></div>
+                    <div class="form-group">
+                        <label>Bio</label>
+                        <textarea id="account-bio" class="input-field ops-textarea" maxlength="280">${this.escapeHtml(account.bio || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <input id="account-status" class="input-field" maxlength="80" value="${this.escapeHtml(account.profile_status || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label>Visibility</label>
+                        <select id="account-visibility" class="input-field">
+                            ${this.renderVisibilityOptions(account.profile_visibility)}
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="TMC.saveAccountProfile()">Save Profile</button>
+                </section>
+                <section class="ops-panel">
+                    <h3>Password</h3>
+                    <div class="form-group"><label>Current password</label><input id="account-current-password" class="input-field" type="password" autocomplete="current-password"></div>
+                    <div class="form-group"><label>New password</label><input id="account-new-password" class="input-field" type="password" autocomplete="new-password"></div>
+                    <div class="form-group"><label>Confirm new password</label><input id="account-confirm-password" class="input-field" type="password" autocomplete="new-password"></div>
+                    <button class="btn btn-primary" onclick="TMC.changeAccountPassword()">Change Password</button>
+                </section>
+                <section class="ops-panel danger-panel">
+                    <h3>Deletion Request</h3>
+                    <div class="form-group"><label>Reason</label><textarea id="account-delete-reason" class="input-field ops-textarea" maxlength="255"></textarea></div>
+                    <button class="btn btn-danger" onclick="TMC.requestAccountDeletion()">Request Deletion</button>
+                </section>
+                <section class="ops-panel">
+                    <h3>Social</h3>
+                    <div id="account-social-panel" class="ops-grid"></div>
+                </section>
+            </div>
+        `;
+        await this.loadAccountSocial();
+    },
+
+    renderVisibilityOptions(value) {
+        const selected = String(value || 'PUBLIC').toUpperCase();
+        return ['PUBLIC', 'FRIENDS_ONLY', 'HIDDEN'].map((option) => (
+            `<option value="${option}" ${selected === option ? 'selected' : ''}>${option.replace('_', ' ')}</option>`
+        )).join('');
+    },
+
+    async saveAccountProfile() {
+        const result = await this.api('account_update', {
+            bio: document.getElementById('account-bio')?.value || '',
+            profile_status: document.getElementById('account-status')?.value || '',
+            profile_visibility: document.getElementById('account-visibility')?.value || 'PUBLIC'
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Profile saved.', 'success');
+        await this.refreshGameState();
+        this.loadAccount();
+    },
+
+    async changeAccountPassword() {
+        const result = await this.api('account_change_password', {
+            current_password: document.getElementById('account-current-password')?.value || '',
+            new_password: document.getElementById('account-new-password')?.value || '',
+            confirm_password: document.getElementById('account-confirm-password')?.value || ''
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Password changed.', 'success');
+        ['account-current-password', 'account-new-password', 'account-confirm-password'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    },
+
+    async requestAccountDeletion() {
+        const reason = document.getElementById('account-delete-reason')?.value || '';
+        if (!window.confirm('Request account deletion verification?')) return;
+        const result = await this.api('account_delete_request', { reason });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Deletion verification sent.', 'warning');
+    },
+
+    async loadAccountSocial() {
+        const panel = document.getElementById('account-social-panel');
+        if (!panel) return;
+        const [friends, requests, blocks] = await Promise.all([
+            this.api('friends_list'),
+            this.api('friend_requests_list'),
+            this.api('blocks_list')
+        ]);
+        panel.innerHTML = `
+            ${this.renderSocialList('Friends', friends.friends || [], (item) => `
+                <div class="ops-row">
+                    <span>${this.escapeHtml(item.handle || ('#' + item.player_id))}</span>
+                    <button class="btn btn-outline btn-sm" onclick="TMC.removeFriend(${Number(item.player_id) || 0})">Remove</button>
+                </div>
+            `)}
+            ${this.renderSocialList('Requests', requests.requests || [], (item) => {
+                const incoming = Number(item.to_player) === Number(this.state.player.player_id);
+                const label = incoming ? item.from_handle : item.to_handle;
+                return `
+                    <div class="ops-row">
+                        <span>${incoming ? 'From' : 'To'} ${this.escapeHtml(label || '')}</span>
+                        ${incoming ? `
+                            <button class="btn btn-primary btn-sm" onclick="TMC.respondFriendRequest(${Number(item.id) || 0}, 'ACCEPTED')">Accept</button>
+                            <button class="btn btn-outline btn-sm" onclick="TMC.respondFriendRequest(${Number(item.id) || 0}, 'DECLINED')">Decline</button>
+                        ` : '<span class="ops-muted">Pending</span>'}
+                    </div>
+                `;
+            })}
+            ${this.renderSocialList('Blocked', blocks.blocks || [], (item) => `
+                <div class="ops-row">
+                    <span>${this.escapeHtml(item.handle || ('#' + item.player_id))}</span>
+                    <button class="btn btn-outline btn-sm" onclick="TMC.unblockPlayer(${Number(item.player_id) || 0})">Unblock</button>
+                </div>
+            `)}
+        `;
+    },
+
+    renderSocialList(title, items, renderer) {
+        return `
+            <div class="ops-subpanel">
+                <h4>${this.escapeHtml(title)}</h4>
+                ${items.length ? items.map(renderer).join('') : '<p class="empty-text">None.</p>'}
+            </div>
+        `;
+    },
+
+    async removeFriend(playerId) {
+        const result = await this.api('friend_remove', { target_player_id: Number(playerId) || 0 });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Friend removed.', 'info');
+        this.loadAccountSocial();
+    },
+
+    async respondFriendRequest(requestId, decision) {
+        const result = await this.api('friend_request_respond', { request_id: Number(requestId) || 0, decision });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast(decision === 'ACCEPTED' ? 'Friend request accepted.' : 'Friend request declined.', 'success');
+        this.loadAccountSocial();
+    },
+
+    async unblockPlayer(playerId) {
+        const result = await this.api('block_remove', { target_player_id: Number(playerId) || 0 });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Player unblocked.', 'info');
+        this.loadAccountSocial();
+    },
+
+    renderStaffPanel() {
+        const content = document.getElementById('staff-content');
+        if (!content) return;
+        if (!this.isStaff()) {
+            content.innerHTML = '<div class="error-state">Staff access required.</div>';
+            return;
+        }
+        content.innerHTML = `
+            <h2 class="screen-title">Staff</h2>
+            <div class="ops-layout">
+                <section class="ops-panel">
+                    <h3>User Lookup</h3>
+                    <div class="ops-search">
+                        <input id="staff-user-query" class="input-field" placeholder="Handle, email, or player ID" onkeypress="if(event.key==='Enter')TMC.searchStaffUsers()">
+                        <button class="btn btn-primary" onclick="TMC.searchStaffUsers()">Search</button>
+                    </div>
+                    <div id="staff-user-results" class="ops-list"></div>
+                </section>
+                <section class="ops-panel">
+                    <h3>Broadcast Notification</h3>
+                    ${this.renderStaffNoticeForm('all')}
+                    <button class="btn btn-primary" onclick="TMC.sendStaffNotificationAll()">Send Broadcast</button>
+                </section>
+                <section id="staff-user-detail" class="ops-panel ops-panel-wide">
+                    <p class="empty-text">Select a player to moderate.</p>
+                </section>
+            </div>
+        `;
+    },
+
+    renderStaffNoticeForm(prefix) {
+        return `
+            <div class="ops-grid">
+                <div class="form-group"><label>Severity</label><select id="${prefix}-notice-severity" class="input-field"><option>info</option><option>success</option><option>warning</option><option>danger</option></select></div>
+                <div class="form-group"><label>Category</label><input id="${prefix}-notice-category" class="input-field" maxlength="40" value="staff"></div>
+            </div>
+            <div class="form-group"><label>Title</label><input id="${prefix}-notice-title" class="input-field" maxlength="120"></div>
+            <div class="form-group"><label>Body</label><textarea id="${prefix}-notice-body" class="input-field ops-textarea" maxlength="1000"></textarea></div>
+            <div class="form-group"><label>Action URL</label><input id="${prefix}-notice-action-url" class="input-field" maxlength="255"></div>
+        `;
+    },
+
+    getStaffNoticePayload(prefix) {
+        return {
+            severity: document.getElementById(`${prefix}-notice-severity`)?.value || 'info',
+            category: document.getElementById(`${prefix}-notice-category`)?.value || 'staff',
+            title: document.getElementById(`${prefix}-notice-title`)?.value || '',
+            body: document.getElementById(`${prefix}-notice-body`)?.value || '',
+            action_url: document.getElementById(`${prefix}-notice-action-url`)?.value || ''
+        };
+    },
+
+    async searchStaffUsers() {
+        const list = document.getElementById('staff-user-results');
+        if (!list) return;
+        const query = document.getElementById('staff-user-query')?.value || '';
+        const result = await this.api('staff_users_search', { query });
+        if (result.error) {
+            list.innerHTML = `<div class="error-state">${this.escapeHtml(result.error)}</div>`;
+            return;
+        }
+        const users = result.users || [];
+        list.innerHTML = users.length ? users.map((u) => `
+            <button class="ops-result" type="button" onclick="TMC.loadStaffUser(${Number(u.player_id) || 0})">
+                <strong>${this.escapeHtml(u.handle || '')}</strong>
+                <span>#${Number(u.player_id) || 0} ${this.escapeHtml(u.role || '')}</span>
+                <small>${this.escapeHtml(u.email || '')}</small>
+            </button>
+        `).join('') : '<p class="empty-text">No matching players.</p>';
+    },
+
+    async loadStaffUser(playerId) {
+        const panel = document.getElementById('staff-user-detail');
+        if (!panel) return;
+        const id = Number(playerId) || 0;
+        this.state.staffUserDetailId = id;
+        const result = await this.api('staff_user_get', { target_player_id: id });
+        if (result.error) {
+            panel.innerHTML = `<div class="error-state">${this.escapeHtml(result.error)}</div>`;
+            return;
+        }
+        const user = result.user || {};
+        const mutes = result.mutes || [];
+        panel.innerHTML = `
+            <h3>${this.escapeHtml(user.handle || 'Player')} <span class="ops-muted">#${Number(user.player_id) || id}</span></h3>
+            <div class="ops-row"><span>Email</span><strong>${this.escapeHtml(user.email || '')}</strong></div>
+            <div class="ops-row"><span>Role</span><strong>${this.escapeHtml(user.role || 'Player')}</strong></div>
+            <div class="ops-grid">
+                <div class="form-group"><label>Bio</label><textarea id="staff-user-bio" class="input-field ops-textarea" maxlength="280">${this.escapeHtml(user.bio || '')}</textarea></div>
+                <div class="form-group"><label>Status</label><input id="staff-user-status" class="input-field" maxlength="80" value="${this.escapeHtml(user.profile_status || '')}"></div>
+                <div class="form-group"><label>Visibility</label><select id="staff-user-visibility" class="input-field">${this.renderVisibilityOptions(user.profile_visibility)}</select></div>
+                <div class="form-group"><label>Update reason</label><input id="staff-user-update-reason" class="input-field" maxlength="255" value="Staff account update"></div>
+            </div>
+            <button class="btn btn-primary" onclick="TMC.saveStaffUser(${Number(user.player_id) || id})">Save User</button>
+            <div class="ops-grid ops-top-space">
+                <section class="ops-subpanel danger-panel">
+                    <h4>Deletion</h4>
+                    <div class="form-group"><label>Reason</label><input id="staff-delete-reason" class="input-field" maxlength="255"></div>
+                    <button class="btn btn-danger btn-sm" onclick="TMC.requestStaffAccountDeletion(${Number(user.player_id) || id})">Request Deletion</button>
+                </section>
+                <section class="ops-subpanel">
+                    <h4>Start Staff Chat</h4>
+                    <div class="form-group"><label>Subject</label><input id="staff-chat-subject" class="input-field" maxlength="120"></div>
+                    <div class="form-group"><label>Body</label><textarea id="staff-chat-body" class="input-field ops-textarea" maxlength="1000"></textarea></div>
+                    <button class="btn btn-primary btn-sm" onclick="TMC.startStaffThread(${Number(user.player_id) || id})">Start Thread</button>
+                </section>
+                <section class="ops-subpanel">
+                    <h4>Notification</h4>
+                    ${this.renderStaffNoticeForm('player')}
+                    <button class="btn btn-primary btn-sm" onclick="TMC.sendStaffNotificationPlayer(${Number(user.player_id) || id})">Send Notification</button>
+                </section>
+                <section class="ops-subpanel">
+                    <h4>Mutes</h4>
+                    <div class="ops-grid">
+                        <div class="form-group"><label>Scope</label><select id="staff-mute-scope" class="input-field"><option>GLOBAL</option><option>SEASON</option><option>STAFF</option><option>ALL</option></select></div>
+                        <div class="form-group"><label>Minutes</label><input id="staff-mute-minutes" class="input-field" type="number" min="0" placeholder="blank = indefinite"></div>
+                    </div>
+                    <div class="form-group"><label>Reason</label><input id="staff-mute-reason" class="input-field" maxlength="255"></div>
+                    <button class="btn btn-primary btn-sm" onclick="TMC.muteStaffUser(${Number(user.player_id) || id})">Mute</button>
+                    <div class="ops-list ops-top-space">
+                        ${mutes.length ? mutes.map((m) => `
+                            <div class="ops-row">
+                                <span>${this.escapeHtml(m.scope || 'ALL')} ${m.expires_at ? 'until ' + this.escapeHtml(m.expires_at) : 'indefinite'}</span>
+                                <button class="btn btn-outline btn-sm" onclick="TMC.unmuteStaffUser(${Number(m.mute_id) || 0})">Unmute</button>
+                            </div>
+                        `).join('') : '<p class="empty-text">No active mutes.</p>'}
+                    </div>
+                </section>
+            </div>
+        `;
+    },
+
+    async saveStaffUser(playerId) {
+        const result = await this.api('staff_user_update', {
+            target_player_id: Number(playerId) || 0,
+            bio: document.getElementById('staff-user-bio')?.value || '',
+            profile_status: document.getElementById('staff-user-status')?.value || '',
+            profile_visibility: document.getElementById('staff-user-visibility')?.value || 'PUBLIC',
+            reason: document.getElementById('staff-user-update-reason')?.value || 'Staff account update'
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('User updated.', 'success');
+        this.loadStaffUser(playerId);
+    },
+
+    async requestStaffAccountDeletion(playerId) {
+        const reason = document.getElementById('staff-delete-reason')?.value || '';
+        if (!window.confirm('Request staff deletion verification?')) return;
+        const result = await this.api('staff_account_delete_request', { target_player_id: Number(playerId) || 0, reason });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Staff deletion verification sent.', 'warning');
+    },
+
+    async startStaffThread(playerId) {
+        const result = await this.api('staff_chat_start', {
+            target_player_id: Number(playerId) || 0,
+            subject: document.getElementById('staff-chat-subject')?.value || '',
+            body: document.getElementById('staff-chat-body')?.value || ''
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Staff thread started.', 'success');
+        this.state.currentChat = 'STAFF';
+        this.state.staffChatThreadId = Number(result.thread_id) || null;
+        this.navigate('chat');
+    },
+
+    async sendStaffNotificationPlayer(playerId) {
+        const result = await this.api('staff_notifications_send_player', {
+            target_player_id: Number(playerId) || 0,
+            ...this.getStaffNoticePayload('player')
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Notification sent.', 'success');
+    },
+
+    async sendStaffNotificationAll() {
+        if (!window.confirm('Broadcast this notification to all players?')) return;
+        const result = await this.api('staff_notifications_send_all', this.getStaffNoticePayload('all'));
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast(`Broadcast sent to ${this.formatNumber(result.count || 0)} players.`, 'success');
+    },
+
+    async muteStaffUser(playerId) {
+        const minutesRaw = document.getElementById('staff-mute-minutes')?.value || '';
+        const result = await this.api('staff_chat_mute_user', {
+            target_player_id: Number(playerId) || 0,
+            scope: document.getElementById('staff-mute-scope')?.value || 'ALL',
+            minutes: minutesRaw === '' ? null : Number(minutesRaw),
+            reason: document.getElementById('staff-mute-reason')?.value || 'Muted by staff'
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Mute applied.', 'warning');
+        this.loadStaffUser(playerId);
+    },
+
+    async unmuteStaffUser(muteId) {
+        const reason = window.prompt('Unmute reason', 'Unmuted by staff') || 'Unmuted by staff';
+        const result = await this.api('staff_chat_unmute_user', { mute_id: Number(muteId) || 0, reason });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Mute revoked.', 'success');
+        if (this.state.staffUserDetailId) this.loadStaffUser(this.state.staffUserDetailId);
+    },
+
+    renderAdminPanel() {
+        const content = document.getElementById('admin-content');
+        if (!content) return;
+        if (!this.isAdmin()) {
+            content.innerHTML = '<div class="error-state">Admin access required.</div>';
+            return;
+        }
+        content.innerHTML = `
+            <h2 class="screen-title">Admin</h2>
+            <div class="ops-layout">
+                <section class="ops-panel">
+                    <h3>Role Update</h3>
+                    <div class="ops-grid">
+                        <div class="form-group"><label>Player ID</label><input id="admin-role-player-id" class="input-field" type="number" min="1"></div>
+                        <div class="form-group"><label>Role</label><select id="admin-role-value" class="input-field"><option>Player</option><option>Moderator</option><option>Admin</option></select></div>
+                    </div>
+                    <div class="form-group"><label>Reason</label><input id="admin-role-reason" class="input-field" maxlength="255" value="Admin role update"></div>
+                    <button class="btn btn-primary" onclick="TMC.updateAdminRole()">Update Role</button>
+                </section>
+                <section class="ops-panel danger-panel">
+                    <h3>Global Economy Reset</h3>
+                    <div class="form-group"><label>Type RESET GLOBAL ECONOMY</label><input id="admin-global-reset-confirm" class="input-field"></div>
+                    <div class="form-group"><label>Reason</label><input id="admin-global-reset-reason" class="input-field" maxlength="255"></div>
+                    <button class="btn btn-danger" onclick="TMC.resetGlobalEconomy()">Reset Global Economy</button>
+                </section>
+                <section class="ops-panel danger-panel">
+                    <h3>Player Economy Reset</h3>
+                    <div class="ops-grid">
+                        <div class="form-group"><label>Player ID</label><input id="admin-player-reset-id" class="input-field" type="number" min="1"></div>
+                        <div class="form-group"><label>Type RESET PLAYER ECONOMY</label><input id="admin-player-reset-confirm" class="input-field"></div>
+                    </div>
+                    <div class="form-group"><label>Reason</label><input id="admin-player-reset-reason" class="input-field" maxlength="255"></div>
+                    <button class="btn btn-danger" onclick="TMC.resetPlayerEconomy()">Reset Player Economy</button>
+                </section>
+            </div>
+        `;
+    },
+
+    async updateAdminRole() {
+        const result = await this.api('admin_role_update', {
+            target_player_id: Number(document.getElementById('admin-role-player-id')?.value || 0),
+            role: document.getElementById('admin-role-value')?.value || 'Player',
+            reason: document.getElementById('admin-role-reason')?.value || 'Admin role update'
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Role updated.', 'success');
+    },
+
+    async resetGlobalEconomy() {
+        if (!window.confirm('Proceed with global economy reset?')) return;
+        const result = await this.api('admin_economy_reset_global', {
+            confirmation: document.getElementById('admin-global-reset-confirm')?.value || '',
+            reason: document.getElementById('admin-global-reset-reason')?.value || 'Admin global economy reset'
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Global economy reset complete.', 'warning');
+        this.refreshGameState();
+    },
+
+    async resetPlayerEconomy() {
+        if (!window.confirm('Proceed with player economy reset?')) return;
+        const result = await this.api('admin_economy_reset_player', {
+            target_player_id: Number(document.getElementById('admin-player-reset-id')?.value || 0),
+            confirmation: document.getElementById('admin-player-reset-confirm')?.value || '',
+            reason: document.getElementById('admin-player-reset-reason')?.value || 'Admin player economy reset'
+        });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Player economy reset complete.', 'warning');
+        this.refreshGameState();
+    },
+
     // ==================== CHAT ====================
     initChat() {
         // Show season tab if in a season
@@ -3031,7 +3527,17 @@ const TMC = {
             seasonTab.style.display = '';
         } else {
             seasonTab.style.display = 'none';
+            if (this.state.currentChat === 'SEASON') this.state.currentChat = 'GLOBAL';
         }
+
+        const staffTab = document.getElementById('chat-staff-tab');
+        if (staffTab) staffTab.style.display = this.state.player ? '' : 'none';
+        if (!this.state.player && this.state.currentChat === 'STAFF') {
+            this.state.currentChat = 'GLOBAL';
+        }
+        document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
+        const activeChatTab = document.querySelector(`.chat-tab[onclick*="${this.state.currentChat}"]`);
+        if (activeChatTab) activeChatTab.classList.add('active');
 
         // Show input if logged in
         const inputArea = document.getElementById('chat-input-area');
@@ -3051,12 +3557,19 @@ const TMC = {
         document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
         if (evt && evt.target) {
             evt.target.classList.add('active');
+        } else {
+            const tab = document.querySelector(`.chat-tab[onclick*="${channel}"]`);
+            if (tab) tab.classList.add('active');
         }
         this.loadChat();
     },
 
     async loadChat() {
         if (this._isBackoffActive('chat')) return;
+        if (this.state.currentChat === 'STAFF') {
+            await this.loadStaffChat();
+            return;
+        }
 
         const params = { channel: this.state.currentChat };
         if (this.state.currentChat === 'SEASON' && this.state.player) {
@@ -3080,27 +3593,131 @@ const TMC = {
 
         // Reverse to show oldest first
         const sorted = [...messages].reverse();
-        container.innerHTML = sorted.map(m => {
-            const isMe = this.state.player && m.sender_id == this.state.player.player_id;
-            const isAdmin = m.is_admin_post;
-            return `
-                <div class="chat-msg ${isMe ? 'chat-msg-mine' : ''} ${isAdmin ? 'chat-msg-admin' : ''}">
-                    <span class="chat-handle ${isAdmin ? 'admin-handle' : ''}" onclick="TMC.navigate('profile', ${m.sender_id})">
-                        ${isAdmin ? '[ADMIN] ' : ''}${this.escapeHtml(m.handle_snapshot)}
-                    </span>
-                    <span class="chat-text">${this.escapeHtml(m.content)}</span>
-                    <span class="chat-time">${this.formatChatTime(m.created_at)}</span>
-                </div>
-            `;
-        }).join('');
+        container.innerHTML = sorted.map((m) => this.renderChatMessage(m)).join('');
 
         container.scrollTop = container.scrollHeight;
+    },
+
+    renderChatMessage(m, options = {}) {
+        const senderId = Number(m.sender_id) || 0;
+        const isMe = this.state.player && senderId === Number(this.state.player.player_id);
+        const isAdmin = !!m.is_admin_post || String(m.sender_role || '').toLowerCase() === 'admin';
+        const isRemoved = !!m.is_removed;
+        const messageId = Number(m.message_id || m.staff_message_id || 0);
+        const handle = m.handle_snapshot || m.sender_handle || 'Unknown';
+        const body = m.content || m.body || '';
+        const removedMeta = isRemoved
+            ? `<span class="chat-removed-meta">Removed${m.removed_at ? ' ' + this.formatChatTimestamp(m.removed_at) : ''}${m.removal_reason ? ': ' + this.escapeHtml(m.removal_reason) : ''}</span>`
+            : '';
+        const text = isRemoved
+            ? `<span class="chat-text chat-text-removed">${this.escapeHtml(body || '[removed]')}</span>`
+            : `<span class="chat-text">${this.escapeHtml(body)}</span>`;
+        const removeButton = this.isStaff() && !isRemoved && messageId > 0 && !options.staffChat
+            ? `<button class="chat-remove-btn" type="button" onclick="TMC.removeChatMessage(${messageId})">Remove</button>`
+            : '';
+        return `
+            <div class="chat-msg ${isMe ? 'chat-msg-mine' : ''} ${isAdmin ? 'chat-msg-admin' : ''} ${isRemoved ? 'chat-msg-removed' : ''}">
+                <span class="chat-handle ${isAdmin ? 'admin-handle' : ''}" onclick="TMC.navigate('profile', ${senderId})">
+                    ${isAdmin ? '[ADMIN] ' : ''}${this.escapeHtml(handle)}
+                </span>
+                ${text}
+                ${removedMeta}
+                ${removeButton}
+                <span class="chat-time">${this.formatChatTimestamp(m.created_at)}</span>
+            </div>
+        `;
+    },
+
+    async removeChatMessage(messageId) {
+        const reason = window.prompt('Removal reason', 'Removed by staff') || 'Removed by staff';
+        const result = await this.api('staff_chat_remove_message', { message_id: Number(messageId) || 0, reason });
+        if (result.error) return this.toast(result.error, 'error');
+        this.toast('Message removed.', 'warning');
+        this.loadChat();
+    },
+
+    async loadStaffChat() {
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        if (!this.state.player) {
+            container.innerHTML = '<div class="chat-empty">Login to use staff chat.</div>';
+            return;
+        }
+
+        const threadResult = await this.api('staff_chat_threads');
+        if (threadResult.error) {
+            container.innerHTML = `<div class="error-state">${this.escapeHtml(threadResult.error)}</div>`;
+            return;
+        }
+
+        const threads = threadResult.threads || [];
+        if (!threads.length) {
+            container.innerHTML = '<div class="chat-empty">No staff chat threads yet.</div>';
+            return;
+        }
+
+        if (!this.state.staffChatThreadId || !threads.some((t) => Number(t.thread_id) === Number(this.state.staffChatThreadId))) {
+            this.state.staffChatThreadId = Number(threads[0].thread_id) || null;
+        }
+
+        const activeId = Number(this.state.staffChatThreadId) || 0;
+        const messageResult = activeId ? await this.api('staff_chat_messages', { thread_id: activeId }) : { messages: [] };
+        if (messageResult.error) {
+            container.innerHTML = `<div class="error-state">${this.escapeHtml(messageResult.error)}</div>`;
+            return;
+        }
+
+        const messages = messageResult.messages || [];
+        container.innerHTML = `
+            <div class="staff-chat-layout">
+                <aside class="staff-thread-list">
+                    ${threads.map((thread) => this.renderStaffThreadButton(thread, activeId)).join('')}
+                </aside>
+                <div class="staff-thread-messages">
+                    ${messages.length ? messages.map((m) => this.renderChatMessage(m, { staffChat: true })).join('') : '<div class="chat-empty">No messages in this thread.</div>'}
+                </div>
+            </div>
+        `;
+        const messagePane = container.querySelector('.staff-thread-messages');
+        if (messagePane) messagePane.scrollTop = messagePane.scrollHeight;
+    },
+
+    renderStaffThreadButton(thread, activeId) {
+        const id = Number(thread.thread_id) || 0;
+        const subject = thread.subject || `Thread #${id}`;
+        const target = thread.target_handle ? `@${thread.target_handle}` : `Player #${thread.target_player_id}`;
+        return `
+            <button class="staff-thread-btn ${id === activeId ? 'active' : ''}" type="button" onclick="TMC.openStaffThread(${id})">
+                <strong>${this.escapeHtml(subject)}</strong>
+                <span>${this.escapeHtml(target)} - ${this.escapeHtml(thread.status || 'OPEN')}</span>
+                <small>${thread.last_message_at ? this.formatChatTimestamp(thread.last_message_at) : ''}</small>
+            </button>
+        `;
+    },
+
+    openStaffThread(threadId) {
+        this.state.staffChatThreadId = Number(threadId) || null;
+        this.loadStaffChat();
     },
 
     async sendChat() {
         const input = document.getElementById('chat-input');
         const content = input.value.trim();
         if (!content) return;
+
+        if (this.state.currentChat === 'STAFF') {
+            const result = await this.api('staff_chat_send', {
+                thread_id: Number(this.state.staffChatThreadId) || 0,
+                body: content
+            });
+            if (result.error) {
+                this.toast(result.error, 'error');
+                return;
+            }
+            input.value = '';
+            this.loadStaffChat();
+            return;
+        }
 
         const params = { channel: this.state.currentChat, content };
         if (this.state.currentChat === 'SEASON') {
@@ -3383,9 +4000,11 @@ const TMC = {
         this.state.notifications = incoming.map((n) => ({
             notification_id: Number(n.notification_id),
             category: n.category || 'system',
+            severity: n.severity || 'info',
             title: n.title || 'Notification',
             body: n.body || '',
             payload: n.payload || null,
+            action_url: n.action_url || null,
             is_read: !!n.is_read,
             created_at: n.created_at,
             read_at: n.read_at || null
@@ -3492,18 +4111,28 @@ const TMC = {
 
         list.innerHTML = this.state.notifications.map((n) => {
             const categoryView = this.getNotificationCategoryView(n.category);
+            const severity = String(n.severity || 'info').toLowerCase();
             const itemClass = n.is_read
-                ? `notification-item notification-${categoryView.tone}`
-                : `notification-item unread notification-${categoryView.tone}`;
+                ? `notification-item notification-${categoryView.tone} notification-severity-${severity}`
+                : `notification-item unread notification-${categoryView.tone} notification-severity-${severity}`;
             const body = n.body ? `<p>${this.escapeHtml(n.body)}</p>` : '';
+            const action = n.action_url
+                ? `<a class="notification-action" href="${this.escapeHtml(n.action_url)}" onclick="event.stopPropagation()">Open Action</a>`
+                : '';
+            const payload = n.payload && typeof n.payload === 'object'
+                ? `<details class="notification-payload" onclick="event.stopPropagation()"><summary>Details</summary><pre>${this.escapeHtml(JSON.stringify(n.payload, null, 2))}</pre></details>`
+                : '';
             return `
                 <div class="${itemClass}" data-notification-id="${n.notification_id}" onclick="TMC.handleNotificationClick(event, ${n.notification_id})">
                     <div class="notification-item-head">
                         <span class="notification-category">${this.escapeHtml(categoryView.icon + ' ' + categoryView.label)}</span>
+                        <span class="notification-severity">${this.escapeHtml(severity)}</span>
                         <span class="notification-time">${this.formatNotificationTime(n.created_at)}</span>
                     </div>
                     <h4>${this.escapeHtml(n.title || 'Notification')}</h4>
                     ${body}
+                    ${action}
+                    ${payload}
                 </div>
             `;
         }).join('');
@@ -3734,8 +4363,33 @@ const TMC = {
     },
 
     formatChatTime(dateStr) {
+        return this.formatChatTimestamp(dateStr);
+    },
+
+    formatChatTimestamp(dateStr) {
         const d = new Date(dateStr);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (Number.isNaN(d.getTime())) return '';
+        const diffSeconds = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+        let rel = 'just now';
+        if (diffSeconds >= 86400) {
+            const days = Math.floor(diffSeconds / 86400);
+            rel = `${days}d ago`;
+        } else if (diffSeconds >= 3600) {
+            const hours = Math.floor(diffSeconds / 3600);
+            rel = `${hours}h ago`;
+        } else if (diffSeconds >= 60) {
+            const minutes = Math.floor(diffSeconds / 60);
+            rel = `${minutes}m ago`;
+        }
+        const exact = d.toLocaleString([], {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        return `<time datetime="${this.escapeHtml(d.toISOString())}" title="${this.escapeHtml(exact)}">${this.escapeHtml(rel)}</time>`;
     },
 
     async pushSuccessNotification(message, options = {}) {

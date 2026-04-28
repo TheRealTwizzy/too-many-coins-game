@@ -91,6 +91,9 @@
                     <button class="nav-btn" data-screen="global-lb" onclick="TMC.navigate('global-lb')">Leaderboard</button>
                     <button class="nav-btn" data-screen="shop" onclick="TMC.navigate('shop')">Cosmetics</button>
                     <button class="nav-btn" data-screen="chat" onclick="TMC.navigate('chat')">Chat</button>
+                    <button class="nav-btn role-nav role-nav-account" data-screen="account" onclick="TMC.navigate('account')" style="display:none;">Account</button>
+                    <button class="nav-btn role-nav role-nav-staff" data-screen="staff" onclick="TMC.navigate('staff')" style="display:none;">Staff</button>
+                    <button class="nav-btn role-nav role-nav-admin" data-screen="admin" onclick="TMC.navigate('admin')" style="display:none;">Admin</button>
                 </nav>
                 <a class="btn btn-sm btn-outline wiki-top-link" href="/wiki/">Wiki</a>
                 <div id="user-area">
@@ -250,6 +253,7 @@
                 <div class="chat-tabs">
                     <button class="chat-tab active" onclick="TMC.switchChat('GLOBAL', event)">Global</button>
                     <button class="chat-tab" id="chat-season-tab" onclick="TMC.switchChat('SEASON', event)" style="display:none;">Season</button>
+                    <button class="chat-tab" id="chat-staff-tab" onclick="TMC.switchChat('STAFF', event)" style="display:none;">Staff</button>
                 </div>
                 <div id="chat-container" class="chat-container">
                     <div id="chat-messages" class="chat-messages">
@@ -265,6 +269,27 @@
             <!-- PROFILE SCREEN -->
             <section id="screen-profile" class="screen">
                 <div id="profile-content">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+
+            <!-- ACCOUNT SCREEN -->
+            <section id="screen-account" class="screen">
+                <div id="account-content">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+
+            <!-- STAFF SCREEN -->
+            <section id="screen-staff" class="screen">
+                <div id="staff-content">
+                    <!-- Filled by JS -->
+                </div>
+            </section>
+
+            <!-- ADMIN SCREEN -->
+            <section id="screen-admin" class="screen">
+                <div id="admin-content">
                     <!-- Filled by JS -->
                 </div>
             </section>
@@ -298,6 +323,18 @@
             <button class="bottom-nav-btn" data-screen="shop" onclick="TMC.navigate('shop')">
                 <span class="bottom-nav-icon">&#128142;</span>
                 <span class="bottom-nav-label">Shop</span>
+            </button>
+            <button class="bottom-nav-btn role-nav role-nav-account" data-screen="account" onclick="TMC.navigate('account')" style="display:none;">
+                <span class="bottom-nav-icon">&#9881;</span>
+                <span class="bottom-nav-label">Account</span>
+            </button>
+            <button class="bottom-nav-btn role-nav role-nav-staff" data-screen="staff" onclick="TMC.navigate('staff')" style="display:none;">
+                <span class="bottom-nav-icon">&#9874;</span>
+                <span class="bottom-nav-label">Staff</span>
+            </button>
+            <button class="bottom-nav-btn role-nav role-nav-admin" data-screen="admin" onclick="TMC.navigate('admin')" style="display:none;">
+                <span class="bottom-nav-icon">&#9888;</span>
+                <span class="bottom-nav-label">Admin</span>
             </button>
         </nav>
 
