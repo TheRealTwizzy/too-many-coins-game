@@ -93,6 +93,13 @@ define('TMC_TRUST_PROXY_HEADERS', filter_var(getenv('TMC_TRUST_PROXY_HEADERS') ?
 define('TMC_TRUSTED_PROXIES', trim((string)(getenv('TMC_TRUSTED_PROXIES') ?: '')));
 define('TMC_RATE_LIMIT_DIAGNOSTICS', filter_var(getenv('TMC_RATE_LIMIT_DIAGNOSTICS') ?: '0', FILTER_VALIDATE_BOOLEAN));
 
+// Account/social email controls.
+define('TMC_MAIL_FROM', env_first(['TMC_MAIL_FROM'], 'no-reply@too-many-coins.com'));
+define('TMC_MAIL_FROM_NAME', env_first(['TMC_MAIL_FROM_NAME'], 'Too Many Coins'));
+define('TMC_MAIL_DEV_LOG', filter_var(getenv('TMC_MAIL_DEV_LOG') ?: '1', FILTER_VALIDATE_BOOLEAN));
+define('TMC_PUBLIC_BASE_URL', rtrim((string)env_first(['TMC_PUBLIC_BASE_URL'], ''), '/'));
+define('TMC_VERIFICATION_TOKEN_MINUTES', max(5, (int)(getenv('TMC_VERIFICATION_TOKEN_MINUTES') ?: 30)));
+
 // Activity
 define('IDLE_TIMEOUT_TICKS', ticks_from_real_seconds(900));  // 15 real minutes
 define('FORCED_OFFLINE_IDLE_HOLD_TICKS', ticks_from_real_seconds(2700)); // 45 real minutes after Idle
