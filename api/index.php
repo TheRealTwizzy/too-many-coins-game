@@ -199,6 +199,7 @@ require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/account.php';
 require_once __DIR__ . '/../includes/social.php';
 require_once __DIR__ . '/../includes/moderation.php';
+require_once __DIR__ . '/../includes/staff_chat.php';
 require_once __DIR__ . '/../includes/sigil_drops_api.php';
 require_once __DIR__ . '/../includes/runtime_readiness.php';
 
@@ -668,6 +669,35 @@ try {
             echo json_encode(ModerationService::updateUser($actor, (int)($input['target_player_id'] ?? 0), $input));
             break;
 
+        case 'staff_chat_start':
+            $actor = Permissions::requireStaff();
+            echo json_encode(StaffChatService::startThread(
+                $actor,
+                (int)($input['target_player_id'] ?? 0),
+                (string)($input['subject'] ?? ''),
+                (string)($input['body'] ?? $input['message'] ?? '')
+            ));
+            break;
+
+        case 'staff_chat_threads':
+            $player = Auth::requireAuth();
+            echo json_encode(['success' => true, 'threads' => StaffChatService::listThreads($player)]);
+            break;
+
+        case 'staff_chat_messages':
+            $player = Auth::requireAuth();
+            echo json_encode(StaffChatService::getMessages($player, (int)($input['thread_id'] ?? 0)));
+            break;
+
+        case 'staff_chat_send':
+            $player = Auth::requireAuth();
+            echo json_encode(StaffChatService::sendMessage(
+                $player,
+                (int)($input['thread_id'] ?? 0),
+                (string)($input['body'] ?? $input['message'] ?? '')
+            ));
+            break;
+
         case 'staff_chat_remove_message':
             $actor = Permissions::requireStaff();
             echo json_encode(ModerationService::removeMessage($actor, (int)($input['message_id'] ?? 0), trim((string)($input['reason'] ?? 'Removed by staff'))));
@@ -681,6 +711,64 @@ try {
         case 'staff_chat_unmute_user':
             $actor = Permissions::requireStaff();
             echo json_encode(ModerationService::unmuteUser($actor, (int)($input['mute_id'] ?? 0), trim((string)($input['reason'] ?? 'Unmuted by staff'))));
+            break;
+
+        case 'staff_notifications_send_player':
+            $actor = Permissions::requireStaff();
+            $targetId = (int)($input['target_player_id'] ?? 0);
+            $target = getActiveNotificationTarget($targetId);
+            if (!$target) {
+                echo json_encode(['error' => 'Target player not found']);
+                break;
+            }
+
+            $notice = normalizeStaffNotificationInput($input);
+            if (!empty($notice['error'])) {
+                echo json_encode($notice);
+                break;
+            }
+
+            $notificationId = Notifications::create(
+                $targetId,
+                $notice['category'],
+                $notice['title'],
+                $notice['body'],
+                $notice['options']
+            );
+            Audit::record(
+                (int)$actor['player_id'],
+                $targetId,
+                'staff_notification_send',
+                $notice['title'],
+                null,
+                ['notification_id' => $notificationId, 'category' => $notice['category']]
+            );
+            echo json_encode(['success' => true, 'notification_id' => $notificationId]);
+            break;
+
+        case 'staff_notifications_send_all':
+            $actor = Permissions::requireStaff();
+            $notice = normalizeStaffNotificationInput($input);
+            if (!empty($notice['error'])) {
+                echo json_encode($notice);
+                break;
+            }
+
+            $count = Notifications::createForAll(
+                $notice['category'],
+                $notice['title'],
+                $notice['body'],
+                $notice['options']
+            );
+            Audit::record(
+                (int)$actor['player_id'],
+                null,
+                'staff_notification_broadcast',
+                $notice['title'],
+                null,
+                ['count' => $count, 'category' => $notice['category']]
+            );
+            echo json_encode(['success' => true, 'count' => $count]);
             break;
             
         // ==================== COSMETICS ====================
@@ -755,8 +843,10 @@ try {
                 'friend_request_respond', 'friend_remove', 'blocks_list',
                 'block_add', 'block_remove',
                 'staff_users_search', 'staff_user_get', 'staff_user_update',
-                'staff_chat_remove_message', 'staff_chat_mute_user',
-                'staff_chat_unmute_user',
+                'staff_chat_start', 'staff_chat_threads', 'staff_chat_messages',
+                'staff_chat_send', 'staff_chat_remove_message', 'staff_chat_mute_user',
+                'staff_chat_unmute_user', 'staff_notifications_send_player',
+                'staff_notifications_send_all',
                 'profile', 'my_badges', 'season_history', 'tick',
                 'star_purchase_preview', 'boost_activate_preview',
                 'rate_limit_diagnostics'
@@ -1940,6 +2030,74 @@ function getNotificationIdsFromInput($input) {
         return [$input['notification_id']];
     }
     return [];
+}
+
+function getActiveNotificationTarget(int $targetId): ?array {
+    if ($targetId <= 0) {
+        return null;
+    }
+
+    $row = Database::getInstance()->fetch(
+        "SELECT player_id, handle, role
+         FROM players
+         WHERE player_id = ? AND profile_deleted_at IS NULL",
+        [$targetId]
+    );
+
+    return $row ?: null;
+}
+
+function normalizeStaffNotificationInput(array $input): array {
+    $category = trim((string)($input['category'] ?? 'staff'));
+    if ($category === '') $category = 'staff';
+    if (strlen($category) > 40) {
+        return ['error' => 'Category must be 40 characters or fewer'];
+    }
+
+    $title = trim((string)($input['title'] ?? $input['message'] ?? ''));
+    if ($title === '') {
+        return ['error' => 'Notification title required'];
+    }
+    if (strlen($title) > 100) {
+        return ['error' => 'Notification title must be 100 characters or fewer'];
+    }
+
+    $bodyRaw = $input['body'] ?? null;
+    $body = is_string($bodyRaw) ? trim($bodyRaw) : null;
+    if ($body === '') $body = null;
+    if ($body !== null && strlen($body) > 255) {
+        return ['error' => 'Notification body must be 255 characters or fewer'];
+    }
+
+    $severity = isset($input['severity']) ? trim((string)$input['severity']) : 'info';
+    if (!in_array($severity, ['info', 'success', 'warning', 'danger'], true)) {
+        return ['error' => 'Invalid notification severity'];
+    }
+
+    $actionUrl = isset($input['action_url']) ? trim((string)$input['action_url']) : null;
+    if ($actionUrl === '') $actionUrl = null;
+    if ($actionUrl !== null && strlen($actionUrl) > 255) {
+        return ['error' => 'Notification action URL must be 255 characters or fewer'];
+    }
+
+    $payload = null;
+    if (isset($input['payload'])) {
+        if (!is_array($input['payload'])) {
+            return ['error' => 'Notification payload must be an object'];
+        }
+        $payload = $input['payload'];
+    }
+
+    $options = ['severity' => $severity];
+    if ($actionUrl !== null) $options['action_url'] = $actionUrl;
+    if ($payload !== null) $options['payload'] = $payload;
+
+    return [
+        'category' => $category,
+        'title' => $title,
+        'body' => $body,
+        'options' => $options
+    ];
 }
 
 function getCombineRecipesForParticipation($participation) {

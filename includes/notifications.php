@@ -42,6 +42,21 @@ class Notifications {
         return (int)$db->getConnection()->lastInsertId();
     }
 
+    public static function createForAll($category, $title, $body = null, $options = []) {
+        $db = Database::getInstance();
+        $players = $db->fetchAll(
+            "SELECT player_id FROM players WHERE profile_deleted_at IS NULL ORDER BY player_id ASC"
+        );
+
+        $count = 0;
+        foreach ($players as $player) {
+            self::create((int)$player['player_id'], $category, $title, $body, $options);
+            $count++;
+        }
+
+        return $count;
+    }
+
     public static function listForPlayer($playerId, $limit = 50) {
         $db = Database::getInstance();
         $safeLimit = max(1, min(100, (int)$limit));

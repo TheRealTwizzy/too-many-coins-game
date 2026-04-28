@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/permissions.php';
 require_once __DIR__ . '/../includes/account.php';
+require_once __DIR__ . '/../includes/staff_chat.php';
 
 $failures = [];
 
@@ -10,6 +11,7 @@ if (Permissions::roleRank('Admin') !== 3) $failures[] = 'admin rank';
 if (!Permissions::canActOnTarget(['role' => 'Admin'], ['role' => 'Moderator'])) $failures[] = 'admin over moderator';
 if (Permissions::canActOnTarget(['role' => 'Moderator'], ['role' => 'Admin'])) $failures[] = 'moderator over admin';
 if (Permissions::canActOnTarget(['role' => 'Moderator'], ['role' => 'Moderator'])) $failures[] = 'moderator peer';
+if (!class_exists('StaffChatService')) $failures[] = 'staff chat service missing';
 
 $shortPassword = ['current_password' => 'x', 'new_password' => 'abc', 'confirm_password' => 'abc'];
 if ($shortPassword['new_password'] !== $shortPassword['confirm_password']) {
