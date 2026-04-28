@@ -55,61 +55,6 @@ Guaranteed floor policy (hybrid scaling):
 | Database | MySQL 8.x |
 | Architecture | Tick-based deterministic game engine |
 
-## Simulation Preflight Audit
-
-Simulation B, C, and D now resolve a canonical effective configuration before each run and persist:
-
-- `effective_config.json`
-- `effective_config_audit.md`
-
-The audit records requested candidate changes, final effective values, source attribution, and whether each changed key is active. Runs abort before execution if a candidate touches an inactive key unless a developer explicitly bypasses the gate with `--allow-inactive-candidate-config` or `TMC_SIMULATION_AUDIT_BYPASS=1`.
-
-Strict candidate validation now runs before simulation preflight. Candidate packages and scenario overrides reject:
-
-- unknown keys
-- deprecated keys
-- keys outside the canonical economic tuning surface
-- keys for disabled subsystems
-- malformed types and out-of-range values
-
-`tools/export-season-config.php` now exports only the canonical patchable economy surface. If you need season identity or runtime DB state for inspection, write it separately with `--metadata-output=FILE`.
-
-Lint candidate JSON without running simulations:
-
-```bash
-php scripts/lint_candidate_packages.php --input=simulation_output/current-db/tuning/tuning_candidates_v3.json
-```
-
-Phase C candidate generation is now staged to keep first-pass tuning isolated and interpretable:
-
-- `stage_1_single_knob`: one knob per candidate only
-- `stage_2_pairwise`: only stage-1-validated knobs may combine
-- `stage_3_constrained_bundle`: only pairwise-validated knobs may bundle, capped to small bundles
-- `stage_4_full_confirmation`: only promoted stage-3 bundles advance
-
-Generation is baseline-aware before linting: it intersects the registry with the canonical tuning surface, active baseline feature flags, and subsystem enablement. The JSON and Markdown outputs now include `baseline_context` plus a `suppression_report` section so disabled or inactive families are reported explicitly instead of relying on late preflight rejection.
-
-Every generated candidate and scenario now carries `stage` plus `lineage` metadata so reports show where a candidate came from and which earlier-stage candidates validated it. Low-signal or unstable knobs stay in stage 1 for learning, but do not auto-promote.
-
-See [SIMULATION_RUNBOOK.md](SIMULATION_RUNBOOK.md) for the full precedence chain and artifact locations.
-Official sweep/comparator qualification and campaign profiles are documented in [SIMULATION_SWEEP_COMPARATOR_PROFILES.md](SIMULATION_SWEEP_COMPARATOR_PROFILES.md).
-The shared simulator/play-test economy contract is documented in [ECONOMY_CONFIG_COMPATIBILITY.md](ECONOMY_CONFIG_COMPATIBILITY.md).
-Promotion-critical simulator/runtime mechanic certification is documented in [PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md](PLAY_TEST_RUNTIME_PARITY_CERTIFICATION.md).
-Promotion-eligible candidates can be converted into a staged play-test repo patch bundle with `php scripts/generate_promotion_patch.php --promotion-report=... --dry-run`.
-
-Semantic determinism excludes only operational metadata that can vary between equivalent runs:
-
-- top-level `generated_at`
-- payload `config_audit.artifact_paths.*`
-- Simulation D result `manifest_path`
-- Simulation D manifest `generated_at`
-- Simulation D manifest `config.base_season_config_path`
-- Simulation D manifest `runs[*].json`, `runs[*].csv`, `runs[*].config_audit.*`, and `runs[*].timings`
-- Simulation D manifest `timing_summary`
-- Simulation E payload `timing_summary`, `scenarios[*].timing_ms`, and `scenarios[*].rejection_attribution.timing_ms`
-
-Those raw fields are still emitted for inspection and debugging, but determinism assertions compare the remaining semantic output surface. Economic metrics, sweep metadata, requested candidate changes, audit status, and other payload content must still match exactly for a run to be considered deterministic.
-
 ## Project Structure
 
 ```
@@ -140,7 +85,7 @@ too-many-coins/
 ├── migration_boost_duration_hotfix.sql # One-time live DB boost duration/description fixes
 ├── router.php                  # PHP dev server router
 ├── setup.sh                    # Production deployment script
-├── tools/import-wiki-zip.ps1   # Import external wiki ZIP into local reference workspace
+├── tools/                      # Runtime readiness, reset, and cutover utilities
 └── README.md                   # This file
 ```
 
@@ -297,40 +242,10 @@ Current wiki routes:
 - `/wiki/strategy/`
 - `/wiki/search/`
 
-Migration tracking document:
-
-- `WIKI_MIGRATION_STATUS.md`
-
 Implementation notes:
 
 - Full chapter/section content is rendered from `public/wiki/assets/wiki-data.js`.
 - The shared renderer `public/wiki/assets/wiki-render.js` handles category page rendering and client-side search.
-
-## External ZIP Migration Workflow
-
-1. Place your external wiki ZIP anywhere accessible on your machine.
-2. Run the import script from the repo root in PowerShell:
-
-```powershell
-.\tools\import-wiki-zip.ps1 -ZipPath "C:\path\to\your-existing-wiki.zip"
-```
-
-3. The ZIP is extracted into `wiki_source/imported/<timestamp>/` (git-ignored).
-4. Use extracted pages/assets as reference source, then copy curated content into `public/wiki/`.
-5. Validate routes:
-
-```bash
-curl -I http://localhost:8080/wiki/
-curl -I http://localhost:8080/wiki/getting-started/
-curl -I http://localhost:8080/api/index.php?action=game_state
-```
-
-Recommended migration order:
-
-1. Port information architecture (page list and URL structure)
-2. Port layout blocks and assets
-3. Align styles to current site visual language
-4. Validate mobile and desktop behavior
 
 ## Quick Start (Development)
 
@@ -483,7 +398,7 @@ curl -sS -X POST "https://your-domain/api/index.php?action=tick" \
 
 ### Runtime Readiness Gate
 
-Simulation success is not enough to declare a deployed environment healthy. Before promoting test/live, run the runtime readiness checks:
+Before declaring a deployed environment healthy, run the runtime readiness checks:
 
 ```bash
 php tools/runtime_readiness_check.php --pretty
