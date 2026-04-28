@@ -4,6 +4,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/audit.php';
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/permissions.php';
 
 class AccountService {
     public static function getAccount(array $player): array {
@@ -122,6 +123,57 @@ class AccountService {
         $row = self::consumeVerificationToken($token, 'SELF_DELETE');
         if (!$row) return ['error' => 'Verification token is invalid or expired'];
         return self::softDelete((int)$row['actor_player_id'], (int)$row['target_player_id'], self::payloadReason($row), 'self_account_delete');
+    }
+
+    public static function requestStaffDeletion(array $actor, int $targetId, string $reason): array {
+        $db = Database::getInstance();
+        $target = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$targetId]);
+        if (!$target) return ['error' => 'Player not found'];
+        if (!empty($target['profile_deleted_at'])) return ['error' => 'Player is already deleted'];
+        if (!Permissions::canActOnTarget($actor, $target)) return ['error' => 'Insufficient permission for target'];
+
+        $reason = trim($reason) !== '' ? trim($reason) : 'Staff-requested deletion';
+        $token = self::createVerificationToken(
+            (int)$actor['player_id'],
+            $targetId,
+            'STAFF_DELETE',
+            ['reason' => $reason]
+        );
+        $url = self::verificationUrl('STAFF_DELETE', $token['raw']);
+
+        Mailer::send(
+            (string)$actor['email'],
+            'Confirm Too Many Coins staff account deletion',
+            "Confirm staff account deletion for {$target['handle']} (#{$targetId}):\n\n{$url}\n\nThis link expires at {$token['expires_at']} UTC."
+        );
+        Notifications::create(
+            $targetId,
+            'account_security',
+            'Account deletion initiated',
+            'Staff has initiated an account deletion action for your account.',
+            ['severity' => 'danger', 'payload' => ['actor_player_id' => (int)$actor['player_id']]]
+        );
+        Audit::record((int)$actor['player_id'], $targetId, 'staff_account_delete_request', $reason, $target, ['verification_sent_to_actor' => true]);
+
+        return ['success' => true, 'expires_at' => $token['expires_at']];
+    }
+
+    public static function confirmStaffDeletion(array $actor, string $token): array {
+        $row = self::consumeVerificationToken($token, 'STAFF_DELETE');
+        if (!$row) return ['error' => 'Verification token is invalid or expired'];
+        if ((int)$row['actor_player_id'] !== (int)$actor['player_id']) {
+            Audit::record((int)$actor['player_id'], (int)$row['target_player_id'], 'staff_account_delete_confirm_rejected', 'Verification actor mismatch');
+            return ['error' => 'Verification token is not valid for this account'];
+        }
+
+        $db = Database::getInstance();
+        $targetId = (int)$row['target_player_id'];
+        $target = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$targetId]);
+        if (!$target) return ['error' => 'Player not found'];
+        if (!empty($target['profile_deleted_at'])) return ['error' => 'Player is already deleted'];
+        if (!Permissions::canActOnTarget($actor, $target)) return ['error' => 'Insufficient permission for target'];
+
+        return self::softDelete((int)$actor['player_id'], $targetId, self::payloadReason($row), 'staff_account_delete_confirm');
     }
 
     public static function softDelete(int $actorId, int $targetId, ?string $reason, string $auditAction): array {
