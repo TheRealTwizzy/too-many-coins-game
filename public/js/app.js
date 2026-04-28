@@ -3288,12 +3288,18 @@ const TMC = {
     },
 
     getStaffNoticePayload(prefix) {
+        const rawActionUrl = document.getElementById(`${prefix}-notice-action-url`)?.value || '';
+        const actionUrl = this.sanitizeNotificationActionUrl(rawActionUrl);
+        if (rawActionUrl.trim() && !actionUrl) {
+            this.toast('Action URL must be a relative in-site link or an http/https URL.', 'error');
+            return null;
+        }
         return {
             severity: document.getElementById(`${prefix}-notice-severity`)?.value || 'info',
             category: document.getElementById(`${prefix}-notice-category`)?.value || 'staff',
             title: document.getElementById(`${prefix}-notice-title`)?.value || '',
             body: document.getElementById(`${prefix}-notice-body`)?.value || '',
-            action_url: document.getElementById(`${prefix}-notice-action-url`)?.value || ''
+            action_url: actionUrl || ''
         };
     },
 
@@ -3412,17 +3418,21 @@ const TMC = {
     },
 
     async sendStaffNotificationPlayer(playerId) {
+        const payload = this.getStaffNoticePayload('player');
+        if (!payload) return;
         const result = await this.api('staff_notifications_send_player', {
             target_player_id: Number(playerId) || 0,
-            ...this.getStaffNoticePayload('player')
+            ...payload
         });
         if (result.error) return this.toast(result.error, 'error');
         this.toast('Notification sent.', 'success');
     },
 
     async sendStaffNotificationAll() {
+        const payload = this.getStaffNoticePayload('all');
+        if (!payload) return;
         if (!window.confirm('Broadcast this notification to all players?')) return;
-        const result = await this.api('staff_notifications_send_all', this.getStaffNoticePayload('all'));
+        const result = await this.api('staff_notifications_send_all', payload);
         if (result.error) return this.toast(result.error, 'error');
         this.toast(`Broadcast sent to ${this.formatNumber(result.count || 0)} players.`, 'success');
     },
@@ -4116,8 +4126,9 @@ const TMC = {
                 ? `notification-item notification-${categoryView.tone} notification-severity-${severity}`
                 : `notification-item unread notification-${categoryView.tone} notification-severity-${severity}`;
             const body = n.body ? `<p>${this.escapeHtml(n.body)}</p>` : '';
-            const action = n.action_url
-                ? `<a class="notification-action" href="${this.escapeHtml(n.action_url)}" onclick="event.stopPropagation()">Open Action</a>`
+            const actionUrl = this.sanitizeNotificationActionUrl(n.action_url);
+            const action = actionUrl
+                ? `<a class="notification-action" href="${this.escapeHtml(actionUrl)}" onclick="event.stopPropagation()">Open Action</a>`
                 : '';
             const payload = n.payload && typeof n.payload === 'object'
                 ? `<details class="notification-payload" onclick="event.stopPropagation()"><summary>Details</summary><pre>${this.escapeHtml(JSON.stringify(n.payload, null, 2))}</pre></details>`
@@ -4360,6 +4371,33 @@ const TMC = {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    },
+
+    sanitizeNotificationActionUrl(url) {
+        const raw = String(url || '').trim();
+        if (!raw) return '';
+        if (/[\u0000-\u001F\u007F]/.test(raw)) return '';
+        if (/^\/\//.test(raw)) return '';
+
+        try {
+            if (raw.startsWith('/')) {
+                const parsed = new URL(raw, window.location.origin);
+                return parsed.origin === window.location.origin ? parsed.pathname + parsed.search + parsed.hash : '';
+            }
+
+            if (raw.startsWith('?') || raw.startsWith('#')) {
+                return raw;
+            }
+
+            const parsed = new URL(raw);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                return parsed.href;
+            }
+        } catch (e) {
+            return '';
+        }
+
+        return '';
     },
 
     formatChatTime(dateStr) {
