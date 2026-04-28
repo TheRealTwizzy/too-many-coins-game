@@ -193,6 +193,10 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/actions.php';
 require_once __DIR__ . '/../includes/tick_engine.php';
 require_once __DIR__ . '/../includes/notifications.php';
+require_once __DIR__ . '/../includes/permissions.php';
+require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/account.php';
 require_once __DIR__ . '/../includes/sigil_drops_api.php';
 require_once __DIR__ . '/../includes/runtime_readiness.php';
 
@@ -503,6 +507,31 @@ try {
             echo json_encode(getRecentSigilDrops($player));
             break;
 
+        // ==================== ACCOUNT ====================
+        case 'account_get':
+            $player = Auth::requireAuth();
+            echo json_encode(['success' => true, 'account' => AccountService::getAccount($player)]);
+            break;
+
+        case 'account_update':
+            $player = Auth::requireAuth();
+            echo json_encode(AccountService::updateAccount($player, $input));
+            break;
+
+        case 'account_change_password':
+            $player = Auth::requireAuth();
+            echo json_encode(AccountService::changePassword($player, $input));
+            break;
+
+        case 'account_delete_request':
+            $player = Auth::requireAuth();
+            echo json_encode(AccountService::requestSelfDeletion($player, trim((string)($input['reason'] ?? 'Self-requested deletion'))));
+            break;
+
+        case 'account_delete_confirm':
+            echo json_encode(AccountService::confirmSelfDeletion((string)($input['token'] ?? '')));
+            break;
+
         // ==================== NOTIFICATIONS ====================
         case 'notifications_list':
             $player = Auth::requireAuth();
@@ -644,6 +673,8 @@ try {
                 'lock_in', 'idle_ack', 'boost_catalog', 'purchase_boost', 'active_boosts',
                 'sigil_drops', 'cosmetic_catalog',
                 'purchase_cosmetic', 'equip_cosmetic', 'my_cosmetics', 'chat_send',
+                'account_get', 'account_update', 'account_change_password',
+                'account_delete_request', 'account_delete_confirm',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
                 'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
                 'profile', 'my_badges', 'season_history', 'tick',

@@ -14,19 +14,26 @@ class Notifications {
         $payload = array_key_exists('payload', $options)
             ? json_encode($options['payload'])
             : null;
+        $severity = isset($options['severity']) ? (string)$options['severity'] : 'info';
+        if (!in_array($severity, ['info', 'success', 'warning', 'danger'], true)) {
+            $severity = 'info';
+        }
+        $actionUrl = isset($options['action_url']) ? (string)$options['action_url'] : null;
 
         $db->query(
             "INSERT INTO player_notifications
-             (player_id, category, title, body, event_key, payload_json, is_read, read_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             (player_id, category, severity, title, body, event_key, payload_json, action_url, is_read, read_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE notification_id = LAST_INSERT_ID(notification_id)",
             [
                 (int)$playerId,
                 (string)$category,
+                $severity,
                 (string)$title,
                 $body !== null ? (string)$body : null,
                 $eventKey,
                 $payload,
+                $actionUrl,
                 $isRead,
                 $readAt
             ]
@@ -39,7 +46,7 @@ class Notifications {
         $db = Database::getInstance();
         $safeLimit = max(1, min(100, (int)$limit));
         $rows = $db->fetchAll(
-            "SELECT notification_id, category, title, body, payload_json, is_read, created_at, read_at
+            "SELECT notification_id, category, severity, title, body, payload_json, action_url, is_read, created_at, read_at
              FROM player_notifications
              WHERE player_id = ? AND removed_at IS NULL
              ORDER BY created_at DESC, notification_id DESC
@@ -58,7 +65,7 @@ class Notifications {
     public static function getByIdForPlayer($playerId, $notificationId) {
         $db = Database::getInstance();
         $row = $db->fetch(
-            "SELECT notification_id, category, title, body, payload_json, is_read, created_at, read_at
+            "SELECT notification_id, category, severity, title, body, payload_json, action_url, is_read, created_at, read_at
              FROM player_notifications
              WHERE player_id = ? AND notification_id = ? AND removed_at IS NULL",
             [(int)$playerId, (int)$notificationId]
@@ -152,6 +159,8 @@ class Notifications {
     private static function normalizeRow($row) {
         $row['notification_id'] = (int)$row['notification_id'];
         $row['is_read'] = (bool)$row['is_read'];
+        $row['severity'] = (string)($row['severity'] ?? 'info');
+        $row['action_url'] = $row['action_url'] ?? null;
         $payload = $row['payload_json'] ?? null;
         $row['payload'] = $payload ? json_decode($payload, true) : null;
         unset($row['payload_json']);
