@@ -19,6 +19,20 @@ class SocialService {
         return (bool)$row;
     }
 
+    private static function playersActive(int $a, int $b): bool {
+        if ($a <= 0 || $b <= 0) {
+            return false;
+        }
+
+        $row = Database::getInstance()->fetch(
+            "SELECT COUNT(*) AS c
+             FROM players
+             WHERE player_id IN (?, ?) AND profile_deleted_at IS NULL",
+            [$a, $b]
+        );
+        return (int)($row['c'] ?? 0) === 2;
+    }
+
     public static function friendsList(int $playerId): array {
         return Database::getInstance()->fetchAll(
             "SELECT p.player_id, p.handle, p.profile_status, p.online_current, f.created_at
@@ -37,6 +51,8 @@ class SocialService {
              JOIN players pf ON pf.player_id = fr.from_player
              JOIN players pt ON pt.player_id = fr.to_player
              WHERE (fr.from_player = ? OR fr.to_player = ?) AND fr.status = 'PENDING'
+               AND pf.profile_deleted_at IS NULL
+               AND pt.profile_deleted_at IS NULL
              ORDER BY fr.created_at DESC",
             [$playerId, $playerId]
         );
@@ -45,16 +61,32 @@ class SocialService {
     public static function sendRequest(int $fromId, int $toId): array {
         if ($fromId === $toId) return ['error' => 'You cannot friend yourself'];
         if (!self::playerExists($toId)) return ['error' => 'Target player not found'];
+        if (!self::playerExists($fromId)) return ['error' => 'Player account unavailable'];
         $db = Database::getInstance();
         if (self::isBlockedEitherWay($fromId, $toId)) return ['error' => 'Friend request unavailable'];
         [$a, $b] = self::pair($fromId, $toId);
         if ($db->fetch("SELECT 1 FROM friendships WHERE player_a = ? AND player_b = ?", [$a, $b])) {
             return ['error' => 'Already friends'];
         }
+
+        if ($db->fetch(
+            "SELECT 1 FROM friend_requests WHERE from_player = ? AND to_player = ? AND status = 'PENDING' LIMIT 1",
+            [$fromId, $toId]
+        )) {
+            return ['success' => true];
+        }
+
+        if ($db->fetch(
+            "SELECT 1 FROM friend_requests WHERE from_player = ? AND to_player = ? AND status = 'PENDING' LIMIT 1",
+            [$toId, $fromId]
+        )) {
+            return ['error' => 'This player already sent you a friend request'];
+        }
+
         $db->query(
             "INSERT INTO friend_requests (from_player, to_player, status)
              VALUES (?, ?, 'PENDING')
-             ON DUPLICATE KEY UPDATE status = 'PENDING', created_at = NOW()",
+             ON DUPLICATE KEY UPDATE status = 'PENDING'",
             [$fromId, $toId]
         );
         Notifications::create($toId, 'social', 'New friend request', 'You have a new friend request.', ['severity' => 'info', 'payload' => ['from_player' => $fromId]]);
@@ -67,6 +99,9 @@ class SocialService {
         $db = Database::getInstance();
         $req = $db->fetch("SELECT * FROM friend_requests WHERE id = ? AND to_player = ? AND status = 'PENDING'", [$requestId, $playerId]);
         if (!$req) return ['error' => 'Friend request not found'];
+        if (!self::playersActive((int)$req['from_player'], (int)$req['to_player'])) {
+            return ['error' => 'Friend request not found'];
+        }
         $db->beginTransaction();
         try {
             $db->query("UPDATE friend_requests SET status = ? WHERE id = ?", [$decision, $requestId]);
@@ -102,12 +137,21 @@ class SocialService {
     public static function blockAdd(int $playerId, int $blockedId): array {
         if ($playerId === $blockedId) return ['error' => 'You cannot block yourself'];
         if (!self::playerExists($blockedId)) return ['error' => 'Target player not found'];
+        if (!self::playerExists($playerId)) return ['error' => 'Player account unavailable'];
         $db = Database::getInstance();
-        $db->query("INSERT IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?, ?)", [$playerId, $blockedId]);
         [$a, $b] = self::pair($playerId, $blockedId);
-        $db->query("DELETE FROM friendships WHERE player_a = ? AND player_b = ?", [$a, $b]);
-        $db->query("UPDATE friend_requests SET status = 'DECLINED' WHERE status = 'PENDING' AND ((from_player = ? AND to_player = ?) OR (from_player = ? AND to_player = ?))", [$playerId, $blockedId, $blockedId, $playerId]);
-        return ['success' => true];
+
+        $db->beginTransaction();
+        try {
+            $db->query("INSERT IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?, ?)", [$playerId, $blockedId]);
+            $db->query("DELETE FROM friendships WHERE player_a = ? AND player_b = ?", [$a, $b]);
+            $db->query("UPDATE friend_requests SET status = 'DECLINED' WHERE status = 'PENDING' AND ((from_player = ? AND to_player = ?) OR (from_player = ? AND to_player = ?))", [$playerId, $blockedId, $blockedId, $playerId]);
+            $db->commit();
+            return ['success' => true];
+        } catch (Throwable $e) {
+            $db->rollback();
+            return ['error' => 'Could not block player'];
+        }
     }
 
     public static function blockRemove(int $playerId, int $blockedId): array {
