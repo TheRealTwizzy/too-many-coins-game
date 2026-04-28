@@ -132,7 +132,6 @@ class AdminService {
             'sigil_theft_attempts',
             'economy_ledger',
             'pending_actions',
-            'seasons',
             'badges',
             'player_cosmetics',
         ];
