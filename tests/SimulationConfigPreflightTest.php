@@ -214,6 +214,56 @@ class SimulationConfigPreflightTest extends TestCase
         $this->assertTrue($found, 'market_affordability_bias_fp must appear in requested_candidate_changes');
     }
 
+    public function testParticipationPacingCandidatePatchIsActiveAndAudited(): void
+    {
+        $resolved = SimulationConfigPreflight::resolve($this->options([
+            'candidate_patch' => [
+                'return_pulse_min_gap_ticks' => 7,
+                'return_pulse_cooldown_ticks' => 42,
+                'active_dry_spell_ticks' => 6,
+                'participation_pulse_reward_tier' => 1,
+            ],
+        ]));
+
+        $this->assertSame('pass', $resolved['report']['status']);
+        $season = $resolved['report']['effective_config']['season'];
+        $this->assertSame(7, $season['return_pulse_min_gap_ticks']);
+        $this->assertSame(42, $season['return_pulse_cooldown_ticks']);
+        $this->assertSame(6, $season['active_dry_spell_ticks']);
+        $this->assertSame(1, $season['participation_pulse_reward_tier']);
+
+        $changesByPath = [];
+        foreach ($resolved['report']['requested_candidate_changes'] as $change) {
+            $changesByPath[$change['path']] = $change;
+        }
+
+        foreach ([
+            'season.return_pulse_min_gap_ticks' => 7,
+            'season.return_pulse_cooldown_ticks' => 42,
+            'season.active_dry_spell_ticks' => 6,
+            'season.participation_pulse_reward_tier' => 1,
+        ] as $path => $expectedValue) {
+            $this->assertArrayHasKey($path, $changesByPath);
+            $this->assertTrue($changesByPath[$path]['is_active']);
+            $this->assertNull($changesByPath[$path]['reason_code']);
+            $this->assertSame($expectedValue, $changesByPath[$path]['effective_value']);
+            $this->assertSame('candidate_patch', $changesByPath[$path]['effective_source']);
+        }
+    }
+
+    public function testUnknownParticipationPacingCandidateKeyFailsPreflight(): void
+    {
+        try {
+            SimulationConfigPreflight::resolve($this->options([
+                'candidate_patch' => ['participation_pulse_reward_tier_99' => 1],
+            ]));
+            $this->fail('Expected unknown participation pacing key to fail preflight.');
+        } catch (SimulationConfigPreflightException $e) {
+            $failure = $e->report()['candidate_validation']['candidate_patch_failures'][0];
+            $this->assertSame('candidate_unknown_key', $failure['reason_code']);
+        }
+    }
+
     private function options(array $overrides = []): array
     {
         return array_merge([

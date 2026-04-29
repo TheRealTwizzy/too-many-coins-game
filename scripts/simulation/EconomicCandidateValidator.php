@@ -64,7 +64,12 @@ class EconomicCandidateValidator
             'starprice_max_upstep_fp',
             'starprice_max_downstep_fp',
         ],
-        'sigil_drop_tier_combine' => [],
+        'sigil_drop_tier_combine' => [
+            'return_pulse_min_gap_ticks',
+            'return_pulse_cooldown_ticks',
+            'active_dry_spell_ticks',
+            'participation_pulse_reward_tier',
+        ],
     ];
 
     private const DEPRECATED_KEYS = [

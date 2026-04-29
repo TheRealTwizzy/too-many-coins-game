@@ -262,6 +262,38 @@ class CanonicalEconomyConfigContract
             'units' => 'table[tier:int,supply:count,cost_table:table[remaining:count,cost:stars]]',
             'description' => 'Vault supply and star-cost ladder per sigil tier.',
         ],
+        'return_pulse_min_gap_ticks' => [
+            'type' => 'int',
+            'subsystem' => 'sigil_drop_tier_combine',
+            'units' => 'ticks',
+            'min' => 1,
+            'max_from_context' => 'season_duration_ticks',
+            'description' => 'Minimum inactive gap before an active return pulse may be granted.',
+        ],
+        'return_pulse_cooldown_ticks' => [
+            'type' => 'int',
+            'subsystem' => 'sigil_drop_tier_combine',
+            'units' => 'ticks',
+            'min' => 1,
+            'max_from_context' => 'season_duration_ticks',
+            'description' => 'Cooldown between active return pulse grants for one participant.',
+        ],
+        'active_dry_spell_ticks' => [
+            'type' => 'int',
+            'subsystem' => 'sigil_drop_tier_combine',
+            'units' => 'ticks',
+            'min' => 1,
+            'max_from_context' => 'season_duration_ticks',
+            'description' => 'Active quiet window before a dry-spell participation pulse may be granted.',
+        ],
+        'participation_pulse_reward_tier' => [
+            'type' => 'int',
+            'subsystem' => 'sigil_drop_tier_combine',
+            'units' => 'sigil_tier',
+            'min' => 1,
+            'max' => 1,
+            'description' => 'Sigil tier awarded by participation pacing pulses. Tier 1 only in this pass.',
+        ],
     ];
 
     public static function validatorSurfaceMeta(): array

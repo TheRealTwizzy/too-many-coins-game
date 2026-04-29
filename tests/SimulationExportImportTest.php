@@ -77,8 +77,14 @@ class SimulationExportImportTest extends TestCase
             'starprice_idle_weight_fp',
             'star_price_cap',
             'market_affordability_bias_fp',
+            'return_pulse_min_gap_ticks',
+            'return_pulse_cooldown_ticks',
+            'active_dry_spell_ticks',
+            'participation_pulse_reward_tier',
         ];
         foreach ($checkKeys as $key) {
+            $this->assertArrayHasKey($key, $season, "Default season missing canonical key: $key");
+            $this->assertArrayHasKey($key, $imported, "Imported season missing canonical key: $key");
             $this->assertSame((int)$season[$key], (int)$imported[$key], "Round-trip changed value of: $key");
         }
     }
@@ -88,6 +94,35 @@ class SimulationExportImportTest extends TestCase
         $season = SimulationSeason::build(1, 'idle-viability-default');
 
         $this->assertSame(300000, (int)$season['base_ubi_idle_factor_fp']);
+    }
+
+    public function testDefaultSeasonIncludesParticipationPacingDefaults(): void
+    {
+        $season = SimulationSeason::build(1, 'participation-pacing-defaults');
+
+        $this->assertArrayHasKey('return_pulse_min_gap_ticks', $season);
+        $this->assertArrayHasKey('return_pulse_cooldown_ticks', $season);
+        $this->assertArrayHasKey('active_dry_spell_ticks', $season);
+        $this->assertArrayHasKey('participation_pulse_reward_tier', $season);
+        $this->assertSame(ticks_from_real_seconds(300), (int)$season['return_pulse_min_gap_ticks']);
+        $this->assertSame(ticks_from_real_seconds(1800), (int)$season['return_pulse_cooldown_ticks']);
+        $this->assertSame(ticks_from_real_seconds(300), (int)$season['active_dry_spell_ticks']);
+        $this->assertSame(1, (int)$season['participation_pulse_reward_tier']);
+    }
+
+    public function testExportedConfigIncludesParticipationPacingDefaults(): void
+    {
+        $season = SimulationSeason::build(1, 'participation-pacing-export');
+        $exported = $this->serializeAsExport($season);
+
+        $this->assertArrayHasKey('return_pulse_min_gap_ticks', $exported);
+        $this->assertArrayHasKey('return_pulse_cooldown_ticks', $exported);
+        $this->assertArrayHasKey('active_dry_spell_ticks', $exported);
+        $this->assertArrayHasKey('participation_pulse_reward_tier', $exported);
+        $this->assertSame(ticks_from_real_seconds(300), (int)$exported['return_pulse_min_gap_ticks']);
+        $this->assertSame(ticks_from_real_seconds(1800), (int)$exported['return_pulse_cooldown_ticks']);
+        $this->assertSame(ticks_from_real_seconds(300), (int)$exported['active_dry_spell_ticks']);
+        $this->assertSame(1, (int)$exported['participation_pulse_reward_tier']);
     }
 
     // -------------------------------------------------------------------------

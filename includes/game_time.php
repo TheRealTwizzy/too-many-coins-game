@@ -252,7 +252,10 @@ class GameTime {
                      starprice_idle_weight_fp, starprice_active_only,
                      starprice_max_upstep_fp, starprice_max_downstep_fp,
                      starprice_model_version, starprice_reactivation_window_ticks, starprice_demand_table,
-                     market_affordability_bias_fp, market_anchor_price,
+                     market_affordability_bias_fp,
+                     return_pulse_min_gap_ticks, return_pulse_cooldown_ticks,
+                     active_dry_spell_ticks, participation_pulse_reward_tier,
+                     market_anchor_price,
                      pending_star_burn_coins, star_burn_ema_fp, net_mint_ema_fp, market_pressure_fp,
                      coins_offline_total,
                      vault_config, current_star_price, last_processed_tick)
@@ -260,13 +263,14 @@ class GameTime {
                      0, 12, 20000, 50000, 200000, 200, 535, 1070, 350000, 1287500,
                      ?, 6000, 0, 1, 1000, 12960,
                      ?, ?, ?,
-                     970000, 100,
+                     970000, ?, ?, ?, 1, 100,
                      0, 0, 0, 1000000,
                      0,
                      ?, 100, ?)",
                     [$startTime, $endTime, $blackoutTime, $seed,
                      $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable,
                      STARPRICE_MODEL_VERSION_DEFAULT, STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT, $starpriceDemandTable,
+                     ticks_from_real_seconds(300), ticks_from_real_seconds(1800), ticks_from_real_seconds(300),
                      $vaultConfig, $startTime]
                 );
             }
