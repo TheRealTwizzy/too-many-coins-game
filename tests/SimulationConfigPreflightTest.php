@@ -4,6 +4,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../scripts/simulation/SimulationConfigPreflight.php';
 require_once __DIR__ . '/../scripts/simulation/SimulationPopulationSeason.php';
+require_once __DIR__ . '/../scripts/simulation/EconomicCandidateValidator.php';
 require_once __DIR__ . '/../includes/boost_catalog.php';
 
 class SimulationConfigPreflightTest extends TestCase
@@ -249,6 +250,27 @@ class SimulationConfigPreflightTest extends TestCase
             $this->assertSame($expectedValue, $changesByPath[$path]['effective_value']);
             $this->assertSame('candidate_patch', $changesByPath[$path]['effective_source']);
         }
+    }
+
+    public function testReturnPulseCooldownMayExceedCompressedSeasonDuration(): void
+    {
+        $baseSeason = SimulationSeason::build(1, 'compressed-return-cooldown');
+        $baseSeason['start_time'] = 0;
+        $baseSeason['end_time'] = 336;
+        $baseSeason['blackout_time'] = 264;
+
+        $failures = EconomicCandidateValidator::validateNormalizedChanges([
+            [
+                'path' => 'season.return_pulse_cooldown_ticks',
+                'raw_path' => 'return_pulse_cooldown_ticks',
+                'scope' => 'season',
+                'key' => 'return_pulse_cooldown_ticks',
+                'requested_value' => 360,
+                'path_status' => 'valid',
+            ],
+        ], ['base_season' => $baseSeason]);
+
+        $this->assertSame([], $failures);
     }
 
     public function testUnknownParticipationPacingCandidateKeyFailsPreflight(): void

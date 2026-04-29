@@ -275,8 +275,9 @@ class CanonicalEconomyConfigContract
             'subsystem' => 'sigil_drop_tier_combine',
             'units' => 'ticks',
             'min' => 1,
-            'max_from_context' => 'season_duration_ticks',
-            'description' => 'Cooldown between active return pulse grants for one participant.',
+            'max' => 1209600,
+            'description' => 'Cooldown between active return pulse grants for one participant. '
+                . 'May exceed compressed simulation season duration to model at-most-once-per-season return fuel.',
         ],
         'active_dry_spell_ticks' => [
             'type' => 'int',
