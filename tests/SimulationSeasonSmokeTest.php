@@ -57,7 +57,10 @@ class SimulationSeasonSmokeTest extends TestCase
         $this->assertGreaterThan(0, $lockedIn);
         $this->assertLessThan((int)$payload['config']['total_players'], $lockedIn);
 
-        $lateActiveActions = array_sum((array)$payload['diagnostics']['action_volume_by_phase']['LATE_ACTIVE']);
-        $this->assertGreaterThan(0, $lateActiveActions);
+        $lateActiveStars = array_sum(array_map(
+            static fn(array $row): int => (int)($row['stars_purchased_by_phase']['LATE_ACTIVE'] ?? 0),
+            (array)$payload['archetypes']
+        ));
+        $this->assertGreaterThan(0, $lateActiveStars);
     }
 }
