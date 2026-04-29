@@ -101,6 +101,102 @@ class ParticipationPacing
         $participation['last_meaningful_economy_tick'] = $tick;
     }
 
+    public static function markMeaningfulEconomyEvent($db, int $playerId, int $seasonId, int $tick): void
+    {
+        $db->query(
+            "UPDATE season_participation SET last_meaningful_economy_tick = ?
+             WHERE player_id = ? AND season_id = ?",
+            [$tick, $playerId, $seasonId]
+        );
+    }
+
+    public static function grantReturnPulseForPlayer($db, int $playerId, int $seasonId, int $tick, ?array $playerSnapshot = null): array
+    {
+        return self::grantPulseForPlayer($db, $playerId, $seasonId, $tick, self::SOURCE_RETURN, null, $playerSnapshot);
+    }
+
+    public static function grantActivePulseForPlayer($db, int $playerId, int $seasonId, int $tick, string $presenceState): array
+    {
+        return self::grantPulseForPlayer($db, $playerId, $seasonId, $tick, self::SOURCE_ACTIVE, $presenceState);
+    }
+
+    private static function grantPulseForPlayer(
+        $db,
+        int $playerId,
+        int $seasonId,
+        int $tick,
+        string $source,
+        ?string $presenceState = null,
+        ?array $playerSnapshot = null
+    ): array {
+        $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+        if (!$season) {
+            return self::grantResult(false, 'season_not_found', 1);
+        }
+
+        $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
+        if (!$player) {
+            return self::grantResult(false, 'player_not_found', self::rewardTier($season));
+        }
+        if ($playerSnapshot !== null) {
+            $player = array_merge($player, $playerSnapshot);
+        }
+
+        $participation = $db->fetch(
+            "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
+            [$playerId, $seasonId]
+        );
+        if (!$participation) {
+            return self::grantResult(false, 'not_participating', self::rewardTier($season));
+        }
+
+        if ($source === self::SOURCE_RETURN) {
+            $decision = self::returnPulseDecision($season, $player, $participation, $tick);
+            $pulseTickColumn = 'last_return_pulse_tick';
+            $pulseTotalColumn = 'return_pulses_total';
+        } elseif ($source === self::SOURCE_ACTIVE) {
+            $decision = self::activePulseDecision($season, $player, $participation, $tick, $presenceState ?? 'Active');
+            $pulseTickColumn = 'last_active_pulse_tick';
+            $pulseTotalColumn = 'active_pulses_total';
+        } else {
+            return self::grantResult(false, 'invalid_source', self::rewardTier($season));
+        }
+
+        $tier = (int)($decision['reward_tier'] ?? self::rewardTier($season));
+        if (empty($decision['eligible'])) {
+            return self::grantResult(false, (string)($decision['reason_code'] ?? 'not_eligible'), $tier);
+        }
+
+        $sigilColumn = 'sigils_t' . $tier;
+        $db->query(
+            "UPDATE season_participation SET
+             {$sigilColumn} = {$sigilColumn} + 1,
+             sigil_drops_total = sigil_drops_total + 1,
+             last_meaningful_economy_tick = ?,
+             {$pulseTickColumn} = ?,
+             {$pulseTotalColumn} = {$pulseTotalColumn} + 1
+             WHERE player_id = ? AND season_id = ?",
+            [$tick, $tick, $playerId, $seasonId]
+        );
+
+        $db->query(
+            "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source)
+             VALUES (?, ?, ?, ?, ?)",
+            [$playerId, $seasonId, $tick, $tier, $source]
+        );
+
+        return self::grantResult(true, 'eligible', $tier);
+    }
+
+    private static function grantResult(bool $granted, string $reasonCode, int $tier): array
+    {
+        return [
+            'granted' => $granted,
+            'reason_code' => $reasonCode,
+            'tier' => $tier,
+        ];
+    }
+
     private static function baseEligibilityBlock(
         array $season,
         array $player,

@@ -20,6 +20,7 @@ require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/runtime_readiness.php';
+require_once __DIR__ . '/participation_pacing.php';
 
 class TickEngine {
     
@@ -261,6 +262,9 @@ class TickEngine {
                 // Phase 3: Sigil drop evaluation (active window only; blackout is settlement-only)
                 if (!$isBlackout && !$isLastValid && !$isExpiration) {
                     self::processSigilDrops($season, $p, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp);
+                    if ($presenceState === 'Active') {
+                        ParticipationPacing::grantActivePulseForPlayer($db, (int)$playerId, (int)$seasonId, (int)$gameTime, $presenceState);
+                    }
                 }
                 
                 // Phase 5: UBI accrual (net) + explicit hoarding sink accounting.
@@ -469,6 +473,10 @@ class TickEngine {
     private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = []) {
         $db = Database::getInstance();
         $sigilCol = "sigils_t{$tier}";
+        $sourceNormalized = strtolower(trim((string)$source));
+        if ($sourceNormalized === '') {
+            $sourceNormalized = 'rng';
+        }
 
         $participation = $db->fetch(
             "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
@@ -489,7 +497,7 @@ class TickEngine {
         // Log the drop
         $db->query(
             "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source) VALUES (?, ?, ?, ?, ?)",
-            [$playerId, $seasonId, $dropTick, $tier, $source]
+            [$playerId, $seasonId, $dropTick, $tier, $sourceNormalized]
         );
 
         $tierNames = [
@@ -500,7 +508,6 @@ class TickEngine {
             5 => 'Legendary',
             6 => 'Mythic',
         ];
-        $sourceNormalized = strtoupper((string)$source) === 'PITY' ? 'pity' : 'rng';
         $tierName = $tierNames[(int)$tier] ?? ('Tier ' . (int)$tier);
         Notifications::create(
             $playerId,
@@ -532,6 +539,8 @@ class TickEngine {
              ON DUPLICATE KEY UPDATE eligible_ticks_since_last_drop = 0, total_drops = total_drops + 1, last_drop_tick = ?",
             [$playerId, $seasonId, $dropTick, $dropTick]
         );
+
+        ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$dropTick);
     }
     
     /**

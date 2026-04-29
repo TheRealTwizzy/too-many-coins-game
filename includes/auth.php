@@ -5,6 +5,8 @@
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/economy.php';
+require_once __DIR__ . '/game_time.php';
+require_once __DIR__ . '/participation_pacing.php';
 
 class Auth {
 
@@ -54,6 +56,11 @@ class Auth {
 
         $touchEverySeconds = max(5, (int)TMC_PRESENCE_TOUCH_SECONDS);
         $db = Database::getInstance();
+        $playerSnapshot = is_array($player) ? $player : null;
+        $shouldGrantReturnPulse = $playerSnapshot !== null
+            && !empty($playerSnapshot['joined_season_id'])
+            && empty($playerSnapshot['idle_modal_active'])
+            && empty($playerSnapshot['online_current']);
         $db->query(
             "UPDATE players
              SET last_seen_at = NOW(), online_current = 1
@@ -65,6 +72,16 @@ class Auth {
                )",
             [$playerId, $touchEverySeconds]
         );
+
+        if ($shouldGrantReturnPulse) {
+            ParticipationPacing::grantReturnPulseForPlayer(
+                $db,
+                $playerId,
+                (int)$playerSnapshot['joined_season_id'],
+                GameTime::now(),
+                $playerSnapshot
+            );
+        }
     }
 
     private static function currentActionName() {
@@ -186,12 +203,27 @@ class Auth {
             return ['error' => 'Invalid email or password'];
         }
         
+        $wasOffline = empty($player['online_current']);
+        $joinedSeasonId = (int)($player['joined_season_id'] ?? 0);
+        $playerSnapshot = $player;
+        $participationPulse = ['granted' => false, 'reason_code' => 'not_participating', 'tier' => 1];
+
         $token = bin2hex(random_bytes(32));
         $db->query(
             "UPDATE players SET session_token = ?, online_current = 1, last_seen_at = NOW(), 
              connection_seq = connection_seq + 1 WHERE player_id = ?",
             [$token, $player['player_id']]
         );
+
+        if ($wasOffline && $joinedSeasonId > 0 && empty($player['idle_modal_active'])) {
+            $participationPulse = ParticipationPacing::grantReturnPulseForPlayer(
+                $db,
+                (int)$player['player_id'],
+                $joinedSeasonId,
+                GameTime::now(),
+                $playerSnapshot
+            );
+        }
         
         setcookie('tmc_session', $token, time() + SESSION_LIFETIME, '/', '', false, true);
         
@@ -199,7 +231,8 @@ class Auth {
             'success' => true,
             'player_id' => $player['player_id'],
             'handle' => $player['handle'],
-            'token' => $token
+            'token' => $token,
+            'participation_pulse' => $participationPulse
         ];
     }
     
