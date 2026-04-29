@@ -97,10 +97,15 @@ class ParticipationPacingTest extends TestCase
             10,
             1,
             16,
-            $this->player(['idle_since_tick' => 10, 'last_activity_tick' => 10])
+            $this->player([
+                'activity_state' => 'Idle',
+                'idle_modal_active' => 1,
+                'idle_since_tick' => 10,
+                'last_activity_tick' => 10,
+            ])
         );
 
-        $this->assertSame(['granted' => true, 'reason_code' => 'eligible', 'tier' => 1], $result);
+        $this->assertSame(['granted' => true, 'reason_code' => 'granted', 'tier' => 1], $result);
         $this->assertSame(1, $db->participation['sigils_t1']);
         $this->assertSame(16, $db->participation['last_return_pulse_tick']);
         $this->assertSame('return_pulse', $db->dropLog[0]['source']);
@@ -116,11 +121,39 @@ class ParticipationPacingTest extends TestCase
 
         $result = ParticipationPacing::grantActivePulseForPlayer($db, 10, 1, 25, 'Active');
 
-        $this->assertSame(['granted' => true, 'reason_code' => 'eligible', 'tier' => 1], $result);
+        $this->assertSame(['granted' => true, 'reason_code' => 'granted', 'tier' => 1], $result);
         $this->assertSame(1, $db->participation['sigils_t1']);
         $this->assertSame(25, $db->participation['last_active_pulse_tick']);
         $this->assertSame(1, $db->participation['active_pulses_total']);
         $this->assertSame('active_dry_spell_pulse', $db->dropLog[0]['source']);
+    }
+
+    public function testSecondReturnPulseGrantUsesUpdatedCooldownState(): void
+    {
+        $db = new ParticipationPacingFakeDb(
+            $this->season(),
+            $this->player(['idle_since_tick' => null, 'last_activity_tick' => 16]),
+            $this->participation()
+        );
+
+        ParticipationPacing::grantReturnPulseForPlayer(
+            $db,
+            10,
+            1,
+            16,
+            $this->player(['activity_state' => 'Idle', 'idle_since_tick' => 10, 'last_activity_tick' => 10])
+        );
+        $second = ParticipationPacing::grantReturnPulseForPlayer(
+            $db,
+            10,
+            1,
+            20,
+            $this->player(['activity_state' => 'Idle', 'idle_since_tick' => 10, 'last_activity_tick' => 10])
+        );
+
+        $this->assertSame(['granted' => false, 'reason_code' => 'return_pulse_cooldown', 'tier' => 1], $second);
+        $this->assertSame(1, $db->participation['sigils_t1']);
+        $this->assertCount(1, $db->dropLog);
     }
 
     private function season(array $overrides = []): array

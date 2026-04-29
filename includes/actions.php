@@ -284,6 +284,8 @@ class Actions {
         if ($gameTime >= $season['end_time'] - 1) {
             return ['error' => 'Too late to join this season'];
         }
+
+        $returnPulseSnapshot = $player;
         
         $db->beginTransaction();
         try {
@@ -318,7 +320,13 @@ class Actions {
             );
 
             ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
-            $participationPulse = ParticipationPacing::grantReturnPulseForPlayer($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
+            $participationPulse = ParticipationPacing::grantReturnPulseForPlayer(
+                $db,
+                (int)$playerId,
+                (int)$seasonId,
+                (int)$gameTime,
+                $returnPulseSnapshot
+            );
             
             $db->commit();
             return [

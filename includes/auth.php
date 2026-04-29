@@ -61,7 +61,7 @@ class Auth {
             && !empty($playerSnapshot['joined_season_id'])
             && empty($playerSnapshot['idle_modal_active'])
             && empty($playerSnapshot['online_current']);
-        $db->query(
+        $stmt = $db->query(
             "UPDATE players
              SET last_seen_at = NOW(), online_current = 1
              WHERE player_id = ?
@@ -73,7 +73,7 @@ class Auth {
             [$playerId, $touchEverySeconds]
         );
 
-        if ($shouldGrantReturnPulse) {
+        if ($shouldGrantReturnPulse && $stmt->rowCount() > 0) {
             ParticipationPacing::grantReturnPulseForPlayer(
                 $db,
                 $playerId,

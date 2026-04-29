@@ -129,63 +129,79 @@ class ParticipationPacing
         ?string $presenceState = null,
         ?array $playerSnapshot = null
     ): array {
-        $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
-        if (!$season) {
-            return self::grantResult(false, 'season_not_found', 1);
+        $startedTransaction = self::beginTransactionIfNeeded($db);
+        $season = null;
+
+        try {
+            $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
+            if (!$season) {
+                self::commitIfStarted($db, $startedTransaction);
+                return self::grantResult(false, 'season_not_found', 1);
+            }
+
+            $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
+            if (!$player) {
+                self::commitIfStarted($db, $startedTransaction);
+                return self::grantResult(false, 'player_not_found', self::rewardTier($season));
+            }
+
+            $participation = $db->fetch(
+                "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ? FOR UPDATE",
+                [$playerId, $seasonId]
+            );
+            if (!$participation) {
+                self::commitIfStarted($db, $startedTransaction);
+                return self::grantResult(false, 'not_participating', self::rewardTier($season));
+            }
+
+            if ($source === self::SOURCE_RETURN) {
+                $decisionPlayer = self::returnDecisionPlayer($player, $playerSnapshot);
+                $decision = self::returnPulseDecision($season, $decisionPlayer, $participation, $tick);
+                $pulseTickColumn = 'last_return_pulse_tick';
+                $pulseTotalColumn = 'return_pulses_total';
+            } elseif ($source === self::SOURCE_ACTIVE) {
+                $decision = self::activePulseDecision($season, $player, $participation, $tick, $presenceState ?? 'Active');
+                $pulseTickColumn = 'last_active_pulse_tick';
+                $pulseTotalColumn = 'active_pulses_total';
+            } else {
+                self::commitIfStarted($db, $startedTransaction);
+                return self::grantResult(false, 'invalid_source', self::rewardTier($season));
+            }
+
+            $tier = (int)($decision['reward_tier'] ?? self::rewardTier($season));
+            if (empty($decision['eligible'])) {
+                self::commitIfStarted($db, $startedTransaction);
+                return self::grantResult(false, (string)($decision['reason_code'] ?? 'not_eligible'), $tier);
+            }
+
+            $sigilColumn = 'sigils_t' . $tier;
+            $db->query(
+                "UPDATE season_participation SET
+                 {$sigilColumn} = {$sigilColumn} + 1,
+                 sigil_drops_total = sigil_drops_total + 1,
+                 last_meaningful_economy_tick = ?,
+                 {$pulseTickColumn} = ?,
+                 {$pulseTotalColumn} = {$pulseTotalColumn} + 1
+                 WHERE player_id = ? AND season_id = ?",
+                [$tick, $tick, $playerId, $seasonId]
+            );
+
+            $db->query(
+                "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source)
+                 VALUES (?, ?, ?, ?, ?)",
+                [$playerId, $seasonId, $tick, $tier, $source]
+            );
+
+            self::commitIfStarted($db, $startedTransaction);
+            return self::grantResult(true, 'granted', $tier);
+        } catch (Throwable $e) {
+            self::rollbackIfStarted($db, $startedTransaction);
+            if (!$startedTransaction) {
+                throw $e;
+            }
+
+            return self::grantResult(false, 'grant_failed', is_array($season) ? self::rewardTier($season) : 1);
         }
-
-        $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
-        if (!$player) {
-            return self::grantResult(false, 'player_not_found', self::rewardTier($season));
-        }
-        if ($playerSnapshot !== null) {
-            $player = array_merge($player, $playerSnapshot);
-        }
-
-        $participation = $db->fetch(
-            "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
-            [$playerId, $seasonId]
-        );
-        if (!$participation) {
-            return self::grantResult(false, 'not_participating', self::rewardTier($season));
-        }
-
-        if ($source === self::SOURCE_RETURN) {
-            $decision = self::returnPulseDecision($season, $player, $participation, $tick);
-            $pulseTickColumn = 'last_return_pulse_tick';
-            $pulseTotalColumn = 'return_pulses_total';
-        } elseif ($source === self::SOURCE_ACTIVE) {
-            $decision = self::activePulseDecision($season, $player, $participation, $tick, $presenceState ?? 'Active');
-            $pulseTickColumn = 'last_active_pulse_tick';
-            $pulseTotalColumn = 'active_pulses_total';
-        } else {
-            return self::grantResult(false, 'invalid_source', self::rewardTier($season));
-        }
-
-        $tier = (int)($decision['reward_tier'] ?? self::rewardTier($season));
-        if (empty($decision['eligible'])) {
-            return self::grantResult(false, (string)($decision['reason_code'] ?? 'not_eligible'), $tier);
-        }
-
-        $sigilColumn = 'sigils_t' . $tier;
-        $db->query(
-            "UPDATE season_participation SET
-             {$sigilColumn} = {$sigilColumn} + 1,
-             sigil_drops_total = sigil_drops_total + 1,
-             last_meaningful_economy_tick = ?,
-             {$pulseTickColumn} = ?,
-             {$pulseTotalColumn} = {$pulseTotalColumn} + 1
-             WHERE player_id = ? AND season_id = ?",
-            [$tick, $tick, $playerId, $seasonId]
-        );
-
-        $db->query(
-            "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source)
-             VALUES (?, ?, ?, ?, ?)",
-            [$playerId, $seasonId, $tick, $tier, $source]
-        );
-
-        return self::grantResult(true, 'eligible', $tier);
     }
 
     private static function grantResult(bool $granted, string $reasonCode, int $tier): array
@@ -195,6 +211,53 @@ class ParticipationPacing
             'reason_code' => $reasonCode,
             'tier' => $tier,
         ];
+    }
+
+    private static function returnDecisionPlayer(array $player, ?array $playerSnapshot): array
+    {
+        if ($playerSnapshot !== null) {
+            $player = array_merge($player, $playerSnapshot);
+        }
+
+        $player['activity_state'] = 'Active';
+        $player['economic_presence_state'] = 'Active';
+        $player['idle_modal_active'] = 0;
+        $player['online_current'] = 1;
+
+        return $player;
+    }
+
+    private static function beginTransactionIfNeeded($db): bool
+    {
+        if (!method_exists($db, 'beginTransaction')) {
+            return false;
+        }
+
+        $connection = method_exists($db, 'getConnection') ? $db->getConnection() : null;
+        $inTransaction = $connection !== null
+            && method_exists($connection, 'inTransaction')
+            && $connection->inTransaction();
+
+        if ($inTransaction) {
+            return false;
+        }
+
+        $db->beginTransaction();
+        return true;
+    }
+
+    private static function commitIfStarted($db, bool $startedTransaction): void
+    {
+        if ($startedTransaction && method_exists($db, 'commit')) {
+            $db->commit();
+        }
+    }
+
+    private static function rollbackIfStarted($db, bool $startedTransaction): void
+    {
+        if ($startedTransaction && method_exists($db, 'rollback')) {
+            $db->rollback();
+        }
     }
 
     private static function baseEligibilityBlock(
