@@ -41,6 +41,16 @@ class MetricsCollector
                 'LATE_ACTIVE' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
                 'BLACKOUT' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
             ],
+            'participation_pulses_by_source' => ['return_pulse' => 0, 'active_dry_spell_pulse' => 0],
+            'sigils_acquired_by_source' => [
+                'drop' => 0,
+                'return_pulse' => 0,
+                'active_dry_spell_pulse' => 0,
+                'combine' => 0,
+                'theft' => 0,
+            ],
+            'max_active_dry_spell_ticks' => 0,
+            'active_dry_spell_violations' => 0,
         ];
 
         foreach ($archetypes as $key => $archetype) {
@@ -51,6 +61,14 @@ class MetricsCollector
             $phaseCoins = ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0];
             $phaseStars = ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0];
             $sigilsByTier = ['1' => 0, '2' => 0, '3' => 0, '4' => 0, '5' => 0, '6' => 0];
+            $participationPulsesBySource = ['return_pulse' => 0, 'active_dry_spell_pulse' => 0];
+            $sigilsBySource = [
+                'drop' => 0,
+                'return_pulse' => 0,
+                'active_dry_spell_pulse' => 0,
+                'combine' => 0,
+                'theft' => 0,
+            ];
             $sigilsSpent = ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0, 'melt' => 0];
             $finalScores = [];
             $rankDistribution = [];
@@ -66,6 +84,8 @@ class MetricsCollector
             $coinsEarnedWhileBoosted = 0;
             $ticksBoosted = 0;
             $ticksFrozen = 0;
+            $maxActiveDrySpellTicks = 0;
+            $activeDrySpellViolations = 0;
             $scoreAtPhaseEnd = ['EARLY' => [], 'MID' => [], 'LATE_ACTIVE' => []];
             $actionVolumeByPhase = [
                 'EARLY' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
@@ -81,6 +101,16 @@ class MetricsCollector
                 }
                 foreach ($sigilsByTier as $tier => $_) {
                     $sigilsByTier[$tier] += (int)($row['metrics']['sigils_acquired_by_tier'][$tier] ?? 0);
+                }
+                foreach ($participationPulsesBySource as $source => $_) {
+                    $countBySource = (int)($row['metrics']['participation_pulses_by_source'][$source] ?? 0);
+                    $participationPulsesBySource[$source] += $countBySource;
+                    $overallDiagnostics['participation_pulses_by_source'][$source] += $countBySource;
+                }
+                foreach ($sigilsBySource as $source => $_) {
+                    $countBySource = (int)($row['metrics']['sigils_acquired_by_source'][$source] ?? 0);
+                    $sigilsBySource[$source] += $countBySource;
+                    $overallDiagnostics['sigils_acquired_by_source'][$source] += $countBySource;
                 }
                 foreach ($sigilsSpent as $action => $_) {
                     $sigilsSpent[$action] += (int)($row['metrics']['sigils_spent_by_action'][$action] ?? 0);
@@ -128,6 +158,8 @@ class MetricsCollector
                 $coinsEarnedWhileBoosted += (int)($row['metrics']['coins_earned_while_boosted'] ?? 0);
                 $ticksBoosted += (int)($row['metrics']['ticks_boosted'] ?? 0);
                 $ticksFrozen += (int)($row['metrics']['ticks_frozen'] ?? 0);
+                $maxActiveDrySpellTicks = max($maxActiveDrySpellTicks, (int)($row['metrics']['max_active_dry_spell_ticks'] ?? 0));
+                $activeDrySpellViolations += (int)($row['metrics']['active_dry_spell_violations'] ?? 0);
                 foreach (['EARLY', 'MID', 'LATE_ACTIVE'] as $snapPhase) {
                     $snapVal = $row['metrics']['score_at_phase_end'][$snapPhase] ?? null;
                     if ($snapVal !== null) {
@@ -152,6 +184,8 @@ class MetricsCollector
                 'lock_in_count' => $lockIns,
                 'natural_expiry_count' => $naturalExpiry,
                 'sigils_acquired_by_tier' => $sigilsByTier,
+                'participation_pulses_by_source' => $participationPulsesBySource,
+                'sigils_acquired_by_source' => $sigilsBySource,
                 'sigils_spent_by_action' => $sigilsSpent,
                 't6_total_acquired' => $t6Total,
                 't6_by_source' => $t6BySource,
@@ -168,6 +202,8 @@ class MetricsCollector
                 'coins_earned_while_boosted' => $coinsEarnedWhileBoosted,
                 'ticks_boosted' => $ticksBoosted,
                 'ticks_frozen' => $ticksFrozen,
+                'max_active_dry_spell_ticks' => $maxActiveDrySpellTicks,
+                'active_dry_spell_violations' => $activeDrySpellViolations,
                 'score_at_phase_end' => [
                     'EARLY' => !empty($scoreAtPhaseEnd['EARLY']) ? ['mean' => round(array_sum($scoreAtPhaseEnd['EARLY']) / count($scoreAtPhaseEnd['EARLY']), 2), 'median' => self::medianInt($scoreAtPhaseEnd['EARLY'])] : null,
                     'MID' => !empty($scoreAtPhaseEnd['MID']) ? ['mean' => round(array_sum($scoreAtPhaseEnd['MID']) / count($scoreAtPhaseEnd['MID']), 2), 'median' => self::medianInt($scoreAtPhaseEnd['MID'])] : null,
@@ -181,6 +217,11 @@ class MetricsCollector
             $overallDiagnostics['natural_expiry_count'] += $naturalExpiry;
             $overallDiagnostics['late_active_active_players'] += $lateActiveActivePlayers;
             $overallDiagnostics['late_active_engaged_players'] += $lateActiveEngagedPlayers;
+            $overallDiagnostics['max_active_dry_spell_ticks'] = max(
+                (int)$overallDiagnostics['max_active_dry_spell_ticks'],
+                $maxActiveDrySpellTicks
+            );
+            $overallDiagnostics['active_dry_spell_violations'] += $activeDrySpellViolations;
         }
 
         $playerCount = max(1, count($players));

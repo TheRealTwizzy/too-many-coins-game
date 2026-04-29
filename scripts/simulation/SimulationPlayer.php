@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/economy.php';
 require_once __DIR__ . '/../../includes/boost_catalog.php';
+require_once __DIR__ . '/../../includes/participation_pacing.php';
 require_once __DIR__ . '/PolicyBehavior.php';
 require_once __DIR__ . '/SimulationRandom.php';
 
@@ -69,6 +70,11 @@ class SimulationPlayer
             'global_stars_earned' => 0,
             'participation_bonus' => 0,
             'placement_bonus' => 0,
+            'last_meaningful_economy_tick' => 0,
+            'last_return_pulse_tick' => 0,
+            'last_active_pulse_tick' => 0,
+            'return_pulses_total' => 0,
+            'active_pulses_total' => 0,
         ];
         $this->boost = [
             'is_active' => false,
@@ -92,6 +98,17 @@ class SimulationPlayer
             'presence_ticks_by_phase' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0],
             'active_ticks_by_phase' => ['EARLY' => 0, 'MID' => 0, 'LATE_ACTIVE' => 0, 'BLACKOUT' => 0],
             'sigils_acquired_by_tier' => ['1' => 0, '2' => 0, '3' => 0, '4' => 0, '5' => 0, '6' => 0],
+            'participation_pulses_by_source' => [
+                ParticipationPacing::SOURCE_RETURN => 0,
+                ParticipationPacing::SOURCE_ACTIVE => 0,
+            ],
+            'sigils_acquired_by_source' => [
+                'drop' => 0,
+                ParticipationPacing::SOURCE_RETURN => 0,
+                ParticipationPacing::SOURCE_ACTIVE => 0,
+                'combine' => 0,
+                'theft' => 0,
+            ],
             'sigils_spent_by_action' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0, 'melt' => 0],
             'actions_by_phase' => [
                 'EARLY' => ['boost' => 0, 'combine' => 0, 'freeze' => 0, 'theft' => 0],
@@ -108,6 +125,8 @@ class SimulationPlayer
             'coins_earned_while_boosted' => 0,
             'ticks_boosted' => 0,
             'ticks_frozen' => 0,
+            'max_active_dry_spell_ticks' => 0,
+            'active_dry_spell_violations' => 0,
             'score_at_phase_end' => ['EARLY' => null, 'MID' => null, 'LATE_ACTIVE' => null],
         ];
     }
@@ -132,8 +151,11 @@ class SimulationPlayer
         }
     }
 
-    public function setPresenceState(string $presenceState, int $tick): void
+    public function setPresenceState(string $presenceState, int $tick, ?array $season = null): void
     {
+        $previousPlayer = $this->player;
+        $previousPresence = (string)($previousPlayer['economic_presence_state'] ?? '');
+
         $this->player['current_game_time'] = $tick;
         $this->player['economic_presence_state'] = $presenceState;
         $this->player['activity_state'] = ($presenceState === 'Active') ? 'Active' : 'Idle';
@@ -143,7 +165,19 @@ class SimulationPlayer
         }
         if ($presenceState === 'Active') {
             $this->player['idle_since_tick'] = null;
-            $this->player['last_activity_tick'] = $tick;
+            if ($previousPresence !== 'Active' || (int)($this->player['last_activity_tick'] ?? 0) <= 0) {
+                $this->player['last_activity_tick'] = $tick;
+            }
+        }
+
+        if ($season !== null && $presenceState === 'Active' && $previousPresence !== 'Active' && $this->isParticipating()) {
+            $decisionPlayer = $previousPlayer;
+            $decisionPlayer['activity_state'] = 'Active';
+            $decisionPlayer['economic_presence_state'] = 'Active';
+            $decision = ParticipationPacing::returnPulseDecision($season, $decisionPlayer, $this->participation, $tick);
+            if (!empty($decision['eligible'])) {
+                $this->grantPulse($season, ParticipationPacing::SOURCE_RETURN, $tick);
+            }
         }
     }
 
@@ -172,10 +206,48 @@ class SimulationPlayer
         $column = 'sigils_t' . $tier;
         $this->participation[$column]++;
         $this->participation['sigil_drops_total']++;
+        $this->markMeaningfulEconomyEvent($tick);
         $this->metrics['sigils_acquired_by_tier'][(string)$tier]++;
+        $this->metrics['sigils_acquired_by_source']['drop']++;
         if ($tier === 6) {
             $this->metrics['t6_total_acquired']++;
             $this->metrics['t6_by_source']['drop']++;
+        }
+    }
+
+    public function processParticipationPacing(array $season, string $phase, int $tick): void
+    {
+        if (!$this->isParticipating() || $phase === 'BLACKOUT' || $this->player['economic_presence_state'] !== 'Active') {
+            return;
+        }
+
+        if ((int)($season['blackout_time'] ?? PHP_INT_MAX) <= $tick) {
+            return;
+        }
+
+        $referenceTick = max(
+            (int)($this->participation['last_meaningful_economy_tick'] ?? 0),
+            (int)($this->participation['last_active_pulse_tick'] ?? 0)
+        );
+        if ($referenceTick <= 0) {
+            $referenceTick = (int)($this->player['last_activity_tick'] ?? 0);
+        }
+        if ($referenceTick > 0) {
+            $this->metrics['max_active_dry_spell_ticks'] = max(
+                (int)$this->metrics['max_active_dry_spell_ticks'],
+                max(0, $tick - $referenceTick)
+            );
+        }
+
+        $decision = ParticipationPacing::activePulseDecision($season, $this->player, $this->participation, $tick);
+        if (!empty($decision['eligible'])) {
+            $this->grantPulse($season, ParticipationPacing::SOURCE_ACTIVE, $tick);
+            return;
+        }
+
+        $reason = (string)($decision['reason_code'] ?? '');
+        if (!in_array($reason, ['sigil_capacity', 'active_gap_too_short', 'blackout_blocked', 'not_active'], true)) {
+            $this->metrics['active_dry_spell_violations']++;
         }
     }
 
@@ -406,6 +478,7 @@ class SimulationPlayer
         $this->participation['coins'] -= $coinsNeeded;
         $this->participation['seasonal_stars'] += $quantity;
         $this->participation['spend_window_total'] += $coinsNeeded;
+        $this->markMeaningfulEconomyEvent((int)$this->player['current_game_time']);
         $this->metrics['stars_purchased_by_phase'][$phase] += $quantity;
         $this->player['last_activity_tick'] = (int)$this->player['current_game_time'];
     }
@@ -428,6 +501,9 @@ class SimulationPlayer
 
         $this->participation[$fromCol] -= $required;
         $this->participation[$toCol] += 1;
+        $this->markMeaningfulEconomyEvent((int)$this->player['current_game_time']);
+        $this->metrics['sigils_acquired_by_tier'][(string)$toTier]++;
+        $this->metrics['sigils_acquired_by_source']['combine']++;
         $this->metrics['sigils_spent_by_action']['combine'] += $required;
         $this->recordAction($phase, 'combine');
         if ($toTier === 6) {
@@ -463,6 +539,7 @@ class SimulationPlayer
                 'recovery_until_tick' => 0,
             ];
             $this->participation[$sigilCol] -= 1;
+            $this->markMeaningfulEconomyEvent($tick);
             $this->metrics['sigils_spent_by_action']['boost']++;
             $this->recordAction($phase, 'boost');
             return;
@@ -483,6 +560,7 @@ class SimulationPlayer
         }
 
         $this->participation[$sigilCol] -= 1;
+        $this->markMeaningfulEconomyEvent($tick);
         $this->metrics['sigils_spent_by_action']['boost']++;
         $this->recordAction($phase, 'boost');
     }
@@ -499,6 +577,7 @@ class SimulationPlayer
         $baseTicks = (int)($durationMap[$spendTier] ?? FREEZE_BASE_DURATION_TICKS);
         $stackTicks = (int)($stackMap[$spendTier] ?? FREEZE_STACK_EXTENSION_TICKS);
         $this->participation['sigils_t' . $spendTier] -= 1;
+        $this->markMeaningfulEconomyEvent($tick);
         $this->metrics['sigils_spent_by_action']['freeze']++;
         $this->recordAction($phase, 'freeze');
 
@@ -548,6 +627,7 @@ class SimulationPlayer
         $requestedValue = (int)(SIGIL_UTILITY_VALUE_BY_TIER[$requestedTier] ?? 0);
         $successChanceFp = self::computeTheftSuccessChanceFp($spendValue, $requestedValue);
         $this->participation['sigils_t' . $spendTier] -= 1;
+        $this->markMeaningfulEconomyEvent($tick);
         $this->metrics['sigils_spent_by_action']['theft']++;
         $this->recordAction($phase, 'theft');
         $this->player['theft_cooldown_until'] = $tick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS);
@@ -568,6 +648,10 @@ class SimulationPlayer
 
         $target->participation[$targetCol] -= 1;
         $this->participation[$targetCol] += 1;
+        $this->markMeaningfulEconomyEvent($tick);
+        $target->markMeaningfulEconomyEvent($tick);
+        $this->metrics['sigils_acquired_by_tier'][(string)$requestedTier]++;
+        $this->metrics['sigils_acquired_by_source']['theft']++;
         if ($requestedTier === 6) {
             $this->metrics['t6_total_acquired']++;
             $this->metrics['t6_by_source']['theft']++;
@@ -646,6 +730,7 @@ class SimulationPlayer
         $this->participation['lock_in_snapshot_seasonal_stars'] = (int)$payout['total_seasonal_stars'];
         $this->participation['lock_in_snapshot_participation_time'] = (int)$this->participation['participation_time_total'];
         $this->participation['global_stars_earned'] = (int)$grant['global_stars_gained'];
+        $this->markMeaningfulEconomyEvent($tick);
         $this->participation['coins'] = 0;
         $this->participation['coins_fractional_fp'] = 0;
         $this->participation['seasonal_stars'] = 0;
@@ -670,5 +755,25 @@ class SimulationPlayer
         }
 
         $this->metrics['actions_by_phase'][$phase][$action]++;
+    }
+
+    private function grantPulse(array $season, string $source, int $tick): bool
+    {
+        $tier = ParticipationPacing::rewardTier($season);
+        $applied = ParticipationPacing::applyPulseToParticipation($this->participation, $season, $source, $tick);
+        if (!$applied) {
+            return false;
+        }
+
+        $tierKey = (string)$tier;
+        $this->metrics['sigils_acquired_by_tier'][$tierKey] = (int)($this->metrics['sigils_acquired_by_tier'][$tierKey] ?? 0) + 1;
+        $this->metrics['participation_pulses_by_source'][$source] = (int)($this->metrics['participation_pulses_by_source'][$source] ?? 0) + 1;
+        $this->metrics['sigils_acquired_by_source'][$source] = (int)($this->metrics['sigils_acquired_by_source'][$source] ?? 0) + 1;
+        return true;
+    }
+
+    private function markMeaningfulEconomyEvent(int $tick): void
+    {
+        ParticipationPacing::markMeaningfulEconomyEventInArray($this->participation, $tick);
     }
 }

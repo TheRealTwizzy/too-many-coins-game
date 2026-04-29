@@ -368,10 +368,11 @@ class SimulationPopulationLifetime
                     (int)$snapshot['player_id'],
                     $tick
                 );
-                $player->setPresenceState($presence, $tick);
+                $player->setPresenceState($presence, $tick, $season);
                 if ($status !== 'Blackout' && $tick < ((int)$season['end_time'] - 1)) {
                     $player->processSigilDrop($season, $tick);
                 }
+                $player->processParticipationPacing($season, $phase, $tick);
                 $player->accrue($season, $phase);
             }
 
