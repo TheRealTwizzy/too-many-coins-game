@@ -1806,6 +1806,23 @@ class TuningCandidateGenerator
                     ],
                 ],
             ],
+            'active_play_dead_zones' => [
+                'tunable' => true,
+                'categories' => ['sigil_drop_tier_combine'],
+                'targets' => [
+                    [
+                        'key' => 'active_dry_spell_ticks',
+                        'direction' => 'decrease',
+                        'conservative' => 0.90,
+                        'balanced' => 0.75,
+                        'mode' => 'multiply',
+                        'type' => 'timer',
+                        'mechanic' => 'participation_pacing',
+                        'player_effect' => 'Active players receive low-tier participation fuel sooner after quiet windows.',
+                        'economy_effect' => 'Reduces active dead zones while keeping pulse rewards bounded to Tier 1.',
+                    ],
+                ],
+            ],
             'underused_mechanics' => [
                 'tunable' => false,
                 'categories' => [],

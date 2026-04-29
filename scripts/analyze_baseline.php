@@ -909,9 +909,19 @@ function analyzeParticipationPacing(array $simBPayloads): array {
     ];
     $maxActiveDrySpellTicks = 0;
     $activeDrySpellViolations = 0;
+    $missingDiagnostics = 0;
 
     foreach ($simBPayloads as $entry) {
         $diag = $entry['data']['diagnostics'] ?? [];
+        if (
+            !isset($diag['participation_pulses_by_source'])
+            || !isset($diag['sigils_acquired_by_source'])
+            || !array_key_exists('max_active_dry_spell_ticks', $diag)
+            || !array_key_exists('active_dry_spell_violations', $diag)
+        ) {
+            $missingDiagnostics++;
+            continue;
+        }
 
         foreach ($participationPulsesBySource as $source => $_) {
             $participationPulsesBySource[$source] += (int)($diag['participation_pulses_by_source'][$source] ?? 0);
@@ -923,6 +933,15 @@ function analyzeParticipationPacing(array $simBPayloads): array {
 
         $maxActiveDrySpellTicks = max($maxActiveDrySpellTicks, (int)($diag['max_active_dry_spell_ticks'] ?? 0));
         $activeDrySpellViolations += (int)($diag['active_dry_spell_violations'] ?? 0);
+    }
+
+    if ($missingDiagnostics > 0) {
+        return [
+            'available' => false,
+            'reason' => 'missing_participation_pacing_diagnostics',
+            'missing_payloads' => $missingDiagnostics,
+            'total_payloads' => count($simBPayloads),
+        ];
     }
 
     return [
