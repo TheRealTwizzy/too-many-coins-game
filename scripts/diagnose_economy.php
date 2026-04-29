@@ -168,6 +168,38 @@ if ($grandTotal > 0) {
 }
 
 // ----------------------------------------------------------------
+// Rule 1b: Participation pacing - active play dead zones
+// ----------------------------------------------------------------
+echo "Checking: Participation pacing...\n";
+$participationPacing = $report['participation_pacing'] ?? [];
+
+if (!empty($participationPacing['available'])) {
+    $activeDrySpellViolations = (int)($participationPacing['active_dry_spell_violations'] ?? 0);
+    if ($activeDrySpellViolations > 0) {
+        $findings[] = finding(
+            $findingId,
+            'HIGH',
+            'active_play_dead_zones',
+            "Active dry-spell pacing recorded {$activeDrySpellViolations} violation(s), indicating active players had unsupported economy dead zones.",
+            [
+                'active_dry_spell_violations' => $activeDrySpellViolations,
+                'max_active_dry_spell_ticks' => (int)($participationPacing['max_active_dry_spell_ticks'] ?? 0),
+            ],
+            [],
+            [],
+            'active_dry_spell_violations > 0',
+            0,
+            $activeDrySpellViolations,
+        );
+    }
+} else {
+    $unsupported[] = [
+        'rule' => 'participation_pacing',
+        'reason' => 'participation_pacing section not available in baseline analysis report.',
+    ];
+}
+
+// ----------------------------------------------------------------
 // Rule 2: Overpowered mechanics — single mechanic >40% of
 //         top-quartile score delta
 // ----------------------------------------------------------------

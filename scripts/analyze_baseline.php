@@ -891,7 +891,51 @@ function analyzeProgressionPacing(array $simBPayloads): array {
 }
 
 // ==============================================================
-// SECTION 14: Mechanic Attribution (boost coin contribution)
+// SECTION 14: Participation Pacing
+// ==============================================================
+
+function analyzeParticipationPacing(array $simBPayloads): array {
+    if (empty($simBPayloads)) {
+        return ['available' => false, 'reason' => 'no_sim_b_payloads'];
+    }
+
+    $participationPulsesBySource = ['return_pulse' => 0, 'active_dry_spell_pulse' => 0];
+    $sigilsAcquiredBySource = [
+        'drop' => 0,
+        'return_pulse' => 0,
+        'active_dry_spell_pulse' => 0,
+        'combine' => 0,
+        'theft' => 0,
+    ];
+    $maxActiveDrySpellTicks = 0;
+    $activeDrySpellViolations = 0;
+
+    foreach ($simBPayloads as $entry) {
+        $diag = $entry['data']['diagnostics'] ?? [];
+
+        foreach ($participationPulsesBySource as $source => $_) {
+            $participationPulsesBySource[$source] += (int)($diag['participation_pulses_by_source'][$source] ?? 0);
+        }
+
+        foreach ($sigilsAcquiredBySource as $source => $_) {
+            $sigilsAcquiredBySource[$source] += (int)($diag['sigils_acquired_by_source'][$source] ?? 0);
+        }
+
+        $maxActiveDrySpellTicks = max($maxActiveDrySpellTicks, (int)($diag['max_active_dry_spell_ticks'] ?? 0));
+        $activeDrySpellViolations += (int)($diag['active_dry_spell_violations'] ?? 0);
+    }
+
+    return [
+        'available' => true,
+        'participation_pulses_by_source' => $participationPulsesBySource,
+        'sigils_acquired_by_source' => $sigilsAcquiredBySource,
+        'max_active_dry_spell_ticks' => $maxActiveDrySpellTicks,
+        'active_dry_spell_violations' => $activeDrySpellViolations,
+    ];
+}
+
+// ==============================================================
+// SECTION 15: Mechanic Attribution (boost coin contribution)
 // ==============================================================
 
 function analyzeMechanicAttribution(array $simBPayloads): array {
@@ -1031,6 +1075,9 @@ $starPricing = analyzeStarPricing($simBPayloads);
 echo "Analyzing progression pacing...\n";
 $progressionPacing = analyzeProgressionPacing($simBPayloads);
 
+echo "Analyzing participation pacing...\n";
+$participationPacing = analyzeParticipationPacing($simBPayloads);
+
 echo "Analyzing mechanic attribution...\n";
 $mechanicAttribution = analyzeMechanicAttribution($simBPayloads);
 
@@ -1054,6 +1101,7 @@ $report = [
     'cross_seed_stability'  => $crossSeedStability,
     'star_pricing'          => $starPricing,
     'progression_pacing'    => $progressionPacing,
+    'participation_pacing'  => $participationPacing,
     'mechanic_attribution'  => $mechanicAttribution,
 ];
 
@@ -1269,9 +1317,38 @@ function generateMarkdownSummary(array $r): string {
     }
     $lines[] = '';
 
+    $pcp = $r['participation_pacing'] ?? null;
+    $lines[] = '## 14. Participation Pacing';
+    $lines[] = '';
+    if ($pcp && ($pcp['available'] ?? false)) {
+        $pulseSources = $pcp['participation_pulses_by_source'] ?? [];
+        $sigilSources = $pcp['sigils_acquired_by_source'] ?? [];
+        $lines[] = sprintf(
+            '- Participation pulses: return=%d | active dry spell=%d',
+            (int)($pulseSources['return_pulse'] ?? 0),
+            (int)($pulseSources['active_dry_spell_pulse'] ?? 0)
+        );
+        $lines[] = sprintf(
+            '- Sigils by source: drop=%d | return=%d | active dry spell=%d | combine=%d | theft=%d',
+            (int)($sigilSources['drop'] ?? 0),
+            (int)($sigilSources['return_pulse'] ?? 0),
+            (int)($sigilSources['active_dry_spell_pulse'] ?? 0),
+            (int)($sigilSources['combine'] ?? 0),
+            (int)($sigilSources['theft'] ?? 0)
+        );
+        $lines[] = sprintf(
+            '- Max active dry spell: %d ticks | Violations: %d',
+            (int)($pcp['max_active_dry_spell_ticks'] ?? 0),
+            (int)($pcp['active_dry_spell_violations'] ?? 0)
+        );
+    } else {
+        $lines[] = 'Participation pacing data not available in simulation outputs.';
+    }
+    $lines[] = '';
+
     // Mechanic Attribution
     $ma = $r['mechanic_attribution'] ?? null;
-    $lines[] = '## 14. Mechanic Attribution';
+    $lines[] = '## 15. Mechanic Attribution';
     $lines[] = '';
     if ($ma && ($ma['available'] ?? false)) {
         $lines[] = '**Per-archetype boost contribution:**';
