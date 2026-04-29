@@ -165,7 +165,7 @@ class SimulationPlayer
         }
         if ($presenceState === 'Active') {
             $this->player['idle_since_tick'] = null;
-            if ($previousPresence !== 'Active' || (int)($this->player['last_activity_tick'] ?? 0) <= 0) {
+            if ($season === null || $previousPresence !== 'Active' || (int)($this->player['last_activity_tick'] ?? 0) <= 0) {
                 $this->player['last_activity_tick'] = $tick;
             }
         }
@@ -502,7 +502,6 @@ class SimulationPlayer
         $this->participation[$fromCol] -= $required;
         $this->participation[$toCol] += 1;
         $this->markMeaningfulEconomyEvent((int)$this->player['current_game_time']);
-        $this->metrics['sigils_acquired_by_tier'][(string)$toTier]++;
         $this->metrics['sigils_acquired_by_source']['combine']++;
         $this->metrics['sigils_spent_by_action']['combine'] += $required;
         $this->recordAction($phase, 'combine');
@@ -650,7 +649,6 @@ class SimulationPlayer
         $this->participation[$targetCol] += 1;
         $this->markMeaningfulEconomyEvent($tick);
         $target->markMeaningfulEconomyEvent($tick);
-        $this->metrics['sigils_acquired_by_tier'][(string)$requestedTier]++;
         $this->metrics['sigils_acquired_by_source']['theft']++;
         if ($requestedTier === 6) {
             $this->metrics['t6_total_acquired']++;

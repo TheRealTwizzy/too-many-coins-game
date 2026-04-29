@@ -65,6 +65,43 @@ class SimulationParticipationPacingTest extends TestCase
         $this->assertSame(0, (int)$snapshot['metrics']['active_dry_spell_violations']);
     }
 
+    public function testTwoArgumentPresenceRefreshesLastActivityTickForCompatibility(): void
+    {
+        $season = $this->season();
+        $start = (int)$season['start_time'];
+        $player = $this->player('regular', 'sim-presence-compat');
+
+        $player->setPresenceState('Active', $start + 1);
+        $player->setPresenceState('Active', $start + 7);
+
+        $snapshot = $player->snapshot();
+
+        $this->assertSame($start + 7, (int)$snapshot['player']['last_activity_tick']);
+    }
+
+    public function testSameTickMeaningfulActionBlocksDrySpellPulse(): void
+    {
+        $season = $this->season();
+        $start = (int)$season['start_time'];
+        $tick = $start + 6;
+        $player = $this->player('hardcore', 'sim-same-tick-action');
+
+        $this->seedParticipation($player, ['sigils_t1' => 5]);
+        $player->setPresenceState('Active', $start + 1, $season);
+        $player->setPresenceState('Active', $tick, $season);
+        $this->combineSigils($player, 1, 'EARLY');
+        $player->processParticipationPacing($season, 'EARLY', $tick);
+
+        $snapshot = $player->snapshot();
+
+        $this->assertSame(0, (int)$snapshot['participation']['sigils_t1']);
+        $this->assertSame(1, (int)$snapshot['participation']['sigils_t2']);
+        $this->assertSame(0, (int)$snapshot['participation']['active_pulses_total']);
+        $this->assertSame(0, (int)$snapshot['metrics']['participation_pulses_by_source']['active_dry_spell_pulse']);
+        $this->assertSame(1, (int)$snapshot['metrics']['sigils_acquired_by_source']['combine']);
+        $this->assertSame(0, (int)$snapshot['metrics']['sigils_acquired_by_tier']['2']);
+    }
+
     private function season(): array
     {
         return SimulationSeason::build(1, 'simulation-participation-pacing', [
@@ -93,6 +130,16 @@ class SimulationParticipationPacingTest extends TestCase
         };
 
         $bound = \Closure::bind($mutator, $player, SimulationPlayer::class);
+        $bound();
+    }
+
+    private function combineSigils(SimulationPlayer $player, int $fromTier, string $phase): void
+    {
+        $combiner = function () use ($fromTier, $phase): void {
+            $this->combineSigils($fromTier, $phase);
+        };
+
+        $bound = \Closure::bind($combiner, $player, SimulationPlayer::class);
         $bound();
     }
 }

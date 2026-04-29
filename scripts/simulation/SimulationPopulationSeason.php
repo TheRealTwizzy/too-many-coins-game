@@ -98,7 +98,6 @@ class SimulationPopulationSeason
                 if ($status !== 'Blackout' && $tick < ((int)$season['end_time'] - 1)) {
                     $player->processSigilDrop($season, $tick);
                 }
-                $player->processParticipationPacing($season, $phase, $tick);
                 $player->accrue($season, $phase);
             }
 
@@ -113,6 +112,14 @@ class SimulationPopulationSeason
                 }
                 $phase = $currentPhase;
                 $player->act($season, $phase, $tick, $snapshots, $map);
+            }
+
+            foreach ($players as $player) {
+                if (!$player->isParticipating()) {
+                    continue;
+                }
+                $phase = $currentPhase;
+                $player->processParticipationPacing($season, $phase, $tick);
             }
 
             self::recomputeSeasonSupply($season, $players, $tick);
