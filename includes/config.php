@@ -149,7 +149,9 @@ define('SIGIL_SEASON_PHASE_BLACKOUT', 'BLACKOUT');
 define('SIGIL_SEASON_PHASE_LATE_BLACKOUT', SIGIL_SEASON_PHASE_BLACKOUT);
 define('SIGIL_BLACKOUT_DURATION_TICKS', ticks_from_real_seconds(259200)); // Final 3 real days
 define('SIGIL_LATE_ACTIVE_DURATION_TICKS', SIGIL_BLACKOUT_DURATION_TICKS);
-define('SIGIL_EARLY_PHASE_FRACTION_FP', 500000); // First half of non-blackout window
+// was 500000 — at 14 days that put 39% of the season in a phase where
+// tiers 4-6 cannot drop. 400000 gives four phases of comparable weight.
+define('SIGIL_EARLY_PHASE_FRACTION_FP', 400000);
 define('SIGIL_PHASE_AVAILABLE_TIERS', [
     SIGIL_SEASON_PHASE_EARLY => [1, 2, 3],
     SIGIL_SEASON_PHASE_MID => [1, 2, 3, 4, 5],
@@ -295,12 +297,13 @@ define('SIGIL_REFERENCE_STARS_BY_TIER', [
     3 => 1000,
     4 => 3000,
     5 => 9000,
-    6 => 0,
+    6 => 12000,   // was 0 — the rarest sigil settled for nothing
 ]);
 
 // Utility valuation is separate from lock-in reference values.
-// It is used for tactical ability and theft calculations, where Tier 6 must
-// carry explicit value instead of inheriting the lock-in-only zero.
+// It is used for tactical ability and theft calculations. Tier 6 utility
+// deliberately exceeds its lock-in reference so spending a Tier 6 stays
+// strictly better than holding it for lock-in.
 define('SIGIL_UTILITY_VALUE_BY_TIER', [
     1 => 50,
     2 => 250,
