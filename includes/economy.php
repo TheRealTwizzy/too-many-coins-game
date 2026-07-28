@@ -1217,7 +1217,7 @@ class Economy {
         return $weights;
     }
 
-    private static function deterministicSigilRollU32($seasonId, $playerId, $tickIndex, $streamTag, $seasonSeed) {
+    public static function deterministicSigilRollU32($seasonId, $playerId, $tickIndex, $streamTag, $seasonSeed) {
         $input =
             pack('J', (int)$seasonId) .
             pack('J', (int)$playerId) .

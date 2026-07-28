@@ -392,6 +392,57 @@ define('SIGIL_TIER_ODDS', [
     5 =>   5000,  // ~0.06% effective T5 (0.5% of all drops)
 ]);
 
+// ============================================================
+// Sigil families (P0 config keys — see Sigil Systems Spec §10)
+// The entire family system is flag-gated: with TMC_SIGIL_FAMILIES_ENABLED
+// off (default) every constant below is inert and behavior is identical
+// to the pre-family build. Enabling is a per-phase operator decision that
+// per AGENTS.md requires an effective-config + simulation run first.
+// ============================================================
+define('TMC_SIGIL_FAMILIES_ENABLED', filter_var(env_first(['TMC_SIGIL_FAMILIES_ENABLED'], '0'), FILTER_VALIDATE_BOOLEAN));
+
+// Material family weights for the post-tier family roll (fp, sum 1,000,000).
+// Sight is not in this table: it rolls separately and displaces nothing.
+define('SIGIL_FAMILY_WEIGHTS_FP', [
+    'yield'   => 200000,
+    'time'    => 200000,
+    'ward'    => 200000,
+    'larceny' => 200000,
+    'market'  => 200000,
+]);
+
+// Affinity: picked at join, +8pp to the chosen material family, -2pp to each
+// of the other four. Net expected value per tick is unchanged.
+define('SIGIL_AFFINITY_BONUS_PP', 8);
+define('SIGIL_AFFINITY_PENALTY_PP', 2);
+define('SIGIL_AFFINITY_REPICK_PHASE', 'BLACKOUT'); // one free public re-pick
+
+// Sight trickle: separate roll appended to a material drop (fp).
+define('SIGIL_SIGHT_TRICKLE_CHANCE_FP', 333000);
+
+// Ward protection units per tier (x100; 100 = one ABILITY_UNIT_DURATION_TICKS
+// window = one blocked theft attempt). No Ward at tier 1 by design.
+define('WARD_UNITS_X100_BY_TIER', [2 => 25, 3 => 100, 4 => 300, 5 => 900, 6 => 1800]);
+define('WARD_MAX_FRACTION_OF_REMAINING_FP', 250000); // <= 25% of remaining season, non-stacking
+
+// Market: one star-purchase discount, rate-relative and self-scoped.
+// coins_saved = VP(tier) x rate_hours x own gross hourly rate, capped below.
+define('MARKET_RATE_HOURS_PER_VP_FP', 1000000);   // 1.0 hour of own income per VP
+define('MARKET_MAX_DISCOUNT_FRACTION_FP', 500000); // cap at 50% of the purchase
+define('MARKET_WINDOW_TICKS', SIGIL_DROP_WINDOW_TICKS); // 1 use per 24h window
+
+// Caps introduced with families.
+define('CAPS_PER_FAMILY_HOLDING', 8);      // aligns with the dampening threshold
+define('CAPS_MODIFIER_CEILING_PCT', 150);  // active-boost ceiling once families enable
+
+// Forge additions: conversion between families enables last (phase 4).
+define('FORGE_TRANSMUTE_ENABLED', filter_var(env_first(['TMC_FORGE_TRANSMUTE_ENABLED'], '0'), FILTER_VALIDATE_BOOLEAN));
+define('FORGE_DISTIL_ENABLED', filter_var(env_first(['TMC_FORGE_DISTIL_ENABLED'], '0'), FILTER_VALIDATE_BOOLEAN));
+
+// Drama budget: the ticker publishes the act, never the number.
+define('EVENTS_PUBLIC_TICKER_ENABLED', filter_var(env_first(['TMC_EVENTS_PUBLIC_TICKER_ENABLED'], '1'), FILTER_VALIDATE_BOOLEAN));
+define('EVENTS_PUBLISH_AMOUNTS', filter_var(env_first(['TMC_EVENTS_PUBLISH_AMOUNTS'], '0'), FILTER_VALIDATE_BOOLEAN));
+
 // Participation bonus
 define('PARTICIPATION_BONUS_DIVISOR', ticks_from_real_seconds(3600));
 define('PARTICIPATION_BONUS_CAP', 56);
