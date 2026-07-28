@@ -75,7 +75,9 @@ Re-entry is allowed if you previously left, but season-bound resources are reset
             title: "Idle State and Action Gating",
             content: `If you go Idle long enough, the game gates economy actions until you acknowledge idle.
 
-By default, idle timeout is **15 real minutes**. While idle modal is active, actions like star purchase, Lock-In, boosts, and sigil theft attempts are blocked until **idle acknowledgement**.`
+By default, idle timeout is **15 real minutes**. While idle modal is active, actions like star purchase, Lock-In, boosts, and sigil theft attempts are blocked until **idle acknowledgement**.
+
+**Stepping away still earns.** Presence tapers rather than cutting off: after your last action you stay Active for ~15 minutes (full UBI and drop chance), then Idle for ~45 minutes (half rate), and only then Offline (no earnings, no drops) until you return. Keeping the game tab in the background may pause it entirely on some browsers, which reads as Offline to the server.`
           },
           {
             id: "what-carries-over",
@@ -193,10 +195,10 @@ Star price cap defaults to **10,000**.`
           {
             id: "drop-eligibility",
             title: "Drop Eligibility",
-            content: `Sigil drops only evaluate when a player is:
-- Online
-- Active (not Idle)
-- Participating in the season
+            content: `Sigil drops evaluate for every participating player who is not Offline. Your presence state scales the drop gate:
+- **Active** - full drop chance (1.0x)
+- **Idle** - half drop chance (0.5x)
+- **Offline** - no drop attempts
 
 If you are not eligible, the drop pity counter is reset.`
           },
@@ -224,6 +226,26 @@ If you are not eligible, the drop pity counter is reset.`
 - Tier V: ~0.5%
 
 Tier ordering T1 > T2 > T3 > T4 > T5 is always enforced; higher-value tiers can never drop at higher effective rates than lower-value tiers.`
+          },
+          {
+            id: "sigil-families",
+            title: "Sigil Families and Abilities",
+            content: `When enabled on a season, every sigil is a **family x tier** pair - the tier is its magnitude, the family is its verb. Equal tiers are equal value across families; families differ only in what they do.
+
+| Family | Verb |
+|---|---|
+| Yield | Power boosts: +X% UBI for a duration (the classic boost) |
+| Time | Extends an active boost - duration derived from tier value / active modifier |
+| Ward | Proactive theft protection in 15-minute units (Tier 2+, non-stacking, max 25% of remaining season, halved in Blackout) |
+| Larceny | Theft spends - same odds as before, and Ward is now the counterplay |
+| Market | One discounted star purchase, worth hours of your own income (max 50% off, once per 24h) |
+| Sight | Information: a rival's rate, the price surface, pity distance, a ward check. Arrives as a bonus trickle and never displaces a real drop |
+
+**Affinity:** at join you pick one family - +8pp drop weight to it, -2pp to each other family. Expected drops per tick are unchanged; affinity shapes a run without advantaging it. One free public re-pick at Blackout.
+
+**Forge with families:** Ascend (combine) works within one family; Wildcards substitute anywhere. Transmute turns 3 different families of a tier into 2 Wildcards; Distil turns 3 Sight into a chosen material family one tier down. One Tier VI per family per season.
+
+**The season ticker** announces the act - a theft, a Market use, a Tier V/VI find, an affinity re-pick - but never the amounts.`
           },
           {
             id: "vault-and-boosts",
