@@ -202,6 +202,8 @@ require_once __DIR__ . '/../includes/social.php';
 require_once __DIR__ . '/../includes/moderation.php';
 require_once __DIR__ . '/../includes/staff_chat.php';
 require_once __DIR__ . '/../includes/sigil_drops_api.php';
+require_once __DIR__ . '/../includes/sigil_families.php';
+require_once __DIR__ . '/../includes/family_actions.php';
 require_once __DIR__ . '/../includes/runtime_readiness.php';
 
 if (!defined('LEADERBOARD_MAX_LIMIT')) {
@@ -415,12 +417,66 @@ try {
         case 'combine_sigil':
             $player = Auth::requireAuth();
             $fromTier = (int)($input['from_tier'] ?? 0);
-            echo json_encode(Actions::combineSigils($player['player_id'], $fromTier));
+            $familyCode = isset($input['family']) ? (string)$input['family'] : null;
+            echo json_encode(Actions::combineSigils($player['player_id'], $fromTier, $familyCode));
             break;
 
         case 'combine_all_sigils':
             $player = Auth::requireAuth();
             echo json_encode(Actions::combineAllSigils($player['player_id']));
+            break;
+
+        // ==================== SIGIL FAMILIES ====================
+        case 'family_state':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::familyState($player['player_id']));
+            break;
+
+        case 'affinity_pick':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::pickAffinity($player['player_id'], (string)($input['family'] ?? '')));
+            break;
+
+        case 'ward_activate':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::activateWard($player['player_id'], (int)($input['tier'] ?? 0)));
+            break;
+
+        case 'market_prime':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::primeMarket($player['player_id'], (int)($input['tier'] ?? 0)));
+            break;
+
+        case 'sight_reveal':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::sightReveal(
+                $player['player_id'],
+                (string)($input['kind'] ?? ''),
+                (int)($input['target_player_id'] ?? 0)
+            ));
+            break;
+
+        case 'transmute_sigils':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::transmuteSigils(
+                $player['player_id'],
+                (int)($input['tier'] ?? 0),
+                is_array($input['families'] ?? null) ? $input['families'] : []
+            ));
+            break;
+
+        case 'distil_sigils':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::distilSigils(
+                $player['player_id'],
+                (int)($input['tier'] ?? 0),
+                (string)($input['target_family'] ?? '')
+            ));
+            break;
+
+        case 'season_events':
+            $player = Auth::requireAuth();
+            echo json_encode(FamilyActions::seasonEvents($player['player_id'], (int)($input['limit'] ?? 25)));
             break;
 
         case 'freeze_player_ubi':
@@ -1327,6 +1383,8 @@ function getTheftStatusForPlayer($playerId, $seasonId, $participation = null) {
 
     $cooldownTick = max(0, (int)($row['cooldown_expires_tick'] ?? 0));
     $protectionTick = max(0, (int)($row['protection_expires_tick'] ?? 0));
+    // An active Ward extends effective protection (families).
+    $protectionTick = max($protectionTick, SigilFamilies::wardExpiresTick($db, (int)$playerId, (int)$seasonId));
     $cooldownActive = $cooldownTick >= $gameTime;
     $protectionActive = $protectionTick >= $gameTime;
     $cooldownExpiresAtReal = $cooldownActive ? GameTime::tickStartRealUnix($cooldownTick + 1) : null;
