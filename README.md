@@ -4,7 +4,7 @@ A deterministic economic competition game where every coin tells a story of sacr
 
 ## Game Overview
 
-Too Many Coins is a season-based multiplayer economic strategy game. Players join 28-day competitive seasons, earn Coins through Universal Basic Income (UBI), convert them into Stars to climb the leaderboard, collect Sigils through random drops, activate Boosts to increase their income, and ultimately decide when to Lock-In and convert their Seasonal Stars to permanent Global Stars.
+Too Many Coins is a season-based multiplayer economic strategy game. Players join 14-day competitive seasons, earn Coins through Universal Basic Income (UBI), convert them into Stars to climb the leaderboard, collect Sigils through random drops, activate Boosts to increase their income, and ultimately decide when to Lock-In and convert their Seasonal Stars to permanent Global Stars.
 
 ## Features
 

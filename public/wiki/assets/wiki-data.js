@@ -31,12 +31,12 @@ Your long-term score is **Global Stars**, earned by Lock-In or by finishing a se
 
 | Setting | Default |
 |---|---|
-| Season duration | 28 days |
+| Season duration | 14 days |
 | New season cadence | Every 7 days |
 | Blackout length | 72 hours |
 | Tick cadence | 60 real seconds per tick |
 
-Because cadence is 7 days and duration is 28 days, multiple seasons overlap at the same time.`
+Because cadence is 7 days and duration is 14 days, multiple seasons overlap at the same time.`
           },
           {
             id: "first-goals",
