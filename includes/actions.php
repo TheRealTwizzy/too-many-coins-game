@@ -10,6 +10,7 @@ require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/sigil_families.php';
 
 class Actions {
 
@@ -64,6 +65,9 @@ class Actions {
                 [(int)$playerId, (int)$seasonId]
             );
         }
+
+        // Family holdings and wards are season-run-local like boosts/freezes.
+        SigilFamilies::clearSeasonHoldings($db, (int)$playerId, (int)$seasonId);
     }
 
     private static function resetSeasonParticipationForFreshStart($db, $playerId, $seasonId, $gameTime) {
@@ -87,6 +91,16 @@ class Actions {
              WHERE player_id = ? AND season_id = ?",
             [(int)$gameTime, (int)$playerId, (int)$seasonId]
         );
+
+        if (SigilFamilies::schemaReady($db)) {
+            $db->query(
+                "UPDATE season_participation SET
+                 affinity_family_id = NULL, affinity_repicked_at_tick = NULL,
+                 market_pending_vp = 0, market_last_used_tick = 0
+                 WHERE player_id = ? AND season_id = ?",
+                [(int)$playerId, (int)$seasonId]
+            );
+        }
     }
 
     private static function normalizeSigilVector($value) {
@@ -357,30 +371,48 @@ class Actions {
         if ($starPrice <= 0) return ['error' => 'Invalid star price'];
         
         $coinsNeeded = $starsRequested * $starPrice;
-        
+
+        // Market family: a primed discount applies to this one purchase,
+        // derived from the player's own gross rate and capped at 50%.
+        $marketSaved = 0;
+        $pendingVp = (int)($participation['market_pending_vp'] ?? 0);
+        if ($pendingVp > 0 && SigilFamilies::active($db)) {
+            $player['current_game_time'] = GameTime::now();
+            $grossFp = Economy::calculateUBIFp($season, $player, $participation);
+            $marketSaved = SigilFamilies::marketCoinsSaved($pendingVp, $grossFp, $coinsNeeded);
+        }
+        $coinsCharged = max(0, $coinsNeeded - $marketSaved);
+
         // Affordability check
-        if ($participation['coins'] < $coinsNeeded) {
+        if ($participation['coins'] < $coinsCharged) {
             return ['error' => 'Insufficient coins'];
         }
-        
+
         $db->beginTransaction();
         try {
             // Burn coins, credit stars
             $db->query(
-                "UPDATE season_participation SET 
+                "UPDATE season_participation SET
                  coins = coins - ?, seasonal_stars = seasonal_stars + ?,
                  spend_window_total = spend_window_total + ?
                  WHERE player_id = ? AND season_id = ?",
-                [$coinsNeeded, $starsRequested, $coinsNeeded, $playerId, $seasonId]
+                [$coinsCharged, $starsRequested, $coinsCharged, $playerId, $seasonId]
             );
-            
+            if ($pendingVp > 0 && $marketSaved >= 0 && SigilFamilies::schemaReady($db)) {
+                $db->query(
+                    "UPDATE season_participation SET market_pending_vp = 0
+                     WHERE player_id = ? AND season_id = ?",
+                    [$playerId, $seasonId]
+                );
+            }
+
             // Update season supply
             $db->query(
                 "UPDATE seasons
                  SET total_coins_supply = total_coins_supply - ?,
                      pending_star_burn_coins = pending_star_burn_coins + ?
                  WHERE season_id = ?",
-                [$coinsNeeded, $coinsNeeded, $seasonId]
+                [$coinsCharged, $coinsCharged, $seasonId]
             );
             
             // Update activity
@@ -396,7 +428,8 @@ class Actions {
             return [
                 'success' => true,
                 'stars_purchased' => $starsRequested,
-                'coins_spent' => $coinsNeeded,
+                'coins_spent' => $coinsCharged,
+                'market_coins_saved' => $marketSaved,
                 'star_price' => $starPrice
             ];
         } catch (Exception $e) {
@@ -651,8 +684,25 @@ class Actions {
             }
 
             $currentProtection = self::getTheftProtectionExpiresTick($db, (int)$target['player_id'], $seasonId);
-            if ($currentProtection >= $nowTick) {
+            $wardExpires = SigilFamilies::wardExpiresTick($db, (int)$target['player_id'], $seasonId);
+            if ($currentProtection >= $nowTick || $wardExpires >= $nowTick) {
                 $db->rollback();
+                if ($wardExpires >= $nowTick && $wardExpires > $currentProtection) {
+                    // Ward reports what it blocked (drama budget: the act, not the value).
+                    $db->query(
+                        "UPDATE active_wards SET blocked_count = blocked_count + 1
+                         WHERE player_id = ? AND season_id = ? AND expires_tick >= ?",
+                        [(int)$target['player_id'], $seasonId, $nowTick]
+                    );
+                    Notifications::create(
+                        (int)$target['player_id'],
+                        'ward_blocked',
+                        'Ward Held',
+                        $player['handle'] . "'s theft attempt broke against your Ward.",
+                        ['event_key' => 'ward_block:' . $seasonId . ':' . (int)$target['player_id'] . ':' . $nowTick]
+                    );
+                    return ['error' => 'Target is warded'];
+                }
                 return ['error' => 'Target theft protection is active'];
             }
 
@@ -700,6 +750,8 @@ class Actions {
                     "UPDATE season_participation SET {$col} = {$col} - ? WHERE player_id = ? AND season_id = ?",
                     [$amount, $playerId, $seasonId]
                 );
+                // Larceny is the theft verb: spend larceny holdings first.
+                SigilFamilies::syncSpendTier($db, $seasonId, $playerId, $tier, $amount, [SigilFamilies::LARCENY_ID]);
                 self::logEconomyLedgerSigilChange($db, $nowTick, $seasonId, $seasonTick, $playerId, $tier, $amount, 'BURN', 'SigilTheftSpend');
             }
 
@@ -722,9 +774,15 @@ class Actions {
                     );
 
                     $transferredSigils[$tier - 1] = $amount;
+                    SigilFamilies::syncTransferTier($db, $seasonId, (int)$target['player_id'], $playerId, $tier, $amount);
                     self::logEconomyLedgerSigilChange($db, $nowTick, $seasonId, $seasonTick, $playerId, $tier, $amount, 'TRANSFER', 'SigilTheftTransferIn');
                     self::logEconomyLedgerSigilChange($db, $nowTick, $seasonId, $seasonTick, (int)$target['player_id'], $tier, $amount, 'TRANSFER', 'SigilTheftTransferOut');
                 }
+                SigilFamilies::emitEvent(
+                    $db, $seasonId, $playerId, 'theft_success',
+                    $player['handle'] . ' stole from ' . $target['handle'],
+                    $nowTick
+                );
             }
 
             $theftId = (int)$db->insert(
@@ -761,13 +819,21 @@ class Actions {
             $lootSummary = self::summarizeSigilVector($requestedSigils);
             $transferredSummary = self::summarizeSigilVector($transferredSigils);
 
+            // Near-miss reporting (drama budget): tension from information, zero value cost.
+            $nearMiss = '';
+            if (!$theftSuccess && SigilFamilies::active($db)) {
+                $rollPct = (int)round($rollFp / 10000);
+                $shortPp = max(1, (int)ceil(($rollFp - $successChanceFp) / 10000));
+                $nearMiss = " Your attempt resolved at {$rollPct}% - {$shortPp} points short.";
+            }
+
             Notifications::create(
                 $playerId,
                 $theftSuccess ? 'sigil_theft_success' : 'sigil_theft_failed',
                 $theftSuccess ? 'Sigil Theft Succeeded' : 'Sigil Theft Failed',
                 $theftSuccess
                     ? ('You stole ' . $transferredSummary . ' from ' . $target['handle'] . '.')
-                    : ('You lost ' . $spentSummary . ' trying to steal ' . $lootSummary . ' from ' . $target['handle'] . '.'),
+                    : ('You lost ' . $spentSummary . ' trying to steal ' . $lootSummary . ' from ' . $target['handle'] . '.' . $nearMiss),
                 [
                     'event_key' => 'sigil_theft:' . $theftId . ':attacker',
                     'payload' => [
@@ -1035,6 +1101,19 @@ class Actions {
             return ['error' => "Insufficient Tier {$sigilTier} Sigils. Need {$sigilCost}, have {$participation[$sigilCol]}"];
         }
 
+        // With families on, power is the Yield verb and time is the Time verb:
+        // the spend must come from that family (wildcards substitute). The
+        // modifier ceiling also tightens to the families cap.
+        $familiesActive = SigilFamilies::active($db);
+        $verbFamilyId = ($purchaseKind === 'time') ? SigilFamilies::TIME_ID : SigilFamilies::YIELD_ID;
+        if ($familiesActive) {
+            if (SigilFamilies::spendableCount($db, $seasonId, $playerId, $verbFamilyId, $sigilTier) < $sigilCost) {
+                $verbName = SigilFamilies::familyName($verbFamilyId);
+                return ['error' => "This spend needs a {$verbName} sigil of Tier {$sigilTier} (or a Wildcard)"];
+            }
+            $totalPowerCapFp = min($totalPowerCapFp, (int)CAPS_MODIFIER_CEILING_PCT * 10000);
+        }
+
         // Load currently-active SELF boost rows (legacy-safe; collapse to one canonical row).
         $gameTime = GameTime::now();
         $activeRows = $db->fetchAll(
@@ -1124,6 +1203,9 @@ class Actions {
                 "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - ? WHERE player_id = ? AND season_id = ?",
                 [$sigilCost, $playerId, $seasonId]
             );
+            if ($familiesActive) {
+                SigilFamilies::spendSpecific($db, $seasonId, $playerId, $verbFamilyId, $sigilTier, $sigilCost);
+            }
 
             if (!$active) {
                 $newModifier = $initialPowerFp;
@@ -1148,6 +1230,14 @@ class Actions {
                     $expiresTick = $currentExpiresTick;
                 } else {
                     $newModifier = $currentModifier;
+                    if ($familiesActive) {
+                        // Time family: duration is derived, never authored -
+                        // added time = VP x 0.1h / (active modifier / 100).
+                        $derivedTicks = SigilFamilies::derivedTimeExtensionTicks($sigilTier, $currentModifier);
+                        if ($derivedTicks > 0) {
+                            $timeIncrementTicks = $derivedTicks;
+                        }
+                    }
                     $expiresTick = min($maxExpiresTick, $currentExpiresTick + $timeIncrementTicks);
                     if ($expiresTick <= $currentExpiresTick) {
                         throw new Exception('Maximum boost session time reached');
@@ -1233,7 +1323,7 @@ class Actions {
     /**
      * Combine same-tier sigils into the next tier.
      */
-    public static function combineSigils($playerId, $fromTier) {
+    public static function combineSigils($playerId, $fromTier, $familyCode = null) {
         $db = Database::getInstance();
         $player = $db->fetch("SELECT * FROM players WHERE player_id = ?", [$playerId]);
 
@@ -1278,6 +1368,35 @@ class Actions {
             return ['error' => "Tier {$toTier} sigil inventory cap reached"];
         }
 
+        // With families on, Ascend is family-constrained: the inputs come from
+        // one family (wildcards substitute) and the output stays in it.
+        $familiesActive = SigilFamilies::active($db);
+        $ascendFamilyId = null;
+        if ($familiesActive) {
+            $requestedFamilyId = $familyCode !== null ? SigilFamilies::familyIdByCode($familyCode) : null;
+            $candidateIds = $requestedFamilyId !== null
+                ? [$requestedFamilyId]
+                : [SigilFamilies::YIELD_ID, SigilFamilies::TIME_ID, SigilFamilies::WARD_ID,
+                   SigilFamilies::LARCENY_ID, SigilFamilies::MARKET_ID, SigilFamilies::WILD_ID];
+            $bestCount = -1;
+            foreach ($candidateIds as $candidateId) {
+                if (in_array($candidateId, [SigilFamilies::SIGHT_ID, null], true)) {
+                    continue;
+                }
+                $count = SigilFamilies::spendableCount($db, $seasonId, $playerId, $candidateId, $fromTier);
+                if ($count >= $required && $count > $bestCount) {
+                    $ascendFamilyId = $candidateId;
+                    $bestCount = $count;
+                }
+            }
+            if ($ascendFamilyId === null) {
+                return ['error' => "Ascend needs {$required} same-family Tier {$fromTier} sigils (wildcards substitute)"];
+            }
+            if ($toTier === 6 && SigilFamilies::holdingCount($db, $seasonId, $playerId, $ascendFamilyId, 6) >= 1) {
+                return ['error' => 'One Tier 6 per family per season'];
+            }
+        }
+
         $db->beginTransaction();
         try {
             $db->query(
@@ -1286,6 +1405,10 @@ class Actions {
                  WHERE player_id = ? AND season_id = ?",
                 [$required, $playerId, $seasonId]
             );
+            if ($familiesActive && $ascendFamilyId !== null) {
+                SigilFamilies::spendSpecific($db, $seasonId, $playerId, $ascendFamilyId, $fromTier, $required);
+                SigilFamilies::addHolding($db, $seasonId, $playerId, $ascendFamilyId, $toTier, 1);
+            }
 
             $db->query(
                 "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
@@ -1293,13 +1416,15 @@ class Actions {
             );
 
             $db->commit();
+            $familyLabel = $ascendFamilyId !== null ? (SigilFamilies::familyName($ascendFamilyId) . ' ') : '';
             return [
                 'success' => true,
                 'from_tier' => $fromTier,
                 'to_tier' => $toTier,
+                'family_code' => $ascendFamilyId !== null ? SigilFamilies::familyCode($ascendFamilyId) : null,
                 'consumed' => $required,
                 'produced' => 1,
-                'message' => "Combined {$required} Tier {$fromTier} sigils into 1 Tier {$toTier} sigil."
+                'message' => "Combined {$required} {$familyLabel}Tier {$fromTier} sigils into 1 {$familyLabel}Tier {$toTier} sigil."
             ];
         } catch (Exception $e) {
             $db->rollback();

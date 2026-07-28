@@ -208,6 +208,12 @@ const TMC = {
         this.updateHUD();
         this.checkIdleModal();
 
+        // Family state + season ticker: light polling on every 5th game poll.
+        if (this._familyStatePollCounter % 5 === 0) {
+            this.fetchFamilyState().then(() => this.fetchSeasonEvents());
+        }
+        this._familyStatePollCounter++;
+
         // Refresh current screen data (but don't re-render season detail to preserve input state)
         if (this.state.currentScreen === 'seasons') this.renderSeasons();
         if (this.state.currentScreen === 'season-detail' && this.state.currentSeason) {
@@ -1369,6 +1375,7 @@ const TMC = {
     },
 
     renderSeasonDetail(seasonId, detail) {
+        this.state.currentSeasonDetail = detail || this.state.currentSeasonDetail;
         if (!detail) {
             // Use cached data from game state
             detail = this.state.seasons.find(s => s.season_id == seasonId);
@@ -1476,6 +1483,8 @@ const TMC = {
                         </div>
                         ${sigilForgeHtml}
                     </div>
+
+                    ${this.renderFamilySection(part, isBlackout)}
 
                     <!-- Lock-In Panel -->
                     <div class="action-panel panel-lockin">
@@ -1737,6 +1746,219 @@ const TMC = {
                 </div>
             </div>
         `;
+    },
+
+    // ==================== SIGIL FAMILIES ====================
+
+    _familyStatePollCounter: 0,
+
+    familyDisplayName(code) {
+        const names = { yield: 'Yield', time: 'Time', ward: 'Ward', larceny: 'Larceny', market: 'Market', sight: 'Sight', wild: 'Wildcard' };
+        return names[code] || code;
+    },
+
+    tierRoman(tier) {
+        return ['', 'I', 'II', 'III', 'IV', 'V', 'VI'][tier] || ('T' + tier);
+    },
+
+    async fetchFamilyState() {
+        const fs = await this.api('family_state');
+        if (fs && !fs.error) {
+            this.state.familyState = fs;
+        }
+        return this.state.familyState;
+    },
+
+    async fetchSeasonEvents() {
+        if (!this.state.familyState || !this.state.familyState.enabled) return;
+        const result = await this.api('season_events', { limit: 12 });
+        if (result && Array.isArray(result.events)) {
+            this.state.seasonEvents = result.events;
+            const tickerEl = document.getElementById('season-ticker-items');
+            if (tickerEl) tickerEl.innerHTML = this.renderTickerItems();
+        }
+    },
+
+    renderTickerItems() {
+        const events = this.state.seasonEvents || [];
+        if (!events.length) {
+            return '<span class="ticker-item ticker-empty">Season quiet so far.</span>';
+        }
+        return events.map((e) => `
+            <span class="ticker-item ticker-${this.escapeHtml(e.event_kind)}">${this.escapeHtml(e.public_text)}</span>
+        `).join('');
+    },
+
+    renderFamilySection(part, isBlackout) {
+        const fs = this.state.familyState;
+        if (!fs || !fs.enabled) return '';
+
+        const materialFamilies = (fs.families || []).filter((f) => f.enabled && f.code !== 'sight' && f.code !== 'wild');
+        const holdings = fs.holdings || [];
+        const affinityId = fs.affinity_family_id;
+        const affinityFamily = (fs.families || []).find((f) => f.family_id === affinityId);
+
+        const holdingsHtml = holdings.length
+            ? holdings.map((h) => `
+                <div class="family-chip-row family-${this.escapeHtml(h.code)}">
+                    <span class="family-chip-name">${this.escapeHtml(h.name)}</span>
+                    <span class="family-chip-tiers">
+                        ${Object.entries(h.tiers).map(([tier, count]) =>
+                            `<span class="family-tier-pill tier-${tier}">${this.tierRoman(Number(tier))} <b>x${count}</b></span>`
+                        ).join('')}
+                    </span>
+                </div>`).join('')
+            : '<p class="panel-info">No family sigils yet - new drops arrive with a family.</p>';
+
+        const affinityHtml = affinityFamily
+            ? `<p class="panel-info">Affinity: <span class="family-name family-${this.escapeHtml(affinityFamily.code)}">${this.escapeHtml(affinityFamily.name)}</span>
+               ${(isBlackout && !fs.affinity_repicked) ? '<button class="btn btn-sm btn-outline" onclick="TMC.showAffinityPicker(true)">Re-pick (public)</button>' : ''}</p>`
+            : `<div class="affinity-picker">
+                 <p class="panel-info">Pick an affinity (+8pp drop weight to it, -2pp elsewhere):</p>
+                 <div class="affinity-options">
+                    ${materialFamilies.map((f) =>
+                        `<button class="btn btn-sm btn-outline family-${this.escapeHtml(f.code)}" onclick="TMC.pickAffinityUI('${this.escapeHtml(f.code)}')">${this.escapeHtml(f.name)}</button>`
+                    ).join('')}
+                 </div>
+               </div>`;
+
+        const wardTiers = [];
+        const marketTiers = [];
+        holdings.forEach((h) => {
+            Object.keys(h.tiers).forEach((tier) => {
+                if ((h.code === 'ward' || h.code === 'wild') && Number(tier) >= 2 && !wardTiers.includes(tier)) wardTiers.push(tier);
+                if ((h.code === 'market' || h.code === 'wild') && !marketTiers.includes(tier)) marketTiers.push(tier);
+            });
+        });
+        const sightCount = holdings.filter((h) => h.code === 'sight')
+            .reduce((sum, h) => sum + Object.values(h.tiers).reduce((a, b) => a + b, 0), 0);
+        const wardActive = fs.ward && fs.ward.active;
+        const marketPending = fs.market && fs.market.pending_vp > 0;
+
+        const lb = (this.state.currentSeasonDetail && this.state.currentSeasonDetail.leaderboard) || [];
+        const rivalOptions = lb
+            .filter((row) => this.state.player && Number(row.player_id) !== Number(this.state.player.player_id))
+            .map((row) => `<option value="${row.player_id}">${this.escapeHtml(row.handle)}</option>`)
+            .join('');
+
+        return `
+            <div class="action-panel family-panel">
+                <h3>Sigil Families</h3>
+                <div class="season-ticker"><div id="season-ticker-items" class="season-ticker-track">${this.renderTickerItems()}</div></div>
+                ${affinityHtml}
+                <div class="family-holdings">${holdingsHtml}</div>
+                <div class="family-abilities">
+                    <div class="family-ability family-ward">
+                        <span class="family-ability-label">Ward</span>
+                        ${wardActive
+                            ? '<span class="family-status-ok">Active</span>'
+                            : `<select id="ward-tier-select" class="input-field input-compact">${wardTiers.map((t) => `<option value="${t}">${this.tierRoman(Number(t))}</option>`).join('')}</select>
+                               <button class="btn btn-sm btn-primary" onclick="TMC.wardActivateUI()" ${wardTiers.length ? '' : 'disabled'}>Raise</button>`}
+                    </div>
+                    <div class="family-ability family-market">
+                        <span class="family-ability-label">Market</span>
+                        ${marketPending
+                            ? '<span class="family-status-ok">Discount primed</span>'
+                            : `<select id="market-tier-select" class="input-field input-compact">${marketTiers.map((t) => `<option value="${t}">${this.tierRoman(Number(t))}</option>`).join('')}</select>
+                               <button class="btn btn-sm btn-primary" onclick="TMC.marketPrimeUI()" ${marketTiers.length ? '' : 'disabled'}>Prime</button>`}
+                    </div>
+                    <div class="family-ability family-sight">
+                        <span class="family-ability-label">Sight <b>x${sightCount}</b></span>
+                        <select id="sight-kind-select" class="input-field input-compact" onchange="TMC.onSightKindChange()">
+                            <option value="pity">Pity distance</option>
+                            <option value="price_step">Price surface</option>
+                            <option value="target_rate">Rival's rate</option>
+                            <option value="ward_status">Rival's ward</option>
+                        </select>
+                        <select id="sight-target-select" class="input-field input-compact" style="display:none">${rivalOptions}</select>
+                        <button class="btn btn-sm btn-primary" onclick="TMC.sightRevealUI()" ${sightCount ? '' : 'disabled'}>Reveal</button>
+                    </div>
+                </div>
+                ${(fs.forge && (fs.forge.transmute_enabled || fs.forge.distil_enabled)) ? `
+                <div class="family-forge-extra">
+                    ${fs.forge.transmute_enabled ? '<button class="btn btn-sm btn-outline" onclick="TMC.transmuteUI()">Transmute (3 families to 2 Wildcards)</button>' : ''}
+                    ${fs.forge.distil_enabled ? '<button class="btn btn-sm btn-outline" onclick="TMC.distilUI()">Distil (3 Sight to material)</button>' : ''}
+                </div>` : ''}
+            </div>
+        `;
+    },
+
+    onSightKindChange() {
+        const kind = document.getElementById('sight-kind-select')?.value;
+        const targetSelect = document.getElementById('sight-target-select');
+        if (targetSelect) targetSelect.style.display = (kind === 'target_rate' || kind === 'ward_status') ? '' : 'none';
+    },
+
+    showAffinityPicker(repick) {
+        const fs = this.state.familyState;
+        if (!fs) return;
+        const options = (fs.families || []).filter((f) => f.enabled && f.code !== 'sight' && f.code !== 'wild');
+        const codes = options.map((f) => f.code).join(', ');
+        const pick = prompt('Re-pick affinity (public, once per season). Choose: ' + codes);
+        if (pick) this.pickAffinityUI(pick.trim().toLowerCase());
+    },
+
+    async pickAffinityUI(code) {
+        const result = await this.api('affinity_pick', { family: code });
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        this.toast(result.message, 'success');
+        await this.fetchFamilyState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async wardActivateUI() {
+        const tier = Number(document.getElementById('ward-tier-select')?.value || 0);
+        const result = await this.api('ward_activate', { tier });
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        this.toast(result.message, 'success');
+        await this.fetchFamilyState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async marketPrimeUI() {
+        const tier = Number(document.getElementById('market-tier-select')?.value || 0);
+        const result = await this.api('market_prime', { tier });
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        this.toast(result.message, 'success');
+        await this.fetchFamilyState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async sightRevealUI() {
+        const kind = document.getElementById('sight-kind-select')?.value;
+        const targetId = Number(document.getElementById('sight-target-select')?.value || 0);
+        const result = await this.api('sight_reveal', { kind, target_player_id: targetId });
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        const r = result.reveal || {};
+        let text = 'Sight reveal.';
+        if (r.kind === 'pity') text = `Pity: ${this.formatNumber(r.ticks_to_pity)} eligible ticks to a guaranteed drop.`;
+        if (r.kind === 'price_step') text = `Star price ${this.formatNumber(r.published_star_price)} (cap ${this.formatNumber(r.star_price_cap)}).`;
+        if (r.kind === 'target_rate') text = `${r.target_handle} earns ~${r.gross_rate_per_min}/min gross.`;
+        if (r.kind === 'ward_status') text = `${r.target_handle}'s ward is ${r.ward_up ? 'UP' : 'down'}.`;
+        this.toast(text, 'info', { sticky: true });
+        await this.fetchFamilyState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async transmuteUI() {
+        const tier = Number(prompt('Transmute at which tier? (1-6)') || 0);
+        const families = (prompt('Three different families to consume (e.g. yield,ward,market)') || '')
+            .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+        const result = await this.api('transmute_sigils', { tier, families });
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        this.toast(result.message, 'success');
+        await this.fetchFamilyState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+    },
+
+    async distilUI() {
+        const tier = Number(prompt('Distil Sight of which tier? (2-6)') || 0);
+        const family = (prompt('Material family to distil into (yield/time/ward/larceny/market)') || '').trim().toLowerCase();
+        const result = await this.api('distil_sigils', { tier, target_family: family });
+        if (result.error) { this.toast(result.error, 'error'); return; }
+        this.toast(result.message, 'success');
+        await this.fetchFamilyState();
+        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
     reconcileSigilForge(combineRecipes, isBlackout) {

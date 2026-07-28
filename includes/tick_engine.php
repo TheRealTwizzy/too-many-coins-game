@@ -20,9 +20,15 @@ require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/runtime_readiness.php';
+require_once __DIR__ . '/sigil_families.php';
 
 class TickEngine {
-    
+
+    private static function romanTier($tier) {
+        $numerals = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI'];
+        return $numerals[(int)$tier] ?? ('T' . (int)$tier);
+    }
+
     /**
      * Process all pending ticks for all active seasons
      */
@@ -458,7 +464,7 @@ class TickEngine {
                 if (isset($drop['season_progress'])) {
                     $dropMetadata['season_progress'] = (float)$drop['season_progress'];
                 }
-                self::awardSigilDrop($playerId, $seasonId, (int)$drop['tier'], $absoluteTick, 'RNG', $dropMetadata);
+                self::awardSigilDrop($playerId, $seasonId, (int)$drop['tier'], $absoluteTick, 'RNG', $dropMetadata, $season);
             }
         }
     }
@@ -466,7 +472,7 @@ class TickEngine {
     /**
      * Award a Sigil drop to a player
      */
-    private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = []) {
+    private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = [], $season = null) {
         $db = Database::getInstance();
         $sigilCol = "sigils_t{$tier}";
 
@@ -478,19 +484,45 @@ class TickEngine {
             // Hard-cap behavior: discard blocked drops instead of queueing.
             return;
         }
-        
+
         // Add sigil to inventory
         $db->query(
             "UPDATE season_participation SET {$sigilCol} = {$sigilCol} + 1, sigil_drops_total = sigil_drops_total + 1
              WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
-        
+
         // Log the drop
         $db->query(
             "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source) VALUES (?, ?, ?, ?, ?)",
             [$playerId, $seasonId, $dropTick, $tier, $source]
         );
+
+        // Family roll (spec §6): strictly after the tier roll, changes which
+        // sigil dropped, never how many. Null when families are not active.
+        $familyId = null;
+        if ($season !== null) {
+            $familyId = SigilFamilies::rollFamilyForDrop($db, $season, $playerId, $dropTick, (int)$tier, $participation);
+            if ($familyId !== null) {
+                SigilFamilies::addHolding($db, $seasonId, $playerId, $familyId, (int)$tier, 1);
+                $metadata['family_id'] = $familyId;
+                $metadata['family_code'] = SigilFamilies::familyCode($familyId);
+                if (SigilFamilies::rollSightTrickle($db, $season, $playerId, $dropTick)) {
+                    // Sight rides along on its own roll and displaces nothing:
+                    // holdings-only, outside the positional array and the 25-cap.
+                    SigilFamilies::addHolding($db, $seasonId, $playerId, SigilFamilies::SIGHT_ID, (int)$tier, 1);
+                    $metadata['sight_trickle'] = true;
+                }
+                if ((int)$tier >= 5) {
+                    $actor = $db->fetch("SELECT handle FROM players WHERE player_id = ?", [(int)$playerId]);
+                    SigilFamilies::emitEvent(
+                        $db, $seasonId, $playerId, 'high_tier_drop',
+                        sprintf('%s found a Tier %d %s sigil', (string)($actor['handle'] ?? 'Someone'), (int)$tier, SigilFamilies::familyName($familyId)),
+                        (int)$dropTick
+                    );
+                }
+            }
+        }
 
         $tierNames = [
             1 => 'Common',
@@ -502,11 +534,14 @@ class TickEngine {
         ];
         $sourceNormalized = strtoupper((string)$source) === 'PITY' ? 'pity' : 'rng';
         $tierName = $tierNames[(int)$tier] ?? ('Tier ' . (int)$tier);
+        $foundLabel = $familyId !== null
+            ? sprintf('You found a %s %s sigil (%s).', SigilFamilies::familyName($familyId), self::romanTier((int)$tier), strtoupper($sourceNormalized))
+            : sprintf('You found a %s sigil (%s).', $tierName, strtoupper($sourceNormalized));
         Notifications::create(
             $playerId,
             'sigil_drop',
             'Sigil Drop: Tier ' . (int)$tier,
-            sprintf('You found a %s sigil (%s).', $tierName, strtoupper($sourceNormalized)),
+            $foundLabel,
             [
                 'event_key' => sprintf(
                     'sigil_drop:%d:%d:%d:%s',
@@ -794,6 +829,9 @@ class TickEngine {
                      WHERE player_id = ? AND season_id = ?",
                     [$naturalExpiryPayout['global_stars_gained'], $participationBonus, $placementBonus, $ef['player_id'], $seasonId]
                 );
+
+                // Sigils and abilities are season-local: holdings and wards expire with the season.
+                SigilFamilies::clearSeasonHoldings($db, (int)$ef['player_id'], (int)$seasonId);
                 
                 // Award badges
                 if ($awardBadgesAndPlacement && $placementRank >= 1 && $placementRank <= 3) {

@@ -3630,3 +3630,151 @@ h1, h2, h3, h4, h5, h6,
 .notification-item.notification-error { border-left: 2px solid var(--accent-red); }
 .notification-item.swipe-left, .notification-item.swipe-right { border-color: color-mix(in srgb, var(--accent-red) 60%, transparent); }
 .notification-category { color: var(--accent-gold-light); }
+
+/* ==================== SIGIL FAMILIES ==================== */
+/* Family hues stay inside the Nocturne palette: one identity color per
+   family, applied to chips, ability rows and the affinity picker. */
+:root {
+    --family-yield: #b5abfc;
+    --family-time: #d2cefd;
+    --family-ward: #8fa9dd;
+    --family-larceny: #d98d8d;
+    --family-market: #cfd3e5;
+    --family-sight: #75798c;
+    --family-wild: #a7a1db;
+}
+
+.family-panel h3 { margin-bottom: 8px; }
+
+.season-ticker {
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    margin-bottom: 12px;
+    padding: 6px 0;
+}
+.season-ticker-track {
+    display: inline-flex;
+    gap: 28px;
+    white-space: nowrap;
+    padding-left: 100%;
+    animation: ticker-scroll 36s linear infinite;
+}
+.season-ticker:hover .season-ticker-track { animation-play-state: paused; }
+@keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+}
+.ticker-item { color: var(--text-secondary); font-size: 0.85rem; }
+.ticker-item.ticker-theft_success { color: var(--family-larceny); }
+.ticker-item.ticker-high_tier_drop { color: var(--family-yield); }
+.ticker-item.ticker-empty { color: var(--text-muted); }
+
+.family-holdings { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.family-chip-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--text-muted);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+}
+.family-chip-row.family-yield { border-left-color: var(--family-yield); }
+.family-chip-row.family-time { border-left-color: var(--family-time); }
+.family-chip-row.family-ward { border-left-color: var(--family-ward); }
+.family-chip-row.family-larceny { border-left-color: var(--family-larceny); }
+.family-chip-row.family-market { border-left-color: var(--family-market); }
+.family-chip-row.family-sight { border-left-color: var(--family-sight); }
+.family-chip-row.family-wild {
+    border-left-color: var(--family-wild);
+    background: linear-gradient(90deg, var(--bg-primary), rgba(167, 161, 219, 0.08));
+}
+.family-chip-name { font-weight: 600; font-size: 0.9rem; }
+.family-chip-tiers { display: flex; flex-wrap: wrap; gap: 6px; }
+.family-tier-pill {
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+.family-tier-pill.tier-5, .family-tier-pill.tier-6 {
+    border-color: var(--accent-gold);
+    color: var(--accent-gold-light);
+    animation: pill-shimmer 2.4s ease-in-out infinite;
+}
+@keyframes pill-shimmer {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(181, 171, 252, 0); }
+    50% { box-shadow: 0 0 10px 0 rgba(181, 171, 252, 0.35); }
+}
+
+.family-name.family-yield { color: var(--family-yield); }
+.family-name.family-time { color: var(--family-time); }
+.family-name.family-ward { color: var(--family-ward); }
+.family-name.family-larceny { color: var(--family-larceny); }
+.family-name.family-market { color: var(--family-market); }
+
+.affinity-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+.family-abilities { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.family-ability {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+}
+.family-ability-label { min-width: 72px; font-weight: 600; font-size: 0.88rem; }
+.family-ability.family-ward .family-ability-label { color: var(--family-ward); }
+.family-ability.family-market .family-ability-label { color: var(--family-market); }
+.family-ability.family-sight .family-ability-label { color: var(--family-sight); }
+.family-status-ok { color: var(--accent-gold-light); font-size: 0.85rem; font-weight: 600; }
+.input-compact { max-width: 160px; padding: 6px 8px; }
+.family-forge-extra { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* ==================== READABILITY & MOTION PASS ==================== */
+/* Slightly higher body contrast and roomier panels; every animation in
+   this patch respects prefers-reduced-motion. */
+.panel-info { color: var(--text-secondary); line-height: 1.55; }
+.action-panel h3 { letter-spacing: 0.01em; }
+:focus-visible {
+    outline: 2px solid var(--accent-gold);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+#sigil-drop-modal .modal-box { animation: drop-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes drop-pop {
+    0% { transform: scale(0.7); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.sigil-item.is-clickable { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.sigil-item.is-clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.btn { transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
+.btn:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+    .season-ticker-track { animation: none; padding-left: 0; flex-wrap: wrap; white-space: normal; }
+    .family-tier-pill.tier-5, .family-tier-pill.tier-6 { animation: none; }
+    #sigil-drop-modal .modal-box { animation: none; }
+    .sigil-item.is-clickable, .btn { transition: none; }
+}
+
+/* ==================== MOBILE PASS ==================== */
+@media (max-width: 640px) {
+    .family-ability { flex-direction: column; align-items: stretch; }
+    .family-ability .btn, .family-ability .input-compact { width: 100%; max-width: none; }
+    .family-chip-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .affinity-options .btn { flex: 1 1 40%; min-height: 44px; }
+    .sigil-side-actions .btn { min-height: 44px; }
+    .leaderboard-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .action-row { flex-wrap: wrap; }
+    .action-row .btn { min-height: 44px; }
+}
