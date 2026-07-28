@@ -58,6 +58,36 @@ class Database {
 
         $this->ensureMigrationTable();
 
+        // Serialize the runner across processes and replicas.
+        //
+        // The per-migration check below is a check-then-act: two processes that
+        // both miss the schema_migrations row both reach $this->pdo->exec($sql).
+        // INSERT IGNORE de-duplicates the *bookkeeping*, not the *execution*, so a
+        // rolling deploy (web + worker starting together) could apply the same
+        // non-idempotent migration twice - silently double-applying tuning UPDATEs.
+        // Same advisory-lock pattern the tick worker already uses.
+        $lockRow = $this->fetch("SELECT GET_LOCK('tmc_migrations', 30) AS got_lock");
+        if ((int)($lockRow['got_lock'] ?? 0) !== 1) {
+            // Another process is migrating. Do not mark as checked: the next
+            // connection retries and will find the work already done.
+            error_log('[migrations] could not acquire tmc_migrations lock; deferring');
+            return;
+        }
+
+        try {
+            $this->applyMigrationFiles();
+        } finally {
+            $this->query("SELECT RELEASE_LOCK('tmc_migrations')");
+        }
+
+        self::$migrationsChecked = true;
+    }
+
+    /**
+     * Applies each pending migration file. Callers must hold the
+     * 'tmc_migrations' advisory lock.
+     */
+    private function applyMigrationFiles() {
         $files = $this->getAutoMigrationFiles();
         foreach ($files as $filePath) {
             $migrationName = basename($filePath);
@@ -111,8 +141,6 @@ class Database {
                 continue;
             }
         }
-
-        self::$migrationsChecked = true;
     }
 
     private function isSchemaReadyForMigrations() {

@@ -390,14 +390,23 @@ class Actions {
 
         $db->beginTransaction();
         try {
-            // Burn coins, credit stars
-            $db->query(
+            // Burn coins, credit stars.
+            // The affordability check above reads outside this transaction, so it
+            // cannot be trusted alone: concurrent purchases would all pass it and
+            // all commit, driving coins negative (the column is signed) and minting
+            // stars from nothing. The `coins >= ?` guard is evaluated under the row
+            // lock this UPDATE takes, so exactly one racer can win.
+            $charged = $db->query(
                 "UPDATE season_participation SET
                  coins = coins - ?, seasonal_stars = seasonal_stars + ?,
                  spend_window_total = spend_window_total + ?
-                 WHERE player_id = ? AND season_id = ?",
-                [$coinsCharged, $starsRequested, $coinsCharged, $playerId, $seasonId]
-            );
+                 WHERE player_id = ? AND season_id = ? AND coins >= ?",
+                [$coinsCharged, $starsRequested, $coinsCharged, $playerId, $seasonId, $coinsCharged]
+            )->rowCount();
+            if ($charged !== 1) {
+                $db->rollback();
+                return ['error' => 'Insufficient coins'];
+            }
             if ($pendingVp > 0 && $marketSaved >= 0 && SigilFamilies::schemaReady($db)) {
                 $db->query(
                     "UPDATE season_participation SET market_pending_vp = 0
@@ -520,16 +529,27 @@ class Actions {
         $db->beginTransaction();
         try {
             // 1. Record Lock-In snapshot (snapshot reflects total seasonal including sigil refunds)
-            $db->query(
-                "UPDATE season_participation SET 
+            //
+            // This UPDATE is also the idempotency claim for the whole operation.
+            // `lock_in_effect_tick IS NULL` means only one of N concurrent calls can
+            // proceed; without it every racer read the same pre-state, all credited
+            // global stars at step 2, and the "destroy resources" step at 3 is
+            // absolute-valued so it stayed harmless when repeated — permanently
+            // multiplying the payout.
+            $claimed = $db->query(
+                "UPDATE season_participation SET
                  lock_in_effect_tick = ?,
                  lock_in_snapshot_seasonal_stars = ?,
                  lock_in_snapshot_participation_time = participation_time_total,
                  last_exit_at = ?
-                 WHERE player_id = ? AND season_id = ?",
+                 WHERE player_id = ? AND season_id = ? AND lock_in_effect_tick IS NULL",
                 [$gameTime, $totalSeasonalStars, $gameTime, $playerId, $seasonId]
-            );
-            
+            )->rowCount();
+            if ($claimed !== 1) {
+                $db->rollback();
+                return ['error' => 'Already locked in for this season'];
+            }
+
             // 2. Convert total seasonal stars → global stars at 65% while preserving carry
             $db->query(
                 "UPDATE players SET global_stars = global_stars + ?, global_stars_fractional_fp = ? WHERE player_id = ?",
@@ -663,14 +683,26 @@ class Actions {
 
         $db->beginTransaction();
         try {
-            $attackerParticipation = $db->fetch(
-                "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ? FOR UPDATE",
-                [$playerId, $seasonId]
-            );
-            $targetParticipation = $db->fetch(
-                "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ? FOR UPDATE",
-                [(int)$target['player_id'], $seasonId]
-            );
+            // Lock both participation rows in a deterministic order (ascending
+            // player_id), not attacker-then-target. With the old fixed order, A
+            // stealing from B locked (A,B) while B stealing from A concurrently
+            // locked (B,A) - a textbook lock-order inversion that InnoDB resolves
+            // by killing one with error 1213, surfacing to the player as a bare
+            // "Sigil theft failed" with the attempt consumed.
+            $attackerId = (int)$playerId;
+            $targetPlayerId = (int)$target['player_id'];
+            $lockOrder = [$attackerId, $targetPlayerId];
+            sort($lockOrder, SORT_NUMERIC);
+
+            $lockedRows = [];
+            foreach ($lockOrder as $lockPlayerId) {
+                $lockedRows[$lockPlayerId] = $db->fetch(
+                    "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ? FOR UPDATE",
+                    [$lockPlayerId, $seasonId]
+                );
+            }
+            $attackerParticipation = $lockedRows[$attackerId] ?? null;
+            $targetParticipation = $lockedRows[$targetPlayerId] ?? null;
 
             if (!$attackerParticipation || !$targetParticipation) {
                 $db->rollback();
@@ -972,10 +1004,19 @@ class Actions {
         
         $db->beginTransaction();
         try {
-            $db->query(
-                "UPDATE players SET global_stars = global_stars - ? WHERE player_id = ?",
-                [$price, $playerId]
-            );
+            // Guarded: the affordability check above runs outside this
+            // transaction, so concurrent purchases of different cosmetics would
+            // each pass it and each commit, spending the same Global Stars more
+            // than once. global_stars is a signed BIGINT, so it went negative.
+            $charged = $db->query(
+                "UPDATE players SET global_stars = global_stars - ?
+                 WHERE player_id = ? AND global_stars >= ?",
+                [$price, $playerId, $price]
+            )->rowCount();
+            if ($charged !== 1) {
+                $db->rollback();
+                return ['error' => 'Insufficient Global Stars'];
+            }
             $db->query(
                 "INSERT INTO player_cosmetics (player_id, cosmetic_id) VALUES (?, ?)",
                 [$playerId, $cosmeticId]
@@ -1199,10 +1240,17 @@ class Actions {
         $db->beginTransaction();
         try {
             // Consume sigil for this spend.
-            $db->query(
-                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - ? WHERE player_id = ? AND season_id = ?",
-                [$sigilCost, $playerId, $seasonId]
-            );
+            // Guarded: concurrent purchases previously each read the same
+            // pre-state, each consumed the same sigil, and each stacked boost
+            // power past the per-product cap.
+            $spent = $db->query(
+                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - ?
+                 WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= ?",
+                [$sigilCost, $playerId, $seasonId, $sigilCost]
+            )->rowCount();
+            if ($spent !== 1) {
+                throw new Exception('You do not own the selected sigil tier');
+            }
             if ($familiesActive) {
                 SigilFamilies::spendSpecific($db, $seasonId, $playerId, $verbFamilyId, $sigilTier, $sigilCost);
             }
@@ -1399,12 +1447,18 @@ class Actions {
 
         $db->beginTransaction();
         try {
-            $db->query(
+            // Guarded so concurrent combines cannot each consume the same sigils
+            // and each mint an output (the sigil columns are signed INTs).
+            $consumed = $db->query(
                 "UPDATE season_participation
                  SET {$fromCol} = {$fromCol} - ?, {$toCol} = {$toCol} + 1
-                 WHERE player_id = ? AND season_id = ?",
-                [$required, $playerId, $seasonId]
-            );
+                 WHERE player_id = ? AND season_id = ? AND {$fromCol} >= ?",
+                [$required, $playerId, $seasonId, $required]
+            )->rowCount();
+            if ($consumed !== 1) {
+                $db->rollback();
+                return ['error' => 'Not enough sigils'];
+            }
             if ($familiesActive && $ascendFamilyId !== null) {
                 SigilFamilies::spendSpecific($db, $seasonId, $playerId, $ascendFamilyId, $fromTier, $required);
                 SigilFamilies::addHolding($db, $seasonId, $playerId, $ascendFamilyId, $toTier, 1);
@@ -1588,10 +1642,15 @@ class Actions {
 
         $db->beginTransaction();
         try {
-            $db->query(
-                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1 WHERE player_id = ? AND season_id = ?",
+            $spent = $db->query(
+                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1
+                 WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= 1",
                 [$playerId, $seasonId]
-            );
+            )->rowCount();
+            if ($spent !== 1) {
+                $db->rollback();
+                return ['error' => 'You do not own the selected sigil tier'];
+            }
 
             if ($existing) {
                 $db->query(
@@ -1695,10 +1754,15 @@ class Actions {
 
         $db->beginTransaction();
         try {
-            $db->query(
-                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1 WHERE player_id = ? AND season_id = ?",
+            $spent = $db->query(
+                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1
+                 WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= 1",
                 [$playerId, $seasonId]
-            );
+            )->rowCount();
+            if ($spent !== 1) {
+                $db->rollback();
+                return ['error' => 'You do not own the selected sigil tier for Melt'];
+            }
 
             $db->query(
                 "UPDATE active_freezes

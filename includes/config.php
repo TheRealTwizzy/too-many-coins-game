@@ -120,6 +120,16 @@ define('TMC_PRESENCE_STALE_OFFLINE_SECONDS', max((int)TMC_PRESENCE_TOUCH_SECONDS
 define('STARPRICE_MODEL_VERSION_DEFAULT', max(1, (int)(getenv('TMC_STARPRICE_MODEL_VERSION_DEFAULT') ?: 1)));
 define('STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT', ticks_from_real_seconds(4860)); // 81 real minutes (conservative-v2)
 
+// Maximum ticks a single processSeasonTick call will advance.
+//
+// Without a cap, an outage produces a catch-up batch whose per-tick sigil-drop
+// loop cannot finish inside one transaction. It times out, the transaction rolls
+// back, last_processed_tick is never advanced, and the next cycle retries an even
+// larger batch - so a long enough outage wedges the game permanently while the
+// worker holds GET_LOCK('tmc_tick_worker'). With a cap, each cycle commits a
+// bounded chunk and progress is monotonic.
+define('TICK_MAX_CATCHUP_TICKS', max(1, (int)(getenv('TMC_TICK_MAX_CATCHUP_TICKS') ?: ticks_from_real_seconds(1800))));
+
 // Economy tuning windows
 define('HOARDING_WINDOW_TICKS', ticks_from_real_seconds(86400));  // 24 real hours
 

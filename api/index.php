@@ -164,12 +164,36 @@ $rateLimitFile = $rateLimitDir . '/' . md5($rateIdentity) . '.json';
 $rateWindow = (int)TMC_RATE_LIMIT_WINDOW_SECONDS;
 $now = time();
 $rateAction = $_GET['action'] ?? ($_POST['action'] ?? 'unknown');
-$rateData = file_exists($rateLimitFile) ? json_decode(file_get_contents($rateLimitFile), true) : null;
-if (!is_array($rateData) || !isset($rateData['window_start']) || ($now - (int)$rateData['window_start']) >= $rateWindow) {
-    $rateData = ['window_start' => $now, 'count' => 0];
+// Atomic read-modify-write under an exclusive lock.
+//
+// The previous unlocked version had two failure modes that both let the limiter
+// fail open under exactly the burst traffic it exists to stop:
+//   1. Lost updates - N concurrent requests all read count=k and all wrote k+1.
+//   2. Torn reads - file_put_contents is not atomic, so a concurrent reader could
+//      decode a partial write as null and reset the window to count=0.
+$rateData = ['window_start' => $now, 'count' => 1];
+$rateHandle = @fopen($rateLimitFile, 'c+');
+if ($rateHandle !== false) {
+    if (flock($rateHandle, LOCK_EX)) {
+        $stored = json_decode((string)stream_get_contents($rateHandle), true);
+        if (is_array($stored) && isset($stored['window_start'])
+            && ($now - (int)$stored['window_start']) < $rateWindow) {
+            $rateData = [
+                'window_start' => (int)$stored['window_start'],
+                'count'        => (int)($stored['count'] ?? 0) + 1,
+            ];
+        }
+        rewind($rateHandle);
+        ftruncate($rateHandle, 0);
+        fwrite($rateHandle, json_encode($rateData));
+        fflush($rateHandle);
+        flock($rateHandle, LOCK_UN);
+    }
+    fclose($rateHandle);
 }
-$rateData['count'] = (int)($rateData['count'] ?? 0) + 1;
-file_put_contents($rateLimitFile, json_encode($rateData));
+// NOTE: this counter is per-container (sys_get_temp_dir). Horizontally scaling the
+// web service multiplies the effective limit by the replica count; a shared store
+// (Redis INCR / MySQL counter table) is the follow-up for multi-replica deploys.
 
 header('X-RateLimit-Tier: ' . $rateTier);
 header('X-RateLimit-Limit: ' . (int)$rateLimit);
@@ -1886,11 +1910,36 @@ function getProfile($viewer, $targetId) {
         [$targetId]
     );
     if (!$target) return ['error' => 'Player not found'];
-    
+
     if ($target['profile_deleted_at']) {
         return ['player_id' => $target['player_id'], 'handle' => '[Removed]', 'deleted' => true];
     }
-    
+
+    // Enforce profile_visibility.
+    //
+    // This function previously accepted $viewer and never used it: the visibility
+    // setting was selected and then ignored, so the dropdown players could set in
+    // their account panel did nothing, and the whole profile - including the exact
+    // per-tier sigil inventory - was readable by unauthenticated callers.
+    $viewerId  = (int)($viewer['player_id'] ?? 0);
+    $targetIdInt = (int)$target['player_id'];
+    $viewerIsSelf  = ($viewerId > 0 && $viewerId === $targetIdInt);
+    $viewerIsStaff = (is_array($viewer) && !empty($viewer) && Permissions::isStaff($viewer));
+    $visibility = strtoupper((string)($target['profile_visibility'] ?? 'PUBLIC'));
+
+    if (!$viewerIsSelf && !$viewerIsStaff) {
+        $blocked = ($visibility === 'HIDDEN')
+            || ($visibility === 'FRIENDS_ONLY' && !SocialService::areFriends($viewerId, $targetIdInt));
+        if ($blocked) {
+            return [
+                'player_id'  => $targetIdInt,
+                'handle'     => $target['handle'],
+                'restricted' => true,
+                'visibility' => $visibility,
+            ];
+        }
+    }
+
     // Get badges
     $badges = $db->fetchAll(
         "SELECT * FROM badges WHERE player_id = ? ORDER BY awarded_at DESC",
@@ -1914,6 +1963,15 @@ function getProfile($viewer, $targetId) {
     $target['equipped_cosmetics'] = getEquippedCosmeticsForPlayerIds([(int)$targetId])[(int)$targetId] ?? getEmptyEquippedCosmeticsPayload();
     // Normalise DATETIME to ISO 8601 UTC so JS Date() parses it unambiguously.
     $target['created_at'] = iso_utc_datetime($target['created_at'] ?? null);
+
+    // The live-season block below carries combat-relevant state: exact per-tier
+    // sigil counts, coin balance, freeze/theft posture, and can_freeze/can_melt/
+    // can_steal. Require a session for it, so it cannot be scraped anonymously
+    // into a census of the whole season. (What one *logged-in* player may see of
+    // another is a separate design question and is deliberately unchanged here.)
+    if ($viewerId <= 0) {
+        return $target;
+    }
 
     if (!empty($target['joined_season_id']) && (int)$target['participation_enabled'] === 1) {
         $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$target['joined_season_id']]);

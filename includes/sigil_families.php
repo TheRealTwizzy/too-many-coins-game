@@ -274,12 +274,19 @@ class SigilFamilies {
             $available = self::holdingCount($db, $seasonId, $playerId, $sourceFamily, $tier);
             $take = min($available, $amount - $spent);
             if ($take > 0) {
-                $db->query(
+                // Only count what the guarded UPDATE actually removed. The
+                // holdingCount() read above is outside the write, so under
+                // contention the guard can match zero rows - previously that
+                // still credited $spent and the caller believed sigils were
+                // consumed that never were.
+                $applied = $db->query(
                     "UPDATE season_sigil_holdings SET count = count - ?
                      WHERE season_id = ? AND player_id = ? AND family_id = ? AND tier = ? AND count >= ?",
                     [$take, (int)$seasonId, (int)$playerId, $sourceFamily, (int)$tier, $take]
-                );
-                $spent += $take;
+                )->rowCount();
+                if ($applied === 1) {
+                    $spent += $take;
+                }
             }
         }
         return $spent;
@@ -319,11 +326,16 @@ class SigilFamilies {
                 break;
             }
             $take = min((int)$row['count'], $amount);
-            $db->query(
+            $applied = $db->query(
                 "UPDATE season_sigil_holdings SET count = count - ?
                  WHERE season_id = ? AND player_id = ? AND family_id = ? AND tier = ? AND count >= ?",
                 [$take, (int)$seasonId, (int)$playerId, (int)$row['family_id'], (int)$tier, $take]
-            );
+            )->rowCount();
+            if ($applied !== 1) {
+                // Row changed under us. Stop rather than loop: the SELECT would
+                // return the same row again and spin forever.
+                break;
+            }
             $amount -= $take;
         }
     }
@@ -347,11 +359,17 @@ class SigilFamilies {
                 return;
             }
             $take = min((int)$row['count'], $amount);
-            $db->query(
+            // Credit the taker only if the give actually happened. Unconditional
+            // addHolding() duplicated sigils whenever the guarded decrement lost
+            // a race: the destination gained without the source losing.
+            $applied = $db->query(
                 "UPDATE season_sigil_holdings SET count = count - ?
                  WHERE season_id = ? AND player_id = ? AND family_id = ? AND tier = ? AND count >= ?",
                 [$take, (int)$seasonId, (int)$fromPlayerId, (int)$row['family_id'], (int)$tier, $take]
-            );
+            )->rowCount();
+            if ($applied !== 1) {
+                break;
+            }
             self::addHolding($db, $seasonId, $toPlayerId, (int)$row['family_id'], $tier, $take);
             $amount -= $take;
         }
