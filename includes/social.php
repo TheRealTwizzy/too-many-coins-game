@@ -33,6 +33,23 @@ class SocialService {
         return (int)($row['c'] ?? 0) === 2;
     }
 
+    /**
+     * True when the two players are friends. Checks both column orderings so it
+     * does not depend on the (player_a, player_b) insert convention.
+     */
+    public static function areFriends(int $a, int $b): bool {
+        if ($a <= 0 || $b <= 0 || $a === $b) {
+            return false;
+        }
+        $row = Database::getInstance()->fetch(
+            "SELECT 1 AS ok FROM friendships
+             WHERE (player_a = ? AND player_b = ?) OR (player_a = ? AND player_b = ?)
+             LIMIT 1",
+            [$a, $b, $b, $a]
+        );
+        return !empty($row);
+    }
+
     public static function friendsList(int $playerId): array {
         return Database::getInstance()->fetchAll(
             "SELECT p.player_id, p.handle, p.profile_status, p.online_current, f.created_at

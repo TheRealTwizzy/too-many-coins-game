@@ -9,6 +9,40 @@ require_once __DIR__ . '/economy.php';
 class Auth {
 
     private static $presenceTouchedInRequest = [];
+
+    /**
+     * True when the request reached us over TLS, including via a terminating
+     * proxy (Dokploy/nginx/Apache front ends set X-Forwarded-Proto).
+     * Used to set the Secure cookie flag without breaking plain-HTTP local dev.
+     */
+    private static function requestIsHttps(): bool {
+        if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
+            return true;
+        }
+        $forwardedProto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '';
+        if ($forwardedProto !== '') {
+            // May be a comma-separated chain; the client-facing scheme is first.
+            $first = strtolower(trim(explode(',', (string)$forwardedProto)[0]));
+            if ($first === 'https') {
+                return true;
+            }
+        }
+        return ((int)($_SERVER['SERVER_PORT'] ?? 0)) === 443;
+    }
+
+    /**
+     * Single place that writes the session cookie, so the security attributes
+     * cannot drift between the register and login paths.
+     */
+    private static function setSessionCookie(string $token, int $expires): void {
+        setcookie('tmc_session', $token, [
+            'expires'  => $expires,
+            'path'     => '/',
+            'secure'   => self::requestIsHttps(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
     
     /**
      * Get current authenticated player from session token
@@ -157,7 +191,7 @@ class Auth {
             
             $db->commit();
             
-            setcookie('tmc_session', $token, time() + SESSION_LIFETIME, '/', '', false, true);
+            self::setSessionCookie($token, time() + SESSION_LIFETIME);
             
             return [
                 'success' => true,
@@ -193,7 +227,7 @@ class Auth {
             [$token, $player['player_id']]
         );
         
-        setcookie('tmc_session', $token, time() + SESSION_LIFETIME, '/', '', false, true);
+        self::setSessionCookie($token, time() + SESSION_LIFETIME);
         
         return [
             'success' => true,
@@ -215,7 +249,7 @@ class Auth {
                 [$player['player_id']]
             );
         }
-        setcookie('tmc_session', '', time() - 3600, '/');
+        self::setSessionCookie('', time() - 3600);
         return ['success' => true];
     }
     

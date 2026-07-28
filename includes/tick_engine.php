@@ -176,8 +176,15 @@ class TickEngine {
             return $summary;
         }
         
-        // Process in batches
+        // Process in batches, bounded so one long outage cannot create a batch too
+        // large to commit (see TICK_MAX_CATCHUP_TICKS). When the cap does not bind,
+        // $processedThroughTick is exactly $gameTime, so normal ticking is unchanged.
         $ticksToProcess = $currentSeasonTick - $lastSeasonTick;
+        if ($ticksToProcess > (int)TICK_MAX_CATCHUP_TICKS) {
+            $ticksToProcess = (int)TICK_MAX_CATCHUP_TICKS;
+            $summary['catchup_capped'] = true;
+        }
+        $processedThroughTick = $startTime + $lastSeasonTick + $ticksToProcess;
         $summary['advanced_ticks'] = $ticksToProcess;
         
         // Check if this is the expiration tick
@@ -400,7 +407,7 @@ class TickEngine {
                  effective_price_supply = ?,
                  last_processed_tick = ?
                  WHERE season_id = ?",
-                [$netCoinsDelta, $netCoinsDelta, $coinsActiveTotal, $coinsIdleTotal, $coinsOfflineTotal, $effectivePriceSupply, $gameTime, $seasonId]
+                [$netCoinsDelta, $netCoinsDelta, $coinsActiveTotal, $coinsIdleTotal, $coinsOfflineTotal, $effectivePriceSupply, $processedThroughTick, $seasonId]
             );
             
             // Recalculate star price using updated season data (includes effective_price_supply
@@ -417,7 +424,7 @@ class TickEngine {
             $db->commit();
             $summary['status'] = 'success';
             $summary['advanced'] = true;
-            $summary['last_processed_tick_after'] = (int)$gameTime;
+            $summary['last_processed_tick_after'] = (int)$processedThroughTick;
         } catch (Exception $e) {
             $db->rollback();
             $summary['status'] = 'error';
