@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nocturne">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Too Many Coins — Motion Lab</title>
+<meta name="description" content="Motion language and layout concept for Too Many Coins: the tick heartbeat, coin drip, star ignition, six family verbs, the season arc, and the lock-in vault.">
+<style>
+/* ============================================================
+   TOO MANY COINS - MOTION LAB
+   A layout + animation identity derived from the game's own
+   mechanics. Design reference page: not part of the app bundle.
+
+   The motion grammar:
+     1. THE TICK      - everything breathes on the 5s heartbeat
+     2. COIN DRIP     - income is gravity: coins fall and settle
+     3. STAR IGNITION - conversion is convergence: many become one
+     4. FAMILY VERBS  - each sigil family animates its verb
+     5. SEASON ARC    - phases are light, blackout is the dark
+     6. THE VAULT     - lock-in is rotation, then stillness
+   Rules: 150ms micro / 300ms move / 600ms moment; spring
+   overshoot only on gains; drama = information, never magnitude;
+   all motion honors prefers-reduced-motion.
+   ============================================================ */
+
+/* Palette tokens - switcher stamps data-theme on <html> */
+:root, :root[data-theme="nocturne"] {
+    --bg: #161826; --bg2: #232532; --card: #1b1d2b; --line: #3f424d;
+    --ink: #e9e9ed; --ink2: #9397ab; --mute: #75798c;
+    --coin: #b5abfc; --star: #d2cefd; --up: #cfd3e5; --down: #d98d8d;
+    --glow: 145, 132, 217;
+}
+:root[data-theme="gilded"] {
+    --bg: #0d1017; --bg2: #161b26; --card: #131826; --line: #2a3140;
+    --ink: #e8e6df; --ink2: #9aa1b0; --mute: #6b7280;
+    --coin: #e8b64c; --star: #5fb7d4; --up: #7fc98f; --down: #e07a7a;
+    --glow: 232, 182, 76;
+}
+:root[data-theme="ember"] {
+    --bg: #141114; --bg2: #1e1a1b; --card: #191516; --line: #382f2d;
+    --ink: #ece7e1; --ink2: #a89f97; --mute: #7d746c;
+    --coin: #d98e4a; --star: #edab6e; --up: #93b57f; --down: #d96459;
+    --glow: 217, 142, 74;
+}
+:root[data-theme="tide"] {
+    --bg: #0b1416; --bg2: #121f22; --card: #101b1e; --line: #24393d;
+    --ink: #e2ecec; --ink2: #93a8aa; --mute: #6d8285;
+    --coin: #ddb457; --star: #58c1b2; --up: #8fbf83; --down: #dd7f7f;
+    --glow: 88, 193, 178;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.55 Inter, system-ui, -apple-system, sans-serif;
+    padding: 28px clamp(14px, 4vw, 44px) 80px;
+    transition: background .4s ease, color .4s ease;
+}
+h1 { font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: .01em; }
+h2 { font-size: .95rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink2); margin-bottom: 10px; }
+.sub { color: var(--ink2); margin: 6px 0 18px; max-width: 720px; }
+
+/* Palette switcher */
+.themes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 26px; }
+.theme-chip {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink2);
+    border-radius: 999px; padding: 7px 16px; cursor: pointer; font-weight: 600; font-size: .82rem;
+    transition: transform .15s cubic-bezier(.2,1.4,.4,1), border-color .2s, color .2s;
+}
+.theme-chip:hover { transform: translateY(-2px); }
+.theme-chip.on { border-color: var(--coin); color: var(--coin); }
+
+/* ============ THE BENTO GRID (the unique layout) ============ */
+.bento {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: minmax(96px, auto);
+    max-width: 1280px;
+}
+.cell {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px; position: relative; overflow: hidden;
+    opacity: 0; transform: translateY(16px);
+    transition: opacity .6s ease, transform .6s cubic-bezier(.2,1,.3,1), background .4s, border-color .4s;
+}
+.cell.in { opacity: 1; transform: none; }
+.c-hud { grid-column: span 8; }
+.c-arc { grid-column: span 4; grid-row: span 2; }
+.c-drip { grid-column: span 4; grid-row: span 2; }
+.c-star { grid-column: span 4; grid-row: span 2; }
+.c-lb { grid-column: span 4; grid-row: span 2; }
+.c-fam { grid-column: span 8; }
+.c-vault { grid-column: span 4; }
+.c-ticker { grid-column: span 8; }
+.c-spec { grid-column: span 12; }
+@media (max-width: 900px) {
+    .c-hud, .c-arc, .c-drip, .c-star, .c-lb, .c-fam, .c-vault, .c-ticker { grid-column: span 12; }
+}
+
+/* ============ 1 - THE TICK HEARTBEAT ============ */
+.hud-strip { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.pulse-ring {
+    width: 54px; height: 54px; border-radius: 50%; flex: 0 0 auto;
+    border: 2px solid var(--coin); display: flex; align-items: center; justify-content: center;
+    color: var(--coin); font-weight: 700; font-size: .7rem; letter-spacing: .08em;
+    position: relative;
+}
+.pulse-ring::after {
+    content: ""; position: absolute; inset: -2px; border-radius: 50%;
+    border: 2px solid var(--coin); opacity: 0;
+}
+.ticking .pulse-ring::after { animation: ring 5s ease-out infinite; }
+@keyframes ring {
+    0% { transform: scale(1); opacity: .8; }
+    18% { transform: scale(1.55); opacity: 0; }
+    100% { transform: scale(1.55); opacity: 0; }
+}
+.stat { min-width: 110px; }
+.stat .l { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: var(--mute); }
+.stat .v { font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.stat .v.coin { color: var(--coin); }
+.stat .v.star { color: var(--star); }
+.stat .v.up { color: var(--up); }
+.gain { animation: gain .5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes gain { 0% { transform: scale(1); } 35% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* ============ 2 - COIN DRIP ============ */
+.drip-stage { position: relative; height: 150px; margin-top: 8px; }
+.drip-coin {
+    position: absolute; top: -18px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--coin); box-shadow: 0 0 8px rgba(var(--glow), .5);
+    animation: fall 2.6s cubic-bezier(.35,0,.6,1) infinite;
+}
+.drip-coin:nth-child(2) { left: 30%; animation-delay: .9s; width: 10px; height: 10px; }
+.drip-coin:nth-child(3) { left: 58%; animation-delay: 1.7s; }
+.drip-coin:nth-child(4) { left: 80%; animation-delay: .4s; width: 11px; height: 11px; }
+.drip-coin:nth-child(1) { left: 10%; }
+@keyframes fall {
+    0% { transform: translateY(0) ; opacity: 0; }
+    12% { opacity: 1; }
+    78% { transform: translateY(128px); opacity: 1; }
+    88% { transform: translateY(122px); }
+    100% { transform: translateY(128px); opacity: 0; }
+}
+.drip-floor { position: absolute; bottom: 0; width: 100%; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--coin), transparent); opacity: .5; }
+
+/* ============ 3 - STAR IGNITION ============ */
+.ignite-stage { position: relative; height: 130px; display: flex; align-items: center; justify-content: center; }
+.ignite-star { font-size: 2.4rem; color: var(--star); opacity: .35; transition: opacity .3s; }
+.igniting .ignite-star { animation: ignite .9s cubic-bezier(.2,1.4,.4,1); opacity: 1; }
+@keyframes ignite {
+    0% { transform: scale(.4) rotate(-18deg); }
+    55% { transform: scale(1.35) rotate(6deg); }
+    100% { transform: scale(1) rotate(0); }
+}
+.spark {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--coin);
+    opacity: 0; left: 50%; top: 50%;
+}
+.igniting .spark { animation: converge .55s ease-in forwards; }
+@keyframes converge {
+    0% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 1; }
+    100% { transform: translate(0, 0) scale(.3); opacity: 0; }
+}
+.ignite-btn {
+    display: block; margin: 0 auto; background: var(--coin); color: var(--bg);
+    border: 0; border-radius: 10px; padding: 10px 22px; font-weight: 700; cursor: pointer;
+    transition: transform .12s cubic-bezier(.2,1.4,.4,1);
+}
+.ignite-btn:active { transform: scale(.94); }
+
+/* ============ 4 - FAMILY VERBS ============ */
+.fam-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.fam {
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px 10px; text-align: center;
+    background: var(--bg2); cursor: pointer; transition: border-color .2s;
+}
+.fam:hover { border-color: var(--coin); }
+.fam .glyph { display: block; width: 34px; height: 34px; margin: 0 auto 8px; border-radius: 9px; position: relative; }
+.fam .n { font-size: .8rem; font-weight: 700; }
+.fam .verb { display: block; font-size: .68rem; color: var(--mute); }
+
+.g-yield { background: linear-gradient(180deg, transparent 60%, rgba(var(--glow), .8)); }
+.fam-yield:hover .g-yield, .demo .g-yield { animation: rise 1.1s ease-in-out infinite; }
+@keyframes rise { 0%,100% { background-position: 0 18px; } 50% { background-position: 0 0; } }
+
+.g-time { border: 2px solid var(--star); border-radius: 50%; }
+.g-time::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 11px;
+    background: var(--star); transform-origin: top center; transform: rotate(0); }
+.fam-time:hover .g-time::after, .demo .g-time::after { animation: sweep 2.5s linear infinite; }
+@keyframes sweep { to { transform: rotate(360deg); } }
+
+.g-ward { background: transparent; border: 2px solid var(--up);
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+.fam-ward:hover .g-ward, .demo .g-ward { animation: shield 1.6s ease-in-out infinite; }
+@keyframes shield {
+    0%,100% { box-shadow: 0 0 0 0 rgba(var(--glow), 0); }
+    50% { box-shadow: 0 0 14px 2px rgba(var(--glow), .55); }
+}
+
+.g-larceny { background: var(--down); border-radius: 50%; }
+.fam-larceny:hover .g-larceny, .demo .g-larceny { animation: snatch 1.2s cubic-bezier(.6,-.3,.3,1.3) infinite; }
+@keyframes snatch {
+    0%,100% { transform: translateX(0); opacity: 1; }
+    45% { transform: translateX(9px) skewX(-8deg); opacity: .35; }
+    55% { transform: translateX(-9px) skewX(8deg); opacity: .35; }
+}
+
+.g-market { background: linear-gradient(90deg, var(--coin) 50%, var(--star) 50%); }
+.fam-market:hover .g-market, .demo .g-market { animation: exchange 1.4s ease-in-out infinite; }
+@keyframes exchange { 50% { transform: rotateY(180deg); } }
+
+.g-sight { background: var(--mute); border-radius: 50%; }
+.g-sight::after { content: ""; position: absolute; inset: 30%; border-radius: 50%; background: var(--bg); }
+.fam-sight:hover .g-sight, .demo .g-sight { animation: iris 1.8s ease-in-out infinite; }
+@keyframes iris { 0%,100% { transform: scaleY(.15); } 45%,60% { transform: scaleY(1); } }
+
+/* ============ 5 - SEASON ARC ============ */
+.arc-track { display: flex; height: 16px; border-radius: 999px; overflow: hidden; margin: 14px 0 8px; }
+.arc-seg { position: relative; }
+.arc-early { flex: 31; background: rgba(var(--glow), .25); }
+.arc-mid { flex: 26; background: rgba(var(--glow), .45); }
+.arc-late { flex: 22; background: rgba(var(--glow), .7); }
+.arc-black { flex: 21; background: #000; }
+.arc-black::after { content: ""; position: absolute; inset: 0; background: var(--down); opacity: .18;
+    animation: blackpulse 2.2s ease-in-out infinite; }
+@keyframes blackpulse { 50% { opacity: .45; } }
+.arc-cursor { position: relative; height: 0; }
+.arc-dot { position: absolute; top: -22px; width: 8px; height: 24px; border-radius: 4px; background: var(--ink);
+    box-shadow: 0 0 10px rgba(var(--glow), .8); animation: travel 24s linear infinite; }
+@keyframes travel { from { left: 0%; } to { left: calc(100% - 8px); } }
+.arc-labels { display: flex; justify-content: space-between; font-size: .68rem; color: var(--mute);
+    text-transform: uppercase; letter-spacing: .08em; }
+
+/* ============ LEADERBOARD MOTION ============ */
+.lb-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 8px; background: var(--bg2);
+    transition: transform .45s cubic-bezier(.2,1.2,.3,1); }
+.lb-row .rank { width: 22px; font-weight: 700; color: var(--mute); font-variant-numeric: tabular-nums; }
+.lb-row .h { flex: 1; font-weight: 600; }
+.lb-row .pts { color: var(--star); font-variant-numeric: tabular-nums; }
+.lb-row.risen { border-color: var(--up); animation: risen .8s ease; }
+@keyframes risen { 0% { background: rgba(var(--glow), .18); } 100% { background: var(--bg2); } }
+
+/* ============ 6 - THE VAULT ============ */
+.vault { display: flex; align-items: center; gap: 16px; }
+.vault-dial { width: 74px; height: 74px; border-radius: 50%; border: 3px solid var(--coin); position: relative;
+    flex: 0 0 auto; transition: transform 1.1s cubic-bezier(.3,0,.2,1), filter .6s; cursor: pointer; }
+.vault-dial::before { content: ""; position: absolute; inset: 12px; border-radius: 50%; border: 2px dashed var(--line); }
+.vault-dial::after { content: ""; position: absolute; left: 50%; top: 4px; width: 3px; height: 14px; background: var(--coin); }
+.vault.locked .vault-dial { transform: rotate(540deg); filter: grayscale(.9) brightness(.75); }
+.vault-note { font-size: .85rem; color: var(--ink2); }
+.vault.locked .vault-note { color: var(--mute); }
+
+/* ============ TICKER RAIL ============ */
+.rail { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); padding: 8px 0; }
+.rail-track { display: inline-flex; gap: 34px; white-space: nowrap; padding-left: 100%;
+    animation: rail 30s linear infinite; }
+.rail:hover .rail-track { animation-play-state: paused; }
+@keyframes rail { to { transform: translateX(-100%); } }
+.rail-item { color: var(--ink2); font-size: .84rem; }
+.rail-item b { color: var(--ink); }
+
+/* ============ SPEC ============ */
+.spec-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.spec-cols h3 { font-size: .82rem; color: var(--coin); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .1em; }
+.spec-cols p, .spec-cols li { font-size: .86rem; color: var(--ink2); }
+.spec-cols ul { padding-left: 18px; }
+code { background: var(--bg2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: .8rem; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .cell { opacity: 1; transform: none; }
+    .rail-track { padding-left: 0; white-space: normal; flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<h1>Too Many Coins · Motion Lab</h1>
+<p class="sub">The motion identity in one page: every animation is a game mechanic made visible. The tick breathes, income falls, conversion converges, each sigil family performs its verb, the season arc travels toward the blackout, and lock-in turns the vault once — then goes still.</p>
+
+<div class="themes" id="themes">
+    <button class="theme-chip on" data-theme="nocturne">Nocturne (current)</button>
+    <button class="theme-chip" data-theme="gilded">A · Gilded Night</button>
+    <button class="theme-chip" data-theme="ember">B · Ember Forge</button>
+    <button class="theme-chip" data-theme="tide">C · Deep Tide</button>
+</div>
+
+<div class="bento">
+
+    <div class="cell c-hud ticking">
+        <h2>1 · The tick heartbeat</h2>
+        <div class="hud-strip">
+            <div class="pulse-ring">TICK</div>
+            <div class="stat"><span class="l">Coins</span><span class="v coin" id="coins">1,284</span></div>
+            <div class="stat"><span class="l">Stars</span><span class="v star">12</span></div>
+            <div class="stat"><span class="l">Rate</span><span class="v up">2.5/t</span></div>
+            <div class="stat"><span class="l">Season</span><span class="v">Day 4 · Early</span></div>
+        </div>
+    </div>
+
+    <div class="cell c-arc">
+        <h2>5 · The season arc</h2>
+        <div class="arc-track">
+            <span class="arc-seg arc-early"></span><span class="arc-seg arc-mid"></span>
+            <span class="arc-seg arc-late"></span><span class="arc-seg arc-black"></span>
+        </div>
+        <div class="arc-cursor"><span class="arc-dot"></span></div>
+        <div class="arc-labels"><span>Early</span><span>Mid</span><span>Late</span><span>Blackout</span></div>
+        <p class="vault-note" style="margin-top:12px">Phases are light. The blackout is the only thing on this page allowed to pulse red — the endgame is always in view.</p>
+    </div>
+
+    <div class="cell c-drip">
+        <h2>2 · Coin drip (UBI)</h2>
+        <p class="vault-note">Income is gravity: coins fall on the tick cadence and settle. Idle halves the rain; offline stops it.</p>
+        <div class="drip-stage">
+            <span class="drip-coin"></span><span class="drip-coin"></span>
+            <span class="drip-coin"></span><span class="drip-coin"></span>
+            <div class="drip-floor"></div>
+        </div>
+    </div>
+
+    <div class="cell c-star">
+        <h2>3 · Star ignition</h2>
+        <div class="ignite-stage" id="ignite">
+            <span class="spark" style="--dx:-70px; --dy:-30px"></span>
+            <span class="spark" style="--dx:64px; --dy:-44px"></span>
+            <span class="spark" style="--dx:-52px; --dy:38px"></span>
+            <span class="spark" style="--dx:76px; --dy:26px"></span>
+            <span class="spark" style="--dx:8px; --dy:-58px"></span>
+            <span class="ignite-star">&#9733;</span>
+        </div>
+        <button class="ignite-btn" id="ignite-btn">Buy Star</button>
+    </div>
+
+    <div class="cell c-lb">
+        <h2>Leaderboard motion</h2>
+        <div id="lb">
+            <div class="lb-row"><span class="rank">1</span><span class="h">Skreen32</span><span class="pts">12 ★</span></div>
+            <div class="lb-row"><span class="rank">2</span><span class="h">Twizzy</span><span class="pts">11 ★</span></div>
+            <div class="lb-row"><span class="rank">3</span><span class="h">MintRunner</span><span class="pts">9 ★</span></div>
+        </div>
+        <p class="vault-note">Rows never teleport: a rank change slides the row and flashes the border once. Position is earned, so movement is visible.</p>
+    </div>
+
+    <div class="cell c-fam">
+        <h2>4 · Six families, six verbs</h2>
+        <div class="fam-grid">
+            <div class="fam fam-yield"><span class="glyph g-yield"></span><span class="n">Yield</span><span class="verb">rises</span></div>
+            <div class="fam fam-time"><span class="glyph g-time"></span><span class="n">Time</span><span class="verb">sweeps</span></div>
+            <div class="fam fam-ward"><span class="glyph g-ward"></span><span class="n">Ward</span><span class="verb">shields</span></div>
+            <div class="fam fam-larceny"><span class="glyph g-larceny"></span><span class="n">Larceny</span><span class="verb">snatches</span></div>
+            <div class="fam fam-market"><span class="glyph g-market"></span><span class="n">Market</span><span class="verb">exchanges</span></div>
+            <div class="fam fam-sight"><span class="glyph g-sight"></span><span class="n">Sight</span><span class="verb">reveals</span></div>
+        </div>
+        <p class="vault-note" style="margin-top:10px">Hover any family. A sigil never just glows — it performs its verb: Yield climbs, Time circles, Ward hardens, Larceny swipes through shadow, Market flips two currencies, Sight opens an iris.</p>
+    </div>
+
+    <div class="cell c-vault">
+        <h2>6 · Lock-in</h2>
+        <div class="vault" id="vault">
+            <div class="vault-dial" title="Click to lock"></div>
+            <p class="vault-note">The one irreversible act gets the one irreversible animation: the dial turns one and a half times, the color drains, and nothing on the card ever moves again. Click it.</p>
+        </div>
+    </div>
+
+    <div class="cell c-ticker">
+        <h2>Season ticker — the act, never the number</h2>
+        <div class="rail"><div class="rail-track">
+            <span class="rail-item"><b>Twizzy</b> used a Market sigil</span>
+            <span class="rail-item"><b>Skreen32</b> found a Tier V Ward sigil</span>
+            <span class="rail-item"><b>MintRunner</b> stole from <b>Hoardling</b></span>
+            <span class="rail-item"><b>Hoardling</b> re-attuned to Larceny</span>
+            <span class="rail-item"><b>Piggy</b> locked in</span>
+            <span class="rail-item"><b>Skreen32</b>'s ward held</span>
+        </div></div>
+    </div>
+
+    <div class="cell c-spec">
+        <h2>Motion spec</h2>
+        <div class="spec-cols">
+            <div>
+                <h3>Timing tokens</h3>
+                <ul>
+                    <li><code>150ms</code> micro (hover, press)</li>
+                    <li><code>300ms</code> movement (rows, panels)</li>
+                    <li><code>600ms</code> moments (drops, ignition)</li>
+                    <li><code>5s</code> the tick heartbeat — the page breathes at game cadence</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Curves</h3>
+                <ul>
+                    <li>Gains overshoot: <code>cubic-bezier(.2,1.4,.4,1)</code></li>
+                    <li>Losses never bounce: ease-in, then gone</li>
+                    <li>Ambient loops are linear and slow</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Principles</h3>
+                <ul>
+                    <li>Every animation is a mechanic made visible — no decoration without meaning</li>
+                    <li>Drama is information, never magnitude: the ticker names acts, not amounts</li>
+                    <li>Red pulses belong to the blackout alone</li>
+                    <li>All motion collapses under <code>prefers-reduced-motion</code></li>
+                </ul>
+            </div>
+            <div>
+                <h3>Image-prompt seeds</h3>
+                <p>"Dark bento-grid game dashboard for a coin economy; a pulsing tick ring; coins falling and settling into a glowing floor line; a star igniting from converging sparks; six small sigil glyphs each mid-motion; a season progress bar ending in a black pulsing segment; a vault dial mid-rotation; flat modern UI, soft glows, tabular numerals."</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Palette switcher
+    document.getElementById('themes').addEventListener('click', function (e) {
+        var chip = e.target.closest('.theme-chip');
+        if (!chip) return;
+        document.documentElement.setAttribute('data-theme', chip.dataset.theme);
+        document.querySelectorAll('.theme-chip').forEach(function (c) { c.classList.toggle('on', c === chip); });
+    });
+
+    // Staggered cell entrance
+    var cells = document.querySelectorAll('.cell');
+    if (reduced) {
+        cells.forEach(function (c) { c.classList.add('in'); });
+    } else {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry, i) {
+                if (entry.isIntersecting) {
+                    setTimeout(function () { entry.target.classList.add('in'); }, (i % 6) * 70);
+                    io.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+        cells.forEach(function (c) { io.observe(c); });
+    }
+
+    // The tick heartbeat: coins gain on the 5s cadence
+    var coins = 1284;
+    var coinsEl = document.getElementById('coins');
+    setInterval(function () {
+        coins += 2 + Math.floor(Math.random() * 3);
+        coinsEl.textContent = coins.toLocaleString();
+        if (!reduced) {
+            coinsEl.classList.remove('gain');
+            void coinsEl.offsetWidth;
+            coinsEl.classList.add('gain');
+        }
+    }, 5000);
+
+    // Star ignition
+    var ignite = document.getElementById('ignite');
+    document.getElementById('ignite-btn').addEventListener('click', function () {
+        ignite.classList.remove('igniting');
+        void ignite.offsetWidth;
+        ignite.classList.add('igniting');
+    });
+
+    // Leaderboard rank shift demo: rows 1 and 2 swap every 12s
+    var lb = document.getElementById('lb');
+    setInterval(function () {
+        var rows = lb.querySelectorAll('.lb-row');
+        if (rows.length < 2) return;
+        lb.insertBefore(rows[1], rows[0]);
+        var moved = lb.querySelectorAll('.lb-row');
+        moved.forEach(function (r, i) { r.querySelector('.rank').textContent = i + 1; });
+        moved[0].classList.remove('risen');
+        void moved[0].offsetWidth;
+        moved[0].classList.add('risen');
+    }, 12000);
+
+    // The vault: one irreversible rotation
+    document.getElementById('vault').addEventListener('click', function () {
+        this.classList.add('locked');
+    });
+})();
+</script>
+</body>
+</html>
