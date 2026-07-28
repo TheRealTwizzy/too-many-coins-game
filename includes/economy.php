@@ -879,17 +879,16 @@ class Economy {
      * Compute Early Lock-In payout.
      *
      * Conversion order (per canon):
-     *  1. T1–T5 sigils are refunded at their per-tier star values and added to
-     *     the player's seasonal star total.
+     *  1. Sigils are refunded at their per-tier star values (from
+     *     SIGIL_REFERENCE_STARS_BY_TIER) and added to the player's seasonal
+     *     star total. T6 refunds at its lock-in reference value, which sits
+     *     below its tactical utility value so spending stays the better play.
      *  2. The combined seasonal star total is then converted to global stars at
      *     65% (floor).
      *
-     * T6 sigils are NOT refunded and must be handled separately by the caller
-     * (they are destroyed with no compensation).
-     *
      * @param int   $seasonalStars  Player's current seasonal star balance.
-     * @param int[] $sigilCounts    Indexed array [0..4] = counts for T1–T5.
-     * @param int[] $tierCosts      Indexed array [0..4] = star refund value per sigil for T1–T5.
+     * @param int[] $sigilCounts    Indexed array [0..5] = counts for T1–T6.
+     * @param int[] $tierCosts      Indexed array [0..5] = star refund value per sigil for T1–T6.
      * @return array {
      *     sigil_refund_stars: int,
      *     total_seasonal_stars: int,
@@ -898,7 +897,8 @@ class Economy {
      */
     public static function computeEarlyLockInPayout(int $seasonalStars, array $sigilCounts, array $tierCosts): array {
         $sigilRefundStars = 0;
-        for ($i = 0; $i < 5; $i++) {
+        $tiers = max(count($sigilCounts), count($tierCosts));
+        for ($i = 0; $i < $tiers; $i++) {
             $count = (int)($sigilCounts[$i] ?? 0);
             $cost  = (int)($tierCosts[$i] ?? 0);
             $sigilRefundStars += $count * $cost;

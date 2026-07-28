@@ -463,6 +463,7 @@ class Actions {
             (int)(SIGIL_REFERENCE_STARS_BY_TIER[3] ?? 0),
             (int)(SIGIL_REFERENCE_STARS_BY_TIER[4] ?? 0),
             (int)(SIGIL_REFERENCE_STARS_BY_TIER[5] ?? 0),
+            (int)(SIGIL_REFERENCE_STARS_BY_TIER[6] ?? 0),
         ];
 
         // --- Step 2: Compute payout (sigil refund → seasonal → 65% floor → global) ---
@@ -472,6 +473,7 @@ class Actions {
             (int)$participation['sigils_t3'],
             (int)$participation['sigils_t4'],
             (int)$participation['sigils_t5'],
+            (int)($participation['sigils_t6'] ?? 0),
         ];
         $payout = Economy::computeEarlyLockInPayout($seasonalStars, $sigilCounts, $tierCosts);
         $totalSeasonalStars = $payout['total_seasonal_stars'];
