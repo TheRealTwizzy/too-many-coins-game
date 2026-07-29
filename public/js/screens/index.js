@@ -29,8 +29,9 @@ import season from './season.js';
 import ranks from './ranks.js';
 import chat from './chat.js';
 import shop from './shop.js';
+import auth from './auth.js';
 
-const SCREENS = [home, seasons, season, ranks, chat, shop];
+const SCREENS = [home, seasons, season, ranks, chat, shop, auth];
 
 /**
  * Screens reachable from the rail, in rail order.
@@ -41,7 +42,11 @@ const SCREENS = [home, seasons, season, ranks, chat, shop];
  */
 export const RAIL_IDS = ['home', 'seasons', 'ranks', 'chat', 'shop'];
 
-/** Which rail entry should look active for a screen that is not itself on the rail. */
+/**
+ * Which rail entry should look active for a screen that is not itself on the
+ * rail. 'auth' is absent on purpose — signing in is not part of any section,
+ * and highlighting one would be a lie about where you are.
+ */
 export const RAIL_PARENT = { season: 'seasons' };
 
 const byId = new Map(SCREENS.map(s => [s.id, s]));

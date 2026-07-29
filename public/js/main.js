@@ -16,6 +16,7 @@ import { createMotion } from './core/motion.js';
 import { createAssets } from './core/assets.js';
 import { h, render } from './core/render.js';
 import { getScreen, RAIL_PARENT } from './screens/index.js';
+import { HANDLE_RE, PASSWORD_MIN } from './screens/auth.js';
 
 const POLL_MS = 3000;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
@@ -42,6 +43,9 @@ const assets = createAssets({ h, motion });
 
 const api = createApi({
     onUnauthorized() {
+        // The session is gone, so the stored token is worthless — keeping it
+        // would send a dead credential on every subsequent request.
+        clearToken();
         store.patch({ player: null, screen: 'auth' });
     },
     onRateLimit({ retryInMs }) {
@@ -149,6 +153,85 @@ const ctx = {
         // Refresh immediately rather than waiting up to 3s for the next poll —
         // joining is the one action where the whole screen changes meaning.
         await poll();
+    },
+
+    switchAuthTab(tab) {
+        store.set('ui.authTab', tab);
+        store.set('ui.authError', null);
+    },
+
+    async doLogin() {
+        const email = readField('login-email').trim();
+        const password = readField('login-password');
+
+        if (!email || !password) {
+            return store.set('ui.authError', 'Enter your email and password.');
+        }
+
+        store.set('ui.authError', null);
+        store.set('ui.authBusy', true);
+        const res = await api.request('login', { email, password });
+        store.set('ui.authBusy', false);
+
+        if (!res || res.error) {
+            // The server's message is the authoritative one — it distinguishes
+            // a bad password from a deleted account from a rate limit, and
+            // paraphrasing it here would lose that.
+            return store.set('ui.authError', (res && res.error) || 'Could not sign in.');
+        }
+
+        await finishSignIn(res, password);
+    },
+
+    async doRegister() {
+        const handle = readField('reg-handle').trim();
+        const email = readField('reg-email').trim();
+        const password = readField('reg-password');
+
+        // Local checks first, purely to save a round trip. The server runs its
+        // own and its verdict wins.
+        if (!HANDLE_RE.test(handle)) {
+            return store.set('ui.authError', 'Handle must be 3–16 characters: letters, numbers or underscores.');
+        }
+        if (password.length < PASSWORD_MIN) {
+            return store.set('ui.authError', `Password must be at least ${PASSWORD_MIN} characters.`);
+        }
+
+        store.set('ui.authError', null);
+        store.set('ui.authBusy', true);
+        const res = await api.request('register', { handle, email, password });
+        store.set('ui.authBusy', false);
+
+        if (!res || res.error) {
+            return store.set('ui.authError', (res && res.error) || 'Could not create the account.');
+        }
+
+        // Register does not always return a session, so fall back to logging in
+        // with the credentials just used rather than dropping the player on a
+        // login form they have already filled once.
+        if (res.token) {
+            await finishSignIn(res, password);
+        } else {
+            const login = await api.request('login', { email, password });
+            if (!login || login.error) {
+                store.set('ui.authTab', 'login');
+                return store.set('ui.authError', 'Account created. Please sign in.');
+            }
+            await finishSignIn(login, password);
+        }
+    },
+
+    async doLogout() {
+        await api.request('logout', {});
+        clearToken();
+
+        // Drop every trace of the session, not just the player: leaving the
+        // previous account's chat transcript or shop inventory in the store
+        // would show it to whoever signs in next.
+        store.patch({ player: null, seasons: [], screens: {} });
+        store.set('ui.seasonId', null);
+        store.set('screen', 'home');
+        toast('Signed out.', 'info');
     },
 
     openSeason(seasonId) {
@@ -375,6 +458,65 @@ const ctx = {
         await ctx.loadShop();
     },
 };
+
+/* ------------------------------------------------------------------ *
+ * session
+ * ------------------------------------------------------------------ */
+
+const TOKEN_KEY = 'tmc_token';
+
+function readField(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+function storeToken(token) {
+    if (!token) return;
+    try {
+        localStorage.setItem(TOKEN_KEY, token);
+    } catch {
+        // Private browsing. The HttpOnly session cookie the server just set is
+        // the primary credential anyway; the header is the fallback, so losing
+        // it costs nothing on a same-origin request.
+    }
+}
+
+function clearToken() {
+    try {
+        localStorage.removeItem(TOKEN_KEY);
+    } catch {
+        // Nothing to do — see storeToken.
+    }
+}
+
+/**
+ * Complete a sign-in.
+ *
+ * The session cookie is set server-side and is HttpOnly. It is deliberately
+ * NOT rewritten from here: doing that replaces it with a script-readable
+ * cookie and quietly undoes the HttpOnly protection. Only the bearer token
+ * copy is kept, for the X-Session-Token fallback header.
+ */
+async function finishSignIn(result, password) {
+    storeToken(result.token);
+
+    // The local password variable is the last reference to it; make sure
+    // nothing holds it once the exchange is done.
+    password = null;
+    void password;
+
+    // Clear the form nodes directly. They are uncontrolled, so the reconciler
+    // never writes to them and would happily leave a filled-in password box
+    // sitting behind the next screen.
+    for (const id of ['login-email', 'login-password', 'reg-handle', 'reg-email', 'reg-password']) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    }
+
+    store.set('ui.authError', null);
+    await poll();
+    store.set('screen', 'home');
+}
 
 /**
  * Transient message. Kept in the store so it renders through the reconciler
@@ -617,11 +759,27 @@ function deck(screenId) {
     }
 }
 
+function userArea() {
+    const player = store.get('player');
+
+    if (!player) {
+        return h('div', { class: 'user-area' },
+            h('button', { class: 'btn btn-ghost btn-sm', onClick: () => store.set('screen', 'auth') }, 'Log in'),
+        );
+    }
+
+    return h('div', { class: 'user-area' },
+        h('span', { class: 'user-handle' }, player.handle || 'Player'),
+        h('button', { class: 'btn btn-ghost btn-sm', onClick: () => ctx.doLogout() }, 'Log out'),
+    );
+}
+
 function shell() {
     const screen = store.get('screen');
     return h('div', { id: 'shell' },
         rail(screen),
         h('div', { id: 'stage' },
+            userArea(),
             hud(store.get('player')),
             connectionNote(store.get('connection')),
             h('main', { id: 'deck', 'data-screen': screen }, deck(screen)),

@@ -482,3 +482,53 @@
 @media (prefers-reduced-motion: reduce) {
     .dialog-backdrop, .dialog { animation: none; }
 }
+
+/* ================================================================== *
+ * auth
+ * ================================================================== */
+
+.auth { display: grid; place-items: center; padding: var(--s6) var(--s3); }
+
+.auth-card {
+    width: min(100%, 400px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+    padding: var(--s5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+}
+
+.auth-form { display: flex; flex-direction: column; gap: var(--s3); }
+
+.field { display: flex; flex-direction: column; gap: var(--s1); }
+.field-label {
+    font-size: var(--fs-micro); text-transform: uppercase;
+    letter-spacing: var(--tracking-wide); color: var(--ink-3);
+}
+.field-hint { margin-top: calc(-1 * var(--s0)); }
+
+.btn-full { width: 100%; }
+
+.auth-error {
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--down);
+    border-radius: var(--r2);
+    background: color-mix(in srgb, var(--down) 10%, transparent);
+    color: var(--down);
+    font-size: var(--fs-small);
+}
+
+.auth-signed-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+/* ---------- user area ---------- */
+
+.user-area {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--s3);
+}
+
+.user-handle { font-weight: var(--fw-medium); color: var(--ink-2); }
