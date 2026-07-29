@@ -269,22 +269,66 @@ html[data-motion="on"] .arc-seg[data-p="blackout"].now::before{
 .arc-meta b{color:var(--ink);font-weight:600}
 
 /* ---------- 3 · COIN DRIP — income made literal ---------- */
-.drip{position:relative;height:112px;margin-top:2px}
-.dc{position:absolute;top:-10px;width:9px;height:9px;border-radius:50%;
-  background:var(--coin);box-shadow:0 0 9px rgba(var(--glow),.6);opacity:0}
-html[data-motion="on"] .dc{animation:fall 2.6s cubic-bezier(.4,0,.7,1) infinite}
-.dc:nth-child(1){left:9%}
-.dc:nth-child(2){left:27%;animation-delay:.5s;width:7px;height:7px}
-.dc:nth-child(3){left:45%;animation-delay:1.4s}
-.dc:nth-child(4){left:63%;animation-delay:.9s;width:8px;height:8px}
-.dc:nth-child(5){left:82%;animation-delay:1.9s}
+/* A falling starfield of coins. Density and speed ARE the rate: the cell is
+   readable at a glance without reading a number. Three depth layers give it
+   parallax - far coins are small, dim and slow, near coins large, bright and
+   fast - so it reads as volume rather than a row of dots.
+
+   Everything animates on transform/opacity only, driven by CSS animation
+   rather than a rAF loop, so raising the rate costs no extra main-thread work.
+   Coins above the active count are display:none, so idle ones are not
+   composited at all. */
+.rate-states{display:flex;gap:4px;margin:6px 0 2px;flex-wrap:wrap}
+.rs{
+  font:inherit;font-size:11px;font-weight:600;letter-spacing:.04em;
+  padding:3px 9px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--line);background:transparent;color:var(--ink-2);
+  transition:color var(--t-micro) ease,border-color var(--t-micro) ease,
+             background var(--t-micro) ease;
+}
+.rs:hover{color:var(--ink);border-color:var(--ink-2)}
+.rs[aria-pressed="true"]{color:var(--coin);border-color:var(--coin);
+  background:color-mix(in srgb,var(--coin) 12%,transparent)}
+.rs:focus-visible{outline:2px solid var(--coin);outline-offset:2px}
+
+.drip{position:relative;height:112px;margin-top:2px;overflow:hidden;
+  contain:layout paint style}
+.dc{
+  position:absolute;top:-12px;left:var(--x);
+  width:var(--sz);height:var(--sz);border-radius:50%;
+  background:var(--coin);opacity:0;
+  will-change:transform,opacity;
+}
+.dc[hidden]{display:none}
+/* Only the near layer carries a glow - a bloom on all 28 is the expensive part
+   and reads as haze rather than depth. */
+.dc.near{box-shadow:0 0 9px rgba(var(--glow),.6)}
+.dc.mid{box-shadow:0 0 5px rgba(var(--glow),.35)}
+html[data-motion="on"] .dc{
+  animation:fall var(--dur) cubic-bezier(.4,0,.7,1) var(--delay) infinite;
+}
+/* Near coins land: squash, rebound, settle - the Motion Lab's coin grammar. */
 @keyframes fall{
-  0%{transform:translateY(0) scaleY(1);opacity:0}
-  12%{opacity:1}
-  62%{transform:translateY(74px) scaleY(1.22);opacity:1}
-  80%{transform:translateY(96px) scaleY(.6);opacity:1}
-  88%{transform:translateY(88px) scaleY(1);opacity:.85}
-  100%{transform:translateY(96px) scaleY(.9);opacity:0}
+  0%   {transform:translate3d(0,0,0) scaleY(1);opacity:0}
+  10%  {opacity:var(--op)}
+  62%  {transform:translate3d(0,74px,0) scaleY(1.22);opacity:var(--op)}
+  80%  {transform:translate3d(0,96px,0) scaleY(.6);opacity:var(--op)}
+  88%  {transform:translate3d(0,88px,0) scaleY(1);opacity:calc(var(--op) * .85)}
+  100% {transform:translate3d(0,96px,0) scaleY(.9);opacity:0}
+}
+/* Far coins are too small for squash to read, so they just streak and fade -
+   cheaper, and it keeps the landing moment belonging to the near layer. */
+html[data-motion="on"] .dc.far{animation-name:fallFar}
+@keyframes fallFar{
+  0%   {transform:translate3d(0,0,0);opacity:0}
+  14%  {opacity:var(--op)}
+  100% {transform:translate3d(0,100px,0);opacity:0}
+}
+/* Reduced motion: no fall, but the cell must not read as empty or broken.
+   Settle the coins on the floor line as a static "income has landed" state. */
+html[data-motion="off"] .dc{
+  opacity:calc(var(--op) * .8);
+  transform:translate3d(0,96px,0) scaleY(.9);
 }
 .floorline{position:absolute;bottom:0;width:100%;height:2px;border-radius:2px;
   background:linear-gradient(90deg,transparent,var(--coin),transparent);opacity:.4}
@@ -667,12 +711,17 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
     <!-- ===== 3 · INCOME ===== -->
     <section class="cell c-drip" data-ctx="season" data-mod="income">
       <div class="ch"><h2><svg class="i"><use href="#i-coin"/></svg>Income</h2><span class="sp"></span><span class="badge warn" id="sinkBadge">Sink active</span></div>
-      <div class="drip">
-        <span class="dc"></span><span class="dc"></span><span class="dc"></span><span class="dc"></span><span class="dc"></span>
+      <div class="rate-states" role="group" aria-label="UBI state">
+        <button type="button" class="rs" data-rate-state="frozen"  aria-pressed="false">Frozen</button>
+        <button type="button" class="rs" data-rate-state="idle"    aria-pressed="false">Idle</button>
+        <button type="button" class="rs" data-rate-state="active"  aria-pressed="false">Active</button>
+        <button type="button" class="rs" data-rate-state="boosted" aria-pressed="true">Boosted</button>
+      </div>
+      <div class="drip" id="drip">
         <div class="sinkline show" id="sinkLine"></div>
         <div class="floorline"></div>
       </div>
-      <p class="compo-note">Coins fall and settle on the tick. The hatched band is the hoarding sink taking its cut before the coins land.</p>
+      <p class="compo-note">The fall <em>is</em> the rate: coins get denser and faster as net UBI climbs, so the cell reads before you read the number. The hatched band is the hoarding sink taking its cut before they land.</p>
     </section>
 
     <!-- ===== 4 · STAR FORGE ===== -->
@@ -1016,9 +1065,120 @@ function renderSpark() {
   var il = document.getElementById('impactLine');
   il.setAttribute('y1', impactY); il.setAttribute('y2', impactY);
 }
+/* ---------- coin starfield ----------
+   Density and fall speed are both functions of NET rate, so the cell is a
+   readout: a boosted player sees a downpour, a frozen one sees nothing fall.
+
+   The pool is built once and only restyled when the rate actually changes.
+   Coins beyond the active count are hidden rather than destroyed, so changing
+   rate never churns the DOM. */
+var DRIP_POOL = 28;
+var DRIP_LAYERS = [
+  // far -> near. Smaller, dimmer and slower reads as further away.
+  { cls: 'far',  size: 4, op: 0.34, durMul: 1.5  },
+  { cls: 'mid',  size: 6, op: 0.62, durMul: 1.2  },
+  { cls: 'near', size: 9, op: 1.0,  durMul: 1.0  },
+];
+var _dripBuilt = false;
+var _dripLastKey = '';
+
+function buildDrip() {
+  var stage = document.getElementById('drip');
+  if (!stage || _dripBuilt) return;
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < DRIP_POOL; i++) {
+    var layer = DRIP_LAYERS[i % DRIP_LAYERS.length];
+    var el = document.createElement('span');
+    el.className = 'dc ' + layer.cls;
+    // Deterministic-ish spread rather than pure random, so coins do not clump
+    // into visible columns. Golden-ratio stepping distributes them evenly.
+    var x = ((i * 61.803) % 100);
+    el.style.setProperty('--x', x.toFixed(2) + '%');
+    el.style.setProperty('--sz', layer.size + 'px');
+    el.style.setProperty('--op', layer.op);
+    el.hidden = true;
+    frag.appendChild(el);
+  }
+  // insert before the sink/floor lines so those stay on top
+  stage.insertBefore(frag, stage.firstChild);
+  _dripBuilt = true;
+}
+
+function renderDrip() {
+  buildDrip();
+  var stage = document.getElementById('drip');
+  if (!stage) return;
+
+  var net = Math.max(0, S.grossRate - S.sinkRate);
+  // Saturate at 90 coins/min. That is near the real ceiling: 30/min base plus a
+  // +100% boost plus the boost curve bonus lands around 93 gross, so the field
+  // reaches full downpour at a rate a player can actually hit, instead of
+  // topping out at half strength. Past it, it saturates rather than becoming
+  // unreadable noise.
+  var t = Math.max(0, Math.min(1, net / 90));
+
+  var active = net <= 0 ? 0 : Math.round(4 + t * (DRIP_POOL - 4));
+  var baseDur = 3.6 - t * 2.2;   // 3.6s barely-trickling -> 1.4s at full tilt
+
+  var key = active + ':' + baseDur.toFixed(2);
+  if (key === _dripLastKey) return;   // nothing to restyle
+  _dripLastKey = key;
+
+  var coins = stage.querySelectorAll('.dc');
+  for (var i = 0; i < coins.length; i++) {
+    var el = coins[i];
+    if (i >= active) { el.hidden = true; continue; }
+    el.hidden = false;
+    var layer = DRIP_LAYERS[i % DRIP_LAYERS.length];
+    var dur = baseDur * layer.durMul;
+    el.style.setProperty('--dur', dur.toFixed(2) + 's');
+    // Spread starts across the cycle so the field is continuous, never pulsing
+    // as one block. Offsetting by layer keeps the depths out of lockstep.
+    var delay = -((i / Math.max(1, active)) * dur + (i % DRIP_LAYERS.length) * 0.21);
+    el.style.setProperty('--delay', delay.toFixed(2) + 's');
+  }
+}
+
+/* The four states UBI actually has, with the game's own shape:
+   Offline/Frozen pay nothing, Idle pays base x base_ubi_idle_factor_fp (0.30),
+   Active pays base plus the activity bonus, Boosted adds the boost modifier. */
+var RATE_STATES = {
+  frozen:  { base: 0,  act: 0,  boost: 0,  label: 'Frozen'  },
+  idle:    { base: 9,  act: 0,  boost: 0,  label: 'Idle'    },
+  active:  { base: 30, act: 11, boost: 0,  label: 'Active'  },
+  boosted: { base: 30, act: 11, boost: 20, label: 'Boosted' },
+};
+function setRateState(name) {
+  var r = RATE_STATES[name] || RATE_STATES.boosted;
+  S.rateState = name;
+  S.rate = r;
+  S.frozen = (name === 'frozen');
+  // The hoarding sink only bites while you are actually earning.
+  S.sinkRate = (r.base + r.act + r.boost) > 0 ? 6.8 : 0;
+  S.grossRate = r.base + r.act + r.boost;
+
+  document.querySelectorAll('[data-rate-state]').forEach(function (b) {
+    b.setAttribute('aria-pressed', String(b.dataset.rateState === name));
+  });
+  var sl = document.getElementById('sinkLine');
+  if (sl) sl.classList.toggle('show', S.sinkRate > 0);
+  var sb = document.getElementById('sinkBadge');
+  if (sb) sb.hidden = !(S.sinkRate > 0);
+
+  document.getElementById('vRate').textContent = (S.grossRate - S.sinkRate).toFixed(1);
+  renderCompo(); renderDrip();
+}
+
 function renderCompo() {
-  var base = 30, act = 11, boost = 20, sink = S.sinkRate;
+  var r = S.rate || RATE_STATES.boosted;
+  var base = r.base, act = r.act, boost = r.boost, sink = S.sinkRate;
   var total = base + act + boost + sink;
+  if (total <= 0) {
+    ['segBase', 'segAct', 'segBoost', 'segSink'].forEach(function (id) {
+      document.getElementById(id).style.width = '0%';
+    });
+    return;
+  }
   document.getElementById('segBase').style.width  = (base / total * 100) + '%';
   document.getElementById('segAct').style.width   = (act / total * 100) + '%';
   document.getElementById('segBoost').style.width = (boost / total * 100) + '%';
@@ -1234,7 +1394,15 @@ setTimeout(function () {
 }, 16000);
 
 /* ---------------- boot ---------------- */
+document.querySelectorAll('[data-rate-state]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    setRateState(b.dataset.rateState);
+    SFX.tick(); haptic(8);
+  });
+});
+
 renderTiers(); renderLB(); renderGlobal(); renderSpark(); renderCompo(); renderMeters(); renderFeed();
+setRateState(S.rateState || 'boosted');   // seeds rate, compo, sink and the drip
 renderArc('season');
 setContext('season');
 onTick();
