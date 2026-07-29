@@ -508,7 +508,11 @@ try {
             echo json_encode(Actions::freezePlayerUbi(
                 $player['player_id'],
                 (int)($input['target_player_id'] ?? 0),
-                isset($input['target_handle']) ? (string)$input['target_handle'] : null,
+                // target_handle is no longer accepted. Combined with the
+                // leaderboard handing out every handle, it let a twenty-line
+                // script freeze-lock a named rival without ever opening the UI.
+                // Targeting is by player_id from the profile surface only.
+                null,
                 isset($input['requested_tier']) ? (int)$input['requested_tier'] : null
             ));
             break;
@@ -1089,16 +1093,21 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
     $rates = Economy::calculateRateBreakdown($seasonForRates, $playerForRates, $participation, $totalModFp, false);
 
     $grossRate = round(((int)$rates['gross_rate_fp']) / FP_SCALE, 2);
-    $sinkPerTick = max(0, (int)$rates['sink_per_tick']);
+    // Report the sink at the same precision as gross and net. The real sink is
+    // a fraction of a coin per tick at production cadence, so the whole-coin
+    // view rounded it to 0 - which also meant hoarding_sink_active was always
+    // false and the client could never show the sink as engaged.
+    $sinkRateFp = max(0, (int)($rates['sink_rate_fp'] ?? 0));
+    $sinkRate = round($sinkRateFp / FP_SCALE, 2);
     $netRate = round(((int)$rates['net_rate_fp']) / FP_SCALE, 2);
 
     return [
         // Preserve legacy key as player-facing gross rate.
         'rate_per_tick' => max(0, $grossRate),
         'gross_rate_per_tick' => max(0, $grossRate),
-        'hoarding_sink_per_tick' => $sinkPerTick,
+        'hoarding_sink_per_tick' => max(0, $sinkRate),
         'net_rate_per_tick' => max(0, $netRate),
-        'hoarding_sink_active' => Economy::hoardingSinkEnabled($season) && $sinkPerTick > 0,
+        'hoarding_sink_active' => Economy::hoardingSinkEnabled($season) && $sinkRateFp > 0,
     ];
 }
 
@@ -1240,7 +1249,7 @@ function getGameState($player) {
                 'theft' => $theftStatus,
                 'rate_per_tick' => (float)$rateMetrics['rate_per_tick'],
                 'gross_rate_per_tick' => (float)$rateMetrics['gross_rate_per_tick'],
-                'hoarding_sink_per_tick' => (int)$rateMetrics['hoarding_sink_per_tick'],
+                'hoarding_sink_per_tick' => (float)$rateMetrics['hoarding_sink_per_tick'],
                 'net_rate_per_tick' => (float)$rateMetrics['net_rate_per_tick'],
                 'hoarding_sink_active' => (bool)$rateMetrics['hoarding_sink_active'],
             ] : null,
@@ -1520,8 +1529,14 @@ function getLeaderboard($seasonId, int $limit = 0) {
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     if (!$season) return [];
     $effectiveScoreSql = seasonEffectiveScoreSql('sp');
-    $limit = max(0, min(LEADERBOARD_MAX_LIMIT, (int)$limit));
-    $limitClause = $limit > 0 ? " LIMIT ?" : "";
+    // limit=0 (or an omitted limit) used to mean NO LIMIT clause at all, so a
+    // single request could return every participant in the season. Zero now
+    // means "the maximum", which is what callers passing 0 actually intend -
+    // the expand-leaderboard toggle in the client passes limit: 0 for "show
+    // everyone" and gets the capped set instead of an unbounded scan.
+    $limit = (int)$limit;
+    $limit = ($limit <= 0) ? (int)LEADERBOARD_MAX_LIMIT : min((int)LEADERBOARD_MAX_LIMIT, $limit);
+    $limitClause = " LIMIT ?";
 
     $status = GameTime::getSeasonStatus($season);
     if ($status === 'Active' || $status === 'Blackout') {
@@ -1565,9 +1580,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  ) frz ON frz.player_id = p.player_id
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-                $limit > 0
-                    ? [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                    : [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId]
+                [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
             );
         } elseif ($hasFreezeTable) {
             $rows = $db->fetchAll(
@@ -1597,9 +1610,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  ) frz ON frz.player_id = p.player_id
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-                $limit > 0
-                    ? [$seasonId, $gameTime, $seasonId, $limit]
-                    : [$seasonId, $gameTime, $seasonId]
+                [$seasonId, $gameTime, $seasonId, $limit]
             );
         } else {
             $rows = $db->fetchAll(
@@ -1623,9 +1634,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  JOIN players p ON p.player_id = sp.player_id
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-                $limit > 0
-                    ? [$seasonId, $limit]
-                    : [$seasonId]
+                [$seasonId, $limit]
             );
         }
         $rows = attachEquippedCosmeticsToRows($rows);
@@ -1651,7 +1660,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
          JOIN players p ON p.player_id = sp.player_id
          WHERE sp.season_id = ?
          ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-        $limit > 0 ? [$seasonId, $limit] : [$seasonId]
+        [$seasonId, $limit]
     );
     $rows = attachEquippedCosmeticsToRows($rows);
     $rows = normalizeParticipationScorePayloads($rows);
@@ -1804,12 +1813,31 @@ function attachEquippedCosmeticsToRows(array $rows): array {
 
 function getGlobalLeaderboard() {
     $db = Database::getInstance();
-    $rows = $db->fetchAll(
-        "SELECT player_id, handle, global_stars, activity_state, online_current
-         FROM players 
-         WHERE global_stars > 0 AND profile_deleted_at IS NULL
-         ORDER BY global_stars DESC, player_id ASC"
-    );
+    // Ranked on LIFETIME EARNED, not the spendable balance.
+    //
+    // Ordering by global_stars meant buying a cosmetic - the only Global Star
+    // sink - permanently lowered your rank, so the prestige shop cost the
+    // prestige metric one-for-one. global_stars_lifetime is monotonic, so the
+    // leaderboard now measures achievement and cosmetics are a real reward.
+    // Falls back to the balance ordering when the lifetime column is not yet
+    // present, so this code can deploy ahead of its migration without taking
+    // the leaderboard down.
+    if ($db->columnExists('players', 'global_stars_lifetime')) {
+        $rows = $db->fetchAll(
+            "SELECT player_id, handle, global_stars, global_stars_lifetime, activity_state, online_current
+             FROM players
+             WHERE global_stars_lifetime > 0 AND profile_deleted_at IS NULL
+             ORDER BY global_stars_lifetime DESC, player_id ASC"
+        );
+    } else {
+        $rows = $db->fetchAll(
+            "SELECT player_id, handle, global_stars, global_stars AS global_stars_lifetime,
+                    activity_state, online_current
+             FROM players
+             WHERE global_stars > 0 AND profile_deleted_at IS NULL
+             ORDER BY global_stars DESC, player_id ASC"
+        );
+    }
     return attachEquippedCosmeticsToRows($rows);
 }
 
@@ -1845,7 +1873,20 @@ function sendChat($player, $input) {
         if (!$player['joined_season_id']) return ['error' => 'Not in a season'];
         $seasonId = $player['joined_season_id'];
     }
-    if ($channelKind === 'DM' && !$recipientId) return ['error' => 'Recipient required for DM'];
+    // DMs are closed.
+    //
+    // sendChat accepted, stored and indexed them, but getChatMessages has no DM
+    // branch and returns [] - so every DM ever sent is unreadable by its
+    // recipient and invisible to moderation, since ModerationService works on
+    // message ids nobody can see to report. That is a private, unmoderatable
+    // channel between players, which is strictly worse than no channel.
+    //
+    // Reopening this means building the read path with block filtering, a
+    // mailbox surface, and a way for staff to action reports. Until then it is
+    // rejected rather than silently swallowed.
+    if ($channelKind === 'DM') {
+        return ['error' => 'Direct messages are not available', 'reason_code' => 'dm_disabled'];
+    }
 
     $muteScope = $channelKind === 'SEASON' ? 'SEASON' : 'GLOBAL';
     $mute = ModerationService::isMuted((int)$player['player_id'], $muteScope);
@@ -1868,14 +1909,33 @@ function getChatMessages($player, $input) {
     $seasonId = $input['season_id'] ?? null;
     $canViewRemoved = $player && Permissions::isStaff($player);
     $removedSql = $canViewRemoved ? "1=1" : "is_removed = 0";
-    
+
+    // Blocking now hides the blocked player's messages.
+    //
+    // SocialService::isBlockedEitherWay had exactly one caller - sendRequest -
+    // so blocking did nothing a player could perceive. Note that blocking
+    // deliberately does NOT prevent being frozen or robbed: letting a player
+    // block the whole leaderboard to become untouchable would be a far worse
+    // exploit. The UI must say what it does, or it reads as a safety tool it
+    // is not.
+    $blockedSql = '';
+    $blockedParams = [];
+    if ($player && !$canViewRemoved) {
+        $blockedIds = SocialService::blockedIds((int)$player['player_id']);
+        if (!empty($blockedIds)) {
+            $blockedSql = ' AND (sender_id IS NULL OR sender_id NOT IN ('
+                        . implode(',', array_fill(0, count($blockedIds), '?')) . '))';
+            $blockedParams = $blockedIds;
+        }
+    }
+
     if ($channelKind === 'GLOBAL') {
         $messages = $db->fetchAll(
             "SELECT message_id, sender_id, handle_snapshot, content, is_admin_post, is_removed, removed_by, removed_at, removal_reason, created_at
              FROM chat_messages 
-             WHERE channel_kind = 'GLOBAL' AND {$removedSql}
+             WHERE channel_kind = 'GLOBAL' AND {$removedSql}{$blockedSql}
              ORDER BY created_at DESC LIMIT ?",
-            [CHAT_MAX_ROWS]
+            array_merge($blockedParams, [CHAT_MAX_ROWS])
         );
         foreach ($messages as &$m) {
             $m['created_at'] = iso_utc_datetime($m['created_at'] ?? null);
@@ -1887,9 +1947,9 @@ function getChatMessages($player, $input) {
         $messages = $db->fetchAll(
             "SELECT message_id, sender_id, handle_snapshot, content, is_removed, removed_by, removed_at, removal_reason, created_at
              FROM chat_messages 
-             WHERE channel_kind = 'SEASON' AND season_id = ? AND {$removedSql}
+             WHERE channel_kind = 'SEASON' AND season_id = ? AND {$removedSql}{$blockedSql}
              ORDER BY created_at DESC LIMIT ?",
-            [$seasonId, CHAT_MAX_ROWS]
+            array_merge([$seasonId], $blockedParams, [CHAT_MAX_ROWS])
         );
         foreach ($messages as &$m) {
             $m['created_at'] = iso_utc_datetime($m['created_at'] ?? null);
@@ -1956,6 +2016,16 @@ function getProfile($viewer, $targetId) {
         [$targetId]
     );
     
+    // Relationship state, so the client can render the correct social action.
+    // Without it there was no way to know whether to offer Add Friend or Remove
+    // Friend, Block or Unblock - which is part of why neither button was ever
+    // built and the block list could only ever be empty.
+    $target['relationship'] = ($viewerId > 0 && !$viewerIsSelf) ? [
+        'is_friend'       => SocialService::areFriends($viewerId, $targetIdInt),
+        'is_blocked'      => SocialService::hasBlocked($viewerId, $targetIdInt),
+        'request_pending' => SocialService::hasPendingRequest($viewerId, $targetIdInt),
+    ] : null;
+
     $target['badges'] = $badges;
     $target['season_history'] = normalizeParticipationScorePayloads($history);
     $target['active_participation'] = null;
@@ -2285,16 +2355,17 @@ function shouldRevealTier6($participation) {
 }
 
 function isPlayerFrozen($playerId, $seasonId, $participation = null) {
-    $db = Database::getInstance();
-    $gameTime = GameTime::now();
-    $runStartTick = getSeasonRunStartTick($playerId, $seasonId, $participation);
-    $row = $db->fetch(
-        "SELECT COUNT(*) AS cnt
-         FROM active_freezes
-         WHERE target_player_id = ? AND season_id = ? AND is_active = 1 AND expires_tick >= ? AND activated_tick >= ?",
-        [(int)$playerId, (int)$seasonId, (int)$gameTime, (int)$runStartTick]
+    // Delegates to the shared predicate in Economy so the API and the tick
+    // engine cannot disagree about who is frozen. They previously did: the tick
+    // engine omitted the run-start scoping, so a freeze predating a player's
+    // current run zeroed their income while this reported "not frozen".
+    return Economy::isPlayerFrozenAt(
+        Database::getInstance(),
+        (int)$playerId,
+        (int)$seasonId,
+        (int)GameTime::now(),
+        (int)getSeasonRunStartTick($playerId, $seasonId, $participation)
     );
-    return ((int)($row['cnt'] ?? 0)) > 0;
 }
 
 function getFreezeStatusForPlayer($playerId, $seasonId, $participation = null) {

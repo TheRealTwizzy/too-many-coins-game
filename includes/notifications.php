@@ -42,16 +42,67 @@ class Notifications {
         return (int)$db->getConnection()->lastInsertId();
     }
 
+    /**
+     * Broadcast to every active player, in chunked multi-row inserts.
+     *
+     * This used to call create() once per player inside a PHP loop - one INSERT
+     * and one round trip each, no batching and no transaction. At 10k players a
+     * single staff broadcast was 10k round trips inside one HTTP request, which
+     * times out part-way through and leaves a partial broadcast with no way to
+     * tell how far it got or to resume it.
+     */
     public static function createForAll($category, $title, $body = null, $options = []) {
         $db = Database::getInstance();
         $players = $db->fetchAll(
             "SELECT player_id FROM players WHERE profile_deleted_at IS NULL ORDER BY player_id ASC"
         );
+        if (empty($players)) {
+            return 0;
+        }
 
+        $isRead = !empty($options['is_read']) ? 1 : 0;
+        $readAt = $isRead ? date('Y-m-d H:i:s') : null;
+        $eventKey = isset($options['event_key']) ? (string)$options['event_key'] : null;
+        $payload = array_key_exists('payload', $options) ? json_encode($options['payload']) : null;
+        $severity = isset($options['severity']) ? (string)$options['severity'] : 'info';
+        if (!in_array($severity, ['info', 'success', 'warning', 'danger'], true)) {
+            $severity = 'info';
+        }
+        $actionUrl = isset($options['action_url']) ? (string)$options['action_url'] : null;
+
+        // 500 rows x 10 columns keeps each statement well inside max_allowed_packet
+        // and the placeholder limit, while cutting round trips by the same factor.
+        $chunkSize = 500;
         $count = 0;
-        foreach ($players as $player) {
-            self::create((int)$player['player_id'], $category, $title, $body, $options);
-            $count++;
+
+        foreach (array_chunk($players, $chunkSize) as $chunk) {
+            $valuesSql = [];
+            $params = [];
+            foreach ($chunk as $player) {
+                $valuesSql[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                array_push(
+                    $params,
+                    (int)$player['player_id'],
+                    (string)$category,
+                    $severity,
+                    (string)$title,
+                    $body !== null ? (string)$body : null,
+                    $eventKey,
+                    $payload,
+                    $actionUrl,
+                    $isRead,
+                    $readAt
+                );
+            }
+
+            $db->query(
+                "INSERT INTO player_notifications
+                 (player_id, category, severity, title, body, event_key, payload_json, action_url, is_read, read_at)
+                 VALUES " . implode(', ', $valuesSql) . "
+                 ON DUPLICATE KEY UPDATE notification_id = notification_id",
+                $params
+            );
+            $count += count($chunk);
         }
 
         return $count;

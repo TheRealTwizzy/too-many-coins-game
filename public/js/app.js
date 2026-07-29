@@ -2171,31 +2171,54 @@ const TMC = {
         if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
     },
 
-    async freezeByHandle() {
-        const input = document.getElementById('freeze-target-handle');
-        const targetHandle = input ? String(input.value || '').trim() : '';
-        if (!targetHandle) {
-            this.toast('Enter a target handle.', 'error', { category: 'error_validation' });
-            return;
-        }
+    renderSocialActions(profile) {
+        const rel = profile && profile.relationship;
+        if (!rel) return '';   // self, or not signed in
+        const id = Number(profile.player_id);
+        const friendBtn = rel.is_friend
+            ? `<button class="btn btn-outline" onclick="TMC.removeFriend(${id})">Remove Friend</button>`
+            : (rel.request_pending
+                ? `<button class="btn btn-outline" disabled>Request Pending</button>`
+                : `<button class="btn btn-outline" onclick="TMC.addFriend(${id})">Add Friend</button>`);
+        const blockBtn = rel.is_blocked
+            ? `<button class="btn btn-outline" onclick="TMC.unblockPlayer(${id})">Unblock</button>`
+            : `<button class="btn btn-outline" onclick="TMC.blockPlayer(${id})">Block</button>`;
+        return `<div class="profile-inline-action">${friendBtn}${blockBtn}</div>`;
+    },
 
-        const result = await this.api('freeze_player_ubi', { target_handle: targetHandle });
+    async _socialAction(action, playerId, okMessage, category) {
+        const result = await this.api(action, { target_player_id: Number(playerId) });
         if (result.error) {
-            this.toast(result.error, 'error', { category: 'error_action' });
+            this.toast(result.error, 'error', { category: 'error_social' });
             return;
         }
-        this.toast(result.message || 'Freeze applied.', 'success', {
-            category: 'freeze_apply',
-            payload: {
-                target_player_id: Number(result.target_player_id) || null,
-                target_handle: result.target_handle || targetHandle,
-                freeze_duration_ticks: Number(result.freeze_duration_ticks) || 0,
-                expires_tick: Number(result.expires_tick) || null
-            }
-        });
-        if (input) input.value = '';
-        await this.refreshGameState();
-        if (this.state.currentSeason) this.loadSeasonDetail(this.state.currentSeason);
+        this.toast(okMessage, 'success', { category });
+        await this.loadProfile(playerId);
+    },
+
+    addFriend(playerId) {
+        return this._socialAction('friend_request_send', playerId, 'Friend request sent.', 'social_friend');
+    },
+
+    removeFriend(playerId) {
+        return this._socialAction('friend_remove', playerId, 'Friend removed.', 'social_friend');
+    },
+
+    async blockPlayer(playerId) {
+        // Blocking hides their chat. It deliberately does NOT stop them freezing
+        // or robbing you - blocking the leaderboard to become untouchable would
+        // be a worse exploit - so say so rather than implying safety we do not
+        // provide.
+        const ok = await this.showSigilConfirm(
+            'Block player?',
+            'You will stop seeing their chat messages. Blocking does not prevent them from freezing you or attempting theft.'
+        ).catch(() => false);
+        if (!ok) return;
+        return this._socialAction('block_add', playerId, 'Player blocked.', 'social_block');
+    },
+
+    unblockPlayer(playerId) {
+        return this._socialAction('block_remove', playerId, 'Player unblocked.', 'social_block');
     },
 
     async selfMeltFreeze(requestedTier = null) {
@@ -3028,9 +3051,9 @@ const TMC = {
 
         this.setLeaderboardMeta(
             'Global Leaderboard',
-            'Ranked by Global Stars earned this yearly cycle.'
+            'Ranked by total Global Stars earned. Spending on cosmetics does not lower your rank.'
         );
-        this.setLeaderboardHeader(['Rank', 'Player', 'Global Stars', 'Status']);
+        this.setLeaderboardHeader(['Rank', 'Player', 'Stars Earned', 'Status']);
         const lb = await this.api('global_leaderboard');
 
         if (!Array.isArray(lb) || lb.length === 0 || lb.error) {
@@ -3056,7 +3079,7 @@ const TMC = {
                 <tr class="${isMe ? 'my-row' : ''} ${rank <= 3 ? 'top-three' : ''}">
                     <td class="rank-cell">${rank <= 3 ? ['&#129351;', '&#129352;', '&#129353;'][rank-1] : rank}</td>
                     <td class="player-cell">${playerMarkup}</td>
-                    <td class="stars-cell">${this.formatNumber(entry.global_stars)}</td>
+                    <td class="stars-cell">${this.formatNumber(entry.global_stars_lifetime ?? entry.global_stars)}</td>
                     <td class="status-cell">${this.renderPlayerStatusBadge(entry)}</td>
                 </tr>
             `;
@@ -4108,7 +4131,12 @@ const TMC = {
                     </select>
                     <button class="btn btn-warning" onclick="TMC.selfMeltFreeze()">Melt Freeze</button>
                 </div>
-            ` : ''
+            ` : '',
+            // Social actions. friend_request_send and block_add have existed
+            // server-side all along and were never called from anywhere in the
+            // client, so the block list could only ever be empty and friendships
+            // could only exist if someone hit the API directly.
+            this.renderSocialActions(profile)
         ].filter(Boolean).join('');
 
         const inventoryHtml = activeParticipation ? `

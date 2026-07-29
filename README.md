@@ -12,39 +12,79 @@ Too Many Coins is a season-based multiplayer economic strategy game. Players joi
 |---------|-------------|
 | **Universal Basic Income** | Dynamic UBI system with activity bonuses, inflation curves, and hoarding penalties |
 | **Star Purchasing** | Convert Coins to Seasonal Stars at dynamic prices based on total coin supply |
-| **5-Tier Sigil System** | Random drops (1/50,000 per tick) with pity timer |
-| **Boost Activation** | Consume Sigils to activate temporary UBI modifiers (self or season-wide) |
-| **Lock-In Mechanism** | Exit early to convert Seasonal Stars to Global Stars |
-| **Sigil Theft** | Spend Tier 4/5 Sigils for a chance to steal Sigils from other season participants |
+| **6-Tier Sigil System** | Deterministic per-tick drop model; available tiers are gated by season phase |
+| **Boost Activation** | Consume Sigils to activate temporary UBI modifiers (self only) |
+| **Lock-In Mechanism** | Exit early to convert Seasonal Stars to Global Stars at 65% |
+| **Sigil Theft** | Spend Tier 3/4/5 Sigils for a chance to steal Sigils from other season participants |
 | **Season Leaderboard** | Ranked by Seasonal Stars with placement bonuses |
-| **Global Leaderboard** | Ranked by Global Stars earned across all seasons |
+| **Global Leaderboard** | Ranked by lifetime Global Stars **earned**, so spending on cosmetics does not lower your rank |
 | **Cosmetics Shop** | 24 cosmetic items across 5 categories, purchasable with Global Stars |
 | **Chat System** | Global and per-season chat channels |
 | **Idle Detection** | Activity tracking with idle acknowledgment system |
 
 ## Boost Catalog
 
-| Boost | Tier | Effect | Duration | Scope |
-|-------|------|--------|----------|-------|
-| Trickle | I | +10% UBI | 1 hour | Self |
-| Surge | II | +15% UBI | 3 hours | Self |
-| Flow | III | +25% UBI | 6 hours | Self |
-| Tide | IV | +50% UBI | 12 hours | Self |
-| Age | V | +100% UBI | 24 hours | Self |
+Values come from `includes/boost_catalog.php`, which overwrites whatever the
+`boost_catalog` table holds — the table's tuning columns are not authoritative.
+
+Opening a boost (no boost currently active):
+
+| Sigil spent | Power | Initial duration |
+|---|---|---|
+| Tier I | +5% UBI | 4 hours |
+| Tier II | +10% UBI | 3 hours |
+| Tier III | +25% UBI | 2 hours |
+| Tier IV | +50% UBI | 1 hour |
+| Tier V | +100% UBI | 30 minutes |
+
+Spending into an already-active boost adds power, or adds time:
+
+| Sigil spent | Power added | Time added |
+|---|---|---|
+| Tier I | +5% | 5 minutes |
+| Tier II | +10% | 10 minutes |
+| Tier III | +25% | 30 minutes |
+| Tier IV | +50% | 1 hour |
+| Tier V | +100% | 2 hours |
+
+Note the inversion: a Tier I sigil buys the **longest** opening window, so
+opening with a low tier and topping up is not a mistake. All boosts are `SELF`
+scope — season-wide boosts were removed by
+`migration_20260403c_disable_global_boosts_single_self.sql`. Only one boost row
+is active per player, so the +500% combined cap is unreachable; the real
+maximum is +100%.
 
 Guaranteed floor policy (hybrid scaling):
 
 - +1 whole Coin per tick per 10% effective boost modifier
 - Applied after percent boost math and before fixed-point mint split
-- No cap by default (`BOOST_GUARANTEED_FLOOR_CAP_COINS = 0`)
+- Capped at `BOOST_GUARANTEED_FLOOR_CAP_COINS = 5`
 
 ## Sigil Drop System
 
-- **Base Rate**: 1 in 8 per eligible tick (~12.5% combined across all tiers; T1: ~8.75%, T2: ~2.5%, T3: ~1.0%, T4: ~0.19%, T5: ~0.06%)
-- **Eligibility**: Must be Online + Participating + Active (not Idle)
-- **Pity Timer**: Guaranteed Tier I drop after 2,000 eligible ticks with no drop
-- **Throttle**: Maximum 8 drops per rolling 1,440-tick window
-- **Tier Odds**: T1 70%, T2 20%, T3 8%, T4 1.5%, T5 0.5%
+The live model is `Economy::evaluateSigilDropForTick`. One drop attempt per
+tick per player.
+
+- **Base gate chance**: `SIGIL_DROP_CHANCE_FP = 3500` — **0.35% per tick**
+- **Eligibility**: Offline earns nothing. Idle rolls at 0.5x the Active rate
+- **Inventory pressure**: at or below 10 sigils held the rate is unmodified; it
+  then ramps linearly to **zero** at the 25-sigil cap
+- **Boost pressure**: an active boost multiplies the gate by
+  `1 - 0.1 x ceil(boost% / 10)`, floored at 0.10 — a +100% boost cuts your drop
+  rate to a **tenth**
+- **Phase gating**: which tiers can drop depends on season phase —
+  EARLY `T1-T3`, MID `T1-T5`, LATE `T1-T6`, BLACKOUT no drops at all
+- **Tier odds**: phase-dependent, see `SIGIL_PHASE_TIER_WEIGHTS` in
+  `includes/config.php`
+
+**There is no pity timer and no drop throttle.** `SIGIL_PITY_TICKS` is read
+only to populate a Sight-reveal display field,
+`eligible_ticks_since_last_drop` is never incremented, and
+`SIGIL_MAX_DROPS_WINDOW` is referenced nowhere. Earlier revisions of this
+document described both as live mechanics; they are not implemented.
+
+**Combine recipes** (`SIGIL_COMBINE_RECIPES`): 5xT1 to T2, 5xT2 to T3,
+3xT3 to T4, 3xT4 to T5, 2xT5 to T6.
 
 ## Tech Stack
 
@@ -462,8 +502,26 @@ Treat `blocked` or `degraded` results as a failed runtime gate even if simulatio
 
 1. **Scheduled**: Season created, waiting for start time
 2. **Active**: Players can join, earn UBI, buy stars, attempt sigil theft, collect sigils, activate boosts
-3. **Blackout**: Final period, no new joins, star price frozen, last chance to Lock-In
+3. **Blackout**: Final 72 hours. No new joins, star price frozen, no combining,
+   and **all UBI accrual and all sigil drops stop**. Settlement only, plus a
+   last chance to Lock-In.
 4. **Expired**: Season ended, final standings calculated, Global Stars awarded
+
+## Self-Checks
+
+Dependency-free guards, matching the existing `tools/` convention. None of them
+need a database except the concurrency harness.
+
+```bash
+php  tools/integrity_selfcheck.php        # every balance/sigil decrement is guarded + rowCount-checked
+php  tools/star_price_selfcheck.php       # price tracks supply; legacy v1 seasons still behave
+php  tools/hoarding_sink_selfcheck.php    # sink ramps, ceiling holds, idle not punished harder
+node tools/client_security_selfcheck.js   # escapeHtml is attribute-safe; no client cookie writes
+node tools/ui_smoke.mjs                   # real Chromium: console errors, overflow, NaN in output
+
+# Needs a running server + database:
+php tools/concurrency_selfcheck.php --base=http://localhost:8080
+```
 
 ## License
 

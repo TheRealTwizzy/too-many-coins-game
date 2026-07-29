@@ -164,6 +164,29 @@ class Actions {
         return $normalized;
     }
 
+    /**
+     * Human-readable real-time duration for player-facing copy.
+     * Ticks are an internal unit; a notification saying "360 ticks" is not
+     * something a player can act on.
+     */
+    private static function formatRealDuration($realSeconds) {
+        $realSeconds = max(0, (int)$realSeconds);
+        if ($realSeconds < 60) {
+            return $realSeconds . ' second' . ($realSeconds === 1 ? '' : 's');
+        }
+        $minutes = intdiv($realSeconds, 60);
+        if ($minutes < 60) {
+            return $minutes . ' minute' . ($minutes === 1 ? '' : 's');
+        }
+        $hours = intdiv($minutes, 60);
+        $remMinutes = $minutes % 60;
+        $text = $hours . ' hour' . ($hours === 1 ? '' : 's');
+        if ($remMinutes > 0) {
+            $text .= ' ' . $remMinutes . ' minute' . ($remMinutes === 1 ? '' : 's');
+        }
+        return $text;
+    }
+
     private static function formatSigilTierList(array $tiers) {
         $labels = array_map(
             static fn($tier) => 'Tier ' . (int)$tier,
@@ -551,10 +574,22 @@ class Actions {
             }
 
             // 2. Convert total seasonal stars → global stars at 65% while preserving carry
-            $db->query(
-                "UPDATE players SET global_stars = global_stars + ?, global_stars_fractional_fp = ? WHERE player_id = ?",
-                [$globalStarsGained, $globalStarsCarryFp, $playerId]
-            );
+            // Lock-in is the game's one irreversible exit. It must not depend on
+            // a migration having been applied first.
+            if ($db->columnExists('players', 'global_stars_lifetime')) {
+                $db->query(
+                    "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_lifetime = global_stars_lifetime + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                    [$globalStarsGained, $globalStarsGained, $globalStarsCarryFp, $playerId]
+                );
+            } else {
+                $db->query(
+                    "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                    [$globalStarsGained, $globalStarsCarryFp, $playerId]
+                );
+            }
             
             // 3. Destroy all season-bound resources
             $db->query(
@@ -1445,7 +1480,12 @@ class Actions {
             }
         }
 
-        $db->beginTransaction();
+        // Defer to an outer transaction when combineAllSigils is driving us, so a
+        // batch is one atomic unit and one commit rather than up to 500 of each.
+        $ownsTransaction = !$db->inTransaction();
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
         try {
             // Guarded so concurrent combines cannot each consume the same sigils
             // and each mint an output (the sigil columns are signed INTs).
@@ -1456,7 +1496,12 @@ class Actions {
                 [$required, $playerId, $seasonId, $required]
             )->rowCount();
             if ($consumed !== 1) {
-                $db->rollback();
+                // Nothing was written, so when nested we simply report the miss
+                // and leave the outer transaction intact - combineAllSigils uses
+                // this error as its normal loop terminator.
+                if ($ownsTransaction) {
+                    $db->rollback();
+                }
                 return ['error' => 'Not enough sigils'];
             }
             if ($familiesActive && $ascendFamilyId !== null) {
@@ -1469,7 +1514,9 @@ class Actions {
                 [GameTime::now(), $playerId]
             );
 
-            $db->commit();
+            if ($ownsTransaction) {
+                $db->commit();
+            }
             $familyLabel = $ascendFamilyId !== null ? (SigilFamilies::familyName($ascendFamilyId) . ' ') : '';
             return [
                 'success' => true,
@@ -1481,6 +1528,11 @@ class Actions {
                 'message' => "Combined {$required} {$familyLabel}Tier {$fromTier} sigils into 1 {$familyLabel}Tier {$toTier} sigil."
             ];
         } catch (Exception $e) {
+            if (!$ownsTransaction) {
+                // Partial writes may exist; the outer transaction must own the
+                // rollback, so surface the failure rather than swallowing it.
+                throw $e;
+            }
             $db->rollback();
             return ['error' => 'Sigil combine failed'];
         }
@@ -1490,12 +1542,22 @@ class Actions {
      * Combine all available sigils, including chain reactions across tiers.
      */
     public static function combineAllSigils($playerId) {
+        $db = Database::getInstance();
         $maxOperations = 500;
         $operations = [];
         $totalConsumed = 0;
         $totalProduced = 0;
         $operationCount = 0;
 
+        // One transaction for the whole batch.
+        //
+        // This used to call combineSigils in a loop, each iteration opening and
+        // committing its own transaction: up to 500 commits per request, and
+        // non-atomic overall, so a failure halfway left the player partially
+        // combined with no way to tell how far it got. combineSigils now defers
+        // to this transaction when one is already open.
+        $db->beginTransaction();
+        try {
         // Re-scan all source tiers until we complete a full pass with no combines.
         while ($operationCount < $maxOperations) {
             $didCombineThisPass = false;
@@ -1530,8 +1592,15 @@ class Actions {
             }
         }
 
-        if ($operationCount === 0) {
-            return ['error' => 'No sigil combinations currently available'];
+            if ($operationCount === 0) {
+                $db->rollback();
+                return ['error' => 'No sigil combinations currently available'];
+            }
+
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            return ['error' => 'Sigil combine failed'];
         }
 
         $summary = "Combined {$totalConsumed} sigils into {$totalProduced} higher-tier sigils across {$operationCount} operation";
@@ -1579,12 +1648,10 @@ class Actions {
                 "SELECT player_id, handle FROM players WHERE player_id = ? AND joined_season_id = ? AND participation_enabled = 1",
                 [$targetPlayerId, $seasonId]
             );
-        } elseif ($targetHandle !== null && trim((string)$targetHandle) !== '') {
-            $target = $db->fetch(
-                "SELECT player_id, handle FROM players WHERE handle_lower = ? AND joined_season_id = ? AND participation_enabled = 1",
-                [strtolower(trim((string)$targetHandle)), $seasonId]
-            );
         }
+        // The handle-resolution branch is gone: the endpoint no longer accepts
+        // target_handle. $targetHandle is kept in the signature so existing
+        // internal callers do not break, but it is never resolved.
 
         if (!$target) {
             return ['error' => 'Target player not found in this active season'];
@@ -1618,27 +1685,90 @@ class Actions {
         }
 
         $nowTick = GameTime::now();
+
+        // Attacker cooldown, mirroring SIGIL_THEFT_COOLDOWN_TICKS. Freeze had no
+        // cooldown at all, so one player with a stock of sigils could re-apply
+        // indefinitely and, combined with the handle-targeting API, script it.
+        $freezeCooldownTicks = (int)($status === 'Blackout'
+            ? SIGIL_FREEZE_BLACKOUT_COOLDOWN_TICKS
+            : SIGIL_FREEZE_COOLDOWN_TICKS);
+        $lastCast = $db->fetch(
+            "SELECT MAX(activated_tick) AS last_tick FROM active_freezes
+             WHERE season_id = ? AND source_player_id = ?",
+            [$seasonId, $playerId]
+        );
+        $lastCastTick = (int)($lastCast['last_tick'] ?? 0);
+        if ($lastCastTick > 0 && $nowTick < $lastCastTick + $freezeCooldownTicks) {
+            $waitTicks = ($lastCastTick + $freezeCooldownTicks) - $nowTick;
+            return [
+                'error' => 'Freeze is on cooldown for another '
+                         . self::formatRealDuration(game_ticks_to_real_seconds($waitTicks)) . '.',
+                'reason_code' => 'freeze_cooldown',
+                'cooldown_remaining_ticks' => $waitTicks,
+            ];
+        }
+
         $existing = $db->fetch(
+            // Run-scoped, matching Economy::frozenPlayerSet. A freeze applied
+            // before the target's current run does not suppress their income, so
+            // it must not count as "frozen" here either - otherwise melt would
+            // burn a sigil on a freeze that costs nothing, and the targeting
+            // check would block a legitimate freeze on someone who is fine.
             "SELECT freeze_id, expires_tick FROM active_freezes
              WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?
+               AND activated_tick >= COALESCE((
+                     SELECT sp.first_joined_at FROM season_participation sp
+                     WHERE sp.player_id = active_freezes.target_player_id
+                       AND sp.season_id = active_freezes.season_id
+                   ), 0)
              ORDER BY expires_tick DESC LIMIT 1",
             [$seasonId, (int)$target['player_id'], $nowTick]
         );
 
-        $durationMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER : SIGIL_FREEZE_DURATION_TICKS_BY_TIER);
-        $stackMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_STACK_EXTENSION_TICKS_BY_TIER : SIGIL_FREEZE_STACK_EXTENSION_TICKS_BY_TIER);
-        $freezeBaseTicks = (int)($durationMap[(int)$requestedTier] ?? FREEZE_BASE_DURATION_TICKS);
-        $freezeStackTicks = (int)($stackMap[(int)$requestedTier] ?? FREEZE_STACK_EXTENSION_TICKS);
-        $newRemaining = $freezeBaseTicks;
+        // A player who is already frozen cannot be frozen again. Stacked
+        // extension was unbounded - max(existing, now) + stackTicks with no cap -
+        // which is what made coordinated chain-freezing possible. Duration is now
+        // bounded by the single-cast value for the tier spent.
         if ($existing) {
-            // Flat extension: add stack ticks to the current expiry (preserving
-            // remaining duration), so each additional freeze predictably extends the timer.
             $existingExpires = (int)$existing['expires_tick'];
-            $newExpires = max($existingExpires, $nowTick) + $freezeStackTicks;
-            $newRemaining = $newExpires - $nowTick;
-        } else {
-            $newExpires = $nowTick + $newRemaining;
+            return [
+                'error' => $target['handle'] . ' is already frozen for another '
+                         . self::formatRealDuration(game_ticks_to_real_seconds($existingExpires - $nowTick)) . '.',
+                'reason_code' => 'target_already_frozen',
+                'expires_tick' => $existingExpires,
+            ];
         }
+
+        // Post-expiry immunity window, mirroring SIGIL_THEFT_PROTECTION_TICKS:
+        // after a freeze ends the target gets a breather before anyone - not just
+        // the original attacker - can freeze them again.
+        $freezeProtectionTicks = (int)($status === 'Blackout'
+            ? SIGIL_FREEZE_BLACKOUT_PROTECTION_TICKS
+            : SIGIL_FREEZE_PROTECTION_TICKS);
+        $recent = $db->fetch(
+            "SELECT MAX(expires_tick) AS last_expiry FROM active_freezes
+             WHERE season_id = ? AND target_player_id = ?",
+            [$seasonId, (int)$target['player_id']]
+        );
+        $lastExpiry = (int)($recent['last_expiry'] ?? 0);
+        if ($lastExpiry > 0 && $nowTick < $lastExpiry + $freezeProtectionTicks) {
+            $waitTicks = ($lastExpiry + $freezeProtectionTicks) - $nowTick;
+            return [
+                'error' => $target['handle'] . ' is protected from freezing for another '
+                         . self::formatRealDuration(game_ticks_to_real_seconds($waitTicks)) . '.',
+                'reason_code' => 'target_freeze_protected',
+                'protection_remaining_ticks' => $waitTicks,
+            ];
+        }
+
+        // Duration is now always the single-cast value for the tier spent. The
+        // stack-extension path is gone: an already-frozen target is rejected
+        // above, so SIGIL_FREEZE_*_STACK_EXTENSION_TICKS_BY_TIER is no longer
+        // consulted (left defined for now rather than removed in this change).
+        $durationMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER : SIGIL_FREEZE_DURATION_TICKS_BY_TIER);
+        $freezeBaseTicks = (int)($durationMap[(int)$requestedTier] ?? FREEZE_BASE_DURATION_TICKS);
+        $newRemaining = $freezeBaseTicks;
+        $newExpires = $nowTick + $newRemaining;
 
         $db->beginTransaction();
         try {
@@ -1652,21 +1782,14 @@ class Actions {
                 return ['error' => 'You do not own the selected sigil tier'];
             }
 
-            if ($existing) {
-                $db->query(
-                    "UPDATE active_freezes
-                     SET source_player_id = ?, activated_tick = ?, expires_tick = ?, applied_count = applied_count + 1, is_active = 1
-                     WHERE freeze_id = ?",
-                    [$playerId, $nowTick, $newExpires, (int)$existing['freeze_id']]
-                );
-            } else {
-                $db->query(
-                    "INSERT INTO active_freezes
-                     (source_player_id, target_player_id, season_id, activated_tick, expires_tick, applied_count, is_active)
-                     VALUES (?, ?, ?, ?, ?, 1, 1)",
-                    [$playerId, (int)$target['player_id'], $seasonId, $nowTick, $newExpires]
-                );
-            }
+            // Always a fresh row: an already-frozen target is rejected before the
+            // transaction, so there is no active freeze to extend.
+            $db->query(
+                "INSERT INTO active_freezes
+                 (source_player_id, target_player_id, season_id, activated_tick, expires_tick, applied_count, is_active)
+                 VALUES (?, ?, ?, ?, ?, 1, 1)",
+                [$playerId, (int)$target['player_id'], $seasonId, $nowTick, $newExpires]
+            );
 
             $db->query(
                 "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
@@ -1674,6 +1797,59 @@ class Actions {
             );
 
             $db->commit();
+
+            // Tell the victim, and name the attacker.
+            //
+            // Freeze previously emitted nothing at all - no notification, no
+            // ticker event - while theft notified both sides. The victim's only
+            // signal was the HUD rate label flipping to "Rate Frozen", so income
+            // could go to zero for up to 30 minutes with no explanation and no
+            // way to identify who did it, let alone retaliate. active_freezes
+            // has carried source_player_id all along; nothing ever surfaced it.
+            $freezeRealSeconds = game_ticks_to_real_seconds((int)$newRemaining);
+            Notifications::create(
+                (int)$target['player_id'],
+                'freeze_taken',
+                'UBI Frozen',
+                $player['handle'] . ' froze your UBI for ' . self::formatRealDuration($freezeRealSeconds) . '.',
+                [
+                    'event_key' => 'freeze_taken:' . $seasonId . ':' . (int)$target['player_id'] . ':' . $nowTick,
+                    'payload' => [
+                        'season_id' => $seasonId,
+                        'source_player_id' => (int)$playerId,
+                        'source_handle' => (string)$player['handle'],
+                        'consumed_tier' => (int)$requestedTier,
+                        'expires_tick' => (int)$newExpires,
+                        'remaining_real_seconds' => $freezeRealSeconds,
+                    ],
+                ]
+            );
+
+            Notifications::create(
+                (int)$playerId,
+                'freeze_applied',
+                'Freeze Applied',
+                'You froze ' . $target['handle'] . "'s UBI for " . self::formatRealDuration($freezeRealSeconds) . '.',
+                [
+                    'event_key' => 'freeze_applied:' . $seasonId . ':' . (int)$playerId . ':' . $nowTick,
+                    'payload' => [
+                        'season_id' => $seasonId,
+                        'target_player_id' => (int)$target['player_id'],
+                        'target_handle' => (string)$target['handle'],
+                        'consumed_tier' => (int)$requestedTier,
+                        'expires_tick' => (int)$newExpires,
+                    ],
+                ]
+            );
+
+            // Publish to the season ticker so aggression is attributable in
+            // public, the way theft_success already is. The leaderboard marks
+            // the victim (is_frozen) while the aggressor stayed anonymous.
+            SigilFamilies::emitEvent(
+                $db, $seasonId, $playerId, 'freeze_applied',
+                $player['handle'] . ' froze ' . $target['handle'],
+                $nowTick
+            );
 
             return [
                 'success' => true,
@@ -1733,8 +1909,18 @@ class Actions {
 
         $nowTick = GameTime::now();
         $existing = $db->fetch(
+            // Run-scoped, matching Economy::frozenPlayerSet. A freeze applied
+            // before the target's current run does not suppress their income, so
+            // it must not count as "frozen" here either - otherwise melt would
+            // burn a sigil on a freeze that costs nothing, and the targeting
+            // check would block a legitimate freeze on someone who is fine.
             "SELECT freeze_id, expires_tick FROM active_freezes
              WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?
+               AND activated_tick >= COALESCE((
+                     SELECT sp.first_joined_at FROM season_participation sp
+                     WHERE sp.player_id = active_freezes.target_player_id
+                       AND sp.season_id = active_freezes.season_id
+                   ), 0)
              ORDER BY expires_tick DESC LIMIT 1",
             [$seasonId, (int)$playerId, $nowTick]
         );

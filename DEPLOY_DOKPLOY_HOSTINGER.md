@@ -63,6 +63,7 @@ Web service env:
 - `TMC_TICK_REAL_SECONDS=5`
 - `TMC_TICK_ON_REQUEST=false`
 - `TMC_INIT_SECRET=<strong-random-secret>`
+- `TMC_SIGIL_FAMILIES_ENABLED=true`
 
 Worker service env:
 
@@ -76,6 +77,7 @@ Worker service env:
 - `TMC_TICK_ON_REQUEST=false`
 - `TMC_WORKER_INTERVAL_SECONDS=5`
 - `TMC_WORKER_START_DELAY_SECONDS=2`
+- `TMC_SIGIL_FAMILIES_ENABLED=true`
 
 Session-stability and rate-limit env (set on web service):
 

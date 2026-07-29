@@ -371,6 +371,35 @@ class FamilyActions {
         if ($consumed !== 1) {
             return ['error' => 'Not enough Sight sigils'];
         }
+
+        // Tell the target they were scried.
+        //
+        // target_rate and ward_status inspect another player's private state -
+        // income rate and defensive posture - and both were completely silent, so
+        // a rival could scout you repeatedly and you would never know. Theft and
+        // ward already notify; reconnaissance should too, otherwise the attacker
+        // has perfect information and the defender has none. The other two kinds
+        // (price_step, pity) read only the caster's own state, so no one to tell.
+        if (in_array($kind, ['target_rate', 'ward_status'], true) && !empty($target['player_id'])) {
+            $scryer = $db->fetch("SELECT handle FROM players WHERE player_id = ?", [(int)$playerId]);
+            Notifications::create(
+                (int)$target['player_id'],
+                'sight_revealed',
+                'You Were Scried',
+                ($scryer['handle'] ?? 'A rival') . ' used a Sight sigil to read your '
+                    . ($kind === 'target_rate' ? 'income rate' : 'ward status') . '.',
+                [
+                    'event_key' => 'sight_revealed:' . $ctx['season_id'] . ':' . (int)$target['player_id'] . ':' . $nowTick,
+                    'payload' => [
+                        'season_id' => $ctx['season_id'],
+                        'source_player_id' => (int)$playerId,
+                        'source_handle' => (string)($scryer['handle'] ?? ''),
+                        'reveal_kind' => $kind,
+                    ],
+                ]
+            );
+        }
+
         self::touchActivity($db, $playerId, $nowTick);
 
         return [

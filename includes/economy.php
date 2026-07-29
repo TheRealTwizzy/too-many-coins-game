@@ -174,6 +174,67 @@ class Economy {
     }
 
     /**
+     * THE definition of "frozen". Both the tick engine and the API must use it.
+     *
+     * There were previously two, and they disagreed. The tick engine matched
+     * only `is_active = 1 AND expires_tick >= now`, while the API additionally
+     * required `activated_tick >= first_joined_at` - i.e. the freeze had to have
+     * been applied during the player's CURRENT run in the season.
+     *
+     * The tick engine is authoritative for income and the API is authoritative
+     * for the UI, so any freeze predating the player's current run zeroed their
+     * UBI while the HUD showed a normal rate: silent, unexplained zero income
+     * with no visible cause and nothing the player could act on.
+     *
+     * Run-scoped semantics win. seasonJoin does clear freezes on rejoin, but
+     * only when active_freezes exists (it is behind a doesTableExist guard), so
+     * on a partially-migrated database stale rows survive a rejoin. Scoping to
+     * the current run means such a row cannot silently suppress income forever.
+     *
+     * @param array $runStartByPlayerId  player_id => first_joined_at tick
+     * @return array                     player_id => true, for frozen players
+     */
+    public static function frozenPlayerSet($db, array $runStartByPlayerId, $seasonId, $gameTime) {
+        if (empty($runStartByPlayerId)) {
+            return [];
+        }
+
+        $playerIds = array_map('intval', array_keys($runStartByPlayerId));
+        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
+        $params = $playerIds;
+        $params[] = (int)$seasonId;
+        $params[] = (int)$gameTime;
+
+        // activated_tick is compared per player in PHP rather than in SQL,
+        // because each player has their own run start.
+        $rows = $db->fetchAll(
+            "SELECT DISTINCT target_player_id, activated_tick
+             FROM active_freezes
+             WHERE target_player_id IN ({$placeholders})
+               AND season_id = ?
+               AND is_active = 1
+               AND expires_tick >= ?",
+            $params
+        );
+
+        $set = [];
+        foreach ($rows as $row) {
+            $targetId = (int)$row['target_player_id'];
+            $runStart = max(0, (int)($runStartByPlayerId[$targetId] ?? 0));
+            if ((int)$row['activated_tick'] >= $runStart) {
+                $set[$targetId] = true;
+            }
+        }
+        return $set;
+    }
+
+    /** Single-player form of frozenPlayerSet(). */
+    public static function isPlayerFrozenAt($db, $playerId, $seasonId, $gameTime, $runStartTick) {
+        $set = self::frozenPlayerSet($db, [(int)$playerId => (int)$runStartTick], $seasonId, $gameTime);
+        return !empty($set[(int)$playerId]);
+    }
+
+    /**
      * Convert whole-coin value into fixed-point units.
      */
     public static function toFixedPoint($coins) {
@@ -713,7 +774,28 @@ class Economy {
     /**
      * Calculate explicit hoarding sink in whole coins per tick.
      */
-    public static function calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRatePerTickFp, $seasonPhase = null) {
+    /**
+     * Hoarding sink, in FIXED POINT coins per tick.
+     *
+     * This used to return whole coins per tick, which made the mechanic
+     * unusable at production cadence. At 5s/tick a 30 coins/min player grosses
+     * 2.5 coins/tick, so:
+     *   - the smallest expressible sink was 1 coin/tick = 40% of gross. The
+     *     mechanic could only be off or brutal, with nothing in between.
+     *   - the cap itself floored to zero: intdiv(2_500_000 * 350_000, 1e12) = 0,
+     *     so even a correctly configured sink was clamped to nothing.
+     * Both are why enabling the flag alone would have done nothing visible.
+     *
+     * Fixed point lets the sink express fractions of a coin per tick, and the
+     * caller already accumulates the fractional remainder against net rate via
+     * coins_fractional_fp, so no precision is lost.
+     *
+     * Note the sink reduces INCOME rather than debiting the balance directly
+     * (see calculateRateBreakdown and the tick engine), so a hoarder's stack
+     * never shrinks - it just stops growing as fast. That is deliberate: losing
+     * banked coins outright reads as punishment, losing rate reads as pressure.
+     */
+    public static function calculateHoardingSinkFpPerTick($season, $player, $participation, $grossRatePerTickFp, $seasonPhase = null) {
         if (!self::hoardingSinkEnabled($season)) return 0;
         if (!$participation) return 0;
         if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) return 0;
@@ -734,8 +816,10 @@ class Economy {
         $ticksPerHour = self::ticksPerRealHour();
         $safeHours = max(0, (int)($season['hoarding_safe_hours'] ?? 12));
         $safeMinCoins = max(0, (int)($season['hoarding_safe_min_coins'] ?? 20000));
-        $grossCoinsPerTick = max(0, intdiv(max(0, (int)$grossRatePerTickFp), FP_SCALE));
-        $dynamicSafeCoins = $safeHours * $grossCoinsPerTick * $ticksPerHour;
+        // Computed in fixed point. Truncating the per-tick rate to whole coins
+        // first (2.5 -> 2 at 5s cadence) silently shrank the buffer by ~20%, so
+        // "12 safe hours" was really closer to 9.6.
+        $dynamicSafeCoins = intdiv($safeHours * max(0, (int)$grossRatePerTickFp) * $ticksPerHour, FP_SCALE);
         $safeBufferCoins = max($safeMinCoins, $dynamicSafeCoins);
 
         $excess = max(0, $coinsHeld - $safeBufferCoins);
@@ -752,32 +836,40 @@ class Economy {
         $tier2Excess = ($tier2Cap > 0) ? min($remaining, $tier2Cap) : 0;
         $tier3Excess = max(0, $remaining - $tier2Excess);
 
-        $denominator = FP_SCALE * $ticksPerHour;
-        $sinkPerTick = 0;
+        // Per-hour drain of `excess` at rateFp, expressed per tick in fixed point:
+        //   coins/hour   = excess * rateFp / FP_SCALE
+        //   coins/tick   = that / ticksPerHour
+        //   in fixed pt  = excess * rateFp / ticksPerHour
+        $sinkFp = 0;
         if ($tier1Excess > 0 && $tier1RateFp > 0) {
-            $sinkPerTick += intdiv($tier1Excess * $tier1RateFp, $denominator);
+            $sinkFp += intdiv($tier1Excess * $tier1RateFp, $ticksPerHour);
         }
         if ($tier2Excess > 0 && $tier2RateFp > 0) {
-            $sinkPerTick += intdiv($tier2Excess * $tier2RateFp, $denominator);
+            $sinkFp += intdiv($tier2Excess * $tier2RateFp, $ticksPerHour);
         }
         if ($tier3Excess > 0 && $tier3RateFp > 0) {
-            $sinkPerTick += intdiv($tier3Excess * $tier3RateFp, $denominator);
+            $sinkFp += intdiv($tier3Excess * $tier3RateFp, $ticksPerHour);
         }
 
-        if ($sinkPerTick <= 0) return 0;
+        if ($sinkFp <= 0) return 0;
 
         if ($presenceState !== 'Active') {
             $idleMultFp = max(0, (int)($season['hoarding_idle_multiplier_fp'] ?? FP_SCALE));
-            $sinkPerTick = intdiv($sinkPerTick * $idleMultFp, FP_SCALE);
+            $sinkFp = intdiv($sinkFp * $idleMultFp, FP_SCALE);
         }
 
-        $capRatioFp = max(0, (int)($season['hoarding_sink_cap_ratio_fp'] ?? 350000));
+        // Hard ceiling as a share of gross, so the sink can slow income but can
+        // never reverse it. Both operands are already fixed point, so this is a
+        // single FP_SCALE division - the old form divided by FP_SCALE twice and
+        // floored the ceiling to zero at any realistic rate.
+        $capRatioFp = max(0, (int)($season['hoarding_sink_cap_ratio_fp'] ?? 300000));
         if ($capRatioFp > 0) {
-            $capCoinsPerTick = intdiv(max(0, (int)$grossRatePerTickFp) * $capRatioFp, FP_SCALE * FP_SCALE);
-            $sinkPerTick = min($sinkPerTick, $capCoinsPerTick);
+            $capFp = intdiv(max(0, (int)$grossRatePerTickFp) * $capRatioFp, FP_SCALE);
+            $sinkFp = min($sinkFp, $capFp);
         }
 
-        return max(0, min((int)$sinkPerTick, $coinsHeld));
+        // Never claim more than the player actually holds.
+        return max(0, min((int)$sinkFp, self::toFixedPoint($coinsHeld)));
     }
 
     /**
@@ -787,6 +879,7 @@ class Economy {
         if ($isFrozen) {
             return [
                 'gross_rate_fp' => 0,
+                'sink_rate_fp' => 0,
                 'sink_per_tick' => 0,
                 'net_rate_fp' => 0,
             ];
@@ -795,18 +888,24 @@ class Economy {
         if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) {
             return [
                 'gross_rate_fp' => 0,
+                'sink_rate_fp' => 0,
                 'sink_per_tick' => 0,
                 'net_rate_fp' => 0,
             ];
         }
 
         $grossRateFp = self::calculateGrossRatePerTickFp($season, $player, $participation, $boostModFp, $isLockInTick);
-        $sinkPerTick = self::calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRateFp, $seasonPhase);
-        $netRateFp = max(0, $grossRateFp - self::toFixedPoint($sinkPerTick));
+        $sinkRateFp = self::calculateHoardingSinkFpPerTick($season, $player, $participation, $grossRateFp, $seasonPhase);
+        $netRateFp = max(0, $grossRateFp - $sinkRateFp);
 
         return [
             'gross_rate_fp' => $grossRateFp,
-            'sink_per_tick' => $sinkPerTick,
+            // Authoritative value. Callers doing arithmetic must use this.
+            'sink_rate_fp' => $sinkRateFp,
+            // Retained for display and for accounting totals. Whole coins per
+            // tick is far coarser than the real sink at production cadence, so
+            // it is a lossy view - never compute with it.
+            'sink_per_tick' => intdiv($sinkRateFp, FP_SCALE),
             'net_rate_fp' => $netRateFp,
         ];
     }
@@ -845,6 +944,25 @@ class Economy {
         $table = json_decode($season['starprice_table'], true);
         $price = self::piecewiseLinear($totalCoinsEndOfTick, $table, 'm', 'price');
 
+        // Market affordability bias (fp_1e6; 1000000 = no effect; < 1000000 =
+        // cheaper stars). WHERE it is applied is the whole ballgame - see the
+        // STARPRICE_MODEL_* notes in config.php.
+        //
+        // v2 applies it to the raw table target here, before the clamp, so it is
+        // a standing discount the clamp then walks toward at a bounded rate.
+        // v1 applied it after the clamp to the previously published price, which
+        // compounded into a fixed point of 32 coins at every supply level.
+        //
+        // Seasons already in flight stay on v1 so their prices are not repriced
+        // underneath the players holding coins.
+        $modelVersion = (int)($season['starprice_model_version'] ?? STARPRICE_MODEL_V1_BIAS_AFTER_CLAMP);
+        $biasBeforeClamp = ($modelVersion >= STARPRICE_MODEL_V2_BIAS_BEFORE_CLAMP);
+        $biasFp = max(1, (int)($season['market_affordability_bias_fp'] ?? FP_SCALE));
+
+        if ($biasBeforeClamp && $biasFp !== FP_SCALE) {
+            $price = max(1, intdiv($price * $biasFp, FP_SCALE));
+        }
+
         // Apply per-tick velocity clamp relative to previous price.
         $prevPrice = (int)($season['current_star_price'] ?? 0);
         if ($prevPrice > 0) {
@@ -862,17 +980,22 @@ class Economy {
             $price   = max($price, $prevPrice - $maxDown);
         }
 
-        // Apply market affordability bias (fp_1e6; 1000000 = no effect; < 1000000 = cheaper stars).
-        // Default to FP_SCALE (no effect) when absent.
-        $biasFp = max(1, (int)($season['market_affordability_bias_fp'] ?? FP_SCALE));
-        if ($biasFp !== FP_SCALE) {
+        // Legacy v1 ordering, retained for in-flight seasons only.
+        if (!$biasBeforeClamp && $biasFp !== FP_SCALE) {
             $price = max(1, intdiv($price * $biasFp, FP_SCALE));
         }
 
         // Hard cap and floor (preserved as final guardrails).
+        //
+        // The floor used to read $season['star_price_minimum_absolute'], a
+        // column that exists in no schema and no migration - so the ?? 1
+        // fallback was the only path that ever ran and the "configurable floor"
+        // was a fiction. Rather than add another written-but-never-read column
+        // to a schema that already carries several, the floor is the explicit
+        // constant it has always effectively been. A tunable floor, if wanted
+        // later, should arrive deliberately with its own migration.
         $price = min($price, (int)$season['star_price_cap']);
-        $minPrice = (int)($season['star_price_minimum_absolute'] ?? 1);
-        return max($minPrice, $price);
+        return max(STAR_PRICE_ABSOLUTE_FLOOR, $price);
     }
     
     /**

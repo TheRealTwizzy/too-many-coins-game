@@ -244,7 +244,7 @@ class TickEngine {
             self::expireFreezes($seasonId, $gameTime);
             
             $playerSelfBoosts = self::getActivePlayerBoostsByIds($participantIds, $seasonId, $gameTime);
-            $frozenPlayers = self::getFrozenPlayerSetByIds($participantIds, $seasonId, $gameTime);
+            $frozenPlayers = self::getFrozenPlayerSet($participants, $seasonId, $gameTime);
             
             $totalNewCoins    = 0;
             $totalBurnedCoins = 0;
@@ -289,7 +289,11 @@ class TickEngine {
                 // hoarding_sink_total and season-supply accounting.
                 $rates = Economy::calculateRateBreakdown($season, $p, $p, $boostModFp, $isFrozen, false, $seasonPhase);
                 $netRateFp   = (int)$rates['net_rate_fp'];
-                $sinkPerTick = (int)$rates['sink_per_tick'];
+                // Fixed point, not the whole-coin display value: at production
+                // cadence the real sink is a fraction of a coin per tick, so the
+                // integer view rounds most of it away and hoarding_sink_total
+                // would under-report (usually to zero).
+                $sinkRateFp  = (int)($rates['sink_rate_fp'] ?? 0);
 
                 // Carry accumulates against effective net rate; when net is 0, carry does not increase (existing fractional carry, if any, is preserved).
                 $carryFp = max(0, (int)($p['coins_fractional_fp'] ?? 0));
@@ -300,7 +304,7 @@ class TickEngine {
                 // directly debited from the player's balance in this block. Cap it to the amount
                 // the player could have actually lost this tick so reported sink never exceeds
                 // the maximum burnable balance.
-                $totalSink = max(0, $sinkPerTick * $ticksToProcess);
+                $totalSink = max(0, intdiv($sinkRateFp * $ticksToProcess, FP_SCALE));
                 $maxBurnable = max(0, ((int)($p['coins'] ?? 0)) + $netCoins);
                 $totalSink = min($totalSink, $maxBurnable);
 
@@ -676,33 +680,20 @@ class TickEngine {
      * Prefetch active freeze state for a set of target players in one query.
      * Returns set-like map: player_id => true
      */
-    private static function getFrozenPlayerSetByIds(array $playerIds, $seasonId, $gameTime) {
-        if (empty($playerIds)) {
-            return [];
+    /**
+     * Delegates to Economy::frozenPlayerSet so the tick engine and the API
+     * cannot drift apart again. This used to carry its own query that omitted
+     * the run-start scoping, which meant a freeze predating a player's current
+     * run zeroed their income while the API reported them as not frozen.
+     *
+     * @param array $participants  rows carrying player_id and first_joined_at
+     */
+    private static function getFrozenPlayerSet(array $participants, $seasonId, $gameTime) {
+        $runStartByPlayerId = [];
+        foreach ($participants as $p) {
+            $runStartByPlayerId[(int)$p['player_id']] = max(0, (int)($p['first_joined_at'] ?? 0));
         }
-
-        $db = Database::getInstance();
-        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
-        $params = $playerIds;
-        $params[] = $seasonId;
-        $params[] = $gameTime;
-
-        $rows = $db->fetchAll(
-            "SELECT DISTINCT target_player_id
-             FROM active_freezes
-             WHERE target_player_id IN ({$placeholders})
-               AND season_id = ?
-               AND is_active = 1
-               AND expires_tick >= ?",
-            $params
-        );
-
-        $set = [];
-        foreach ($rows as $row) {
-            $set[(int)$row['target_player_id']] = true;
-        }
-
-        return $set;
+        return Economy::frozenPlayerSet(Database::getInstance(), $runStartByPlayerId, $seasonId, $gameTime);
     }
     
     /**
@@ -821,10 +812,22 @@ class TickEngine {
                 $placementBonus = (int)$naturalExpiryPayout['placement_bonus'];
 
                 // Apply to player
-                $db->query(
-                    "UPDATE players SET global_stars = global_stars + ?, global_stars_fractional_fp = ? WHERE player_id = ?",
-                    [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
-                );
+                // Season expiry pays out every remaining participant. A missing
+                // column here would fail the whole finalisation transaction.
+                if ($db->columnExists('players', 'global_stars_lifetime')) {
+                    $db->query(
+                        "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_lifetime = global_stars_lifetime + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                        [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
+                    );
+                } else {
+                    $db->query(
+                        "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                        [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
+                    );
+                }
                 
                 // Record in participation
                 $db->query(
