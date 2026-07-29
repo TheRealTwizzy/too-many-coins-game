@@ -21,7 +21,7 @@
  * merely "ended up correct".
  */
 
-import { mkdtemp, copyFile, rm } from 'node:fs/promises';
+import { mkdtemp, copyFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -32,23 +32,46 @@ const CORE = join(HERE, '..', 'public', 'js', 'core');
 /* ------------------------------------------------------------------ *
  * module loading
  *
- * The core modules are ES modules with a .js extension, and this repo has no
+ * The client modules are ES modules with a .js extension, and this repo has no
  * package.json declaring {"type":"module"} — deliberately, since adding one
- * risks changing how the deployment image is detected and built. So they are
- * copied to a temp dir as .mjs and imported from there. None of them import
- * each other, so a flat copy is sufficient.
+ * risks changing how the deployment image is detected and built.
+ *
+ * So the tree is copied to a temp directory that has its own package.json
+ * saying exactly that. Filenames are preserved rather than renamed to .mjs,
+ * because screens import each other by relative specifier ('./ui.js') and
+ * renaming would break every one of them.
  * ------------------------------------------------------------------ */
+
+const SCREENS = join(HERE, '..', 'public', 'js', 'screens');
 
 async function loadCore() {
     const dir = await mkdtemp(join(tmpdir(), 'tmc-core-'));
-    const names = ['store', 'api', 'render', 'clock', 'motion', 'assets'];
-    const loaded = {};
-    for (const name of names) {
-        const dest = join(dir, `${name}.mjs`);
+
+    // A package.json declaring module type, written into the temp dir rather
+    // than the repo. That keeps the .js filenames intact, which matters
+    // because screens import each other by relative path ('./ui.js') and
+    // renaming to .mjs would break those specifiers.
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
+
+    const coreNames = ['store', 'api', 'render', 'clock', 'motion', 'assets'];
+    const core = {};
+    for (const name of coreNames) {
+        const dest = join(dir, `${name}.js`);
         await copyFile(join(CORE, `${name}.js`), dest);
-        loaded[name] = await import(pathToFileURL(dest).href);
+        core[name] = await import(pathToFileURL(dest).href);
     }
-    return { modules: loaded, cleanup: () => rm(dir, { recursive: true, force: true }) };
+
+    await mkdir(join(dir, 'screens'), { recursive: true });
+    const screenNames = ['ui', 'home', 'seasons', 'ranks', 'chat', 'shop', 'index'];
+    const screens = {};
+    for (const name of screenNames) {
+        await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
+    }
+    for (const name of screenNames) {
+        screens[name] = await import(pathToFileURL(join(dir, 'screens', `${name}.js`)).href);
+    }
+
+    return { modules: core, screens, cleanup: () => rm(dir, { recursive: true, force: true }) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -744,17 +767,120 @@ function checkAssets({ createAssets }, { h }) {
     }
 }
 
+function checkScreens(screens, { h, render }) {
+    section('screens — every screen renders in every state it can be in');
+
+    // A screen's view() must be pure and total: it is called on every render
+    // pass, including before its enter() has fetched anything and while the
+    // player is logged out. Those are the states most likely to be forgotten,
+    // and a throw there takes the whole deck down.
+    const stubCtx = (overrides = {}) => {
+        const state = {
+            player: null,
+            seasons: [],
+            screens: {},
+            ui: {},
+            ...overrides,
+        };
+        return {
+            h,
+            navigate() {},
+            joinSeason() {}, loadLeaderboard() {}, loadChat() {},
+            switchChat() {}, sendChat() {}, loadShop() {},
+            buyCosmetic() {}, equipCosmetic() {},
+            store: {
+                get(path) {
+                    if (!path) return state;
+                    let node = state;
+                    for (const seg of path.split('.')) {
+                        if (node === null || node === undefined) return undefined;
+                        node = node[seg];
+                    }
+                    return node;
+                },
+                set() {},
+            },
+        };
+    };
+
+    const PLAYER = {
+        player_id: 7, handle: 'tester', coins: 1234, seasonal_stars: 12,
+        sigils: 3, global_stars: 99, ubi_rate: 4.5, joined_season_id: null, role: 'player',
+    };
+
+    const SEASON = {
+        season_id: 1, name: 'Season 1', computed_status: 'Active',
+        seconds_remaining: 90000, current_star_price: 213, participant_count: 12,
+    };
+
+    const cases = [
+        ['logged out', {}],
+        ['logged in, no season', { player: PLAYER }],
+        ['logged in, in a season', { player: { ...PLAYER, joined_season_id: 1 }, seasons: [SEASON] }],
+        ['data loaded', {
+            player: PLAYER,
+            seasons: [SEASON],
+            screens: {
+                ranks: { entries: [{ player_id: 7, handle: 'tester', global_stars_lifetime: 99, activity_state: 'Active', online_current: 1 }], page: 1 },
+                chat: { messages: [{ message_id: 1, handle_snapshot: 'a', content: 'hi', created_at: '2026-07-29T10:00:00Z' }], channel: 'GLOBAL' },
+                shop: { catalog: [{ cosmetic_id: 1, name: 'Frame', category: 'avatar_frame', price_global_stars: 50 }], owned: [], equipped: {} },
+            },
+        }],
+        ['empty results', {
+            player: PLAYER,
+            screens: { ranks: { entries: [], page: 1 }, chat: { messages: [] }, shop: { catalog: [], owned: [], equipped: {} } },
+        }],
+    ];
+
+    for (const name of ['home', 'seasons', 'ranks', 'chat', 'shop']) {
+        const screen = screens[name].default;
+        let failedAt = null;
+        for (const [label, overrides] of cases) {
+            try {
+                const out = screen.view(stubCtx(overrides));
+                if (out === undefined) { failedAt = `${label} (returned undefined)`; break; }
+            } catch (err) {
+                failedAt = `${label}: ${err.message}`;
+                break;
+            }
+        }
+        ok(`${name} renders in all ${cases.length} states`, failedAt === null, failedAt);
+    }
+
+    // Screens must actually mount into a DOM, not merely build vnodes.
+    {
+        const doc = makeDocument();
+        const root = doc.createElement('div');
+        doc.body.appendChild(root);
+        let threw = null;
+        try {
+            render(screens.home.default.view(stubCtx({ player: PLAYER })), root, { document: doc });
+        } catch (err) {
+            threw = err.message;
+        }
+        ok('a screen mounts through the reconciler', threw === null && root.childNodes.length === 1, threw);
+    }
+
+    {
+        const ids = ['home', 'seasons', 'ranks', 'chat', 'shop'];
+        const missing = ids.filter(id => !screens.index.getScreen(id));
+        ok('every rail id resolves to a registered screen', missing.length === 0, missing);
+        ok('an unknown id resolves to null', screens.index.getScreen('nope') === null);
+    }
+}
+
 /* ------------------------------------------------------------------ *
  * run
  * ------------------------------------------------------------------ */
 
-const { modules, cleanup } = await loadCore();
+const { modules, screens, cleanup } = await loadCore();
 try {
     await checkStore(modules.store);
     await checkRender(modules.render);
     checkClock(modules.clock);
     checkMotion(modules.motion);
     checkAssets(modules.assets, modules.render);
+    checkScreens(screens, modules.render);
 } finally {
     await cleanup();
 }

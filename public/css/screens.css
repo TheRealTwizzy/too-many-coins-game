@@ -1,0 +1,318 @@
+/**
+ * screens.css — the screens that mount into #deck
+ *
+ * Shell layout lives in next.css; this is everything inside it. Every value
+ * comes from tokens.css, so retuning the palette or the motion feel is a
+ * change to that file and not to this one.
+ */
+
+/* ---------- shared primitives ---------- */
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+    padding: var(--s4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+}
+
+.panel-title {
+    font-size: var(--fs-title);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-tight);
+}
+
+.panel-sub { color: var(--ink-2); font-size: var(--fs-small); margin-top: calc(-1 * var(--s2)); }
+
+.muted { color: var(--ink-3); }
+.small { font-size: var(--fs-small); }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.empty-state {
+    padding: var(--s6) var(--s4);
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: var(--r3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s2);
+}
+
+.empty-title { font-size: var(--fs-lead); font-weight: var(--fw-medium); }
+.empty-body { color: var(--ink-3); max-width: 46ch; }
+
+.pending { padding: var(--s5); text-align: center; color: var(--ink-3); }
+
+.screen-error {
+    padding: var(--s4);
+    border: 1px solid var(--down);
+    border-radius: var(--r2);
+    background: color-mix(in srgb, var(--down) 8%, transparent);
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s2);
+    padding: var(--s2) var(--s4);
+    border-radius: var(--r2);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+    font: inherit;
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    /* .btn is worn by both <button> and <a>; without this the anchor keeps its
+       underline and the two stop looking like the same control. */
+    text-decoration: none;
+    transition: background-color var(--t-micro) var(--e-move),
+                border-color var(--t-micro) var(--e-move),
+                transform var(--t-micro) var(--e-gain);
+}
+
+.btn:hover:not(:disabled) { border-color: var(--ink-3); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--coin); outline-offset: 2px; }
+
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-primary {
+    background: var(--coin);
+    border-color: var(--coin);
+    /* The coin colour is light in every theme, so the label has to go dark. */
+    color: var(--bg);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+.btn-ghost { background: transparent; }
+
+.btn-lg { padding: var(--s3) var(--s5); font-size: var(--fs-lead); }
+
+.badge {
+    display: inline-block;
+    padding: 0 var(--s2);
+    border-radius: var(--r-pill);
+    font-size: var(--fs-micro);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+}
+.badge-joined { border-color: var(--up); color: var(--up); }
+.badge-you { border-color: var(--coin); color: var(--coin); margin-left: var(--s2); }
+
+/* ---------- tabs ---------- */
+
+.tabs { display: flex; gap: var(--s1); flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+
+.tab {
+    padding: var(--s2) var(--s3);
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-3);
+    font: inherit;
+    cursor: pointer;
+    transition: color var(--t-micro) var(--e-move), border-color var(--t-micro) var(--e-move);
+}
+.tab:hover { color: var(--ink-2); }
+.tab.is-active { color: var(--ink); border-bottom-color: var(--coin); }
+.tab:focus-visible { outline: 2px solid var(--coin); outline-offset: -2px; }
+
+/* ---------- home ---------- */
+
+.home { display: flex; flex-direction: column; gap: var(--s4); }
+
+.hero { padding: var(--s7) var(--s4); text-align: center; }
+.hero-title { font-size: var(--fs-hero); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); }
+.hero-sub { color: var(--ink-2); max-width: 60ch; margin: var(--s3) auto 0; }
+.hero-actions { display: flex; gap: var(--s3); justify-content: center; margin-top: var(--s5); flex-wrap: wrap; }
+
+.pitch-grid { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.pitch-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r3); padding: var(--s4); }
+.pitch-card h3 { font-size: var(--fs-lead); margin-bottom: var(--s2); }
+.pitch-card p { color: var(--ink-2); font-size: var(--fs-small); }
+
+.greeting h1 { font-size: var(--fs-display); letter-spacing: var(--tracking-tight); }
+.greeting-sub { color: var(--ink-3); }
+
+.stat-row { display: flex; gap: var(--s5); flex-wrap: wrap; }
+.stat { display: flex; flex-direction: column; gap: var(--s0); }
+.stat-label { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--ink-3); }
+.stat-value { font-size: var(--fs-title); font-weight: var(--fw-semibold); }
+
+/* ---------- seasons ---------- */
+
+.season-grid { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+.season-card {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+    padding: var(--s4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    transition: border-color var(--t-move) var(--e-move);
+}
+.season-card.is-joined { border-color: var(--up); }
+
+.season-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); }
+.season-name { font-size: var(--fs-lead); font-weight: var(--fw-semibold); }
+
+.season-status {
+    font-size: var(--fs-micro);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--ink-3);
+}
+.season-status[data-status="Active"] { color: var(--up); }
+.season-status[data-status="Blackout"] { color: var(--down); }
+
+.season-facts { display: flex; gap: var(--s4); flex-wrap: wrap; }
+.fact { display: flex; flex-direction: column; gap: var(--s0); }
+.fact dt { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--ink-3); }
+.fact dd { font-size: var(--fs-lead); font-weight: var(--fw-medium); }
+
+.season-actions { margin-top: auto; }
+
+/* ---------- leaderboard ---------- */
+
+/* The table is the one piece of content that cannot reflow, so it scrolls
+   inside its own box rather than making the page scroll sideways. */
+.table-scroll { overflow-x: auto; }
+
+.lb-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.lb-table th {
+    text-align: left;
+    padding: var(--s2) var(--s3);
+    font-size: var(--fs-micro);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+}
+.lb-table td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line-2); }
+
+.lb-row.is-me { background: color-mix(in srgb, var(--coin) 10%, transparent); }
+.lb-rank { width: 1%; white-space: nowrap; color: var(--ink-3); }
+.lb-handle { font-weight: var(--fw-medium); }
+.lb-stars { text-align: right; white-space: nowrap; }
+.lb-state { color: var(--ink-3); white-space: nowrap; }
+
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: var(--r-pill); margin-right: var(--s1); background: var(--ink-3); }
+.dot-active { background: var(--up); }
+.dot-idle { background: var(--down); }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: var(--s3); }
+.pager-label { color: var(--ink-3); font-size: var(--fs-small); }
+
+/* ---------- chat ---------- */
+
+.chat { display: flex; flex-direction: column; gap: var(--s3); min-height: 0; flex: 1; }
+
+.chat-log {
+    list-style: none;
+    overflow-y: auto;
+    /* Bounded so the compose box stays reachable without scrolling the page. */
+    max-height: min(60vh, 520px);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s1);
+    padding: var(--s3);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+    /* Anchor growth to the bottom so arriving messages do not shove the
+       backlog upward while someone is reading it. */
+    overflow-anchor: auto;
+}
+
+.msg { display: flex; gap: var(--s2); align-items: baseline; font-size: var(--fs-small); line-height: var(--lh-snug); }
+.msg-time { color: var(--ink-3); font-size: var(--fs-micro); flex: none; }
+.msg-handle { color: var(--ink-2); font-weight: var(--fw-medium); flex: none; }
+.msg-body { color: var(--ink); overflow-wrap: anywhere; }
+.msg-removed .msg-body { font-style: italic; }
+.msg-admin .msg-handle { color: var(--coin); }
+
+.chat-compose { display: flex; gap: var(--s2); }
+
+.input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--s2) var(--s3);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    color: var(--ink);
+    font: inherit;
+}
+.input:focus { outline: 2px solid var(--coin); outline-offset: -1px; border-color: var(--coin); }
+.input::placeholder { color: var(--ink-3); }
+
+/* ---------- shop ---------- */
+
+.shop-balance { display: flex; align-items: baseline; gap: var(--s2); font-size: var(--fs-lead); }
+
+.shop-grid { display: grid; gap: var(--s3); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+
+.shop-item {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+    padding: var(--s3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    transition: border-color var(--t-micro) var(--e-move);
+}
+.shop-item.is-equipped { border-color: var(--coin); }
+
+.shop-preview {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r2);
+    background: var(--bg-2);
+    border: 1px solid var(--line-2);
+}
+.shop-preview-mark { font-size: var(--fs-display); color: var(--ink-3); }
+
+.shop-name { font-size: var(--fs-body); font-weight: var(--fw-medium); }
+.shop-item .btn { margin-top: auto; }
+
+/* ---------- toast ---------- */
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--s5) + var(--rail-bottom, 0px) + var(--safe-bottom));
+    transform: translateX(-50%);
+    z-index: var(--z-toast);
+    padding: var(--s3) var(--s4);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .5);
+    animation: toast-in var(--t-move) var(--e-gain);
+    max-width: min(90vw, 480px);
+}
+.toast-error { border-color: var(--down); color: var(--down); }
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translate(-50%, 8px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast { animation: none; }
+}
