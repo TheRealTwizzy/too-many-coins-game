@@ -15,7 +15,7 @@ import { createClock } from './core/clock.js';
 import { createMotion } from './core/motion.js';
 import { createAssets } from './core/assets.js';
 import { h, render } from './core/render.js';
-import { getScreen } from './screens/index.js';
+import { getScreen, RAIL_PARENT } from './screens/index.js';
 
 const POLL_MS = 3000;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
@@ -151,6 +151,152 @@ const ctx = {
         await poll();
     },
 
+    openSeason(seasonId) {
+        store.set('ui.seasonId', Number(seasonId));
+        store.set('screens.season', null);
+        store.set('screen', 'season');
+        // activateScreen only runs enter() on a *change* of screen id, so
+        // reopening a different season from the same screen would otherwise
+        // show the previous one's data until the next poll.
+        ctx.loadSeasonDetail();
+    },
+
+    async loadSeasonDetail() {
+        const seasonId = store.get('ui.seasonId');
+        if (seasonId === null || seasonId === undefined) return;
+        const res = await api.request('season_detail', { season_id: seasonId });
+        if (!res) return;
+        store.set('screens.season', res);
+    },
+
+    async buyStars(quantity, cost) {
+        const confirmed = await ctx.confirm({
+            title: `Buy ${quantity} star${quantity === 1 ? '' : 's'}?`,
+            body: `This spends ${new Intl.NumberFormat('en-US').format(cost)} coins. `
+                + 'Buying raises the price for everyone, including you.',
+            confirmLabel: 'Buy',
+        });
+        if (!confirmed) return;
+
+        store.set('ui.buyingStars', true);
+        const res = await api.request('purchase_stars', { quantity });
+        store.set('ui.buyingStars', false);
+        if (res && res.error) return toast(res.error, 'error');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
+    },
+
+    async combineSigil(fromTier) {
+        store.set('ui.forgeBusy', fromTier);
+        const res = await api.request('combine_sigil', { from_tier: fromTier });
+        store.set('ui.forgeBusy', null);
+        if (res && res.error) return toast(res.error, 'error');
+        await poll();
+    },
+
+    async combineAll() {
+        store.set('ui.forgeBusy', 'all');
+        const res = await api.request('combine_all_sigils', {});
+        store.set('ui.forgeBusy', null);
+        if (res && res.error) return toast(res.error, 'error');
+        await poll();
+    },
+
+    /**
+     * Lock in. The one action in the game with no undo, so the confirmation
+     * states the payout in figures and requires an explicit acknowledgement
+     * rather than a single click.
+     */
+    async lockIn(payout) {
+        const confirmed = await ctx.confirm({
+            title: 'Lock in and end your season?',
+            body: `You will receive ${new Intl.NumberFormat('en-US').format(payout)} global stars. `
+                + 'Your seasonal position, coins and sigils are gone. This cannot be undone.',
+            confirmLabel: 'Lock in',
+            danger: true,
+            requireAck: 'I understand this ends my season',
+        });
+        if (!confirmed) return;
+
+        store.set('ui.lockingIn', true);
+        const res = await api.request('lock_in', {});
+        store.set('ui.lockingIn', false);
+        if (res && res.error) return toast(res.error, 'error');
+
+        toast('Locked in.', 'info');
+        await poll();
+        store.set('screen', 'home');
+    },
+
+    async freezeTarget() {
+        const target = await ctx.pickTarget({ title: 'Freeze whose income?' });
+        if (!target) return;
+
+        const confirmed = await ctx.confirm({
+            title: `Freeze ${target.handle}?`,
+            body: 'This spends a sigil and stops their income for a time. They will be told it was you.',
+            confirmLabel: 'Freeze',
+            danger: true,
+        });
+        if (!confirmed) return;
+
+        const res = await api.request('freeze_player_ubi', { target_player_id: target.player_id });
+        if (res && res.error) return toast(res.error, 'error');
+        toast(`Froze ${target.handle}.`, 'info');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
+    },
+
+    async selfMelt() {
+        const confirmed = await ctx.confirm({
+            title: 'Melt your freeze?',
+            body: 'Spends a T5 or T6 sigil to end the freeze on your own income early.',
+            confirmLabel: 'Melt',
+        });
+        if (!confirmed) return;
+
+        const res = await api.request('self_melt_freeze', {});
+        if (res && res.error) return toast(res.error, 'error');
+        toast('Freeze melted.', 'info');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
+    },
+
+    /**
+     * Ask a yes/no question. Resolves false on cancel, escape or backdrop
+     * click, so every caller can treat "not true" as "do nothing".
+     */
+    confirm(options) {
+        return new Promise(resolve => {
+            store.set('ui.dialog', {
+                kind: 'confirm',
+                ...options,
+                acked: false,
+                resolve,
+            });
+        });
+    },
+
+    /** Choose a player from the current season's standings. Resolves null on cancel. */
+    pickTarget(options) {
+        const detail = store.get('screens.season');
+        const me = store.get('player');
+        const candidates = ((detail && detail.leaderboard) || [])
+            .filter(r => !me || Number(r.player_id) !== Number(me.player_id));
+
+        if (!candidates.length) {
+            toast('Nobody else in this season yet.', 'error');
+            return Promise.resolve(null);
+        }
+
+        return new Promise(resolve => {
+            store.set('ui.dialog', { kind: 'target', ...options, candidates, resolve });
+        });
+    },
+
+    closeDialog(result) {
+        const dialog = store.get('ui.dialog');
+        store.set('ui.dialog', null);
+        if (dialog && dialog.resolve) dialog.resolve(result);
+    },
+
     async loadLeaderboard(page = 1) {
         const res = await api.request('global_leaderboard', { page, per_page: 25 });
         if (!res || res.error) return;
@@ -275,9 +421,12 @@ const NAV = [
 
 function rail(screen) {
     return h('nav', { id: 'rail', 'aria-label': 'Primary' },
+        // A screen that is not itself on the rail still lights up its parent —
+        // season detail keeps Seasons highlighted, so opening one does not read
+        // as having navigated out of the section.
         NAV.map(item => h('button', {
             key: item.id,
-            class: 'rail-btn' + (screen === item.id ? ' is-active' : ''),
+            class: 'rail-btn' + (screen === item.id || RAIL_PARENT[screen] === item.id ? ' is-active' : ''),
             'aria-current': screen === item.id ? 'page' : false,
             onClick: () => store.set('screen', item.id),
         },
@@ -345,6 +494,89 @@ function connectionNote(state) {
     return h('div', { class: 'conn-note', role: 'status' }, 'Reconnecting…');
 }
 
+/**
+ * Modal host.
+ *
+ * Rendered through the reconciler like everything else rather than being
+ * appended to the DOM behind its back, so a dialog open across a poll keeps
+ * its checkbox state and its focus.
+ */
+function dialogView() {
+    const dialog = store.get('ui.dialog');
+    if (!dialog) return null;
+
+    const body = dialog.kind === 'target' ? targetDialog(dialog) : confirmDialog(dialog);
+
+    return h('div', {
+        class: 'dialog-backdrop',
+        // Cancelling by clicking away must not fire when the click started
+        // inside the dialog and merely ended on the backdrop — that is a drag,
+        // not a dismissal, and losing a filled-in dialog to it is maddening.
+        onMouseDown: (e) => { if (e.target === e.currentTarget) ctx.closeDialog(dialog.kind === 'target' ? null : false); },
+    },
+        h('div', {
+            class: 'dialog' + (dialog.danger ? ' is-danger' : ''),
+            role: 'dialog',
+            'aria-modal': 'true',
+            'aria-label': dialog.title || 'Confirm',
+        }, body),
+    );
+}
+
+function confirmDialog(dialog) {
+    const needsAck = Boolean(dialog.requireAck);
+    const acked = Boolean(store.get('ui.dialogAcked'));
+
+    return [
+        h('h2', { class: 'dialog-title' }, dialog.title || 'Are you sure?'),
+        dialog.body ? h('p', { class: 'dialog-body' }, dialog.body) : null,
+
+        needsAck
+            ? h('label', { class: 'dialog-ack' },
+                h('input', {
+                    type: 'checkbox',
+                    checked: acked,
+                    onChange: (e) => store.set('ui.dialogAcked', e.target.checked),
+                }),
+                dialog.requireAck,
+            )
+            : null,
+
+        h('div', { class: 'dialog-actions' },
+            h('button', {
+                class: 'btn btn-ghost',
+                onClick: () => { store.set('ui.dialogAcked', false); ctx.closeDialog(false); },
+            }, 'Cancel'),
+            h('button', {
+                class: 'btn ' + (dialog.danger ? 'btn-danger' : 'btn-primary'),
+                disabled: needsAck && !acked,
+                onClick: () => { store.set('ui.dialogAcked', false); ctx.closeDialog(true); },
+            }, dialog.confirmLabel || 'Confirm'),
+        ),
+    ];
+}
+
+function targetDialog(dialog) {
+    return [
+        h('h2', { class: 'dialog-title' }, dialog.title || 'Choose a player'),
+        h('ul', { class: 'target-list' },
+            dialog.candidates.map(c => h('li', { key: c.player_id },
+                h('button', {
+                    class: 'target-btn',
+                    onClick: () => ctx.closeDialog(c),
+                },
+                    h('span', { class: 'target-handle' }, c.handle || '—'),
+                    h('span', { class: 'target-stars tabular muted small' },
+                        `${new Intl.NumberFormat('en-US').format(Math.round(Number(c.effective_seasonal_stars ?? c.seasonal_stars) || 0))} ★`),
+                ),
+            )),
+        ),
+        h('div', { class: 'dialog-actions' },
+            h('button', { class: 'btn btn-ghost', onClick: () => ctx.closeDialog(null) }, 'Cancel'),
+        ),
+    ];
+}
+
 function toastView() {
     const t = store.get('ui.toast');
     if (!t) return null;
@@ -396,7 +628,7 @@ function shell() {
             themeSwitch(),
         ),
         toastView(),
-        h('div', { id: 'dialog-host' }),
+        h('div', { id: 'dialog-host' }, dialogView()),
     );
 }
 
@@ -422,6 +654,79 @@ function scheduleRender() {
             try { screen.afterRender(ctx); } catch (err) { console.error('[main] afterRender failed:', err); }
         }
     });
+}
+
+/* ------------------------------------------------------------------ *
+ * routing
+ *
+ * Hash-based, so it needs no server rewrite and cannot collide with the
+ * ?ui=next query the boot switch reads. Two things depend on this beyond
+ * convenience: the browser back button, which otherwise leaves the site
+ * entirely from the first screen you open, and shareable links to a season.
+ *
+ *   #/seasons
+ *   #/season/1
+ * ------------------------------------------------------------------ */
+
+// Set while we are the ones writing the hash, so our own write does not come
+// back through hashchange and re-enter navigation.
+let writingHash = false;
+
+function parseHash() {
+    const raw = String(location.hash || '').replace(/^#\/?/, '');
+    if (!raw) return null;
+    const [screen, param] = raw.split('/');
+    if (!screen) return null;
+    if (screen === 'season' && param !== undefined && param !== '') {
+        return { screen: 'season', seasonId: Number(param) };
+    }
+    return { screen, seasonId: null };
+}
+
+function writeHash(replace = false) {
+    const screen = store.get('screen');
+    const seasonId = store.get('ui.seasonId');
+    const next = screen === 'season' && seasonId !== null && seasonId !== undefined
+        ? `#/season/${seasonId}`
+        : `#/${screen}`;
+
+    if (location.hash === next) return;
+
+    writingHash = true;
+    try {
+        // replaceState on boot so the first screen does not add a history entry
+        // the player never navigated to.
+        if (replace) history.replaceState(null, '', next);
+        else history.pushState(null, '', next);
+    } catch {
+        // Some embedded webviews refuse history writes. Routing is a
+        // convenience; losing it should not take the client down.
+        location.hash = next;
+    }
+    writingHash = false;
+}
+
+function applyRoute(route) {
+    if (!route) return;
+    if (route.screen === 'season' && route.seasonId !== null) {
+        store.set('ui.seasonId', route.seasonId);
+    }
+    if (getScreen(route.screen)) store.set('screen', route.screen);
+}
+
+function bindRouting() {
+    window.addEventListener('hashchange', () => {
+        if (writingHash) return;
+        applyRoute(parseHash());
+    });
+    window.addEventListener('popstate', () => {
+        if (writingHash) return;
+        applyRoute(parseHash());
+    });
+
+    // Screen and season changes both write the URL.
+    store.subscribe('screen', () => writeHash());
+    store.subscribe('ui.seasonId', () => writeHash());
 }
 
 /* ------------------------------------------------------------------ *
@@ -555,6 +860,13 @@ function boot() {
     // Warm the sprite sheets so the first moment does not flash a blank frame.
     // Resolves immediately while every slot is still a placeholder.
     assets.preload(['payout-burst', 'sigil-drop', 'theft-strike']);
+
+    // Routing is bound before the initial route is applied, so the very first
+    // screen still writes a hash and the back button has somewhere to go.
+    bindRouting();
+    const initial = parseHash();
+    if (initial) applyRoute(initial);
+    writeHash(true);
 
     scheduleRender();
     poll();

@@ -297,14 +297,28 @@ function patchChildren(parent, prevChildren, nextChildren, doc, isSvg) {
                 matchIndex = found;
             }
         } else {
-            // Walk forward to the next unclaimed, unkeyed, same-type node.
-            while (cursor < prev.length) {
-                if (!claimed.has(cursor) && prev[cursor].key === null && sameType(prev[cursor], nextChild)) {
-                    matchIndex = cursor;
-                    cursor++;
+            // Scan forward for the next unclaimed, unkeyed, same-type node.
+            //
+            // The scan position is local and only committed to `cursor` on a
+            // hit. Advancing the shared cursor while searching looks harmless
+            // and is not: a child that finds no match consumes every candidate
+            // it walked past, so the *next* child starts beyond nodes it could
+            // have reused and is rebuilt from scratch instead.
+            //
+            // Concretely, this is what happens when a screen swaps a loading
+            // placeholder for real content — <div class=pending> becomes <ul>.
+            // Searching for the <ul> would step over the <form> that follows,
+            // and the form, its input, the text being typed in it and the
+            // focus would all be destroyed by a render that needed to touch
+            // neither.
+            let scan = cursor;
+            while (scan < prev.length) {
+                if (!claimed.has(scan) && prev[scan].key === null && sameType(prev[scan], nextChild)) {
+                    matchIndex = scan;
+                    cursor = scan + 1;
                     break;
                 }
-                cursor++;
+                scan++;
             }
         }
 

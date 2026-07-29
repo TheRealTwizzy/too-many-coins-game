@@ -316,3 +316,169 @@
 @media (prefers-reduced-motion: reduce) {
     .toast { animation: none; }
 }
+
+/* ================================================================== *
+ * season detail
+ * ================================================================== */
+
+.season-detail { display: flex; flex-direction: column; gap: var(--s4); }
+
+.season-header { display: flex; flex-direction: column; gap: var(--s3); }
+.season-header-main { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.season-title { font-size: var(--fs-display); letter-spacing: var(--tracking-tight); }
+.btn-back { padding: var(--s1) var(--s3); font-size: var(--fs-small); }
+
+.season-header-facts { display: flex; gap: var(--s5); flex-wrap: wrap; }
+.head-fact { display: flex; flex-direction: column; gap: var(--s0); }
+.head-fact-label {
+    font-size: var(--fs-micro); text-transform: uppercase;
+    letter-spacing: var(--tracking-wide); color: var(--ink-3);
+}
+.head-fact-value { font-size: var(--fs-lead); font-weight: var(--fw-medium); }
+
+/* The season name on a card is a button so it can open the season, but it has
+   to keep reading as a heading rather than as a control. */
+.season-open {
+    background: none; border: 0; padding: 0; font: inherit; color: inherit;
+    font-size: var(--fs-lead); font-weight: var(--fw-semibold);
+    text-align: left; cursor: pointer;
+}
+.season-open:hover { color: var(--coin); }
+.season-open:focus-visible { outline: 2px solid var(--coin); outline-offset: 2px; }
+
+/* ---------- income ---------- */
+
+.rate-row { display: flex; flex-direction: column; gap: var(--s2); }
+.rate-primary { display: flex; align-items: baseline; gap: var(--s2); }
+.rate-value { font-size: var(--fs-hero); font-weight: var(--fw-bold); letter-spacing: var(--tracking-tight); }
+.rate-unit { color: var(--ink-3); }
+.rate-detail { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+.down { color: var(--down); }
+
+/* ---------- stars ---------- */
+
+.buy-row { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+.input-qty { max-width: 110px; flex: none; }
+
+.sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- forge ---------- */
+
+.tier-row { display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+.tier {
+    flex: 1 1 64px;
+    display: flex; flex-direction: column; align-items: center; gap: var(--s0);
+    padding: var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--bg-2);
+    color: var(--ink-3);
+    transition: border-color var(--t-move) var(--e-move), color var(--t-move) var(--e-move);
+}
+.tier.has-some { color: var(--ink); border-color: var(--line-2); background: var(--surface-2); }
+
+.tier-label { font-size: var(--fs-micro); letter-spacing: var(--tracking-wide); }
+.tier-count { font-size: var(--fs-title); font-weight: var(--fw-semibold); }
+
+.recipe-list { list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
+.recipe {
+    display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    color: var(--ink-3);
+}
+.recipe.is-ready { color: var(--ink); border-color: var(--coin); }
+.recipe-text { flex: 1; min-width: 140px; }
+.btn-sm { padding: var(--s1) var(--s3); font-size: var(--fs-small); }
+
+/* ---------- verbs ---------- */
+
+.verb-row { display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+.notice {
+    padding: var(--s2) var(--s3);
+    border-radius: var(--r2);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+}
+.notice-frozen { border-color: var(--down); color: var(--down); }
+
+/* ---------- lock in ---------- */
+
+.lockin-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s4); flex-wrap: wrap; }
+
+.btn-danger { background: var(--down); border-color: var(--down); color: var(--bg); }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.08); }
+
+.spectating { display: flex; flex-direction: column; }
+
+/* ================================================================== *
+ * dialogs
+ * ================================================================== */
+
+.dialog-backdrop {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: var(--s4);
+    background: rgba(0, 0, 0, .6);
+    animation: fade-in var(--t-micro) var(--e-move);
+}
+
+.dialog {
+    width: min(100%, 440px);
+    max-height: 85vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    padding: var(--s5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .6);
+    animation: dialog-in var(--t-move) var(--e-gain);
+}
+.dialog.is-danger { border-color: var(--down); }
+
+.dialog-title { font-size: var(--fs-title); font-weight: var(--fw-semibold); }
+.dialog-body { color: var(--ink-2); }
+
+.dialog-ack { display: flex; align-items: flex-start; gap: var(--s2); font-size: var(--fs-small); cursor: pointer; }
+.dialog-ack input { margin-top: 3px; flex: none; }
+
+.dialog-actions { display: flex; gap: var(--s2); justify-content: flex-end; flex-wrap: wrap; }
+
+.target-list { list-style: none; display: flex; flex-direction: column; gap: var(--s1); max-height: 40vh; overflow-y: auto; }
+
+.target-btn {
+    width: 100%;
+    display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
+    padding: var(--s2) var(--s3);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color var(--t-micro) var(--e-move);
+}
+.target-btn:hover { border-color: var(--coin); }
+.target-btn:focus-visible { outline: 2px solid var(--coin); outline-offset: 2px; }
+.target-handle { font-weight: var(--fw-medium); }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-in {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dialog-backdrop, .dialog { animation: none; }
+}

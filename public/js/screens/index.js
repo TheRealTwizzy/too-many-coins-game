@@ -25,11 +25,24 @@
 
 import home from './home.js';
 import seasons from './seasons.js';
+import season from './season.js';
 import ranks from './ranks.js';
 import chat from './chat.js';
 import shop from './shop.js';
 
-const SCREENS = [home, seasons, ranks, chat, shop];
+const SCREENS = [home, seasons, season, ranks, chat, shop];
+
+/**
+ * Screens reachable from the rail, in rail order.
+ *
+ * 'season' is deliberately absent: it is reached by choosing one from the
+ * seasons list, not from the rail. It still highlights Seasons while open —
+ * see RAIL_PARENT.
+ */
+export const RAIL_IDS = ['home', 'seasons', 'ranks', 'chat', 'shop'];
+
+/** Which rail entry should look active for a screen that is not itself on the rail. */
+export const RAIL_PARENT = { season: 'seasons' };
 
 const byId = new Map(SCREENS.map(s => [s.id, s]));
 

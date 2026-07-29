@@ -62,7 +62,7 @@ async function loadCore() {
     }
 
     await mkdir(join(dir, 'screens'), { recursive: true });
-    const screenNames = ['ui', 'home', 'seasons', 'ranks', 'chat', 'shop', 'index'];
+    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'index'];
     const screens = {};
     for (const name of screenNames) {
         await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
@@ -476,6 +476,39 @@ async function checkRender({ h, render }) {
         ok('a dropped listener is removed', el.listeners.click.length === 0);
     }
 
+    // Regression: a loading placeholder becoming real content must not destroy
+    // its siblings. Found by a real-browser probe, not by reading the code —
+    // the draft text survived (it is mirrored in the store) while the input
+    // node itself was silently rebuilt and focus was lost.
+    {
+        const { doc, root, opts } = mount();
+        const view = (loaded) => h('div', null,
+            h('div', { class: 'tabs' }, 'tabs'),
+            loaded ? h('ul', null, h('li', null, 'a')) : h('div', { class: 'pending' }, 'Loading…'),
+            h('form', null, h('input', { type: 'text' })),
+        );
+
+        render(view(false), root, opts);
+        const form = root.childNodes[0].childNodes[2];
+        const input = form.childNodes[0];
+        input.focus();
+        input.storedValue = 'half typed';
+        input.setSelectionRange(4, 4);
+
+        render(view(true), root, opts);
+
+        const formAfter = root.childNodes[0].childNodes[2];
+        ok('a placeholder becoming content does not rebuild later siblings',
+            formAfter === form && formAfter.childNodes[0] === input,
+            { sameForm: formAfter === form });
+        ok('...so the draft, caret and focus all survive it',
+            input.value === 'half typed' && input.selectionStart === 4 && doc.activeElement === input,
+            { value: input.value, caret: input.selectionStart, focused: doc.activeElement === input });
+        ok('...and the placeholder itself is gone',
+            root.childNodes[0].childNodes[1].tagName === 'UL',
+            root.childNodes[0].childNodes[1].tagName);
+    }
+
     {
         const { root, opts } = mount();
         render(h('div', null, false, null, undefined, 'kept', 0), root, opts);
@@ -832,7 +865,7 @@ function checkScreens(screens, { h, render }) {
         }],
     ];
 
-    for (const name of ['home', 'seasons', 'ranks', 'chat', 'shop']) {
+    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop']) {
         const screen = screens[name].default;
         let failedAt = null;
         for (const [label, overrides] of cases) {
@@ -866,6 +899,34 @@ function checkScreens(screens, { h, render }) {
         const missing = ids.filter(id => !screens.index.getScreen(id));
         ok('every rail id resolves to a registered screen', missing.length === 0, missing);
         ok('an unknown id resolves to null', screens.index.getScreen('nope') === null);
+        ok('season is registered but deliberately off the rail',
+            Boolean(screens.index.getScreen('season')) && !screens.index.RAIL_IDS.includes('season'));
+        ok('season lights up Seasons on the rail', screens.index.RAIL_PARENT.season === 'seasons');
+    }
+
+    // game_state carries the player and seasons but not the chat transcript, so
+    // chat needs a poll of its own. Without it the room looks frozen at
+    // whatever was there when you walked in — which is exactly how it shipped
+    // the first time, and was only caught by driving a real browser.
+    {
+        let started = 0, stopped = 0, loads = 0;
+        const ctx = {
+            ...stubCtx({ player: PLAYER }),
+            loadChat() { loads++; },
+            clock: { every() { started++; return () => { stopped++; }; } },
+        };
+        const chat = screens.chat.default;
+
+        chat.enter(ctx);
+        ok('chat starts its own poll on entry', started === 1 && loads === 1, { started, loads });
+
+        chat.leave(ctx);
+        ok('chat stops polling when you leave it', stopped === 1, { stopped });
+
+        // Leaving twice must not double-stop; activateScreen can call leave on
+        // a screen that never entered.
+        chat.leave(ctx);
+        ok('leaving twice is harmless', stopped === 1, { stopped });
     }
 }
 
