@@ -1,0 +1,244 @@
+/**
+ * next.css — shell layout for the ?ui=next client
+ *
+ * Only the shell lives here: rail, stage, HUD, dialog host. Screen styles
+ * arrive with their modules in Stage 2. Every value comes from tokens.css;
+ * there are no literal colours, durations or spacings below.
+ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Numerals must not jitter while counting. */
+.hud-value, .tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- shell ---------- */
+
+#shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+/*
+ * The rail is position:fixed so it does not scroll with the deck, which also
+ * takes it out of flow. So the stage reserves the rail's width with padding
+ * rather than a grid column — a grid track would be laid out for a child that
+ * is not in the grid, and the stage would be placed into the rail's column
+ * instead of beside it.
+ *
+ * On narrow viewports --rail is 0px and the rail moves to the bottom edge, so
+ * this collapses to ordinary padding with no media query of its own.
+ */
+#stage {
+    position: relative;
+    z-index: var(--z-grid);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+    padding: var(--s4);
+    padding-top: calc(var(--s4) + var(--safe-top));
+    padding-left: calc(var(--rail) + var(--s4));
+}
+
+/* ---------- rail ---------- */
+
+#rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--rail);
+    z-index: var(--z-rail);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s1);
+    padding: var(--s3) 0;
+    background: var(--bg-2);
+    border-right: 1px solid var(--line);
+}
+
+.rail-btn {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s0);
+    padding: var(--s2) var(--s1);
+    background: none;
+    border: 0;
+    color: var(--ink-3);
+    font: inherit;
+    font-size: var(--fs-micro);
+    cursor: pointer;
+    transition: color var(--t-micro) var(--e-move),
+                background-color var(--t-micro) var(--e-move);
+}
+
+.rail-btn:hover { color: var(--ink-2); background: var(--surface); }
+
+.rail-btn.is-active { color: var(--coin); }
+
+.rail-btn:focus-visible {
+    outline: 2px solid var(--coin);
+    outline-offset: -2px;
+}
+
+.rail-glyph { font-size: var(--fs-lead); line-height: 1; }
+
+.rail-label { letter-spacing: var(--tracking-wide); }
+
+/* ---------- hud ---------- */
+
+#hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s2);
+    padding: var(--s3);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+}
+
+.hud-figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s0);
+    min-width: 84px;
+    flex: 1 1 auto;
+}
+
+.hud-label {
+    font-size: var(--fs-micro);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--ink-3);
+}
+
+.hud-value {
+    font-size: var(--fs-title);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-tight);
+    color: var(--ink);
+}
+
+.hud-tick .hud-value { color: var(--ink-2); font-size: var(--fs-lead); }
+
+/* The cadence variant is shown when the client knows the tick period but not
+   its phase, so it must not read like a countdown. */
+.hud-tick.is-cadence .hud-value { color: var(--ink-3); font-weight: var(--fw-regular); }
+
+/* Payout landed. Driven by clock.onTick, so it only ever fires when phase is
+   known — which is exactly when the pulse would be truthful. */
+@keyframes hud-paid {
+    0%   { box-shadow: 0 0 0 0 rgba(var(--glow), 0); }
+    30%  { box-shadow: 0 0 0 3px rgba(var(--glow), .28); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--glow), 0); }
+}
+
+#hud.is-paid { animation: hud-paid var(--t-moment) var(--e-gain); }
+
+/* ---------- deck ---------- */
+
+#deck {
+    flex: 1;
+    display: grid;
+    gap: var(--s3);
+    align-content: start;
+}
+
+.deck-placeholder {
+    color: var(--ink-3);
+    padding: var(--s6) var(--s4);
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: var(--r3);
+}
+
+/* ---------- connection ---------- */
+
+.conn-note {
+    align-self: flex-start;
+    padding: var(--s1) var(--s3);
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+}
+
+/* ---------- theme switch ---------- */
+
+.theme-switch { display: flex; gap: var(--s2); padding-top: var(--s2); }
+
+.theme-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition: transform var(--t-micro) var(--e-gain),
+                border-color var(--t-micro) var(--e-move);
+}
+
+.theme-dot:hover { transform: scale(1.12); }
+.theme-dot.is-active { border-color: var(--ink); }
+
+.theme-dot:focus-visible { outline: 2px solid var(--coin); outline-offset: 2px; }
+
+/* Each swatch previews its own theme's coin colour, so the control shows what
+   it does rather than naming it. */
+.theme-dot[data-theme-name="nocturne"] { background: #b5abfc; }
+.theme-dot[data-theme-name="gilded"]   { background: #e8b64c; }
+.theme-dot[data-theme-name="ember"]    { background: #e0913f; }
+.theme-dot[data-theme-name="tide"]     { background: #e0b455; }
+
+/* ---------- dialog host ---------- */
+
+#dialog-host:empty { display: none; }
+
+#dialog-host {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-overlay);
+    display: grid;
+    place-items: center;
+    padding: var(--s4);
+    background: rgba(0, 0, 0, .55);
+}
+
+/* ---------- narrow viewports ---------- */
+
+@media (max-width: 720px) {
+    #rail {
+        top: auto;
+        right: 0;
+        height: var(--rail-bottom);
+        width: auto;
+        flex-direction: row;
+        justify-content: space-around;
+        border-right: 0;
+        border-top: 1px solid var(--line);
+        padding: 0 var(--s2);
+        padding-bottom: var(--safe-bottom);
+    }
+
+    #stage {
+        /* Clear the bottom rail, including the home indicator beneath it. */
+        padding-bottom: calc(var(--rail-bottom) + var(--safe-bottom) + var(--s4));
+    }
+
+    .rail-btn { padding: var(--s1); }
+}

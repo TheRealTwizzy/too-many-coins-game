@@ -1,0 +1,224 @@
+/**
+ * Too Many Coins — design tokens
+ *
+ * Single source of truth for colour, space, type, motion and depth.
+ * Promoted out of public/design/deck.html so the deck and the client
+ * cannot drift apart; the deck proved these values, this file owns them.
+ *
+ * Loaded only by the ?ui=next client. The legacy client keeps its own
+ * :root block in style.css untouched.
+ */
+
+/* ---------- themes ---------- */
+/* Four grounds, all dark. Nocturne is the default and matches what the
+   legacy client already renders, so switching shells does not change hue. */
+
+:root,
+:root[data-theme="nocturne"] {
+    --bg: #131523;
+    --bg-2: #181b2c;
+    --surface: #1c1f31;
+    --surface-2: #22263a;
+    --line: #2f3450;
+    --line-2: #3d436580;
+    --ink: #eceefb;
+    --ink-2: #9aa0c4;
+    --ink-3: #6e7499;
+    --coin: #b5abfc;
+    --star: #d6d2ff;
+    --up: #cfd3e5;
+    --down: #e08d8d;
+    --seal: #6e7499;
+    --glow: 150, 132, 230;
+}
+
+:root[data-theme="gilded"] {
+    --bg: #0b0e14;
+    --bg-2: #121722;
+    --surface: #151b28;
+    --surface-2: #1b2231;
+    --line: #283042;
+    --line-2: #36405680;
+    --ink: #eee9dd;
+    --ink-2: #9ba3b4;
+    --ink-3: #6b7488;
+    --coin: #e8b64c;
+    --star: #5fb7d4;
+    --up: #7fc98f;
+    --down: #e07a7a;
+    --seal: #6b7488;
+    --glow: 232, 182, 76;
+}
+
+:root[data-theme="ember"] {
+    --bg: #141013;
+    --bg-2: #1d1719;
+    --surface: #201a1c;
+    --surface-2: #282022;
+    --line: #3a2f2d;
+    --line-2: #4a3c3980;
+    --ink: #f0e8e1;
+    --ink-2: #ab9f96;
+    --ink-3: #7d7069;
+    --coin: #e0913f;
+    --star: #f0b273;
+    --up: #95b87f;
+    --down: #e0635a;
+    --seal: #7d7069;
+    --glow: 224, 145, 63;
+}
+
+:root[data-theme="tide"] {
+    --bg: #081315;
+    --bg-2: #0f1e21;
+    --surface: #111f23;
+    --surface-2: #16282d;
+    --line: #20393e;
+    --line-2: #2c4b5180;
+    --ink: #e4efef;
+    --ink-2: #8fa6a9;
+    --ink-3: #6a8184;
+    --coin: #e0b455;
+    --star: #4fc4b3;
+    --up: #8fbf83;
+    --down: #dd7f7f;
+    --seal: #6a8184;
+    --glow: 79, 196, 179;
+}
+
+/* ---------- sigil families ---------- */
+/* Deliberately theme-independent: a family's colour is an identity a player
+   learns once, so it must not shift when they change ground. These are
+   desaturated enough to hold contrast on all four backgrounds above. */
+
+:root {
+    --family-yield: #b5abfc;
+    --family-time: #d2cefd;
+    --family-ward: #8fa9dd;
+    --family-larceny: #d98d8d;
+    --family-market: #cfd3e5;
+    --family-sight: #75798c;
+    --family-wild: #a7a1db;
+}
+
+/* ---------- space ---------- */
+
+:root {
+    --s0: 2px;
+    --s1: 4px;
+    --s2: 8px;
+    --s3: 12px;
+    --s4: 16px;
+    --s5: 24px;
+    --s6: 32px;
+    --s7: 48px;
+    --s8: 64px;
+}
+
+/* ---------- radius ---------- */
+
+:root {
+    --r1: 6px;
+    --r2: 10px;
+    --r3: 14px;
+    --r4: 20px;
+    --r-pill: 999px;
+}
+
+/* ---------- type ---------- */
+/* One family. Numerals are tabular rather than monospaced: this is a game
+   about watching numbers change, and digits that shift width while counting
+   read as jitter. --font-num exists so a value can opt into tabular figures
+   without the surrounding prose paying for them. */
+
+:root {
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-num: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    --fs-micro: 11px;
+    --fs-small: 12px;
+    --fs-body: 14px;
+    --fs-lead: 16px;
+    --fs-title: 20px;
+    --fs-display: 28px;
+    --fs-hero: 40px;
+
+    --lh-tight: 1.15;
+    --lh-snug: 1.35;
+    --lh-body: 1.55;
+
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600;
+    --fw-bold: 700;
+
+    --tracking-tight: -0.01em;
+    --tracking-wide: 0.04em;
+}
+
+/* ---------- motion ---------- */
+/* Four durations, each with a job:
+     micro    — state acknowledgement (hover, press, toggle)
+     move     — an element travelling or resizing
+     moment   — something the player should notice happened
+     ceremony — a payoff worth watching (lock-in, season close)
+   Three curves: gains overshoot slightly, movement settles, losses fall away. */
+
+:root {
+    --t-micro: 150ms;
+    --t-move: 300ms;
+    --t-moment: 600ms;
+    --t-ceremony: 2400ms;
+
+    --e-gain: cubic-bezier(.2, 1.4, .4, 1);
+    --e-move: cubic-bezier(.2, 1, .3, 1);
+    --e-loss: cubic-bezier(.4, 0, 1, 1);
+}
+
+/* ---------- depth ---------- */
+
+:root {
+    --z-grid: 1;
+    --z-rail: 50;
+    --z-focus: 60;
+    --z-overlay: 100;
+    --z-toast: 200;
+}
+
+/* ---------- layout ---------- */
+
+:root {
+    --rail: 60px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Rail moves to the bottom edge on narrow viewports and stops reserving
+   horizontal space. Kept with the layout tokens so the two facts — how wide
+   the rail is, and when it stops being a side rail — live together. */
+@media (max-width: 720px) {
+    :root {
+        --rail: 0px;
+        --rail-bottom: 58px;
+    }
+}
+
+/* ---------- reduced motion ---------- */
+/* Collapsed at the token layer rather than per-component, so anything reading
+   a duration token is covered without having to remember the media query.
+   Not 0ms: transitionend / animationend listeners never fire on a genuinely
+   zero-length transition in some engines, which strands any code that waits
+   for one. 1ms is imperceptible and still fires. */
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --t-micro: 1ms;
+        --t-move: 1ms;
+        --t-moment: 1ms;
+        --t-ceremony: 1ms;
+
+        --e-gain: linear;
+        --e-move: linear;
+        --e-loss: linear;
+    }
+}

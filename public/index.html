@@ -10,9 +10,59 @@
     <meta name="description" content="Too Many Coins - A deterministic economic competition game. Earn coins, buy stars, collect sigils, activate boosts, and compete for the top.">
     <title>Too Many Coins</title>
     <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="css/style.css?v=20260728b-families">
+    <link rel="stylesheet" href="css/style.css?v=20260728b-families" id="legacy-styles">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+    /*
+     * Client selector.
+     *
+     * ?ui=next   loads the rebuilt client
+     * ?ui=legacy returns to this one
+     *
+     * The choice sticks in localStorage because the client rewrites the URL
+     * through the history API as you navigate, which would drop the query
+     * string and silently drop you back to legacy mid-session.
+     *
+     * Runs in <head> and synchronously, so the stylesheet swap happens before
+     * first paint rather than as a flash. When the flag is absent this whole
+     * block does nothing and the page loads exactly as it always has.
+     */
+    (function () {
+        var KEY = 'tmc_ui';
+        var mode = 'legacy';
+
+        try {
+            var requested = new URLSearchParams(location.search).get('ui');
+            if (requested === 'next' || requested === 'legacy') {
+                localStorage.setItem(KEY, requested);
+                mode = requested;
+            } else if (localStorage.getItem(KEY) === 'next') {
+                mode = 'next';
+            }
+        } catch (e) {
+            // Private mode, or no URLSearchParams. Fall back to the URL alone,
+            // which costs stickiness but still lets the flag work.
+            var match = location.search.match(/[?&]ui=(next|legacy)(?:&|$)/);
+            if (match) mode = match[1];
+        }
+
+        window.__TMC_UI__ = mode;
+        if (mode !== 'next') return;
+
+        var legacyStyles = document.getElementById('legacy-styles');
+        if (legacyStyles && legacyStyles.parentNode) {
+            legacyStyles.parentNode.removeChild(legacyStyles);
+        }
+
+        ['css/tokens.css', 'css/next.css'].forEach(function (href) {
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href + '?v=next1';
+            document.head.appendChild(link);
+        });
+    })();
+    </script>
 </head>
 <body>
     <div id="app">
@@ -354,6 +404,23 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=20260405h"></script>
+    <script>
+    /*
+     * Load exactly one client. The legacy path is unchanged: same src, same
+     * cache-busting query, same self-boot on DOMContentLoaded. The markup
+     * above is left in place for it; the next client clears #app and mounts
+     * its own shell.
+     */
+    (function () {
+        var script = document.createElement('script');
+        if (window.__TMC_UI__ === 'next') {
+            script.type = 'module';
+            script.src = 'js/main.js?v=next1';
+        } else {
+            script.src = 'js/app.js?v=20260405h';
+        }
+        document.body.appendChild(script);
+    })();
+    </script>
 </body>
 </html>
