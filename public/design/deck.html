@@ -702,14 +702,15 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
       <div class="ch"><h2><svg class="i"><use href="#i-forge"/></svg>Sigils</h2></div>
       <div class="tiers" id="tiers"></div>
       <div class="meter">
-        <div class="mh"><span>Pity</span><span id="pityTxt">418 / 2,000 ticks</span></div>
-        <div class="mt"><div class="mf" id="pityFill" style="width:21%"></div></div>
+        <div class="mh"><span>Inventory pressure</span><span id="pityTxt">14 / 25 held &middot; &times;0.73</span></div>
+        <div class="mt"><div class="mf" id="pityFill" style="width:73%"></div></div>
       </div>
       <div class="meter">
-        <div class="mh"><span>Drop throttle</span><span id="thrTxt">3 / 8 this window</span></div>
-        <div class="mt"><div class="mf" id="thrFill" style="width:37%"></div></div>
+        <div class="mh"><span>Boost pressure</span><span id="thrTxt">+20% boost &middot; &times;0.80</span></div>
+        <div class="mt"><div class="mf" id="thrFill" style="width:80%"></div></div>
       </div>
-      <p class="compo-note" style="margin-top:var(--s3)">Odds, pity distance and throttle all ship in <code>season.sigil_drop_rates</code> today and are never shown.</p>
+      <p class="compo-note" style="margin-top:var(--s3)">Per-tier odds ship in <code>season.sigil_drop_rates</code> today and are never shown. The two meters are the live multipliers on your gate chance: holdings past 10 damp it toward zero at 25, and an active boost cuts it as low as &times;0.10.</p>
+      <p class="compo-note">These replace a pity bar and a drop-throttle bar. Both read well &mdash; and both would have been fiction: <code>SIGIL_PITY_TICKS</code> is only read for a Sight reveal, <code>eligible_ticks_since_last_drop</code> is never incremented, and <code>SIGIL_MAX_DROPS_WINDOW</code> is referenced nowhere. A cell must instrument the mechanic that exists.</p>
     </section>
 
     <!-- ===== 6 · RIVALS ===== -->
@@ -735,7 +736,7 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
       </div>
       <p class="fam-note">A sigil never just glows — it performs its verb, each on its own cadence so the row never marches in step. Picking an affinity is a real choice, not a <code>prompt()</code>.</p>
       <div class="fam-off">
-        Gated on <code>TMC_SIGIL_FAMILIES_ENABLED</code>, which defaults to <code>0</code> and is not set in <code>docker-compose.yml</code> — this cell renders only where the flag is on.
+        Gated on <code>TMC_SIGIL_FAMILIES_ENABLED</code> plus at least one enabled family row. Both halves were off — the flag defaults to <code>0</code> and the P1 migration seeded every row <code>enabled = 0</code> — so this cell rendered nowhere. Both are now switched on.
       </div>
     </section>
 
@@ -873,7 +874,7 @@ var S = {
   coins: 128400, stars: 612, sigils: 14,
   grossRate: 61.0, sinkRate: 6.8,
   price: 312, priceHist: [],
-  pity: 418, pityMax: 2000, throttle: 3, throttleMax: 8,
+  invSoft: 10, invCap: 25, boostPct: 20,
   frozen: false,
   rivals: [
     { h: 'Skreen32',   pts: 742, rate: 58.1, me: false },
@@ -1023,14 +1024,24 @@ function renderCompo() {
   document.getElementById('segBoost').style.width = (boost / total * 100) + '%';
   document.getElementById('segSink').style.width  = (sink / total * 100) + '%';
 }
+// Both meters mirror the multipliers Economy::sigilEffectiveDropChanceFp
+// actually applies to the gate chance. Nothing here is invented.
 function renderMeters() {
-  document.getElementById('pityFill').style.width = (S.pity / S.pityMax * 100) + '%';
-  document.getElementById('pityTxt').textContent = fmt(S.pity) + ' / ' + fmt(S.pityMax) + ' ticks';
-  var tp = S.throttle / S.throttleMax;
-  var tf = document.getElementById('thrFill');
-  tf.style.width = (tp * 100) + '%';
-  tf.classList.toggle('warn', tp > 0.75);
-  document.getElementById('thrTxt').textContent = S.throttle + ' / ' + S.throttleMax + ' this window';
+  // sigilInventoryDropPressureFp: 1.0 at or below 10 held, ramping linearly to
+  // 0 at the 25 cap.  (25 - held) / 15
+  var held = S.sigils;
+  var invMul = held <= S.invSoft ? 1 : Math.max(0, (S.invCap - held) / (S.invCap - S.invSoft));
+  document.getElementById('pityFill').style.width = (invMul * 100) + '%';
+  document.getElementById('pityTxt').textContent =
+    held + ' / ' + S.invCap + ' held · ×' + invMul.toFixed(2);
+
+  // sigilBoostDropPressureFp: 1 - 0.1 * ceil(boostPct / 10), floored at 0.10.
+  var boostMul = Math.max(0.10, 1 - 0.1 * Math.ceil(S.boostPct / 10));
+  var bf = document.getElementById('thrFill');
+  bf.style.width = (boostMul * 100) + '%';
+  bf.classList.toggle('warn', boostMul <= 0.5);
+  document.getElementById('thrTxt').textContent =
+    '+' + S.boostPct + '% boost · ×' + boostMul.toFixed(2);
 }
 function renderFeed() {
   var evs = [
@@ -1113,7 +1124,6 @@ function onTick() {
   dEl.textContent = (dp > 0.05 ? '▲ ' : dp < -0.05 ? '▼ ' : '● ') + Math.abs(dp).toFixed(1) + '%';
   renderSpark();
 
-  S.pity += 1; if (S.pity > S.pityMax) { S.pity = 0; }
   renderMeters();
 }
 setInterval(onTick, S.tickSeconds * 1000);

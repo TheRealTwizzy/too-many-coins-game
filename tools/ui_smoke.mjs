@@ -78,8 +78,21 @@ for (const bp of BREAKPOINTS) {
   });
 
   await page.goto(url, { waitUntil: 'load' });
-  // let the entrance stagger and one tick land
-  await page.waitForTimeout(1400);
+
+  // Sit through at least one full tick.
+  //
+  // The comment here used to claim 1400ms let "one tick land", but the deck runs
+  // on a 5s cadence, so no tick ever fired during a run. Anything that only goes
+  // wrong on tick - which is most of a live game surface - was invisible to this
+  // gate. The cadence is read off the page rather than hardcoded so the two
+  // cannot drift.
+  const cadenceMs = await page.evaluate(() => {
+    const txt = document.getElementById('cadence')?.textContent || '';
+    const m = txt.match(/(\d+(?:\.\d+)?)\s*s/i);
+    return m ? Math.round(parseFloat(m[1]) * 1000) : 5000;
+  });
+  // entrance stagger, then a full tick, then a beat for the render it triggers
+  await page.waitForTimeout(1400 + cadenceMs + 600);
 
   // --- structural assertions -------------------------------------------
   const cells = await page.locator('.cell:not([hidden])').count();
@@ -91,6 +104,33 @@ for (const bp of BREAKPOINTS) {
   );
   if (overflow > 1) {
     record('layout', bp.name, `page scrolls horizontally by ${overflow}px`);
+  }
+
+  // Garbage rendered as text. A stale state field silently produces "NaN" or
+  // "undefined" in the UI without ever throwing, so the console-error gate
+  // above sees nothing. This is a visual bug the user would hit immediately.
+  const garbage = await page.evaluate(() => {
+    const bad = /(^|[\s>(·×/])(NaN|undefined|null|\[object Object\])([\s<),.·×/]|$)/;
+    const hits = [];
+    document.querySelectorAll('body *').forEach((el) => {
+      // Script and style bodies are source, not rendered text - they legitimately
+      // contain the words this check looks for.
+      const tag = el.tagName;
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEMPLATE' || tag === 'NOSCRIPT') return;
+      if (el.closest('script, style, template, noscript')) return;
+      // own text only, so a parent does not re-report a child's text
+      for (const node of el.childNodes) {
+        if (node.nodeType !== Node.TEXT_NODE) continue;
+        const t = node.textContent.trim();
+        if (t && bad.test(t)) {
+          hits.push(`<${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}> "${t.slice(0, 60)}"`);
+        }
+      }
+    });
+    return hits;
+  });
+  for (const hit of garbage) {
+    record('render', bp.name, `garbage in rendered text: ${hit}`);
   }
 
   // duplicate ids break querySelector-based wiring silently
