@@ -324,13 +324,42 @@ define('SIGIL_COMBINE_RECIPES', [
 ]);
 
 // Canonical star valuation used for lock-in calculations.
+// Lock-in refund value per sigil. Deliberately BELOW the tactical utility value
+// in SIGIL_UTILITY_VALUE_BY_TIER, so spending a sigil beats settling it.
+//
+// T6 already worked this way (12000 refund against 18000 utility, ~2/3). T1-T5
+// did not: their refund and utility values were identical, and since settling
+// is certain while spending carries risk, hoarding weakly dominated every
+// tactical play at every tier except the rarest. The verbs existed and the
+// optimal line was to never use them.
+//
+// The ratio is applied UNIFORMLY across all six tiers, at the same ~2/3 T6
+// already used. Taxing only the tactical tiers looked reasonable and was wrong:
+// it put a cliff at the T2->T3 boundary, where five T2s settled for 1250 while
+// the T3 they combine into settled for 650. Combining across that step lost 48%
+// of settle value against 20% of utility value, so the forge was penalised
+// exactly at the tiers a new player is holding.
+//
+// A uniform ratio makes the settle ladder a scaled copy of the utility ladder:
+// the spend-or-settle decision is identical at every tier, and combining costs
+// the same proportion of value whichever price you measure it at.
+//
+// It also holds up if the family system is switched on. Under families, Yield,
+// Time, Market and Sight all spend from T1 upward, so "nothing spends the low
+// tiers" - the reasoning for leaving them untaxed - stops being true.
+//
+// T2 is 165 rather than a rounded 167 so that five T1s settle for exactly one
+// T2, mirroring the utility ladder where 5 x 50 = 250 exactly. Rounding each
+// tier independently broke that by two stars, which is invisible until it
+// isn't: the starter grant is five T1s, and its lock-in offset only cancels
+// cleanly if combining those five into a T2 leaves the settle value unchanged.
 define('SIGIL_REFERENCE_STARS_BY_TIER', [
-    1 => 50,
-    2 => 250,
-    3 => 1000,
-    4 => 3000,
-    5 => 9000,
-    6 => 12000,   // was 0 — the rarest sigil settled for nothing
+    1 => 33,      // 2/3 of 50 utility
+    2 => 165,     // 5 x T1 exactly, not the rounded 167 — see below
+    3 => 667,     // 2/3 of 1000
+    4 => 2000,    // 2/3 of 3000
+    5 => 6000,    // 2/3 of 9000
+    6 => 12000,   // 2/3 of 18000 — was 0, the rarest sigil settled for nothing
 ]);
 
 // Starter grant: what a first-time player is handed on their first ever join.
@@ -388,7 +417,24 @@ define('SIGIL_MELT_REDUCTION_TICKS_BY_TIER', [
 
 // Sigil theft tuning.
 define('SIGIL_THEFT_SUCCESS_CAP_FP', 600000); // 60% hard cap
-define('SIGIL_THEFT_VALUE_PRESSURE_MULTIPLIER', 3);
+
+// How steeply the odds fall as the loot outgrows the stake.
+//
+// Success is spend / (spend + M * requested). The spend is consumed whether the
+// attempt lands or not, so a theft can never pay for itself in isolation - it
+// is a cost paid to cost someone else more. What matters is the net swing:
+//
+//     swing = 2 * p * requested - spend        (my gain + their loss - my cost)
+//
+// which is positive only when requested * (2 - M) > spend. At M = 3 that has no
+// solution at any pair of tiers, which is why theft went unused: it was not
+// mistuned, it was arithmetically dead.
+//
+// At M = 1 the shape is right. Punching up pays (a T3 thrown at a T5 costs you
+// 100 and costs them 900), same-tier is exactly neutral, and punching down
+// stays negative - so theft is a catch-up tool aimed at whoever is ahead rather
+// than a way to grind down players already behind you.
+define('SIGIL_THEFT_VALUE_PRESSURE_MULTIPLIER', 1);
 define('SIGIL_THEFT_COOLDOWN_TICKS', ABILITY_UNIT_DURATION_TICKS);
 define('SIGIL_THEFT_PROTECTION_TICKS', ABILITY_UNIT_DURATION_TICKS);
 

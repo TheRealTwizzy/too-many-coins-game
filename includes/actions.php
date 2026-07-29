@@ -785,9 +785,19 @@ class Actions {
 
         $spendValue = self::calculateSigilVectorValue($spentSigils, SIGIL_UTILITY_VALUE_BY_TIER);
         $requestedValue = self::calculateSigilVectorValue($requestedSigils, SIGIL_UTILITY_VALUE_BY_TIER);
-        if ($requestedValue > $spendValue) {
-            return ['error' => 'Requested loot value exceeds your theft spend value'];
-        }
+
+        // Requesting more value than you stake used to be rejected here. That
+        // ceiling, combined with the spend being consumed on a miss and the 60%
+        // success cap, made theft mathematically incapable of being worth doing:
+        // EV = p*requested - spend, and with requested <= spend and p <= 0.6 the
+        // best case still lost 40% of the stake. Every legal play was negative,
+        // so the mechanic was dead content.
+        //
+        // Punching up is now the point. The odds fall away steeply with the gap
+        // (see calculateTheftSuccessChanceFp), the target must actually hold
+        // what is being asked for, and stakes are gated to T3-T5 - so this is a
+        // priced gamble against someone ahead of you, not a way to farm players
+        // below you, which stays negative on every measure.
 
         $nowTick = GameTime::now();
         $seasonTick = GameTime::seasonTick((int)$season['start_time'], $nowTick);
