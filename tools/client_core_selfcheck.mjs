@@ -62,7 +62,7 @@ async function loadCore() {
     }
 
     await mkdir(join(dir, 'screens'), { recursive: true });
-    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'index'];
+    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'index'];
     const screens = {};
     for (const name of screenNames) {
         await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
@@ -865,7 +865,7 @@ function checkScreens(screens, { h, render }) {
         }],
     ];
 
-    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop']) {
+    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth']) {
         const screen = screens[name].default;
         let failedAt = null;
         for (const [label, overrides] of cases) {
@@ -902,6 +902,44 @@ function checkScreens(screens, { h, render }) {
         ok('season is registered but deliberately off the rail',
             Boolean(screens.index.getScreen('season')) && !screens.index.RAIL_IDS.includes('season'));
         ok('season lights up Seasons on the rail', screens.index.RAIL_PARENT.season === 'seasons');
+    }
+
+    // The auth forms are uncontrolled on purpose: the DOM owns the values and
+    // they are read on submit. The property worth locking in is that no input
+    // carries a `value` prop — the moment one does, the field is mirrored into
+    // application state, and for the password fields that means a password
+    // sitting in the store where a debug dump or an error report can reach it.
+    {
+        const findInputs = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => findInputs(n, out)); return out; }
+            if (node.tag === 'input') out.push(node);
+            (node.children || []).forEach(c => findInputs(c, out));
+            return out;
+        };
+
+        const auth = screens.auth.default;
+
+        for (const tab of ['login', 'register']) {
+            const tree = auth.view(stubCtx({ ui: { authTab: tab } }));
+            const inputs = findInputs(tree);
+            const withValue = inputs.filter(i => i.props && 'value' in i.props);
+            ok(`${tab} form has inputs and none of them are value-bound`,
+                inputs.length > 0 && withValue.length === 0,
+                { inputs: inputs.length, valueBound: withValue.length });
+            ok(`${tab} form keys every input so the poll cannot rebuild them`,
+                inputs.every(i => i.key !== null), inputs.map(i => i.key));
+        }
+
+        const pwd = findInputs(auth.view(stubCtx({ ui: { authTab: 'register' } })))
+            .find(i => i.props && i.props.type === 'password');
+        ok('the password field exists and is typed as a password',
+            Boolean(pwd) && pwd.props.autocomplete === 'new-password', pwd && pwd.props);
+
+        // Signed in, the screen must not offer a login form again.
+        const signedIn = auth.view(stubCtx({ player: PLAYER }));
+        ok('auth shows a signed-in state rather than a form when logged in',
+            findInputs(signedIn).length === 0);
     }
 
     // game_state carries the player and seasons but not the chat transcript, so
