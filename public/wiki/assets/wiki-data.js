@@ -351,7 +351,7 @@ The inventory cap of 25 makes combining a maintenance task, not an optional one.
         number: 3,
         title: "The Six Families",
         icon: "Gem",
-        description: "Yield, Time, Ward, Larceny, Market and Sight - and what an affinity commits you to.",
+        description: "Goliath, Anak, Michael, Valefor, Mammon and Azazel - and what an affinity commits you to.",
         seeAlso: ["theft", "ward", "sigil-tiers"],
         sections: [
           {
@@ -361,14 +361,16 @@ The inventory cap of 25 makes combining a maintenance task, not an optional one.
 
 | Family | Verb | Effect |
 |---|---|---|
-| Yield | rises | Increases income |
-| Time | sweeps | Shortens cooldowns |
-| Ward | shields | Blocks incoming hostile actions |
-| Larceny | snatches | Enables stealing from other players |
-| Market | exchanges | Shifts purchase pricing in your favour |
-| Sight | reveals | Reveals information about other players |
+| Goliath | rises | Increases income |
+| Anak | sweeps | Shortens cooldowns |
+| Michael | shields | Blocks incoming hostile actions |
+| Valefor | snatches | Enables stealing from other players |
+| Mammon | exchanges | Shifts purchase pricing in your favour |
+| Azazel | reveals | Reveals information about other players |
 
-Sight is deliberately not counted toward the subsystem's activation requirement - a roster of nothing but Sight would have nothing to reveal about.`
+A seventh, **Legion**, belongs to no verb of its own: it substitutes for whichever family a spend requires.
+
+Azazel is deliberately not counted toward the subsystem's activation requirement - a roster of nothing but Sight would have nothing to reveal about.`
           },
           {
             id: "affinity",

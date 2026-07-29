@@ -3,8 +3,12 @@
  * Too Many Coins - Sigil Families (Sigil Systems Spec §2-§10)
  *
  * A sigil is family x tier: the tier is magnitude (existing ladder), the
- * family is the verb. Six families: Yield, Time, Ward, Larceny, Market,
- * Sight (+ the Wildcard pseudo-family produced by Transmute).
+ * family is the verb. Six families - Goliath, Anak, Michael, Valefor, Mammon
+ * and Azazel - plus Legion, the pseudo-family produced by Transmute that
+ * substitutes for any of them.
+ *
+ * Those are display names; the CODES below (yield, time, ward, larceny,
+ * market, sight, wild) are the API contract and are what the client sends.
  *
  * Rule 2 (one faucet): families change WHICH sigil drops, never HOW MANY.
  * The family roll happens strictly after the existing gate + tier roll and
@@ -42,14 +46,30 @@ class SigilFamilies {
         self::WILD_ID => 'wild',
     ];
 
+    /**
+     * Display names. The CODES above are the API contract - pickAffinity and
+     * transmuteSigils take them from the client - so they stay as they are.
+     * These are the player-facing layer and are free to change.
+     *
+     * Named for Nephilim, archangels and demons, matched to what each family
+     * actually does rather than assigned at random:
+     *
+     *   Goliath   the Nephilim giant - raw power, and Yield amplifies income
+     *   Anak      progenitor of the long-lived Anakim - Time extends duration
+     *   Michael   the warrior archangel - Ward is the only defensive family
+     *   Valefor   the demon who tempts to theft, patron of thieves - Larceny
+     *   Mammon    wealth and commerce personified - Market discounts purchases
+     *   Azazel    the Watcher who taught forbidden knowledge - Sight reveals
+     *   Legion    "for we are many" - Wildcard stands in for any other family
+     */
     const NAMES = [
-        self::YIELD_ID => 'Yield',
-        self::TIME_ID => 'Time',
-        self::WARD_ID => 'Ward',
-        self::LARCENY_ID => 'Larceny',
-        self::MARKET_ID => 'Market',
-        self::SIGHT_ID => 'Sight',
-        self::WILD_ID => 'Wildcard',
+        self::YIELD_ID => 'Goliath',
+        self::TIME_ID => 'Anak',
+        self::WARD_ID => 'Michael',
+        self::LARCENY_ID => 'Valefor',
+        self::MARKET_ID => 'Mammon',
+        self::SIGHT_ID => 'Azazel',
+        self::WILD_ID => 'Legion',
     ];
 
     /** @var array|null request-scope cache: [family_id => row] or null before load */
