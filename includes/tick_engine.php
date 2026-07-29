@@ -289,7 +289,11 @@ class TickEngine {
                 // hoarding_sink_total and season-supply accounting.
                 $rates = Economy::calculateRateBreakdown($season, $p, $p, $boostModFp, $isFrozen, false, $seasonPhase);
                 $netRateFp   = (int)$rates['net_rate_fp'];
-                $sinkPerTick = (int)$rates['sink_per_tick'];
+                // Fixed point, not the whole-coin display value: at production
+                // cadence the real sink is a fraction of a coin per tick, so the
+                // integer view rounds most of it away and hoarding_sink_total
+                // would under-report (usually to zero).
+                $sinkRateFp  = (int)($rates['sink_rate_fp'] ?? 0);
 
                 // Carry accumulates against effective net rate; when net is 0, carry does not increase (existing fractional carry, if any, is preserved).
                 $carryFp = max(0, (int)($p['coins_fractional_fp'] ?? 0));
@@ -300,7 +304,7 @@ class TickEngine {
                 // directly debited from the player's balance in this block. Cap it to the amount
                 // the player could have actually lost this tick so reported sink never exceeds
                 // the maximum burnable balance.
-                $totalSink = max(0, $sinkPerTick * $ticksToProcess);
+                $totalSink = max(0, intdiv($sinkRateFp * $ticksToProcess, FP_SCALE));
                 $maxBurnable = max(0, ((int)($p['coins'] ?? 0)) + $netCoins);
                 $totalSink = min($totalSink, $maxBurnable);
 

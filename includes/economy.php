@@ -713,7 +713,28 @@ class Economy {
     /**
      * Calculate explicit hoarding sink in whole coins per tick.
      */
-    public static function calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRatePerTickFp, $seasonPhase = null) {
+    /**
+     * Hoarding sink, in FIXED POINT coins per tick.
+     *
+     * This used to return whole coins per tick, which made the mechanic
+     * unusable at production cadence. At 5s/tick a 30 coins/min player grosses
+     * 2.5 coins/tick, so:
+     *   - the smallest expressible sink was 1 coin/tick = 40% of gross. The
+     *     mechanic could only be off or brutal, with nothing in between.
+     *   - the cap itself floored to zero: intdiv(2_500_000 * 350_000, 1e12) = 0,
+     *     so even a correctly configured sink was clamped to nothing.
+     * Both are why enabling the flag alone would have done nothing visible.
+     *
+     * Fixed point lets the sink express fractions of a coin per tick, and the
+     * caller already accumulates the fractional remainder against net rate via
+     * coins_fractional_fp, so no precision is lost.
+     *
+     * Note the sink reduces INCOME rather than debiting the balance directly
+     * (see calculateRateBreakdown and the tick engine), so a hoarder's stack
+     * never shrinks - it just stops growing as fast. That is deliberate: losing
+     * banked coins outright reads as punishment, losing rate reads as pressure.
+     */
+    public static function calculateHoardingSinkFpPerTick($season, $player, $participation, $grossRatePerTickFp, $seasonPhase = null) {
         if (!self::hoardingSinkEnabled($season)) return 0;
         if (!$participation) return 0;
         if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) return 0;
@@ -734,8 +755,10 @@ class Economy {
         $ticksPerHour = self::ticksPerRealHour();
         $safeHours = max(0, (int)($season['hoarding_safe_hours'] ?? 12));
         $safeMinCoins = max(0, (int)($season['hoarding_safe_min_coins'] ?? 20000));
-        $grossCoinsPerTick = max(0, intdiv(max(0, (int)$grossRatePerTickFp), FP_SCALE));
-        $dynamicSafeCoins = $safeHours * $grossCoinsPerTick * $ticksPerHour;
+        // Computed in fixed point. Truncating the per-tick rate to whole coins
+        // first (2.5 -> 2 at 5s cadence) silently shrank the buffer by ~20%, so
+        // "12 safe hours" was really closer to 9.6.
+        $dynamicSafeCoins = intdiv($safeHours * max(0, (int)$grossRatePerTickFp) * $ticksPerHour, FP_SCALE);
         $safeBufferCoins = max($safeMinCoins, $dynamicSafeCoins);
 
         $excess = max(0, $coinsHeld - $safeBufferCoins);
@@ -752,32 +775,40 @@ class Economy {
         $tier2Excess = ($tier2Cap > 0) ? min($remaining, $tier2Cap) : 0;
         $tier3Excess = max(0, $remaining - $tier2Excess);
 
-        $denominator = FP_SCALE * $ticksPerHour;
-        $sinkPerTick = 0;
+        // Per-hour drain of `excess` at rateFp, expressed per tick in fixed point:
+        //   coins/hour   = excess * rateFp / FP_SCALE
+        //   coins/tick   = that / ticksPerHour
+        //   in fixed pt  = excess * rateFp / ticksPerHour
+        $sinkFp = 0;
         if ($tier1Excess > 0 && $tier1RateFp > 0) {
-            $sinkPerTick += intdiv($tier1Excess * $tier1RateFp, $denominator);
+            $sinkFp += intdiv($tier1Excess * $tier1RateFp, $ticksPerHour);
         }
         if ($tier2Excess > 0 && $tier2RateFp > 0) {
-            $sinkPerTick += intdiv($tier2Excess * $tier2RateFp, $denominator);
+            $sinkFp += intdiv($tier2Excess * $tier2RateFp, $ticksPerHour);
         }
         if ($tier3Excess > 0 && $tier3RateFp > 0) {
-            $sinkPerTick += intdiv($tier3Excess * $tier3RateFp, $denominator);
+            $sinkFp += intdiv($tier3Excess * $tier3RateFp, $ticksPerHour);
         }
 
-        if ($sinkPerTick <= 0) return 0;
+        if ($sinkFp <= 0) return 0;
 
         if ($presenceState !== 'Active') {
             $idleMultFp = max(0, (int)($season['hoarding_idle_multiplier_fp'] ?? FP_SCALE));
-            $sinkPerTick = intdiv($sinkPerTick * $idleMultFp, FP_SCALE);
+            $sinkFp = intdiv($sinkFp * $idleMultFp, FP_SCALE);
         }
 
-        $capRatioFp = max(0, (int)($season['hoarding_sink_cap_ratio_fp'] ?? 350000));
+        // Hard ceiling as a share of gross, so the sink can slow income but can
+        // never reverse it. Both operands are already fixed point, so this is a
+        // single FP_SCALE division - the old form divided by FP_SCALE twice and
+        // floored the ceiling to zero at any realistic rate.
+        $capRatioFp = max(0, (int)($season['hoarding_sink_cap_ratio_fp'] ?? 300000));
         if ($capRatioFp > 0) {
-            $capCoinsPerTick = intdiv(max(0, (int)$grossRatePerTickFp) * $capRatioFp, FP_SCALE * FP_SCALE);
-            $sinkPerTick = min($sinkPerTick, $capCoinsPerTick);
+            $capFp = intdiv(max(0, (int)$grossRatePerTickFp) * $capRatioFp, FP_SCALE);
+            $sinkFp = min($sinkFp, $capFp);
         }
 
-        return max(0, min((int)$sinkPerTick, $coinsHeld));
+        // Never claim more than the player actually holds.
+        return max(0, min((int)$sinkFp, self::toFixedPoint($coinsHeld)));
     }
 
     /**
@@ -787,6 +818,7 @@ class Economy {
         if ($isFrozen) {
             return [
                 'gross_rate_fp' => 0,
+                'sink_rate_fp' => 0,
                 'sink_per_tick' => 0,
                 'net_rate_fp' => 0,
             ];
@@ -795,18 +827,24 @@ class Economy {
         if (self::isBlackoutSettlementPhase($season, $player['current_game_time'] ?? null)) {
             return [
                 'gross_rate_fp' => 0,
+                'sink_rate_fp' => 0,
                 'sink_per_tick' => 0,
                 'net_rate_fp' => 0,
             ];
         }
 
         $grossRateFp = self::calculateGrossRatePerTickFp($season, $player, $participation, $boostModFp, $isLockInTick);
-        $sinkPerTick = self::calculateHoardingSinkCoinsPerTick($season, $player, $participation, $grossRateFp, $seasonPhase);
-        $netRateFp = max(0, $grossRateFp - self::toFixedPoint($sinkPerTick));
+        $sinkRateFp = self::calculateHoardingSinkFpPerTick($season, $player, $participation, $grossRateFp, $seasonPhase);
+        $netRateFp = max(0, $grossRateFp - $sinkRateFp);
 
         return [
             'gross_rate_fp' => $grossRateFp,
-            'sink_per_tick' => $sinkPerTick,
+            // Authoritative value. Callers doing arithmetic must use this.
+            'sink_rate_fp' => $sinkRateFp,
+            // Retained for display and for accounting totals. Whole coins per
+            // tick is far coarser than the real sink at production cadence, so
+            // it is a lossy view - never compute with it.
+            'sink_per_tick' => intdiv($sinkRateFp, FP_SCALE),
             'net_rate_fp' => $netRateFp,
         ];
     }

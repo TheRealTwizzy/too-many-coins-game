@@ -1089,16 +1089,21 @@ function calculatePlayerRatePerTick($season, $player, $participation, $activeBoo
     $rates = Economy::calculateRateBreakdown($seasonForRates, $playerForRates, $participation, $totalModFp, false);
 
     $grossRate = round(((int)$rates['gross_rate_fp']) / FP_SCALE, 2);
-    $sinkPerTick = max(0, (int)$rates['sink_per_tick']);
+    // Report the sink at the same precision as gross and net. The real sink is
+    // a fraction of a coin per tick at production cadence, so the whole-coin
+    // view rounded it to 0 - which also meant hoarding_sink_active was always
+    // false and the client could never show the sink as engaged.
+    $sinkRateFp = max(0, (int)($rates['sink_rate_fp'] ?? 0));
+    $sinkRate = round($sinkRateFp / FP_SCALE, 2);
     $netRate = round(((int)$rates['net_rate_fp']) / FP_SCALE, 2);
 
     return [
         // Preserve legacy key as player-facing gross rate.
         'rate_per_tick' => max(0, $grossRate),
         'gross_rate_per_tick' => max(0, $grossRate),
-        'hoarding_sink_per_tick' => $sinkPerTick,
+        'hoarding_sink_per_tick' => max(0, $sinkRate),
         'net_rate_per_tick' => max(0, $netRate),
-        'hoarding_sink_active' => Economy::hoardingSinkEnabled($season) && $sinkPerTick > 0,
+        'hoarding_sink_active' => Economy::hoardingSinkEnabled($season) && $sinkRateFp > 0,
     ];
 }
 
@@ -1240,7 +1245,7 @@ function getGameState($player) {
                 'theft' => $theftStatus,
                 'rate_per_tick' => (float)$rateMetrics['rate_per_tick'],
                 'gross_rate_per_tick' => (float)$rateMetrics['gross_rate_per_tick'],
-                'hoarding_sink_per_tick' => (int)$rateMetrics['hoarding_sink_per_tick'],
+                'hoarding_sink_per_tick' => (float)$rateMetrics['hoarding_sink_per_tick'],
                 'net_rate_per_tick' => (float)$rateMetrics['net_rate_per_tick'],
                 'hoarding_sink_active' => (bool)$rateMetrics['hoarding_sink_active'],
             ] : null,
