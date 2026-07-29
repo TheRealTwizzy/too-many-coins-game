@@ -144,7 +144,22 @@ svg.i{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.6;
   padding:var(--s4);position:relative;overflow:hidden;
   transition:border-color var(--t-move),box-shadow var(--t-move),
              transform var(--t-move) var(--e-move),opacity var(--t-move);
+  /* A grid item stretches to its row's height, but its CONTENT does not - so a
+     short cell beside a tall one used to pile everything at the top and leave a
+     200-300px void underneath. Laying each cell out as a column lets one
+     designated element absorb the slack instead. */
+  display:flex;flex-direction:column;
 }
+/* The element that grows is the cell's instrument - the chart, the falling
+   field, the standings. Growing a chart is informative; growing a paragraph is
+   not, which is why this is opt-in per cell rather than "last child fills". */
+.c-star .spark,.c-drip .drip,.c-rivals .lb,.c-ranks .lb{flex:1 1 auto;min-height:0}
+.c-hud .hud{flex:1 1 auto;display:flex;align-items:center}
+.c-hud .compo{margin-top:var(--s3)}
+.c-forge .meter:last-of-type{margin-top:auto}
+.c-vault .vault{flex:1 1 auto;display:flex;align-items:center}
+/* Anything pinned to the bottom edge of its cell. */
+.cell .to-foot{margin-top:auto}
 /* top inner highlight = material, not a flat rectangle */
 .cell::before{
   content:"";position:absolute;inset:0 0 auto;height:1px;
@@ -165,6 +180,12 @@ html[data-motion="on"] .cell.in{opacity:1;transform:none}
 .c-fam{grid-column:span 8}
 .c-vault{grid-column:span 4}
 .c-ticker{grid-column:span 12}
+/* The marquee sliced words in half at both edges, which reads as a rendering
+   bug rather than as motion. Fade the ends instead of cutting them. */
+.c-ticker .rail-tick{
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 48px,#000 calc(100% - 48px),transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 48px,#000 calc(100% - 48px),transparent 100%);
+}
 .c-identity{grid-column:span 5}
 .c-seasons{grid-column:span 7}
 .c-ranks{grid-column:span 12}
@@ -179,15 +200,31 @@ html[data-context="blackout"] .c-star{grid-column:span 4}
 html[data-context="blackout"] .c-rivals{grid-column:span 4}
 html[data-context="blackout"] .c-vault{grid-column:span 4}
 
-/* focus mode: the clicked module takes the deck, others compress */
-#grid.focused .cell:not(.is-focused){opacity:.32;filter:saturate(.5)}
-#grid.focused .cell.is-focused{
-  grid-column:span 12;grid-row:span 2;
-  border-color:color-mix(in srgb,var(--coin) 45%,var(--line));
-  box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 0 1px color-mix(in srgb,var(--coin) 22%,transparent);
+/* Tooltips. Replaces click-to-focus: the detail arrives next to what you asked
+   about and nothing else on the deck moves. Fixed to the layer above the grid
+   so it is never clipped by a cell's overflow. */
+.tip{
+  position:absolute;z-index:60;max-width:290px;
+  padding:10px 12px;border-radius:var(--r1);
+  background:color-mix(in srgb,var(--surface-2) 94%,black);
+  border:1px solid color-mix(in srgb,var(--coin) 30%,var(--line));
+  box-shadow:0 14px 38px rgba(0,0,0,.55);
+  color:var(--ink-2);font-size:12px;line-height:1.5;
+  opacity:0;transform:translateY(3px);pointer-events:none;
+  transition:opacity .13s ease,transform .13s ease;
 }
-.cell .focus-only{display:none}
-.cell.is-focused .focus-only{display:block}
+.tip.on{opacity:1;transform:none}
+.tip b{display:block;color:var(--ink);font-size:11px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
+.tip .row{display:flex;justify-content:space-between;gap:14px}
+.tip .row span:last-child{color:var(--ink);font-variant-numeric:tabular-nums}
+.tip .rule{height:1px;background:var(--line);margin:6px 0}
+.tip em{font-style:normal;color:var(--ink-3)}
+html[data-motion="off"] .tip{transition:none}
+/* The affordance: anything explainable is marked, so the tooltips are
+   discoverable instead of being a reward for hovering at random. */
+[data-tip]{cursor:help}
+[data-tip]:focus-visible{outline:2px solid var(--coin);outline-offset:2px;border-radius:4px}
 
 /* head */
 .ch{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s3)}
@@ -240,7 +277,7 @@ html[data-motion="on"] .float.go{animation:floatup 1.1s ease-out}
 .compo-key{display:flex;gap:var(--s4);flex-wrap:wrap;margin-top:var(--s2);font-size:11.5px;color:var(--ink-2)}
 .compo-key span{display:flex;align-items:center;gap:6px}
 .compo-key i{width:8px;height:8px;border-radius:2px;display:block}
-.compo-note{margin-top:var(--s2);font-size:11.5px;color:var(--ink-3)}
+.compo-note,.ovfoot{margin-top:var(--s2);font-size:11.5px;color:var(--ink-3)}
 .frozen-note{
   margin-top:var(--s3);border:1px solid color-mix(in srgb,var(--down) 45%,var(--line));
   background:color-mix(in srgb,var(--down) 9%,transparent);
@@ -364,6 +401,13 @@ html[data-motion="on"] .floorline{animation:fg 2.6s ease-in-out infinite}
 .btn:active{transform:translateY(0) scale(.98)}
 .btn.primary{background:var(--coin);color:var(--bg);border-color:var(--coin)}
 .btn.ghost{background:transparent}
+/* Disabled has to READ disabled. During blackout these are set disabled in
+   JS, and without this they kept the full gold primary treatment - the
+   button looked like the most clickable thing on the deck and did nothing. */
+.btn:disabled,.qty:disabled{
+  opacity:.38;cursor:not-allowed;filter:saturate(.35);
+  transform:none;pointer-events:none;
+}
 .btn.danger{border-color:color-mix(in srgb,var(--down) 55%,var(--line));color:var(--down)}
 .est{font-size:12px;color:var(--ink-3);margin-top:var(--s2)}
 
@@ -411,10 +455,9 @@ html[data-motion="on"] .g-sight  svg{animation:v-sight 4.1s ease-in-out infinite
 @keyframes v-mkt{0%,55%,100%{transform:rotateY(0)}78%{transform:rotateY(180deg)}}
 @keyframes v-sight{0%,100%{transform:scaleY(.15)}45%,60%{transform:scaleY(1)}}
 .fam-note{margin-top:var(--s3);font-size:11.5px;color:var(--ink-3)}
-.fam-off{
-  border:1px dashed var(--line);border-radius:var(--r2);padding:var(--s3);
-  font-size:12px;color:var(--ink-3);margin-top:var(--s3);
-}
+/* The family tiles are the cell's instrument, so they take the slack rather
+   than leaving it under them. */
+.c-fam .fams{flex:1 1 auto;align-items:stretch}
 
 /* ---------- 7 · RIVALS — FLIP leaderboard ---------- */
 .lb{display:flex;flex-direction:column;gap:5px}
@@ -532,8 +575,9 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
   #shell{padding:var(--s3) var(--s3) 84px}
   #grid{grid-template-columns:1fr;scroll-snap-type:y proximity}
   .cell{grid-column:span 1 !important;scroll-snap-align:start}
-  #grid.focused .cell:not(.is-focused){display:none}
-  #grid.focused .cell.is-focused{grid-row:auto}
+  /* Touch has no hover, so a tooltip has to be tappable rather than hoverable;
+     the wider box also stops it being pinned to one edge of a phone. */
+  .tip{max-width:min(320px,calc(100vw - 24px))}
   .stats{gap:var(--s4)}
   .fams{grid-template-columns:repeat(3,1fr)}
   /* keep the context switcher reachable on a phone; drop only the prose */
@@ -601,7 +645,7 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
     <h1>Command Deck</h1>
     <span class="ctx" id="ctxlabel">Season</span>
     <div class="note">
-      <span class="hint">Click a cell to focus · <kbd>Esc</kbd> to return ·</span>
+      <span class="hint">Hover or focus anything marked to see what it means ·</span>
       <button class="btn ghost" data-ctx="lobby">Lobby</button>
       <button class="btn ghost" data-ctx="season">Season</button>
       <button class="btn ghost" data-ctx="blackout">Blackout</button>
@@ -626,7 +670,6 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
         <div><span class="k">Spent on cosmetics</span><span class="val spent" id="lifeSpent">3,200</span></div>
         <div><span class="k">Wallet</span><span class="val" id="lifeWallet">9,200</span></div>
       </div>
-      <p class="compo-note">Rank reads <b>lifetime earned</b>, so buying cosmetics no longer costs you standing.</p>
     </section>
 
     <!-- ===== SEASONS (lobby) ===== -->
@@ -659,36 +702,34 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
           <b>Tick</b>
         </div>
         <div class="stats">
-          <div class="stat"><span class="l">Coins</span><span class="v coin" id="vCoins">0</span><span class="float" id="fCoins"></span></div>
-          <div class="stat"><span class="l">Stars</span><span class="v star" id="vStars">0</span></div>
-          <div class="stat"><span class="l">Sigils</span><span class="v" id="vSigils">0</span></div>
-          <div class="stat"><span class="l">Net rate</span><span class="v" id="vRate">0</span></div>
+          <div class="stat" tabindex="0" data-tip-title="Coins"
+               data-tip="Spendable balance in this season. Earned every tick from UBI, spent only on Seasonal Stars.<div class='rule'></div><em>Coins do not carry between seasons — anything unspent at expiry is gone.</em>">
+            <span class="l">Coins</span><span class="v coin" id="vCoins">0</span><span class="float" id="fCoins"></span></div>
+          <div class="stat" tabindex="0" data-tip-title="Seasonal Stars"
+               data-tip="Your score in this season, and what the leaderboard ranks you on.<div class='rule'></div><em>Convert to permanent Global Stars at lock-in, or at natural expiry.</em>">
+            <span class="l">Stars</span><span class="v star" id="vStars">0</span></div>
+          <div class="stat" tabindex="0" data-tip-title="Sigils held"
+               data-tip="Across all six tiers. Drops arrive on a per-tick roll; holdings damp the odds of the next one.<div class='rule'></div><em>Destroyed at expiry, refunded at lock-in — the asymmetry that makes lock-in timing matter.</em>">
+            <span class="l">Sigils</span><span class="v" id="vSigils">0</span></div>
+          <div class="stat" tabindex="0" id="rateStat" data-tip-title="Net rate">
+            <span class="l">Net rate</span><span class="v" id="vRate">0</span></div>
         </div>
       </div>
 
-      <!-- the instrument: rate COMPOSITION, not one opaque number -->
+      <!-- The composition stays visible as a bar, because the SHAPE is the
+           glanceable part; the terms behind it live in the bar's tooltip. -->
       <div class="compo">
-        <div class="compo-bar">
+        <div class="compo-bar" id="compoBar" tabindex="0">
           <i class="seg-base"  id="segBase"  style="width:44%"></i>
           <i class="seg-act"   id="segAct"   style="width:16%"></i>
           <i class="seg-boost" id="segBoost" style="width:30%"></i>
           <i class="seg-sink"  id="segSink"  style="width:10%"></i>
         </div>
-        <div class="compo-key">
-          <span><i class="seg-base"></i>Base 30.0</span>
-          <span><i class="seg-act"></i>Activity +11.0</span>
-          <span><i class="seg-boost"></i>Boost +20.0</span>
-          <span><i class="seg-sink"></i>Hoarding sink −6.8</span>
-        </div>
-        <p class="compo-note">Gross 61.0 → net <b>54.2</b> coins/min. Every term already ships in <code>game_state</code>; today the HUD renders one number.</p>
         <div class="frozen-note" id="frozen">
           <svg class="i"><use href="#i-snow"/></svg>
           <span><b>Frozen by Skreen32</b> — 8m 12s remaining. Income is zero until it lapses.</span>
           <button class="btn ghost" style="margin-left:auto;padding:4px 10px;font-size:12px">Retaliate</button>
         </div>
-      </div>
-      <div class="focus-only" style="margin-top:var(--s4)">
-        <p class="compo-note">Focused view would carry the full per-term history: which multiplier moved, when, and by how much — so a rate drop is never a mystery.</p>
       </div>
     </section>
 
@@ -717,11 +758,11 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
         <button type="button" class="rs" data-rate-state="active"  aria-pressed="false">Active</button>
         <button type="button" class="rs" data-rate-state="boosted" aria-pressed="true">Boosted</button>
       </div>
-      <div class="drip" id="drip">
+      <div class="drip" id="drip" tabindex="0" data-tip-title="Income"
+           data-tip="Coins land on the 5s tick. Density and speed both track your net rate, so the fall reads before the number does.<div class='rule'></div>The hatched band is the <b style='display:inline;text-transform:none;letter-spacing:0'>hoarding sink</b> taking its cut before they land — it grows the longer coins sit unspent, and spending clears it.">
         <div class="sinkline show" id="sinkLine"></div>
         <div class="floorline"></div>
       </div>
-      <p class="compo-note">The fall <em>is</em> the rate: coins get denser and faster as net UBI climbs, so the cell reads before you read the number. The hatched band is the hoarding sink taking its cut before they land.</p>
     </section>
 
     <!-- ===== 4 · STAR FORGE ===== -->
@@ -738,7 +779,7 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
         <span class="delta up" id="priceDelta">▲ 4.1%</span>
         <span class="cap">coins per star · 60-tick trail</span>
       </div>
-      <div class="buyrow">
+      <div class="buyrow to-foot">
         <input class="qty" id="qty" type="number" min="1" value="10" aria-label="Stars to buy">
         <button class="btn primary" id="buy">Buy stars</button>
         <button class="btn" id="buymax">Buy max</button>
@@ -748,32 +789,29 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
 
     <!-- ===== 5 · SIGILS ===== -->
     <section class="cell c-forge" data-ctx="season" data-mod="sigilforge">
-      <div class="ch"><h2><svg class="i"><use href="#i-forge"/></svg>Sigils</h2></div>
+      <div class="ch"><h2><svg class="i"><use href="#i-forge"/></svg>Sigils</h2><span class="sp"></span><span class="badge" tabindex="0" data-tip-title="Drop odds" data-tip="The per-tier chances on each tile are this season's real rates. One roll per tick, highest tier first.<div class='rule'></div><em>Both meters below are live multipliers ON those odds — they are not progress bars.</em>">Per tick</span></div>
       <div class="tiers" id="tiers"></div>
       <div class="meter">
-        <div class="mh"><span>Inventory pressure</span><span id="pityTxt">14 / 25 held &middot; &times;0.73</span></div>
+        <div class="mh"><span tabindex="0" data-tip-title="Inventory pressure" data-tip="Holding sigils damps your own drop odds. Full rate at 10 held or fewer, falling linearly to zero at the cap of 25.<div class='rule'></div><em>Combining or spending sigils restores it.</em>">Inventory pressure</span><span id="pityTxt">14 / 25 held &middot; &times;0.73</span></div>
         <div class="mt"><div class="mf" id="pityFill" style="width:73%"></div></div>
       </div>
       <div class="meter">
-        <div class="mh"><span>Boost pressure</span><span id="thrTxt">+20% boost &middot; &times;0.80</span></div>
+        <div class="mh"><span tabindex="0" data-tip-title="Boost pressure" data-tip="An active coin boost cuts sigil odds — 10% less per 10% of boost, floored at ×0.10.<div class='rule'></div><em>Boosting trades sigils for coins. It is a choice, not a free upgrade.</em>">Boost pressure</span><span id="thrTxt">+20% boost &middot; &times;0.80</span></div>
         <div class="mt"><div class="mf" id="thrFill" style="width:80%"></div></div>
       </div>
-      <p class="compo-note" style="margin-top:var(--s3)">Per-tier odds ship in <code>season.sigil_drop_rates</code> today and are never shown. The two meters are the live multipliers on your gate chance: holdings past 10 damp it toward zero at 25, and an active boost cuts it as low as &times;0.10.</p>
-      <p class="compo-note">These replace a pity bar and a drop-throttle bar. Both read well &mdash; and both would have been fiction: <code>SIGIL_PITY_TICKS</code> is only read for a Sight reveal, <code>eligible_ticks_since_last_drop</code> is never incremented, and <code>SIGIL_MAX_DROPS_WINDOW</code> is referenced nowhere. A cell must instrument the mechanic that exists.</p>
     </section>
 
     <!-- ===== 6 · RIVALS ===== -->
     <section class="cell c-rivals" data-ctx="season blackout" data-mod="rivals">
-      <div class="ch"><h2><svg class="i"><use href="#i-rank"/></svg>Rivals</h2><span class="sp"></span><span class="badge" id="lbBadge">Live</span></div>
+      <div class="ch"><h2 tabindex="0" data-tip-title="Rivals" data-tip="Everyone in this season, ranked on Seasonal Stars. The per-minute figure is their current net rate — who is gaining on you, not just who is ahead.<div class='rule'></div><em>A rank change slides the row rather than jumping it, so you can see it happen.</em>"><svg class="i"><use href="#i-rank"/></svg>Rivals</h2><span class="sp"></span><span class="badge" id="lbBadge">Live</span></div>
       <div class="lb" id="lb"></div>
-      <p class="compo-note" style="margin-top:var(--s3)">Rows never teleport: a rank change slides the row past its rival and flashes once. Position is earned, so the movement is visible.</p>
     </section>
 
     <!-- ===== 7 · FAMILIES ===== -->
     <section class="cell c-fam" data-ctx="season" data-mod="families">
       <div class="ch">
         <h2><svg class="i"><use href="#i-gem"/></svg>Sigil families</h2><span class="sp"></span>
-        <span class="badge on" id="affBadge">Affinity · Yield</span>
+        <span class="badge on" id="affBadge" tabindex="0" data-tip-title="Affinity" data-tip="Your chosen family decides which verb your sigils perform. Yield raises income, Time shortens cooldowns, Ward blocks theft, Larceny steals, Market shifts price, Sight reveals.<div class='rule'></div><em>One affinity at a time. Changing it re-rolls nothing — it only changes what your sigils do next.</em>">Affinity · Yield</span>
       </div>
       <div class="fams">
         <button class="fam aff"><span class="glyph g-yield"><svg class="i"><use href="#f-yield"/></svg></span><span class="fn">Yield</span><span class="fv">rises</span></button>
@@ -782,10 +820,6 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
         <button class="fam"><span class="glyph g-larceny"><svg class="i"><use href="#f-larceny"/></svg></span><span class="fn">Larceny</span><span class="fv">snatches</span></button>
         <button class="fam"><span class="glyph g-market"><svg class="i"><use href="#f-market"/></svg></span><span class="fn">Market</span><span class="fv">exchanges</span></button>
         <button class="fam"><span class="glyph g-sight"><svg class="i"><use href="#f-sight"/></svg></span><span class="fn">Sight</span><span class="fv">reveals</span></button>
-      </div>
-      <p class="fam-note">A sigil never just glows — it performs its verb, each on its own cadence so the row never marches in step. Picking an affinity is a real choice, not a <code>prompt()</code>.</p>
-      <div class="fam-off">
-        Gated on <code>TMC_SIGIL_FAMILIES_ENABLED</code> plus at least one enabled family row. Both halves were off — the flag defaults to <code>0</code> and the P1 migration seeded every row <code>enabled = 0</code> — so this cell rendered nowhere. Both are now switched on.
       </div>
     </section>
 
@@ -800,9 +834,8 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
             <span class="from" id="convFrom">18,420</span>
             <span class="arrow">→</span>
             <span class="to" id="convTo">11,973</span>
-            <span class="pct">65%</span>
+            <span class="pct" tabindex="0" data-tip-title="Lock-in conversion" data-tip="Seals the season now and converts Seasonal Stars to permanent Global Stars at 65%.<div class='rule'></div>Sigils are refunded at their reference value and included in the total. Waiting for natural expiry pays 100% — but destroys every sigil you still hold.<div class='rule'></div><em>Irreversible. You cannot rejoin or keep earning in this season afterwards.</em>">65%</span>
           </div>
-          <p class="vault-note">Seasonal → Global. The one irreversible act gets the one irreversible animation: a wind-up, three slow turns, the colour draining out — then nothing on this card moves again.</p>
           <span class="sealed-tag" id="sealedTag">◆ Sealed</span>
         </div>
       </div>
@@ -820,7 +853,7 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
 <!-- ============ OVERLAYS ============ -->
 <dialog id="ov-ranks"><div class="dh"><svg class="i"><use href="#i-rank"/></svg><h3>Global standing</h3><span class="sp"></span><button class="dclose" data-close>&times;</button></div>
   <div class="db"><div class="lb" id="ovlb"></div>
-  <p class="compo-note" style="margin-top:var(--s4)">Ranked on lifetime earned. The grid keeps ticking behind this sheet — it is an overlay, not a page.</p></div></dialog>
+<p class="ovfoot">Ranked on lifetime earned.</p></div></dialog>
 
 <dialog id="ov-cosmetics"><div class="dh"><svg class="i"><use href="#i-gem"/></svg><h3>Cosmetics</h3><span class="sp"></span><button class="dclose" data-close>&times;</button></div>
   <div class="db"><div class="slist">
@@ -828,7 +861,7 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
     <div class="scard"><div class="st"><b>Prismatic</b><div class="ph">Name colour</div></div><span style="color:var(--coin);font-weight:600">2,400</span><button class="btn">Buy</button></div>
     <div class="scard"><div class="st"><b>Aurora</b><div class="ph">Profile background</div></div><span style="color:var(--coin);font-weight:600">250</span><button class="btn">Buy</button></div>
   </div>
-  <p class="compo-note" style="margin-top:var(--s4)">Wallet <b>9,200</b> · rank is unaffected by spending.</p></div></dialog>
+</div></dialog>
 
 <dialog id="ov-chat"><div class="dh"><svg class="i"><use href="#i-chat"/></svg><h3>Season chat</h3><span class="sp"></span><button class="dclose" data-close>&times;</button></div>
   <div class="db"><div class="slist">
@@ -845,7 +878,6 @@ html[data-motion="on"] .toast{animation:tin var(--t-move) var(--e-gain)}
       <button class="btn">Add friend</button><button class="btn">Block</button>
       <button class="btn danger">Attempt theft</button>
     </div>
-    <p class="compo-note" style="margin-top:var(--s3)">Add-friend and block have no button anywhere in the current client — the endpoints exist and are never called.</p>
   </div></dialog>
 
 <div id="toasts" aria-live="polite"></div>
@@ -877,32 +909,142 @@ document.getElementById('themebtn').addEventListener('click', function () {
   toast('Theme · ' + THEMES[ti].name);
 });
 
-/* ---------------- procedural audio (no asset files) ---------------- */
-var AC = null, muted = true;
+/* ---------------- procedural audio (no asset files) ----------------
+   A player should be able to name the event with their eyes shut. The previous
+   set could not do that: it was one sine/triangle oscillator at six different
+   pitches, so every sound belonged to the same instrument and only the note
+   changed. Pitch alone does not encode meaning - timbre does.
+
+   So each mechanic is assigned a FAMILY, and families are built from different
+   synthesis, not different frequencies:
+
+     percussive  filtered noise burst, no pitch   tick, error, theft
+     metallic    inharmonic partials, fast decay  coin, sigil
+     tonal       a pitch that MOVES               star (up), freeze (down)
+     harmonic    two or three notes together      ward, forge, rank
+     ceremonial  long, low, slow                  seal
+
+   Direction carries valence throughout: anything good rises, anything hostile
+   or lost falls, and nothing hostile is allowed to sound pleasant. */
+var AC = null, muted = true, _noise = null;
 function ac() {
   if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)(); }
   if (AC.state === 'suspended') { AC.resume(); }
   return AC;
 }
-// tone(freq, duration, type, gain, sweepTo) — the whole SFX set is synthesised
-function tone(f, d, type, g, to) {
+/* One pitched voice. bend moves the frequency across the life of the note,
+   which is what makes rise/fall legible independently of the starting pitch. */
+function voice(o) {
   if (muted) return;
-  var c = ac(), o = c.createOscillator(), a = c.createGain(), t = c.currentTime;
-  o.type = type || 'sine';
-  o.frequency.setValueAtTime(f, t);
-  if (to) { o.frequency.exponentialRampToValueAtTime(to, t + d); }
-  a.gain.setValueAtTime(0.0001, t);
-  a.gain.exponentialRampToValueAtTime(g || 0.05, t + 0.012);
-  a.gain.exponentialRampToValueAtTime(0.0001, t + d);
-  o.connect(a); a.connect(c.destination); o.start(t); o.stop(t + d + 0.02);
+  var c = ac(), t = c.currentTime + (o.at || 0);
+  var osc = c.createOscillator(), amp = c.createGain();
+  var dur = o.dur || 0.2, g = o.gain || 0.04;
+  osc.type = o.type || 'sine';
+  osc.frequency.setValueAtTime(o.f, t);
+  if (o.to) { osc.frequency.exponentialRampToValueAtTime(o.to, t + dur); }
+  if (o.detune) { osc.detune.setValueAtTime(o.detune, t); }
+  // Percussive attack unless asked otherwise; a slow attack is what makes the
+  // ceremonial and hostile sounds feel heavy rather than clicky.
+  var atk = o.attack || 0.008;
+  amp.gain.setValueAtTime(0.0001, t);
+  amp.gain.exponentialRampToValueAtTime(g, t + atk);
+  amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  var node = amp;
+  if (o.filter) {
+    var flt = c.createBiquadFilter();
+    flt.type = o.filter; flt.frequency.setValueAtTime(o.fc || 900, t);
+    if (o.q) { flt.Q.setValueAtTime(o.q, t); }
+    amp.connect(flt); node = flt;
+  }
+  osc.connect(amp); node.connect(c.destination);
+  osc.start(t); osc.stop(t + dur + 0.02);
+}
+/* One noise burst. The percussive family exists so that the sounds a player
+   hears most often - the 5s tick above all - carry no pitch to fatigue on. */
+function burst(o) {
+  if (muted) return;
+  var c = ac(), t = c.currentTime + (o.at || 0), dur = o.dur || 0.08;
+  if (!_noise) {
+    _noise = c.createBuffer(1, c.sampleRate * 0.5, c.sampleRate);
+    var d = _noise.getChannelData(0);
+    for (var i = 0; i < d.length; i++) { d[i] = Math.random() * 2 - 1; }
+  }
+  var src = c.createBufferSource(), amp = c.createGain(), flt = c.createBiquadFilter();
+  src.buffer = _noise;
+  flt.type = o.filter || 'bandpass';
+  flt.frequency.setValueAtTime(o.fc || 1400, t);
+  if (o.to) { flt.frequency.exponentialRampToValueAtTime(o.to, t + dur); }
+  flt.Q.setValueAtTime(o.q || 6, t);
+  amp.gain.setValueAtTime(0.0001, t);
+  amp.gain.exponentialRampToValueAtTime(o.gain || 0.03, t + 0.004);
+  amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(flt); flt.connect(amp); amp.connect(c.destination);
+  src.start(t); src.stop(t + dur + 0.02);
 }
 var SFX = {
-  tick:  function () { tone(420, 0.07, 'sine', 0.022); },
-  coin:  function () { tone(720, 0.10, 'triangle', 0.05, 1180); },
-  star:  function () { tone(320, 0.42, 'sine', 0.07, 940); setTimeout(function(){tone(1240,0.22,'sine',0.035);}, 90); },
-  rank:  function () { tone(560, 0.16, 'square', 0.026, 780); },
-  error: function () { tone(220, 0.20, 'sawtooth', 0.035, 140); },
-  seal:  function () { tone(180, 1.5, 'sine', 0.08, 60); }
+  /* PERCUSSIVE - no pitch, so it never becomes a melody you notice.
+     The tick fires every 5 seconds forever; it has to survive that. */
+  tick: function () { burst({ dur: 0.035, fc: 2200, q: 14, gain: 0.014 }); },
+  /* Flat, damped, and deliberately unsatisfying. A refusal must not reward. */
+  error: function () {
+    burst({ dur: 0.09, filter: 'lowpass', fc: 380, q: 1, gain: 0.05 });
+    voice({ f: 104, dur: 0.13, type: 'square', gain: 0.03 });
+  },
+  /* METALLIC - two inharmonic partials, the ratio no chord ever uses, which is
+     what makes a struck-metal sound read as metal rather than as a note. */
+  coin: function () {
+    voice({ f: 1180, to: 980, dur: 0.09, type: 'triangle', gain: 0.035 });
+    voice({ f: 1810, dur: 0.06, type: 'sine', gain: 0.018, at: 0.004 });
+  },
+  /* Sparser and glassier than a coin: a sigil is rare, a coin is constant. */
+  sigil: function () {
+    voice({ f: 2100, dur: 0.20, type: 'sine', gain: 0.03 });
+    voice({ f: 3170, dur: 0.14, type: 'sine', gain: 0.014, at: 0.02 });
+    voice({ f: 4600, dur: 0.09, type: 'sine', gain: 0.007, at: 0.05 });
+  },
+  /* TONAL, RISING - conversion is convergence, so the pitch climbs and a
+     shimmer lands on top at the moment the star exists. */
+  star: function () {
+    voice({ f: 300, to: 900, dur: 0.38, type: 'sine', gain: 0.055, attack: 0.03 });
+    voice({ f: 1200, to: 1800, dur: 0.24, type: 'sine', gain: 0.022, at: 0.10 });
+  },
+  /* TONAL, FALLING - the mirror of star, detuned against itself so it beats.
+     Being frozen is done TO you; it is the one sound allowed to be unpleasant. */
+  freeze: function () {
+    voice({ f: 420, to: 90, dur: 0.75, type: 'sawtooth', gain: 0.04, attack: 0.05, filter: 'lowpass', fc: 700 });
+    voice({ f: 424, to: 91, dur: 0.75, type: 'sawtooth', gain: 0.03, attack: 0.05, detune: -18 });
+  },
+  /* PERCUSSIVE, SNATCHED - fast, gone before you place it. Theft is quick. */
+  theft: function () {
+    burst({ dur: 0.14, fc: 3000, to: 300, q: 3, gain: 0.05 });
+    voice({ f: 700, to: 190, dur: 0.16, type: 'square', gain: 0.022 });
+  },
+  /* HARMONIC - a fifth closing to stillness. Defence sounds settled, not sharp. */
+  ward: function () {
+    voice({ f: 330, dur: 0.42, type: 'sine', gain: 0.038, attack: 0.04 });
+    voice({ f: 495, dur: 0.42, type: 'sine', gain: 0.026, attack: 0.06 });
+  },
+  /* HARMONIC, ASCENDING TRIAD - combining is additive, so the notes stack. */
+  forge: function () {
+    voice({ f: 262, dur: 0.30, type: 'triangle', gain: 0.034 });
+    voice({ f: 330, dur: 0.30, type: 'triangle', gain: 0.030, at: 0.07 });
+    voice({ f: 392, dur: 0.34, type: 'triangle', gain: 0.030, at: 0.14 });
+  },
+  /* Direction is the whole message, so gains never bounce and losses never do.
+     Two notes is enough; more would compete with star. */
+  rankUp:   function () { voice({ f: 520, dur: 0.11, type: 'sine', gain: 0.026 });
+                          voice({ f: 780, dur: 0.14, type: 'sine', gain: 0.026, at: 0.09 }); },
+  rankDown: function () { voice({ f: 520, dur: 0.11, type: 'sine', gain: 0.022 });
+                          voice({ f: 350, dur: 0.16, type: 'sine', gain: 0.022, at: 0.09 }); },
+  /* Interface, not mechanic: opening a panel, picking a tier. Deliberately the
+     quietest and shortest thing here so it never competes with an event. */
+  ui: function () { burst({ dur: 0.028, fc: 3200, q: 10, gain: 0.010 }); },
+  /* CEREMONIAL - the only sound over a second, for the only irreversible act. */
+  seal: function () {
+    voice({ f: 190, to: 62, dur: 1.6, type: 'sine', gain: 0.075, attack: 0.14 });
+    voice({ f: 95, dur: 1.7, type: 'sine', gain: 0.045, attack: 0.22 });
+    burst({ dur: 0.30, filter: 'lowpass', fc: 200, q: 1, gain: 0.03, at: 0.05 });
+  }
 };
 document.getElementById('sound').addEventListener('click', function () {
   muted = !muted;
@@ -965,8 +1107,30 @@ function setContext(ctx) {
   Array.prototype.forEach.call(document.querySelectorAll('.rbtn[data-ctx]'), function (b) {
     b.setAttribute('aria-pressed', String(b.dataset.ctx === ctx));
   });
-  document.getElementById('lbBadge').textContent = ctx === 'blackout' ? 'Settling' : 'Live';
-  document.getElementById('priceBadge').textContent = ctx === 'blackout' ? 'Frozen' : 'Live surface';
+  var bo = (ctx === 'blackout');
+  document.getElementById('lbBadge').textContent = bo ? 'Settling' : 'Live';
+  document.getElementById('priceBadge').textContent = bo ? 'Frozen' : 'Live surface';
+
+  /* Blackout means no accrual and no drops. The deck used to say so in the arc
+     cell while the HUD next to it showed a live 54.2/min with a full
+     composition bar, and the Star Forge sat badged "Frozen" with a rising
+     price and an enabled Buy button. Two cells, side by side, asserting
+     opposite facts about the same season.
+     The context has to drive the state, not just the labels. */
+  S.blackout = bo;
+  setRateState(bo ? 'frozen' : (S.preBlackoutRate || 'boosted'));
+  if (!bo) { S.preBlackoutRate = S.rateState; }
+
+  // A frozen surface must not move and must not sell.
+  ['buy', 'buymax', 'qty'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) { el.disabled = bo; }
+  });
+  document.querySelector('.c-star').classList.toggle('sealed', bo);
+  document.getElementById('priceDelta').hidden = bo;
+  document.getElementById('est').innerHTML = bo
+    ? 'Surface frozen for blackout — the price is held at its last settled value and no stars can be bought until the season expires.'
+    : '10 stars · 3,120 coins · moves the surface <b>+0.8%</b> (dashed line)';
   renderArc(ctx);
 }
 Array.prototype.forEach.call(document.querySelectorAll('[data-ctx]'), function (b) {
@@ -981,38 +1145,98 @@ function reveal() {
   });
 }
 
-/* ---------------- focus mode ---------------- */
-var grid = document.getElementById('grid'), focused = null;
-function setFocus(cell) {
-  if (focused === cell) { return clearFocus(); }
-  if (focused) { focused.classList.remove('is-focused'); }
-  focused = cell; cell.classList.add('is-focused');
-  grid.classList.add('focused'); tone(500, 0.06, 'sine', 0.02);
-}
-function clearFocus() {
-  if (!focused) return;
-  focused.classList.remove('is-focused'); focused = null; grid.classList.remove('focused');
-}
-Array.prototype.forEach.call(document.querySelectorAll('.cell'), function (c) {
-  c.addEventListener('click', function (e) {
-    if (e.target.closest('button,input,a,.tier,.fam')) return;
-    setFocus(c);
-  });
-});
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') { clearFocus(); }
-  var n = parseInt(e.key, 10);
-  if (n >= 1 && n <= 9) {
-    var vis = document.querySelectorAll('.cell:not([hidden])');
-    if (vis[n - 1]) { setFocus(vis[n - 1]); }
+/* ---------------- tooltips ----------------
+   Replaces click-to-focus. Expanding a panel moved everything else on the
+   screen to answer a question about one number, which is a large, disorienting
+   response to a small ask - and it made the grid feel unstable to touch.
+
+   A tooltip answers in place and moves nothing. That also lets the panels
+   themselves carry only their headline, with the detail - rate terms, drop
+   odds, conversion maths - living here instead of competing for the same
+   space. Same information, pulled rather than pushed.
+
+   One element, repositioned, rather than a node per target: 40-odd tooltips
+   permanently in the DOM is a lot of layout for something almost never shown. */
+var TIP = (function () {
+  var el = null, current = null, hideT = null;
+
+  function node() {
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'tip';
+      el.setAttribute('role', 'tooltip');
+      el.id = 'deck-tip';
+      document.body.appendChild(el);
+    }
+    return el;
   }
-});
+
+  function place(target) {
+    var t = node(), r = target.getBoundingClientRect();
+    t.style.visibility = 'hidden';
+    t.classList.add('on');
+    var tr = t.getBoundingClientRect();
+    var pad = 10;
+    // Prefer above; flip below when there is no room, so a tooltip on a cell
+    // in the top row is never clipped off the viewport.
+    var top = r.top - tr.height - pad;
+    var below = top < 8;
+    if (below) { top = r.bottom + pad; }
+    var left = r.left + (r.width - tr.width) / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+    t.classList.toggle('below', below);
+    t.style.top = Math.round(top + window.scrollY) + 'px';
+    t.style.left = Math.round(left) + 'px';
+    t.style.visibility = '';
+  }
+
+  function show(target) {
+    var body = target.getAttribute('data-tip');
+    if (!body) return;
+    clearTimeout(hideT);
+    var t = node();
+    var title = target.getAttribute('data-tip-title');
+    t.innerHTML = (title ? '<b>' + title + '</b>' : '') + body;
+    current = target;
+    target.setAttribute('aria-describedby', 'deck-tip');
+    place(target);
+  }
+
+  function hide() {
+    if (!el) return;
+    el.classList.remove('on');
+    if (current) { current.removeAttribute('aria-describedby'); current = null; }
+  }
+
+  // Delegated, so tooltips work on content rendered after load without
+  // rebinding - the renderers replace their own innerHTML on every tick.
+  document.addEventListener('mouseover', function (e) {
+    var t = e.target.closest('[data-tip]');
+    if (t && t !== current) { show(t); }
+  });
+  document.addEventListener('mouseout', function (e) {
+    var t = e.target.closest('[data-tip]');
+    if (t && t === current && !t.contains(e.relatedTarget)) { hide(); }
+  });
+  // Keyboard parity: a tooltip reachable only by pointer is not an explanation,
+  // it is decoration for people who use a mouse.
+  document.addEventListener('focusin', function (e) {
+    var t = e.target.closest('[data-tip]');
+    if (t) { show(t); }
+  });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { hide(); } });
+  window.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('resize', hide);
+
+  return { show: show, hide: hide };
+})();
 
 /* ---------------- overlays ---------------- */
 Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
   b.addEventListener('click', function () {
     var d = document.getElementById('ov-' + b.dataset.open);
-    if (d) { d.showModal(); tone(480, 0.07, 'sine', 0.02); }
+    if (d) { d.showModal(); SFX.ui(); }
   });
 });
 Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) {
@@ -1190,6 +1414,33 @@ function renderCompo() {
   document.getElementById('segAct').style.width   = (act / total * 100) + '%';
   document.getElementById('segBoost').style.width = (boost / total * 100) + '%';
   document.getElementById('segSink').style.width  = (sink / total * 100) + '%';
+  renderRateTip(base, act, boost, sink);
+}
+/* The terms used to sit under the bar as a legend plus a sentence of prose.
+   That is four extra lines of small text on the busiest cell, permanently, to
+   answer a question a player asks occasionally. It reads better on demand. */
+function renderRateTip(base, act, boost, sink) {
+  var gross = base + act + boost, net = gross - sink;
+  function row(label, val, cls) {
+    return '<div class="row"><span>' + label + '</span><span' +
+           (cls ? ' class="' + cls + '"' : '') + '>' + val + '</span></div>';
+  }
+  var body =
+    row('Base UBI', base.toFixed(1)) +
+    row('Activity', (act > 0 ? '+' : '') + act.toFixed(1)) +
+    row('Boost', (boost > 0 ? '+' : '') + boost.toFixed(1)) +
+    row('Hoarding sink', sink > 0 ? '−' + sink.toFixed(1) : '0.0') +
+    '<div class="rule"></div>' +
+    row('<b style="display:inline;text-transform:none;letter-spacing:0">Net</b>',
+        net.toFixed(1) + ' /min') +
+    (sink > 0
+      ? '<div class="rule"></div><em>The sink scales with how long coins sit unspent. Spending clears it.</em>'
+      : '');
+  var bar = document.getElementById('compoBar');
+  var stat = document.getElementById('rateStat');
+  bar.setAttribute('data-tip-title', 'Rate composition');
+  bar.setAttribute('data-tip', body);
+  stat.setAttribute('data-tip', body);
 }
 // Both meters mirror the multipliers Economy::sigilEffectiveDropChanceFp
 // actually applies to the gate chance. Nothing here is invented.
@@ -1302,7 +1553,7 @@ setInterval(function () {
     var tmp = S.rivals[i]; S.rivals[i] = S.rivals[i - 1]; S.rivals[i - 1] = tmp;
     S.rivals.forEach(function (r) { r.pts += Math.floor(Math.random() * 12); });
   });
-  SFX.rank();
+  SFX.rankUp();
 }, 11000);
 
 /* ---------------- interactions ---------------- */
@@ -1355,7 +1606,7 @@ function igniteBurst() {
 document.getElementById('tiers').addEventListener('click', function (e) {
   var b = e.target.closest('.tier'); if (!b) return;
   Array.prototype.forEach.call(this.children, function (c) { c.classList.remove('sel'); });
-  b.classList.add('sel'); tone(620, 0.05, 'sine', 0.02);
+  b.classList.add('sel'); SFX.ui();
 });
 
 /* affinity */
