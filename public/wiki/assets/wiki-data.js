@@ -1,53 +1,76 @@
 // Repository-grounded wiki content for Too Many Coins.
-// Source of truth: includes/*.php, api/index.php, schema.sql, migration_boosts_drops.sql.
+//
+// Source of truth: includes/config.php, includes/economy.php, includes/actions.php,
+// includes/tick_engine.php, includes/family_actions.php, schema.sql.
+//
+// Rules for editing this file:
+//   1. Every number here is read from the source, not remembered. If you cannot
+//      point at the constant, do not state the number - describe the behaviour.
+//   2. Values that are per-season columns (schema defaults) can be changed by an
+//      operator per season. Values that are define()s are global. The Reference
+//      category marks which is which, because "the wiki said 25" is only useful
+//      if you know whether 25 can move.
+//   3. Cross-reference with [[chapter-id]] or [[section-id|label]]. The renderer
+//      resolves them against the real ids and flags anything that does not
+//      resolve, so a rename fails loudly instead of leaving a dead link.
 window.WIKI_CATEGORIES = [
   {
     id: "getting-started",
     title: "Getting Started",
+    summary: "What the game is, how a season works, and what to do in your first hour.",
     chapters: [
       {
         id: "what-is-tmc",
         number: 1,
         title: "What Is Too Many Coins?",
         icon: "BookOpen",
-        description: "A season-based economic competition built around timing and tradeoffs.",
+        description: "A season-based economic competition built on timing and tradeoffs.",
+        seeAlso: ["season-structure", "ubi-and-activity", "lock-in"],
         sections: [
           {
             id: "game-overview",
             title: "Game Overview",
-            content: `Too Many Coins is a season-based economic game where you convert **Coins** into **Seasonal Stars** and compete on a live leaderboard.
+            content: `Too Many Coins is a season-based economic game. You earn **Coins** continuously, convert them into **Seasonal Stars**, and compete against everyone else in the same season on a live leaderboard.
 
-A season has three states:
-- **Active**
-- **Blackout**
-- **Expired**
+Seasonal Stars are only worth something if you convert them into **Global Stars**, which are permanent and carry across every season you ever play. There are exactly two ways to make that conversion, and choosing between them is the central decision of a season - see [[lock-in]].
 
-Your long-term score is **Global Stars**, earned by Lock-In or by finishing a season at natural expiration.`
+Three resources matter:
+
+| Resource | Scope | How you get it | What it does |
+|---|---|---|---|
+| Coins | One season | Earned every tick from UBI | Buys Seasonal Stars, nothing else |
+| Seasonal Stars | One season | Bought with Coins | Your rank in this season |
+| Global Stars | Permanent | Converted from Seasonal Stars | Lifetime standing; buys cosmetics |
+
+Coins do not carry between seasons. Anything unspent when a season ends is simply gone, which is why hoarding is a losing habit - and why the game actively taxes it, as [[hoarding-sink]] explains.`
           },
           {
-            id: "season-structure-basics",
-            title: "Season Structure Basics",
-            content: `Default timing from server config:
+            id: "season-structure",
+            title: "Season Structure",
+            content: `A season runs **14 days** and a new one starts every **7 days**, so two seasons overlap at any time and you can usually choose which to join.
 
-| Setting | Default |
-|---|---|
-| Season duration | 14 days |
-| New season cadence | Every 7 days |
-| Blackout length | 72 hours |
-| Tick cadence | 60 real seconds per tick |
+The last **72 hours** of every season are the **Blackout**.
 
-Because cadence is 7 days and duration is 14 days, multiple seasons overlap at the same time.`
+| Phase | Length | What happens |
+|---|---|---|
+| Active | ~11 days | Full income, sigil drops, star purchases, hostile actions |
+| Blackout | 72 hours | No income, no drops, no purchases - the season settles |
+| Expired | - | Final payout; resources destroyed or converted |
+
+The Blackout is not a wind-down; it is a hard stop on earning. Everything you intend to accumulate has to be accumulated before it starts. See [[blackout]].
+
+> These three durations are global constants, not per-season settings, so they are the same in every season.`
           },
           {
-            id: "first-goals",
-            title: "Your First Goals",
-            content: `Start simple:
-1. Join an **Active** season.
-2. Stay **Active** (not Idle) so your income is stronger.
-3. Convert Coins into Seasonal Stars.
-4. Decide whether to Lock-In before Blackout.
+            id: "ticks-and-time",
+            title: "Ticks and Real Time",
+            content: `The game advances in **ticks**. Every income calculation, drop roll, price update and cooldown is counted in ticks, not in minutes.
 
-There is no hidden bonus path; progress is driven by your economy choices.`
+How much real time one tick takes is a deployment setting, and it is **not fixed across deployments**. The shipped default is 60 seconds; the live server currently runs a much faster cadence.
+
+This matters more than it sounds. Rates in this wiki are given **per real minute** wherever possible, because a "per tick" number means nothing until you know the cadence. The interface shows the live cadence - trust that over any number you remember.
+
+> If you are reading a value with "per tick" in its name, check whether the code divides it by ticks-per-real-minute first. Several do, including base UBI. See [[reference-timing]].`
           }
         ]
       },
@@ -56,539 +79,733 @@ There is no hidden bonus path; progress is driven by your economy choices.`
         number: 2,
         title: "Your First Season",
         icon: "Compass",
-        description: "Join flow, action limits, and what to expect in your first run.",
+        description: "Join, stay Active, buy your first stars, and decide how to exit.",
+        seeAlso: ["ubi-and-activity", "buying-stars", "sigil-drops", "lock-in"],
         sections: [
           {
-            id: "joining-rules",
-            title: "Joining Rules",
-            content: `You can join a season if it has started and has not expired.
+            id: "first-steps",
+            title: "First Steps",
+            content: `1. Join an **Active**, non-Blackout season.
+2. Stay **Active** rather than Idle - Idle pays 30% of the Active rate, which is the single largest swing available to you. See [[ubi-and-activity]].
+3. Let Coins accumulate, then convert them into Seasonal Stars at the Star Forge. See [[buying-stars]].
+4. Watch for **Sigils**, which drop on their own and are worth real Stars at lock-in. See [[sigil-drops]].
+5. Before the Blackout starts, decide whether to lock in. See [[lock-in]].
 
-Important constraints from action logic:
-- Staff accounts cannot participate in seasons.
-- You cannot participate in multiple seasons at once.
-- Joining at the very end is blocked.
-
-Re-entry is allowed if you previously left, but season-bound resources are reset for that season entry.`
+There is no hidden progression track and nothing to unlock. Everything is visible from your first minute; the difficulty is entirely in the timing.`
           },
           {
-            id: "idle-and-actions",
-            title: "Idle State and Action Gating",
-            content: `If you go Idle long enough, the game gates economy actions until you acknowledge idle.
+            id: "first-mistakes",
+            title: "Common First-Season Mistakes",
+            content: `**Hoarding Coins.** Coins do not convert at the end of a season, they vanish - and holding a large balance triggers the hoarding sink, which reduces your income the longer you sit on it. See [[hoarding-sink]].
 
-By default, idle timeout is **15 real minutes**. While idle modal is active, actions like star purchase, Lock-In, boosts, and sigil theft attempts are blocked until **idle acknowledgement**.
+**Going Idle without meaning to.** You drop to Idle after a period of inactivity and stay there until you return. Idle income is 30% of Active.
 
-**Stepping away still earns.** Presence tapers rather than cutting off: after your last action you stay Active for ~15 minutes (full UBI and drop chance), then Idle for ~45 minutes (half rate), and only then Offline (no earnings, no drops) until you return. Keeping the game tab in the background may pause it entirely on some browsers, which reads as Offline to the server.`
-          },
-          {
-            id: "what-carries-over",
-            title: "What Carries Over",
-            content: `Season-bound resources are temporary:
-- Coins
-- Seasonal Stars
-- Sigils
-- Active boosts
+**Missing the lock-in window.** You must have participated for a cumulative **12 hours** in a season before you can lock in at all. If you join late and intend to lock in, that clock matters.
 
-Persistent account-level progression includes:
-- Global Stars
-- Purchased cosmetics
-- Badges earned from placements`
+**Assuming sigils are safe.** Sigils are destroyed at natural expiry and refunded at lock-in. That asymmetry is the whole reason lock-in timing is interesting - see [[lock-in-versus-expiry]].`
           }
         ]
       }
     ]
   },
+
   {
-    id: "gameplay",
-    title: "Gameplay",
+    id: "economy",
+    title: "Economy",
+    summary: "Where Coins come from, what drains them, and how the star price moves.",
     chapters: [
       {
-        id: "seasons-guide",
+        id: "ubi-and-activity",
+        number: 1,
+        title: "Income and Activity",
+        icon: "TrendingUp",
+        description: "Your Coin rate, and the things that modify it.",
+        seeAlso: ["hoarding-sink", "freeze", "reference-economy"],
+        sections: [
+          {
+            id: "base-income",
+            title: "Base Income",
+            content: `Every player in a season earns Coins automatically, every tick, with no action required. This is the UBI.
+
+The base rate is **100 Coins per real minute** while Active. The underlying column is named \`base_ubi_active_per_tick\`, but the code divides it by ticks-per-real-minute before use - so it is a per-minute figure regardless of the tick cadence.
+
+Your **presence state** scales it:
+
+| State | Multiplier | Effective base |
+|---|---|---|
+| Active | x1.00 | 100 / min |
+| Idle | x0.30 | 30 / min |
+| Offline | - | treated as Idle for income |
+
+You fall to Idle after a period without activity, and there is a longer hold before a forced-offline player is released back. Both thresholds are in [[reference-timing]].`
+          },
+          {
+            id: "inflation-dampening",
+            title: "Inflation Dampening",
+            content: `The base rate is not what you actually receive. It is multiplied by an **inflation factor** derived from the total Coin supply in the season.
+
+As the season-wide supply grows, everyone's rate falls. This is a deliberate brake on runaway accumulation, and it has one consequence worth understanding clearly:
+
+> The dampener keys on **season-wide** supply, not your own balance. Other players hoarding lowers *your* rate. You cannot fix that individually.
+
+A per-season floor guarantees the rate never reaches zero from dampening alone. Being frozen is different - that sets income to zero outright. See [[freeze]].`
+          },
+          {
+            id: "rate-composition",
+            title: "Reading Your Rate",
+            content: `Your displayed rate is the sum of several terms, and it is worth knowing which is which when it moves:
+
+- **Base** - the UBI above, after dampening
+- **Activity** - the bonus for being Active rather than Idle
+- **Boost** - any active Coin boost you have purchased
+- **Hoarding sink** - subtracted, not added; see [[hoarding-sink]]
+
+A rate that drops without you doing anything is almost always one of: the season supply grew, you went Idle, a boost expired, your balance crossed a hoarding threshold, or someone froze you.`
+          }
+        ]
+      },
+      {
+        id: "hoarding-sink",
+        number: 2,
+        title: "The Hoarding Sink",
+        icon: "TrendingDown",
+        description: "A tax on sitting still, and how to avoid paying it.",
+        seeAlso: ["ubi-and-activity", "buying-stars", "reference-economy"],
+        sections: [
+          {
+            id: "why-it-exists",
+            title: "Why It Exists",
+            content: `Coins are worthless at the end of a season. Without a counter-pressure, the optimal play would be to sit on a large balance and convert at the last possible moment, which makes for a boring season and a leaderboard decided by one action.
+
+The hoarding sink removes a fraction of your income based on **how much you are holding and for how long**. It is a drain on the rate, not a deduction from the balance - you never watch Coins disappear, you watch your income get worse.`
+          },
+          {
+            id: "how-it-scales",
+            title: "How It Scales",
+            content: `Three things protect you, and all three are per-season settings an operator can change:
+
+- A **safe period** - roughly the first half-day of holding is untaxed
+- A **safe minimum** - balances under a floor are never taxed at all
+- A **tiered rate** - the rate rises in bands as the excess above the floor grows
+
+The total is capped as a fraction of your gross rate, so the sink can never take your whole income. Being Idle makes it **worse**, not better - there is an idle multiplier above 1.0, so parking a big balance and walking away is the most heavily taxed thing you can do.
+
+Exact defaults are tabulated in [[reference-economy]].`
+          },
+          {
+            id: "avoiding-it",
+            title: "Avoiding It",
+            content: `Spend. That is the entire counterplay, and it is intentional.
+
+Converting Coins into Seasonal Stars removes them from your balance, which resets the pressure. The sink is therefore not really a punishment - it is a nudge toward the decision the game wants you making regularly, which is *when to buy*, not *whether to hold*.
+
+> A season where you buy stars steadily will out-earn one where you hold and convert once, even before considering what the price curve does to a single large purchase. See [[star-price]].`
+          }
+        ]
+      },
+      {
+        id: "star-price",
         number: 3,
-        title: "Season States and Timing",
-        icon: "Clock",
-        description: "How Active, Blackout, and Expired affect available actions.",
+        title: "The Star Price",
+        icon: "Activity",
+        description: "What sets the cost of a Seasonal Star, and why it moves.",
+        seeAlso: ["buying-stars", "hoarding-sink", "reference-economy"],
         sections: [
           {
-            id: "active-state",
-            title: "Active State",
-            content: `During **Active**, core economy actions are available:
-- Buy stars
-- Buy vault sigils
-- Activate boosts
-- Attempt sigil theft
-- Lock-In`
-          },
-          {
-            id: "blackout-state",
-            title: "Blackout State",
-            content: `During **Blackout**, several actions are intentionally disabled:
-- Vault purchases
-- Boost activation
-- Sigil theft attempts
+            id: "price-basics",
+            title: "How the Price Is Set",
+            content: `Seasonal Stars are bought with Coins at a price that changes over time. The price is driven by the **Coin supply in the season** - more Coins in circulation means a higher price per Star.
 
-You can still buy stars, Lock-In, and hold your position through the final stretch to expiration.`
+The supply figure is weighted by presence: Coins held by Idle players count less than Coins held by Active ones, and a season can be configured to ignore Idle balances entirely.
+
+This means the price is a shared surface. Your purchases move it, and so does everyone else's accumulation.`
           },
           {
-            id: "expired-state",
-            title: "Expired and Finalization",
-            content: `When a season expires, the tick engine finalizes it:
-- Marks end-finishers
-- Calculates final ranking
-- Converts each end-finisher's final Seasonal Stars plus participation and placement bonuses into Global Stars
-- Awards top-3 seasonal badges
-- Clears season-bound resources`
+            id: "price-movement-limits",
+            title: "Movement Limits",
+            content: `The price cannot jump. Each tick it is clamped to a maximum step in either direction, and the limits are deliberately asymmetric:
+
+- Upward movement is capped tightly - the price climbs slowly
+- Downward movement is allowed to be several times faster
+
+The effect is that a price rise is a durable signal about the season, while a fall can correct quickly. There is also an absolute floor and a per-season ceiling.
+
+> **Historical note.** An earlier pricing model applied its affordability adjustment after the movement clamp rather than before, which caused the price to converge to a fixed value regardless of supply - the market layer effectively did not exist. Seasons now carry a pricing model version, and new seasons use the corrected model. Older seasons keep the old behaviour so their results stay reproducible.`
           }
         ]
       },
       {
-        id: "resources-guide",
+        id: "buying-stars",
         number: 4,
-        title: "Coins, Stars, and UBI",
-        icon: "Coins",
-        description: "How the economy mints, prices, and suppresses resources.",
+        title: "Buying Stars",
+        icon: "Star",
+        description: "Converting Coins into score, and when to do it.",
+        seeAlso: ["star-price", "hoarding-sink", "lock-in"],
         sections: [
           {
-            id: "ubi-baseline",
-            title: "UBI Baseline",
-            content: `Season defaults are configured at season creation:
+            id: "the-purchase",
+            title: "The Purchase",
+            content: `You choose a quantity of Seasonal Stars and pay the current price per Star in Coins. The purchase is atomic: either you can afford the whole quantity or it is rejected outright.
 
-| Parameter | Default |
-|---|---|
-| Base active UBI per tick | 30 |
-| Idle factor | 0.25 |
-| Minimum UBI floor | 1 |
+Large purchases are gated behind an explicit confirmation, because spending a substantial share of your balance is a decision the game wants you to make deliberately rather than by mis-clicking.
 
-UBI is further modified by inflation dampening and hoarding suppression.`
+Your purchase also moves the price. Buying a large block costs more per Star at the end of the block than at the start.`
           },
           {
-            id: "inflation-hoarding",
-            title: "Inflation and Hoarding Suppression",
-            content: `UBI is reduced as coin supply and hoarding pressure increase:
-- Inflation factor uses a piecewise table against total coin supply.
-- Hoarding factor compares your spend rate against target spend rate.
+            id: "when-to-buy",
+            title: "When to Buy",
+            content: `There is no single right answer, which is the point. The tension:
 
-Default hoarding window is 24 hours and minimum factor clamp is 0.1.`
-          },
-          {
-            id: "star-pricing",
-            title: "Star Pricing",
-            content: `Star price is season-driven and updates from supply.
+- **Buying early** converts Coins at a lower price and avoids the sink, but commits you before you know how the season develops.
+- **Buying late** lets you react to rivals, but you pay the sink the whole time and the price is usually higher.
 
-Default star price table points:
-- 0 supply -> 100
-- 25,000 -> 250
-- 100,000 -> 700
-- 500,000 -> 2,500
-- 2,000,000 -> 9,000
-
-Star price cap defaults to **10,000**.`
-          }
-        ]
-      },
-      {
-        id: "sigils-guide",
-        number: 5,
-        title: "Sigils, Drops, Vault, and Boosts",
-        icon: "Sparkles",
-        description: "Exact drop logic and boost behavior from tick/action systems.",
-        sections: [
-          {
-            id: "drop-eligibility",
-            title: "Drop Eligibility",
-            content: `Sigil drops evaluate for every participating player who is not Offline. Your presence state scales the drop gate:
-- **Active** - full drop chance (1.0x)
-- **Idle** - half drop chance (0.5x)
-- **Offline** - no drop attempts
-
-If you are not eligible, the drop pity counter is reset.`
-          },
-          {
-            id: "drop-rates-and-protections",
-            title: "Drop Rates and Protections",
-            content: `Drop controls are computed dynamically per player each tick based on sigil inventory and boost activity:
-
-| Rule | Default |
-|---|---|
-| Base drop rate | 1 in 8 eligible ticks (~12.5%) at zero sigil power |
-| Pity threshold | 120,000 real seconds worth of ticks (2,000 ticks at 60s) |
-| Rolling cap | 6 drops per 24h window |
-
-**Dynamic adjustments (per player, per tick):**
-- **Boost activity (negative pressure):** Every 3% of active boost modifier raises the denominator by 1 (up to +3 steps), reducing overall drop frequency while boosts are running. The denominator is clamped between 5 and 20 so drops remain viable in all states.
-- **Inventory uplift (empty/low):** When a tier's inventory is below 3, that tier's conditional odds are increased by 1.0% per missing sigil (up to +3.0% per tier). Ensures players who spend sigils on boosts retain a practical path to replenishment.
-- **Inventory dampening (high):** For every 8 sigils of a tier held, that tier's conditional odds are reduced by 0.75% (up to −6% per tier). Prevents a single tier from over-dropping once a player has accumulated many.
-
-**Tier odds (conditional, at zero sigil power):**
-- Tier I: ~70.0%
-- Tier II: ~20.0%
-- Tier III: ~8.0%
-- Tier IV: ~1.5%
-- Tier V: ~0.5%
-
-Tier ordering T1 > T2 > T3 > T4 > T5 is always enforced; higher-value tiers can never drop at higher effective rates than lower-value tiers.`
-          },
-          {
-            id: "sigil-families",
-            title: "Sigil Families and Abilities",
-            content: `When enabled on a season, every sigil is a **family x tier** pair - the tier is its magnitude, the family is its verb. Equal tiers are equal value across families; families differ only in what they do.
-
-| Family | Verb |
-|---|---|
-| Yield | Power boosts: +X% UBI for a duration (the classic boost) |
-| Time | Extends an active boost - duration derived from tier value / active modifier |
-| Ward | Proactive theft protection in 15-minute units (Tier 2+, non-stacking, max 25% of remaining season, halved in Blackout) |
-| Larceny | Theft spends - same odds as before, and Ward is now the counterplay |
-| Market | One discounted star purchase, worth hours of your own income (max 50% off, once per 24h) |
-| Sight | Information: a rival's rate, the price surface, pity distance, a ward check. Arrives as a bonus trickle and never displaces a real drop |
-
-**Affinity:** at join you pick one family - +8pp drop weight to it, -2pp to each other family. Expected drops per tick are unchanged; affinity shapes a run without advantaging it. One free public re-pick at Blackout.
-
-**Forge with families:** Ascend (combine) works within one family; Wildcards substitute anywhere. Transmute turns 3 different families of a tier into 2 Wildcards; Distil turns 3 Sight into a chosen material family one tier down. One Tier VI per family per season.
-
-**The season ticker** announces the act - a theft, a Market use, a Tier V/VI find, an affinity re-pick - but never the amounts.`
-          },
-          {
-            id: "vault-and-boosts",
-            title: "Vault and Boost Activation",
-            content: `Vault sigils cost **Seasonal Stars** and are disabled in Blackout.
-
-Default vault supply per season:
-- Tier I: 2500
-- Tier II: 1000
-- Tier III: 500
-- Tier IV: 250
-- Tier V: 100
-
-Boosts consume sigils and can be:
-- **SELF** scope
-- **GLOBAL** scope
-
-Global and self boosts stack additively in fixed-point logic and are capped by a total modifier clamp.
-
-Each boost session has a 4-hour uptime cap from its original activation tick, followed by a 4-hour recovery window before a new boost can be activated.`
-          },
-          {
-            id: "default-boost-catalog",
-            title: "Default Boost Catalog",
-            content: `Seeded boost defaults:
-
-| Boost | Tier | Scope | Duration | Modifier |
-|---|---|---|---|---|
-| Trickle | I | SELF | 240 ticks (4 hours) | +5% |
-| Surge | II | SELF | 180 ticks (3 hours) | +10% |
-| Flow | III | SELF | 120 ticks (2 hours) | +25% |
-| Tide | IV | SELF | 60 ticks (1 hour) | +50% |
-| Age | V | SELF | 30 ticks (30 minutes) | +100% |`
-          }
-        ]
-      },
-      {
-        id: "trading-guide",
-        number: 6,
-        title: "Sigil Theft",
-        icon: "ArrowLeftRight",
-        description: "Spend-gated theft attempts, value pressure, and cooldown windows.",
-        sections: [
-          {
-            id: "theft-constraints",
-            title: "What Theft Attempts Are Allowed",
-            content: `Sigil theft constraints:
-- Attacker and target must be in the same season.
-- Only Tier 3, Tier 4, and Tier 5 sigils can be spent to initiate theft.
-- Requested loot can target any visible sigil tier, including Tier 6.
-- Theft attempts are available in Active and Blackout phases.
-- Idle targets can still be selected.`
-          },
-          {
-            id: "escrow-and-timeout",
-            title: "Resolution and Protection Windows",
-            content: `Sigil theft resolves immediately when submitted.
-
-Spent sigils are burned whether the attempt succeeds or fails. After an attempt:
-- The attacker gets a **15 minute cooldown** before attempting theft again.
-- The defender gets **15 minutes of protection** from additional theft attempts.`
-          },
-          {
-            id: "theft-success-chance",
-            title: "Success Chance",
-            content: `Theft chance is based on the server-side utility value of the sigils you spend versus the sigils you request.
-
-- Equal-value pressure starts at **25%** success chance.
-- Overpaying improves success chance.
-- Final success chance is capped at **60%**.
-
-Because spend is consumed on failure, theft is a tactical pressure tool rather than a guaranteed transfer mechanic.`
+The one clearly bad play is holding a large balance passively while Idle - you pay the maximum sink rate and gain nothing for it. See [[hoarding-sink]].`
           }
         ]
       }
     ]
   },
+
+  {
+    id: "sigils-and-families",
+    title: "Sigils & Families",
+    summary: "The drop economy, the six tiers, combining, and what a family affinity does.",
+    chapters: [
+      {
+        id: "sigil-drops",
+        number: 1,
+        title: "Sigil Drops",
+        icon: "Hexagon",
+        description: "How sigils arrive, and the two things that make them arrive less often.",
+        seeAlso: ["sigil-tiers", "sigil-families", "reference-sigils"],
+        sections: [
+          {
+            id: "how-drops-work",
+            title: "How Drops Work",
+            content: `Sigils are not bought. They arrive on their own, rolled per tick, and they are the only resource in the game you cannot directly purchase.
+
+There are **six tiers**, T1 through T6, with sharply falling odds as the tier rises. The roll checks the highest tier first, so a lucky tick can produce a high-tier sigil directly rather than requiring you to work up through the lower ones.
+
+The season's real per-tier chances are shown in the interface. They are not hidden - but two live multipliers modify them, and those are the part players usually miss.`
+          },
+          {
+            id: "drop-pressure",
+            title: "The Two Multipliers",
+            content: `**Inventory pressure.** Holding sigils damps your own drop odds. Below a threshold of **10 held** you get the full rate; above it the multiplier falls linearly to zero at the inventory cap of **25**. A full inventory stops drops entirely.
+
+**Boost pressure.** An active Coin boost reduces sigil odds - a step down per increment of boost, with a hard floor so it never reaches zero.
+
+Both are multipliers on the gate chance, not progress bars. Neither fills up, and neither guarantees anything.
+
+> These are the real mechanics. Some constants with promising names - a pity timer, a per-window drop cap - exist in the config but are either read for one unrelated purpose or not referenced at all. **There is no pity system.** Do not plan around one.`
+          },
+          {
+            id: "season-phase",
+            title: "Season Phase",
+            content: `Drop behaviour changes across the season. The phases are Early, Mid, Late-Active and Blackout, and higher tiers become reachable as the season progresses.
+
+During the Blackout there are no drops at all. Whatever you are holding when the Blackout begins is what you finish the season with. See [[blackout]].`
+          }
+        ]
+      },
+      {
+        id: "sigil-tiers",
+        number: 2,
+        title: "Tiers, Combining and Value",
+        icon: "Layers",
+        description: "What each tier is worth and how to move up.",
+        seeAlso: ["sigil-drops", "lock-in", "reference-sigils"],
+        sections: [
+          {
+            id: "tier-values",
+            title: "Tier Values",
+            content: `Every tier has a canonical Star value, used when sigils are refunded at lock-in:
+
+| Tier | Reference value (Seasonal Stars) |
+|---|---|
+| T1 | 50 |
+| T2 | 250 |
+| T3 | 1,000 |
+| T4 | 3,000 |
+| T5 | 9,000 |
+| T6 | 12,000 |
+
+The jump from T1 to T6 is 240x. A single high-tier sigil can be worth more than hours of income, which is why theft targets them and why wards exist. See [[theft]] and [[ward]].
+
+> T6 was previously valued at 0 - the rarest drop in the game settled for nothing at lock-in. It is now the most valuable.`
+          },
+          {
+            id: "combining",
+            title: "Combining",
+            content: `Sigils of the same tier can be combined into one of the next tier up. This is the only way to convert breadth into height, and it matters for two reasons beyond the obvious:
+
+1. It reduces your **held count**, which restores your inventory pressure multiplier and gets drops flowing again. See [[drop-pressure]].
+2. Higher tiers are worth disproportionately more at lock-in.
+
+The inventory cap of 25 makes combining a maintenance task, not an optional one. A player who never combines will cap out and stop receiving drops entirely.`
+          }
+        ]
+      },
+      {
+        id: "sigil-families",
+        number: 3,
+        title: "The Six Families",
+        icon: "Gem",
+        description: "Yield, Time, Ward, Larceny, Market and Sight - and what an affinity commits you to.",
+        seeAlso: ["theft", "ward", "sigil-tiers"],
+        sections: [
+          {
+            id: "the-families",
+            title: "The Families",
+            content: `Beyond a tier, a sigil belongs to a **family**, and the family decides what it can do:
+
+| Family | Verb | Effect |
+|---|---|---|
+| Yield | rises | Increases income |
+| Time | sweeps | Shortens cooldowns |
+| Ward | shields | Blocks incoming hostile actions |
+| Larceny | snatches | Enables stealing from other players |
+| Market | exchanges | Shifts purchase pricing in your favour |
+| Sight | reveals | Reveals information about other players |
+
+Sight is deliberately not counted toward the subsystem's activation requirement - a roster of nothing but Sight would have nothing to reveal about.`
+          },
+          {
+            id: "affinity",
+            title: "Affinity and Caps",
+            content: `You hold one **affinity** at a time, which determines which verb your sigils perform. Changing it does not re-roll or destroy anything; it changes what your holdings do from that point forward.
+
+Holdings are capped **per family**, not just in total, which prevents stacking a single family to an extreme. The per-family cap is deliberately aligned with the inventory-pressure threshold, so specialising into one family and specialising into drops pull against each other.
+
+> Families are gated behind both a deployment flag and per-family enablement in the database. If the interface shows no families at all, the subsystem is switched off in that deployment rather than broken.`
+          }
+        ]
+      }
+    ]
+  },
+
+  {
+    id: "hostile-actions",
+    title: "Hostile Actions",
+    summary: "Freeze, theft, wards, cooldowns, and what actually protects you.",
+    chapters: [
+      {
+        id: "freeze",
+        number: 1,
+        title: "Freeze",
+        icon: "Snowflake",
+        description: "Setting another player's income to zero, and the limits on doing it.",
+        seeAlso: ["theft", "ward", "reference-hostile"],
+        sections: [
+          {
+            id: "freeze-basics",
+            title: "How Freeze Works",
+            content: `Spending a high-tier sigil lets you **freeze** another player: their Coin income drops to zero for the duration.
+
+Freeze is the bluntest hostile action in the game. It does not take anything from the target - it stops them earning, which over a long enough window is worse.
+
+Only the top tiers can be spent on a freeze, so freezing costs you something genuinely valuable. It is not a cheap harassment tool.`
+          },
+          {
+            id: "freeze-limits",
+            title: "Cooldowns and Protection",
+            content: `Two limits apply, mirroring the ones on theft:
+
+- A **cooldown** after you freeze someone, before you can freeze again
+- A **protection window** on the target, during which they cannot be frozen again by anyone
+
+Freezes also **do not stack**. A second freeze on an already-frozen player does not extend or deepen the effect.
+
+> Earlier builds had neither limit and allowed stacking, which meant a group could hold one player at zero income indefinitely and anonymously. Victims are now notified and the attacker is named - the same treatment [[theft]] has always had.`
+          }
+        ]
+      },
+      {
+        id: "theft",
+        number: 2,
+        title: "Theft",
+        icon: "AlertTriangle",
+        description: "Taking a sigil from another player, and why it usually is not worth it.",
+        seeAlso: ["freeze", "ward", "sigil-tiers"],
+        sections: [
+          {
+            id: "theft-basics",
+            title: "How Theft Works",
+            content: `Spending a mid-tier sigil lets you attempt to steal a sigil from another player. Any tier can be targeted.
+
+Theft is a **roll, not a guarantee**. The success chance is capped well below certainty - it can never be a sure thing regardless of what you spend or who you target.
+
+Both players are notified and the attacker is named. There is no anonymous theft.`
+          },
+          {
+            id: "theft-economics",
+            title: "The Economics",
+            content: `Theft has a hard success cap and costs a real sigil to attempt. Run the expected value and it is, in most situations, **negative** - you are spending a certain asset for a capped chance at another.
+
+That is a deliberate design position: hostile action should be available and should carry weight, but it should not be the optimal way to play. If theft were profitable in expectation, every season would collapse into a raiding contest.
+
+Use it when the target holds something specific and valuable, or when the disruption is worth more to you than the sigil. Not as a routine income strategy.`
+          },
+          {
+            id: "theft-limits",
+            title: "Cooldowns and Protection",
+            content: `As with [[freeze]], a cooldown applies to the attacker and a protection window applies to the target after a successful attempt. Both are shortened during the Blackout - see [[blackout]].`
+          }
+        ]
+      },
+      {
+        id: "ward",
+        number: 3,
+        title: "Wards and Defence",
+        icon: "Shield",
+        description: "Blocking incoming actions, and the limits of doing so.",
+        seeAlso: ["freeze", "theft", "sigil-families"],
+        sections: [
+          {
+            id: "ward-basics",
+            title: "Raising a Ward",
+            content: `A **Ward** blocks incoming hostile actions for a duration. It is the direct counter to both [[freeze]] and [[theft]], and it is checked before either resolves.
+
+A ward's duration is capped as a fraction of the season's remaining time, so you cannot raise one early and coast to the end untouchable.`
+          },
+          {
+            id: "blocking-is-not-defence",
+            title: "Blocking Is Not Defence",
+            content: `The social **block** list and hostile-action protection are separate systems, deliberately.
+
+Blocking a player affects social surfaces - chat and similar. It does **not** make you immune to their hostile actions, and this is intentional: if blocking granted immunity, the correct play would be to block the entire leaderboard and become untouchable.
+
+If you want protection from an attacker, raise a ward. If you want to stop hearing from them, block them. They are different problems.`
+          }
+        ]
+      }
+    ]
+  },
+
   {
     id: "competition",
-    title: "Competition & Prestige",
+    title: "Competition",
+    summary: "Leaderboards, lock-in, Global Stars, and how a season pays out.",
     chapters: [
       {
         id: "leaderboards",
-        number: 7,
-        title: "Leaderboards",
+        number: 1,
+        title: "Leaderboards and Ranking",
         icon: "Trophy",
-        description: "How seasonal and global ranking are calculated and displayed.",
+        description: "What each board ranks you on.",
+        seeAlso: ["lock-in", "global-stars"],
         sections: [
           {
-            id: "seasonal-ranking",
-            title: "Seasonal Ranking",
-            content: `Season leaderboard ordering is by:
-1. Seasonal Stars (descending)
-2. player_id (ascending tiebreak)
+            id: "season-leaderboard",
+            title: "The Season Leaderboard",
+            content: `Within a season, players are ranked on **Seasonal Stars**. The board also shows each player's current income rate, which tells you something the star count alone does not: who is gaining on you.
 
-Entries include active participants, lock-in snapshots, and end-finishers.`
+A rank change is animated as movement rather than a jump, so position changes are visible as they happen rather than only in retrospect.`
           },
           {
-            id: "global-ranking",
-            title: "Global Ranking",
-            content: `Global leaderboard is ordered by **global_stars DESC**, then **player_id ASC**, and excludes deleted profiles.`
+            id: "global-leaderboard",
+            title: "The Global Leaderboard",
+            content: `Across all seasons, players are ranked on **lifetime Global Stars earned** - not on the balance they currently hold.
+
+This distinction matters because Global Stars are also the currency for cosmetics. Ranking on the spendable balance would mean every cosmetic purchase cost you rank, making the shop something no competitive player should ever use. See [[cosmetics]].
+
+> This was previously the case: the board ranked on the same column cosmetics deducted from. It now ranks on lifetime earned, so spending is free of rank consequences.`
           }
         ]
       },
       {
-        id: "lock-in-guide",
-        number: 8,
-        title: "Lock-In Mechanics",
+        id: "lock-in",
+        number: 2,
+        title: "Lock-In",
         icon: "Lock",
-        description: "Exact lock-in behavior and restrictions.",
+        description: "The one irreversible decision in a season.",
+        seeAlso: ["lock-in-versus-expiry", "sigil-tiers", "global-stars"],
         sections: [
           {
-            id: "lock-in-availability",
-            title: "When Lock-In Is Allowed",
-            content: `Lock-In requires:
-- Participating in a season
-- Not idle-gated
-- Season status = Active or Blackout (not Expired)
-- At least 1 participation tick since join`
-          },
-          {
-            id: "lock-in-effects",
+            id: "what-lock-in-does",
             title: "What Lock-In Does",
-            content: `Lock-In performs the following:
-- Saves a lock-in snapshot for leaderboard/rank use
-- Refunds T1-T5 sigils back into Seasonal Star value
-- Converts the total to Global Stars at 65%, banking any fractional carry
-- Destroys season-bound resources (coins, seasonal stars, sigils, active boosts)
-- Exits player from season`
+            content: `Locking in ends your season immediately and converts your Seasonal Stars into permanent Global Stars at **65%**.
+
+Your sigils are refunded at their reference values and included in the conversion. See [[tier-values]].
+
+It is **irreversible**. You cannot rejoin the season, cannot keep earning, and cannot undo it. You must also have participated for a cumulative **12 hours** in the season before you are allowed to lock in at all - a floor that exists to stop a join-and-immediately-exit exploit.`
+          },
+          {
+            id: "lock-in-versus-expiry",
+            title: "Lock-In versus Natural Expiry",
+            content: `The alternative is to let the season expire naturally, which converts at **100%** instead of 65%.
+
+That sounds strictly better, and for Stars alone it is. The catch is sigils:
+
+| | Seasonal Stars | Sigils |
+|---|---|---|
+| Lock in early | 65% | Refunded at reference value |
+| Let it expire | 100% | **Destroyed** |
+
+So the choice is not "65% versus 100%". It is "65% of everything" versus "100% of your Stars and nothing for your sigils". Which is better depends entirely on how much of your value is sitting in sigils - and given a T6 is worth 12,000 Stars, that can easily be most of it.
+
+> This is the single most consequential piece of arithmetic in the game. Do the comparison; do not assume 100% wins.`
           }
         ]
       },
       {
-        id: "prestige-guide",
-        number: 9,
-        title: "Badges and Cosmetics",
+        id: "global-stars",
+        number: 3,
+        title: "Global Stars and Bonuses",
         icon: "Award",
-        description: "What prestige systems are currently active in code.",
+        description: "Permanent standing, placement bonuses, and what you can spend on.",
+        seeAlso: ["lock-in", "leaderboards", "reference-competition"],
         sections: [
           {
-            id: "seasonal-badges",
-            title: "Seasonal Badge Awards",
-            content: `At season expiration, if the top seasonal score is greater than zero, top end-finishers receive:
-- Rank 1 -> seasonal_first
-- Rank 2 -> seasonal_second
-- Rank 3 -> seasonal_third`
+            id: "bonuses",
+            title: "Participation and Placement",
+            content: `Beyond conversion, two bonuses apply at the end of a season:
+
+- A **participation bonus**, accruing with time spent in the season, up to a cap
+- A **placement bonus** for the top three finishers
+
+Placement pays **100 / 60 / 40** for first, second and third. Exact participation figures are in [[reference-competition]].`
           },
           {
-            id: "cosmetics-system",
+            id: "cosmetics",
             title: "Cosmetics",
-            content: `Cosmetics are purchased with Global Stars from the cosmetic catalog and can be equipped per category.
+            content: `Global Stars are spendable on cosmetics, priced in five tiers: **25, 80, 250, 800 and 2,400**.
 
-Default price tiers used in seed data:
-- 10, 25, 60, 150, 400 Global Stars`
-          },
-          {
-            id: "scope-note",
-            title: "Scope Note",
-            content: `This wiki reflects active game logic. It does not assume unreleased lifecycle features unless they are wired into runtime behavior.`
+Cosmetics are purely visual. They confer no gameplay advantage, and - since the global board ranks on lifetime earned rather than current balance - buying them costs you nothing but the Stars themselves. See [[global-leaderboard]].`
           }
         ]
       }
     ]
   },
-  {
-    id: "social",
-    title: "Social & Community",
-    chapters: [
-      {
-        id: "social-features",
-        number: 10,
-        title: "Chat and Profiles",
-        icon: "Users",
-        description: "Channels, limits, and profile data exposed by API.",
-        sections: [
-          {
-            id: "chat-channels",
-            title: "Chat Channels in Current Client/API",
-            content: `Client gameplay surfaces and API retrieval currently support:
-- GLOBAL channel
-- SEASON channel
 
-Server-side send endpoint can accept DM channel payloads, but player-facing retrieval in current API helper is focused on GLOBAL and SEASON.`
-          },
-          {
-            id: "chat-limits",
-            title: "Chat Limits",
-            content: `Configured chat limits:
-- Max message length: 500
-- Max rows returned per fetch: 200`
-          },
-          {
-            id: "profiles",
-            title: "Profiles and History",
-            content: `Profile endpoint includes:
-- Handle and role
-- Global Stars
-- Badges
-- Season history snapshots
-
-Deleted profiles return as removed placeholders.`
-          }
-        ]
-      },
-      {
-        id: "rules-fairness",
-        number: 11,
-        title: "Fairness Boundaries",
-        icon: "Shield",
-        description: "What restrictions and safeguards are explicit in runtime logic.",
-        sections: [
-          {
-            id: "staff-participation",
-            title: "Staff Participation Restriction",
-            content: `Staff roles are blocked from season participation by action logic.`
-          },
-          {
-            id: "action-gating",
-            title: "Action Gating and Safety",
-            content: `Core actions are protected by:
-- Auth checks
-- Idle gating
-- Season-state checks
-- Input validation
-- Rate limiting at API level`
-          },
-          {
-            id: "consequence-transparency",
-            title: "High-Impact Action Previews and Receipts",
-            content: `For economy actions with significant impact, the game surfaces a **preview** before execution:
-
-**How it works:**
-
-1. When you click Buy Stars, Attempt Theft, or Activate Boost, the client requests a preview from the server.
-2. The server computes:
-   - Estimated total cost
-   - Fee included (if applicable)
-   - Supply impact in basis points and percent
-   - Post-action balance estimate
-   - Risk severity: **low**, **medium**, or **high**
-
-3. **Low-risk** actions proceed immediately (one-click UX preserved).
-4. **Medium or high-risk** actions open a confirmation modal showing full impact details. You must check an acknowledgement checkbox before proceeding.
-
-**Confirmation requirement:**
-
-The server enforces gating: if \`confirm_economic_impact=1\` is not sent with a medium/high-risk action, the API returns error \`confirmation_required\` along with a full preview payload.
-
-**Post-action receipts:**
-
-After any gated action completes successfully, a receipt modal shows:
-- Actual cost or sigils spent
-- Post-action balance
-- Transfer or outcome details when applicable
-- Other relevant execution details
-
-This system ensures you always know the economic consequence of high-impact decisions before committing.`
-          },
-          {
-            id: "deterministic-surfaces",
-            title: "Deterministic Economy Surfaces",
-            content: `Drop RNG, UBI math, star pricing, and theft success logic are defined server-side so economy outcomes do not depend on client-side trust.`
-          }
-        ]
-      }
-    ]
-  },
   {
     id: "strategy",
-    title: "Strategy & Tips",
+    title: "Strategy",
+    summary: "How the systems interact, and where the real decisions are.",
     chapters: [
       {
-        id: "strategy-guide",
-        number: 12,
-        title: "Practical Strategy",
-        icon: "Lightbulb",
-        description: "Code-grounded guidance for better decision timing.",
+        id: "core-tensions",
+        number: 1,
+        title: "The Core Tensions",
+        icon: "Compass",
+        description: "Every meaningful decision in the game is one of these.",
+        seeAlso: ["buying-stars", "hoarding-sink", "lock-in-versus-expiry"],
         sections: [
           {
-            id: "blackout-planning",
-            title: "Plan Around Blackout",
-            content: `Because Lock-In, vault purchases, boost activation, and sigil theft attempts are blocked in Blackout, front-load your critical actions during Active state.`
-          },
-          {
-            id: "stars-vs-power",
-            title: "Stars vs Temporary Power",
-            content: `Spending Seasonal Stars on vault sigils can improve short-term UBI through boosts, but it can reduce immediate leaderboard rank. Decide based on your timing and season status.`
-          },
-          {
-            id: "theft-discipline",
-            title: "Theft Discipline",
-            content: `Always account for failure risk, cooldown, and defender protection.
+            id: "spend-versus-hold",
+            title: "Spend versus Hold",
+            content: `Holding Coins costs you income through the sink and risks the season ending with them unconverted. Spending commits you at today's price. See [[hoarding-sink]].
 
-A theft attempt that looks fair on utility value can still be a losing move if the requested sigils are critical for your own freeze, melt, or boost plans.`
+The sink is designed so that steady conversion beats a single large one. If you find yourself holding a large balance with no plan for it, that is the game telling you something.`
           },
           {
-            id: "stay-active",
-            title: "Stay Active",
-            content: `Active status matters twice:
-- Better UBI branch than idle factor branch
-- Eligibility for sigil drops
+            id: "boost-tradeoff",
+            title: "Boosting versus Drops",
+            content: `A Coin boost raises income and **lowers sigil drop odds** - see [[drop-pressure]]. Given a T6 sigil is worth 12,000 Seasonal Stars, trading drop rate for Coin rate is not obviously correct.
 
-If you are idle-gated, acknowledge promptly to restore full action access.`
+This is a genuine tradeoff rather than an upgrade, and it should be evaluated per season depending on how much you value sigils versus a faster conversion loop.`
+          },
+          {
+            id: "specialise-versus-spread",
+            title: "Specialising versus Spreading",
+            content: `Per-family caps mean you cannot stack one family indefinitely, and the inventory-pressure threshold means holding a lot of anything slows your drops. See [[affinity]].
+
+Combining relieves both at once - it raises value and lowers held count. A player who treats combining as routine maintenance rather than an occasional action will out-drop one who does not. See [[combining]].`
           }
         ]
       },
       {
-        id: "glossary",
-        number: 13,
-        title: "Glossary",
-        icon: "BookText",
-        description: "Terms as implemented in current server logic.",
+        id: "timing",
+        number: 2,
+        title: "Timing the Season",
+        icon: "Clock",
+        description: "When to join, when to convert, when to leave.",
+        seeAlso: ["season-structure", "lock-in", "sigil-drops"],
         sections: [
           {
-            id: "terms-core",
-            title: "Core Terms",
-            content: `**Seasonal Stars**: Per-season ranking resource.
+            id: "blackout",
+            title: "The Blackout",
+            content: `The final **72 hours** of a season are a hard stop: no income, no sigil drops, no star purchases. The season only settles.
 
-**Global Stars**: Cross-season persistent score used for global leaderboard and cosmetic purchases.
+Hostile action cooldowns and protection windows are shortened during the Blackout, so the last phase is relatively more dangerous even though nothing is being earned.
 
-**Blackout**: Final season window where major economy actions are restricted.
-
-**Lock-In**: Early exit that converts Seasonal Stars to Global Stars and clears season-bound resources.`
+Everything you intend to accumulate must be accumulated before the Blackout begins. Plan the last purchase for before that boundary, not after.`
           },
           {
-            id: "terms-economy",
-            title: "Economy Terms",
-            content: `**UBI**: Per-tick coin accrual with activity, inflation, and hoarding modifiers.
+            id: "overlapping-seasons",
+            title: "Overlapping Seasons",
+            content: `Because seasons run 14 days and start every 7, there are always two in flight. You can choose which to join, and the phase of a season when you join changes what it is worth to you.
 
-**Vault**: Tiered sigil inventory with dynamic star costs based on remaining supply.
+Joining a season already in its late phase gives you less time to accumulate, but higher-tier sigils are reachable sooner. Joining fresh gives the full 11 active days but starts you in the early phase.
 
-**Theft Utility Value**: Server-side sigil utility valuation used to gate requested loot and calculate theft success chance.
+Note the **12-hour cumulative participation floor** on lock-in - join too late and lock-in may not be available to you at all. See [[what-lock-in-does]].`
+          }
+        ]
+      }
+    ]
+  },
 
-**Participation Bonus**: Expiration-time bonus based on active ticks, capped at 56 by default.`
+  {
+    id: "reference",
+    title: "Reference",
+    summary: "Raw constants and tables. Everything here is read from the source.",
+    chapters: [
+      {
+        id: "reference-timing",
+        number: 1,
+        title: "Timing Constants",
+        icon: "Clock",
+        description: "Season, tick and presence timings.",
+        seeAlso: ["season-structure", "ticks-and-time"],
+        sections: [
+          {
+            id: "timing-table",
+            title: "Timing",
+            content: `All values are global constants unless noted.
+
+| Setting | Value | Notes |
+|---|---|---|
+| Season duration | 14 days | |
+| New season cadence | 7 days | Seasons overlap |
+| Blackout duration | 72 hours | End of every season |
+| Tick cadence | deployment setting | Default 60s; live deployments differ |
+| Idle timeout | 15 minutes | Inactivity before Idle |
+| Forced-offline hold | 45 minutes | |
+| Minimum participation for lock-in | 12 hours | Cumulative across the season |
+| Hoarding window | 24 hours | |
+| Ability unit duration | 15 minutes | Base unit for cooldowns |
+
+> The tick cadence is the one value here that is **not** fixed. Any figure expressed "per tick" must be read against it. See [[ticks-and-time]].`
+          }
+        ]
+      },
+      {
+        id: "reference-economy",
+        number: 2,
+        title: "Economy Constants",
+        icon: "Coins",
+        description: "UBI, hoarding sink and star price settings.",
+        seeAlso: ["ubi-and-activity", "hoarding-sink", "star-price"],
+        sections: [
+          {
+            id: "ubi-table",
+            title: "Income",
+            content: `Per-season columns - an operator can set these differently per season.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| Base UBI (Active) | 100 / min | Divided by ticks-per-minute in code |
+| Idle factor | 0.30 | Idle pays 30% of Active |
+| Minimum UBI | 1 / min | Floor after dampening |`
           },
           {
-            id: "terms-drops",
-            title: "Drop Terms",
-            content: `**RNG Drop**: Sigil drop from deterministic Bernoulli trial.
+            id: "sink-table",
+            title: "Hoarding Sink",
+            content: `Per-season columns. **Disabled by default** - an operator must enable it per season.
 
-**Pity Drop**: Forced Tier I drop when pity threshold is reached.
+| Setting | Default |
+|---|---|
+| Safe period | 12 hours |
+| Safe minimum balance | 20,000 Coins |
+| Tier 1 excess cap | 50,000 |
+| Tier 2 excess cap | 200,000 |
+| Cap as fraction of gross rate | 35% |
+| Idle multiplier | x1.25 |
 
-**Drop Throttle**: Rolling cap that limits drops within the configured window.`
+The three tier rates rise across the bands. The cap means the sink can never take more than 35% of your gross income. See [[how-it-scales]].`
+          },
+          {
+            id: "price-table",
+            title: "Star Price",
+            content: `| Setting | Default | Scope |
+|---|---|---|
+| Absolute floor | 1 | Global |
+| Season price cap | 10,000 | Per season |
+| Idle coin weight | 0.25 | Per season |
+| Max up-step per tick | ~0.2% | Per season |
+| Max down-step per tick | ~1.0% | Per season |
+| Pricing model version | 2 for new seasons | Per season |
+
+See [[price-movement-limits]].`
+          }
+        ]
+      },
+      {
+        id: "reference-sigils",
+        number: 3,
+        title: "Sigil Constants",
+        icon: "Hexagon",
+        description: "Tiers, caps, pressure thresholds and reference values.",
+        seeAlso: ["sigil-drops", "sigil-tiers", "sigil-families"],
+        sections: [
+          {
+            id: "sigil-table",
+            title: "Sigils",
+            content: `| Setting | Value |
+|---|---|
+| Maximum tier | 6 |
+| Total inventory cap | 25 |
+| Inventory pressure starts at | 10 held |
+| Inventory pressure reaches zero at | 25 held |
+| Per-family holding cap | 8 |
+| Base drop chance | 0.35% per roll |
+
+Reference Star values by tier: **50 / 250 / 1,000 / 3,000 / 9,000 / 12,000**.
+
+> Constants named for a pity timer and a per-window drop cap exist in the config but are not used as a pity system. There is no pity mechanic. See [[drop-pressure]].`
+          }
+        ]
+      },
+      {
+        id: "reference-hostile",
+        number: 4,
+        title: "Hostile Action Constants",
+        icon: "Shield",
+        description: "Spend tiers, cooldowns, caps and durations.",
+        seeAlso: ["freeze", "theft", "ward"],
+        sections: [
+          {
+            id: "hostile-table",
+            title: "Hostile Actions",
+            content: `| Setting | Value |
+|---|---|
+| Freeze - spendable tiers | T4, T5, T6 |
+| Freeze - base duration | 30 minutes |
+| Freeze - cooldown | 15 minutes |
+| Freeze - target protection | 15 minutes |
+| Theft - spendable tiers | T3, T4, T5 |
+| Theft - targetable tiers | T1 to T6 |
+| Theft - success cap | 60% |
+| Theft - cooldown | 15 minutes |
+| Theft - target protection | 15 minutes |
+| Ward - max duration | 25% of season remaining |
+| Self-melt - spendable tiers | T5, T6 |
+
+Cooldown and protection windows are shortened during the Blackout. See [[blackout]].`
+          }
+        ]
+      },
+      {
+        id: "reference-competition",
+        number: 5,
+        title: "Competition Constants",
+        icon: "Trophy",
+        description: "Conversion, bonuses and cosmetic pricing.",
+        seeAlso: ["lock-in", "global-stars"],
+        sections: [
+          {
+            id: "competition-table",
+            title: "Competition",
+            content: `| Setting | Value |
+|---|---|
+| Lock-in conversion | 65% |
+| Natural expiry conversion | 100% |
+| Participation bonus interval | 1 hour |
+| Participation bonus cap | 56 |
+| Placement bonus | 100 / 60 / 40 |
+| Cosmetic price tiers | 25 / 80 / 250 / 800 / 2,400 |
+
+Sigils are refunded at reference value on lock-in and destroyed at natural expiry. See [[lock-in-versus-expiry]].`
           }
         ]
       }
