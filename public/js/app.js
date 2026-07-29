@@ -1754,7 +1754,9 @@ const TMC = {
     _familyStatePollCounter: 0,
 
     familyDisplayName(code) {
-        const names = { yield: 'Yield', time: 'Time', ward: 'Ward', larceny: 'Larceny', market: 'Market', sight: 'Sight', wild: 'Wildcard' };
+        // Mirrors SigilFamilies::NAMES. The keys are the API codes and do not
+        // change; only the labels do.
+        const names = { yield: 'Goliath', time: 'Anak', ward: 'Michael', larceny: 'Valefor', market: 'Mammon', sight: 'Azazel', wild: 'Legion' };
         return names[code] || code;
     },
 
