@@ -352,12 +352,83 @@ class Actions {
                 [$seasonId, $gameTime, $playerId]
             );
             
+            $starterGranted = self::grantStarterSigils($db, $playerId, $seasonId);
+
             $db->commit();
-            return ['success' => true, 'message' => 'Joined season successfully'];
+            return [
+                'success' => true,
+                'message' => 'Joined season successfully',
+                'starter_grant' => $starterGranted,
+            ];
         } catch (Exception $e) {
             $db->rollback();
             return ['error' => 'Failed to join season: ' . $e->getMessage()];
         }
+    }
+
+    /**
+     * Hand a first-time player enough Tier 1 sigils to run one combine.
+     *
+     * Once per account, ever. The guard is the UPDATE itself: setting
+     * starter_grant_at only WHERE it IS NULL means two concurrent joins race on
+     * a single row and exactly one sees rowCount() === 1. Checking first and
+     * then writing would let both pass the check.
+     *
+     * It lives on players rather than on participation because participation is
+     * wiped by resetSeasonParticipationForFreshStart on rejoin - a per-season
+     * flag would be cleared with it, and the grant could be farmed by leaving
+     * and rejoining.
+     *
+     * @return array|null Grant description for the client, or null if not granted.
+     */
+    private static function grantStarterSigils($db, $playerId, $seasonId) {
+        $tier = (int)STARTER_GRANT_TIER;
+        $count = (int)STARTER_GRANT_COUNT;
+        if ($count <= 0 || $tier < 1 || $tier > 6) {
+            return null;
+        }
+
+        $claim = $db->query(
+            "UPDATE players SET starter_grant_at = NOW()
+             WHERE player_id = ? AND starter_grant_at IS NULL",
+            [$playerId]
+        );
+        if ($claim->rowCount() !== 1) {
+            return null;   // already granted on some earlier season
+        }
+
+        // Named $sigilCol, not $column: tools/sigil_mirror_selfcheck.php pairs
+        // every write to a sigil tier column with a mirror sync, and detects
+        // interpolated writes by that naming convention. A differently-named
+        // variable makes this function invisible to the checker - which would
+        // report PASS while leaving the one code path it was written to guard
+        // completely unexamined.
+        $sigilCol = 'sigils_t' . $tier;
+        $db->query(
+            "UPDATE season_participation
+             SET {$sigilCol} = {$sigilCol} + ?, sigil_drops_total = sigil_drops_total + ?
+             WHERE player_id = ? AND season_id = ?",
+            [$count, $count, $playerId, $seasonId]
+        );
+
+        // The mirror has to move with the tier column or the two disagree, and
+        // the family verbs spend from the mirror. Wild is the family with no
+        // affinity requirement, which is what a starter sigil should be.
+        if (class_exists('SigilFamilies') && SigilFamilies::active($db)) {
+            SigilFamilies::addHolding($db, $seasonId, $playerId, SigilFamilies::WILD_ID, $tier, $count);
+        }
+
+        // Record the star value handed over, so lock-in can net it back out and
+        // this stays a teaching aid rather than a global-star signup bonus.
+        $refundPerSigil = (int)(SIGIL_REFERENCE_STARS_BY_TIER[$tier] ?? 0);
+        $grantStars = $refundPerSigil * $count;
+        $db->query(
+            "UPDATE season_participation SET starter_grant_stars = starter_grant_stars + ?
+             WHERE player_id = ? AND season_id = ?",
+            [$grantStars, $playerId, $seasonId]
+        );
+
+        return ['tier' => $tier, 'count' => $count, 'refund_offset_stars' => $grantStars];
     }
     
     /**
@@ -540,7 +611,12 @@ class Actions {
             (int)$participation['sigils_t5'],
             (int)($participation['sigils_t6'] ?? 0),
         ];
-        $payout = Economy::computeEarlyLockInPayout($seasonalStars, $sigilCounts, $tierCosts);
+        $payout = Economy::computeEarlyLockInPayout(
+            $seasonalStars,
+            $sigilCounts,
+            $tierCosts,
+            (int)($participation['starter_grant_stars'] ?? 0)
+        );
         $totalSeasonalStars = $payout['total_seasonal_stars'];
         $sigilRefundStars   = $payout['sigil_refund_stars'];
         $existingGlobalStarsCarryFp = max(0, (int)($player['global_stars_fractional_fp'] ?? 0));

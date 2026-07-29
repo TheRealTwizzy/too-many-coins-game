@@ -150,9 +150,30 @@ const ctx = {
         const res = await api.request('season_join', { season_id: seasonId });
         store.set('ui.joining', null);
         if (res && res.error) return toast(res.error, 'error');
+
         // Refresh immediately rather than waiting up to 3s for the next poll —
         // joining is the one action where the whole screen changes meaning.
         await poll();
+        ctx.openSeason(seasonId);
+
+        // A first-ever join hands over starter sigils. Say so, and say what
+        // they are for — a player who does not notice them learns the forge
+        // several drop intervals later, which is the problem the grant exists
+        // to solve. Also state the lock-in offset up front rather than letting
+        // it turn up as a surprise deduction at the end of the season.
+        const grant = res && res.starter_grant;
+        if (grant && grant.count > 0) {
+            const stars = new Intl.NumberFormat('en-US').format(grant.refund_offset_stars || 0);
+            await ctx.confirm({
+                title: 'Welcome — here are some sigils',
+                body: `You have been given ${grant.count} Tier ${grant.tier} sigils so you can use the forge `
+                    + `straight away: combine five of a tier into one of the next. `
+                    + `They are a starting hand rather than a bonus, so ${stars} stars are deducted `
+                    + `from your lock-in refund at the end.`,
+                confirmLabel: 'Got it',
+                dismissOnly: true,
+            });
+        }
     },
 
     switchAuthTab(tab) {
@@ -685,7 +706,9 @@ function confirmDialog(dialog) {
             : null,
 
         h('div', { class: 'dialog-actions' },
-            h('button', {
+            // An informational dialog has nothing to cancel — offering the
+            // choice implies the thing has not happened yet, when it already has.
+            dialog.dismissOnly ? null : h('button', {
                 class: 'btn btn-ghost',
                 onClick: () => { store.set('ui.dialogAcked', false); ctx.closeDialog(false); },
             }, 'Cancel'),

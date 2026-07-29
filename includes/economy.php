@@ -1018,7 +1018,12 @@ class Economy {
      *     global_stars_gained: int
      * }
      */
-    public static function computeEarlyLockInPayout(int $seasonalStars, array $sigilCounts, array $tierCosts): array {
+    public static function computeEarlyLockInPayout(
+        int $seasonalStars,
+        array $sigilCounts,
+        array $tierCosts,
+        int $starterOffsetStars = 0
+    ): array {
         $sigilRefundStars = 0;
         $tiers = max(count($sigilCounts), count($tierCosts));
         for ($i = 0; $i < $tiers; $i++) {
@@ -1026,10 +1031,24 @@ class Economy {
             $cost  = (int)($tierCosts[$i] ?? 0);
             $sigilRefundStars += $count * $cost;
         }
+
+        // Net out any starter grant. Those sigils were handed over to make the
+        // forge legible on arrival, not to be sold back at lock-in - without
+        // this, a first join is a signup bonus paid in global stars, which are
+        // permanent and cross-season.
+        //
+        // Applied to the sigil refund only, never to stars the player bought
+        // with their own coins, and clamped so it can never turn a payout
+        // negative or claw back earned progress.
+        $starterOffset = max(0, $starterOffsetStars);
+        $starterApplied = min($starterOffset, $sigilRefundStars);
+        $sigilRefundStars -= $starterApplied;
+
         $totalSeasonalStars = $seasonalStars + $sigilRefundStars;
         $grant = self::applyGlobalStarsGrantWithCarry($totalSeasonalStars, 0, 65, 100);
         return [
             'sigil_refund_stars'   => $sigilRefundStars,
+            'starter_offset_stars' => $starterApplied,
             'total_seasonal_stars' => $totalSeasonalStars,
             'global_stars_gained'  => $grant['global_stars_gained'],
             'global_stars_grant_fp' => $grant['grant_fp'],
