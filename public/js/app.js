@@ -72,7 +72,11 @@ const TMC = {
                 };
             }
 
-            if (resp.status === 401 || resp.status === 403 || (json.error && json.error.includes('Authentication required'))) {
+            // Only 401 means "no valid session". 403 is permission-denied
+            // (Permissions::requireStaff/requireAdmin, tick secret), so treating
+            // it as a session failure logged players out for merely touching a
+            // staff-gated endpoint.
+            if (resp.status === 401 || (json.error && json.error.includes('Authentication required'))) {
                 this.handleLoggedOut();
             }
 
@@ -95,11 +99,10 @@ const TMC = {
     async init() {
         this._bindHistoryNavigation();
 
-        // Check for stored session
-        const token = localStorage.getItem('tmc_token');
-        if (token) {
-            document.cookie = `tmc_session=${token}; path=/; max-age=86400`;
-        }
+        // The session cookie is set server-side as HttpOnly. Do not re-write it
+        // from JS: that replaced it with a script-readable cookie and undid the
+        // HttpOnly protection. Requests authenticate via the HttpOnly cookie
+        // (same-origin) with the X-Session-Token header as fallback.
 
         await this.refreshGameState();
         this.renderUserArea();
@@ -234,7 +237,6 @@ const TMC = {
             return;
         }
         localStorage.setItem('tmc_token', result.token);
-        document.cookie = `tmc_session=${result.token}; path=/; max-age=86400`;
         this.toast('Welcome back, ' + result.handle + '!', 'success', { category: 'auth_login' });
         await this.refreshGameState();
         if (!this.state.player || this.state.player.player_id != result.player_id) {
@@ -264,7 +266,6 @@ const TMC = {
             return;
         }
         localStorage.setItem('tmc_token', result.token);
-        document.cookie = `tmc_session=${result.token}; path=/; max-age=86400`;
         this.toast('Account created! Welcome, ' + result.handle + '!', 'success', { category: 'auth_register' });
         await this.refreshGameState();
         if (!this.state.player || this.state.player.player_id != result.player_id) {
@@ -4588,11 +4589,24 @@ const TMC = {
         return (Math.floor(num * 100) / 100).toFixed(2);
     },
 
+    // Escapes for BOTH text and attribute contexts.
+    // A textContent/innerHTML round-trip does not escape quotes, so any value
+    // interpolated into value="..." could break out of the attribute.
     escapeHtml(str) {
+        // Falsy handling is intentionally identical to the previous
+        // implementation so this stays a security fix, not a rendering change.
         if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+        return String(str).replace(/[&<>"'`]/g, function (ch) {
+            switch (ch) {
+                case '&': return '&amp;';
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '"': return '&quot;';
+                case "'": return '&#39;';
+                case '`': return '&#96;';
+            }
+            return ch;
+        });
     },
 
     sanitizeNotificationActionUrl(url) {

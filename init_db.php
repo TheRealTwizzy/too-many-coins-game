@@ -8,14 +8,25 @@
 
 require_once __DIR__ . '/includes/config.php';
 
-// Security: only allow via CLI or with correct secret
+// Security: only allow via CLI or with correct secret.
+//
+// Fails closed. This previously fell back to a hardcoded 'tmc_init_2024' when
+// TMC_INIT_SECRET was unset, which left the endpoint reachable by anyone who
+// read the source on any deployment that had not configured the variable.
 $isCli = (php_sapi_name() === 'cli');
-$secret = $_GET['secret'] ?? '';
-$initSecret = getenv('TMC_INIT_SECRET') ?: 'tmc_init_2024';
+$secret = (string)($_GET['secret'] ?? '');
+$initSecret = (string)(getenv('TMC_INIT_SECRET') ?: '');
 
-if (!$isCli && $secret !== $initSecret) {
-    http_response_code(403);
-    die(json_encode(['error' => 'Forbidden. Provide ?secret=YOUR_INIT_SECRET']));
+if (!$isCli) {
+    if ($initSecret === '') {
+        http_response_code(403);
+        die(json_encode(['error' => 'Forbidden. TMC_INIT_SECRET is not configured; run init from the CLI.']));
+    }
+    // Constant-time compare, matching the tick-secret check in api/index.php.
+    if (!hash_equals($initSecret, $secret)) {
+        http_response_code(403);
+        die(json_encode(['error' => 'Forbidden. Provide ?secret=YOUR_INIT_SECRET']));
+    }
 }
 
 header('Content-Type: application/json');

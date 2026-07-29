@@ -171,11 +171,18 @@ class FamilyActions {
         $db->beginTransaction();
         try {
             $sigilCol = 'sigils_t' . $tier;
-            $db->query(
+            $spent = $db->query(
                 "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1
                  WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= 1",
                 [(int)$playerId, $ctx['season_id']]
-            );
+            )->rowCount();
+            // The guard above can legitimately match zero rows when two requests
+            // race for the last sigil. Without this check the sigil went unspent
+            // and the ward was granted anyway.
+            if ($spent !== 1) {
+                $db->rollback();
+                return ['error' => 'Not enough sigils'];
+            }
             SigilFamilies::spendSpecific($db, $ctx['season_id'], $playerId, SigilFamilies::WARD_ID, $tier, 1);
             $db->query(
                 "INSERT INTO active_wards (player_id, season_id, spent_tier, activated_tick, expires_tick)
@@ -245,12 +252,16 @@ class FamilyActions {
         $db->beginTransaction();
         try {
             $sigilCol = 'sigils_t' . $tier;
-            $db->query(
+            $spent = $db->query(
                 "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1,
                  market_pending_vp = ?, market_last_used_tick = ?
                  WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= 1",
                 [$vp, $nowTick, (int)$playerId, $ctx['season_id']]
-            );
+            )->rowCount();
+            if ($spent !== 1) {
+                $db->rollback();
+                return ['error' => 'Not enough sigils'];
+            }
             SigilFamilies::spendSpecific($db, $ctx['season_id'], $playerId, SigilFamilies::MARKET_ID, $tier, 1);
             self::touchActivity($db, $playerId, $nowTick);
             $db->commit();
@@ -352,11 +363,14 @@ class FamilyActions {
                 break;
         }
 
-        $db->query(
+        $consumed = $db->query(
             "UPDATE season_sigil_holdings SET count = count - 1
              WHERE season_id = ? AND player_id = ? AND family_id = ? AND tier = ? AND count >= 1",
             [$ctx['season_id'], (int)$playerId, SigilFamilies::SIGHT_ID, (int)$sightRow['tier']]
-        );
+        )->rowCount();
+        if ($consumed !== 1) {
+            return ['error' => 'Not enough Sight sigils'];
+        }
         self::touchActivity($db, $playerId, $nowTick);
 
         return [
@@ -412,20 +426,31 @@ class FamilyActions {
         $db->beginTransaction();
         try {
             foreach ($familyIds as $familyId) {
-                $db->query(
+                $consumedFamily = $db->query(
                     "UPDATE season_sigil_holdings SET count = count - 1
                      WHERE season_id = ? AND player_id = ? AND family_id = ? AND tier = ? AND count >= 1",
                     [$ctx['season_id'], (int)$playerId, $familyId, $tier]
-                );
+                )->rowCount();
+                if ($consumedFamily !== 1) {
+                    $db->rollback();
+                    return ['error' => 'Missing a ' . SigilFamilies::familyName($familyId) . ' ' . self::roman($tier) . ' sigil'];
+                }
             }
             // 3 in, 2 wildcards out: -33% value, wildcard spends as any family.
             SigilFamilies::addHolding($db, $ctx['season_id'], $playerId, SigilFamilies::WILD_ID, $tier, 2);
             $sigilCol = 'sigils_t' . $tier;
-            $db->query(
+            // Net -1: three family holdings consumed above, two wildcards granted.
+            // Checked so a lost race cannot leave the per-family holdings spent
+            // while the aggregate count stays untouched.
+            $spent = $db->query(
                 "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1
                  WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= 3",
                 [(int)$playerId, $ctx['season_id']]
-            );
+            )->rowCount();
+            if ($spent !== 1) {
+                $db->rollback();
+                return ['error' => "Insufficient Tier {$tier} Sigils"];
+            }
             self::touchActivity($db, $playerId, $nowTick);
             $db->commit();
         } catch (Exception $e) {
@@ -472,11 +497,15 @@ class FamilyActions {
         $nowTick = GameTime::now();
         $db->beginTransaction();
         try {
-            $db->query(
+            $consumed = $db->query(
                 "UPDATE season_sigil_holdings SET count = count - 3
                  WHERE season_id = ? AND player_id = ? AND family_id = ? AND tier = ? AND count >= 3",
                 [$ctx['season_id'], (int)$playerId, SigilFamilies::SIGHT_ID, $tier]
-            );
+            )->rowCount();
+            if ($consumed !== 1) {
+                $db->rollback();
+                return ['error' => 'Not enough Sight sigils'];
+            }
             SigilFamilies::addHolding($db, $ctx['season_id'], $playerId, $targetFamilyId, $outTier, 1);
             $sigilCol = 'sigils_t' . $outTier;
             $db->query(
