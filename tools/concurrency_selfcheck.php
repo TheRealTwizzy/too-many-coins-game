@@ -14,20 +14,54 @@
  * debt with GREATEST(0, ...). Seasonal Stars convert to Global Stars at
  * lock-in, so it laundered into permanent currency.
  *
- * Requires: a running server + database. Creates a throwaway account.
+ * Requires: a running server + database. Creates a throwaway account, which it
+ * leaves in the season unless --cleanup is given.
  *
  *   php tools/concurrency_selfcheck.php --base=http://localhost:8080
  *   php tools/concurrency_selfcheck.php --base=http://localhost:8080 --parallel=25
+ *   php tools/concurrency_selfcheck.php --base=http://localhost --cleanup
  *   php tools/concurrency_selfcheck.php --selftest    # no server; judges recorded runs
  *
  * Exit: 0 = no value created, 1 = integrity violation, 2 = inconclusive.
  */
 
-$opts = getopt('', ['base::', 'parallel::', 'verbose', 'selftest']);
+$opts = getopt('', ['base::', 'parallel::', 'verbose', 'selftest', 'cleanup']);
 $base = rtrim($opts['base'] ?? 'http://localhost:8080', '/');
 $parallel = max(2, (int)($opts['parallel'] ?? 15));
 $verbose = isset($opts['verbose']);
+$cleanup = isset($opts['cleanup']);
 $api = $base . '/api/index.php';
+
+/**
+ * Remove the throwaway account this run created.
+ *
+ * Needs direct DB access, which the rest of this tool does not: everything else
+ * goes over HTTP on purpose, so the race is run through the same code path a
+ * real client uses. Cleanup has no HTTP equivalent, so it is opt-in and
+ * degrades to a warning rather than failing the run - a purge problem must
+ * never change the verdict on the integrity guard.
+ */
+function tmcCleanupAccount(string $handle): void {
+    $lib = __DIR__ . '/lib/test_accounts.php';
+    if (!is_file($lib)) {
+        echo "cleanup: tools/lib/test_accounts.php missing; {$handle} left in place\n";
+        return;
+    }
+    require_once $lib;
+    try {
+        $pdo = tmcOpenPdo();
+        $accounts = tmcFindTestAccounts($pdo, $handle);
+        if (!$accounts) {
+            echo "cleanup: {$handle} not found (already gone?)\n";
+            return;
+        }
+        $res = tmcPurgePlayers($pdo, array_column($accounts, 'player_id'), true);
+        echo "cleanup: removed {$handle} and {$res['total']} dependent row(s)\n";
+    } catch (Throwable $e) {
+        echo "cleanup FAILED for {$handle}: " . $e->getMessage() . "\n";
+        echo "cleanup: purge it with  php tools/purge_test_accounts.php --handle={$handle} --apply\n";
+    }
+}
 
 /**
  * Decide what a completed race proves. Pure: no I/O, no globals, no clock - so
@@ -269,6 +303,21 @@ if (empty($reg['token'])) {
 }
 $token = $reg['token'];
 echo "test account: {$handle}\n";
+
+// Registered as a shutdown handler rather than called at the end, so it also
+// fires on the early exits - "no joinable season", "balance never accrued",
+// FAIL, INCONCLUSIVE. Those abort paths are how the leftovers accumulated in
+// the first place: the run that dies before the race still left an account.
+if ($cleanup) {
+    register_shutdown_function('tmcCleanupAccount', $handle);
+} else {
+    // Never silent. An account left in a live season shows up in the
+    // leaderboard and the participant count, so say so where it will be read.
+    register_shutdown_function(function () use ($handle) {
+        echo "\nNOTE: {$handle} was left in the season (no --cleanup). Remove it with:\n"
+           . "      php tools/purge_test_accounts.php --handle={$handle} --apply\n";
+    });
+}
 
 // --- join a joinable season ------------------------------------------------
 $seasons = $state['seasons'] ?? [];
