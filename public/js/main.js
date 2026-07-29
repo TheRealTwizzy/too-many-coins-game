@@ -295,15 +295,35 @@ async function poll() {
         connection: 'live',
     });
 
-    // last_tick_at is not published yet. Passing it through as undefined keeps
-    // the clock honest — it reports "phase unknown" rather than inventing one —
-    // and this line starts working the moment Stage 2 adds the field.
     if (gs.timing) {
         clock.setTickPhase({
             periodSeconds: gs.timing.tick_real_seconds,
-            lastTickAt: gs.timing.last_tick_at ?? null,
+            lastTickAt: resolveLastTick(gs.timing),
         });
     }
+}
+
+/**
+ * Work out when the last server tick fired, in *this device's* clock.
+ *
+ * Prefer tick_age_seconds: anchoring to our own Date.now() minus the age means
+ * a device with a misset clock still counts down correctly, because the offset
+ * cancels out. Falling back to the absolute epoch is only right when the two
+ * clocks agree, which on phones is not a safe assumption.
+ *
+ * Returns null when the server publishes neither — a fresh install before its
+ * first tick, or straight after a reset that cleared server_state. The clock
+ * then reports phase as unknown and the HUD shows cadence instead of a
+ * countdown, rather than guessing.
+ */
+function resolveLastTick(timing) {
+    if (typeof timing.tick_age_seconds === 'number') {
+        return Date.now() - timing.tick_age_seconds * 1000;
+    }
+    if (typeof timing.last_tick_at === 'number') {
+        return timing.last_tick_at;
+    }
+    return null;
 }
 
 /* ------------------------------------------------------------------ *

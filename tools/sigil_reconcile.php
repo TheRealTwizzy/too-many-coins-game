@@ -9,7 +9,20 @@
  * THE INVARIANT
  *
  *   SUM(season_sigil_holdings.count) per (player, season, tier)
+ *       EXCLUDING the Sight family
  *       <=  season_participation.sigils_t{tier}
+ *
+ * The Sight exclusion is not a detail. Sight is holdings-only: its trickle in
+ * TickEngine rides along on another family's drop and adds a mirror row without
+ * incrementing any tier column - "holdings-only, outside the positional array
+ * and the 25-cap", as the comment there puts it. So a player holding Sight
+ * sigils legitimately has more in the mirror than the tier columns show, and at
+ * a 33% trickle rate that is most active players, not an edge case.
+ *
+ * Counting Sight here would therefore report healthy inventory as drift, and
+ * --apply would "repair" it by deleting real material sigils. Sight is still
+ * shown in the report below, so an operator can see the gap it accounts for
+ * rather than having to re-derive this.
  *
  * Less-than is normal and expected: sigils granted before families were enabled
  * were never written to the mirror, so the mirror legitimately lags the tier
@@ -38,6 +51,11 @@ require_once __DIR__ . '/lib/test_accounts.php';   // for tmcOpenPdo()
 $opts = getopt('', ['apply', 'season::']);
 $apply = isset($opts['apply']);
 $onlySeason = isset($opts['season']) ? (int)$opts['season'] : null;
+
+// Mirrors SigilFamilies::SIGHT_ID. Hardcoded rather than required, because this
+// tool deliberately runs on raw PDO without booting the app - it has to work
+// against a database whose code it may not match.
+const SIGHT_FAMILY_ID = 6;
 
 try {
     $pdo = tmcOpenPdo();
@@ -92,10 +110,13 @@ $sql = "
     SELECT * FROM (
         SELECT p.player_id, p.season_id, p.tier, p.tier_count,
                COALESCE(h.mirror_count, 0) AS mirror_count,
+               COALESCE(h.sight_count, 0) AS sight_count,
                pl.handle
         FROM ( " . implode("\n UNION ALL\n", $tierUnion) . " ) p
         LEFT JOIN (
-            SELECT player_id, season_id, tier, SUM(count) AS mirror_count
+            SELECT player_id, season_id, tier,
+                   SUM(CASE WHEN family_id <> " . SIGHT_FAMILY_ID . " THEN count ELSE 0 END) AS mirror_count,
+                   SUM(CASE WHEN family_id =  " . SIGHT_FAMILY_ID . " THEN count ELSE 0 END) AS sight_count
             FROM season_sigil_holdings GROUP BY player_id, season_id, tier
         ) h ON h.player_id = p.player_id AND h.season_id = p.season_id AND h.tier = p.tier
         JOIN players pl ON pl.player_id = p.player_id
@@ -122,13 +143,16 @@ $totalExcess = 0;
 echo "DRIFT - the mirror claims sigils the tier columns say were already spent.\n";
 echo "Each excess sigil below is one that could be spent a second time on a\n";
 echo "family verb (ward, market prime, transmute).\n\n";
-printf("  %-14s %-7s %-5s %-8s %-8s %s\n", 'handle', 'season', 'tier', 'tier', 'mirror', 'excess');
+echo "Sight is listed but excluded from the comparison - it is holdings-only and\n";
+echo "legitimately has no tier column behind it.\n\n";
+printf("  %-14s %-7s %-5s %-8s %-8s %-7s %s\n",
+    'handle', 'season', 'tier', 'tier', 'mirror', 'sight', 'excess');
 foreach ($drift as $d) {
     $excess = (int)$d['mirror_count'] - (int)$d['tier_count'];
     $totalExcess += $excess;
-    printf("  %-14s %-7d %-5d %-8d %-8d +%d\n",
+    printf("  %-14s %-7d %-5d %-8d %-8d %-7d +%d\n",
         substr((string)$d['handle'], 0, 14), $d['season_id'], $d['tier'],
-        $d['tier_count'], $d['mirror_count'], $excess);
+        $d['tier_count'], $d['mirror_count'], $d['sight_count'], $excess);
 }
 echo "\n";
 
@@ -153,9 +177,15 @@ try {
     foreach ($drift as $d) {
         $excess = (int)$d['mirror_count'] - (int)$d['tier_count'];
         while ($excess > 0) {
+            // Sight is excluded here as well as in the comparison above. It is
+            // not part of the excess, so trimming it would destroy valid
+            // inventory while leaving the actual drift in place - and since
+            // Sight is often the largest holding at a tier, an ORDER BY count
+            // that included it would pick it first almost every time.
             $st = $pdo->prepare(
                 "SELECT family_id, count FROM season_sigil_holdings
                  WHERE season_id = ? AND player_id = ? AND tier = ? AND count > 0
+                   AND family_id <> " . SIGHT_FAMILY_ID . "
                  ORDER BY count DESC, family_id ASC LIMIT 1"
             );
             $st->execute([$d['season_id'], $d['player_id'], $d['tier']]);
