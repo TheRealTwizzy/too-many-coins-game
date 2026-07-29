@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="nocturne" data-motion="on" data-context="season">
+<html lang="en" data-theme="gilded" data-motion="on" data-context="season">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -863,11 +863,18 @@ document.getElementById('motion').addEventListener('click', function () {
   html.setAttribute('data-motion', on ? 'off' : 'on');
   toast(on ? 'Motion off' : 'Motion on');
 });
-var THEMES = ['nocturne', 'gilded', 'ember', 'tide'], ti = 0;
+/* Gilded Night leads: it is the selected direction, so it is what loads. The
+   rest stay reachable so the palette decision can still be re-checked. */
+var THEMES = [
+  { id: 'gilded',   name: 'Gilded Night' },
+  { id: 'nocturne', name: 'Nocturne'     },
+  { id: 'ember',    name: 'Ember Forge'  },
+  { id: 'tide',     name: 'Deep Tide'    },
+], ti = 0;
 document.getElementById('themebtn').addEventListener('click', function () {
   ti = (ti + 1) % THEMES.length;
-  html.setAttribute('data-theme', THEMES[ti]);
-  toast('Theme · ' + THEMES[ti]);
+  html.setAttribute('data-theme', THEMES[ti].id);
+  toast('Theme · ' + THEMES[ti].name);
 });
 
 /* ---------------- procedural audio (no asset files) ---------------- */
