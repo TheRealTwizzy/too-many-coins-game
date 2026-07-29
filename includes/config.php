@@ -333,6 +333,19 @@ define('SIGIL_REFERENCE_STARS_BY_TIER', [
     6 => 12000,   // was 0 — the rarest sigil settled for nothing
 ]);
 
+// Starter grant: what a first-time player is handed on their first ever join.
+//
+// Exactly one combine's worth of Tier 1, so the forge is legible on arrival
+// rather than after several drop intervals of waiting. Tier 1 specifically:
+// it is the tier the combine loop starts from, and the cheapest to net back
+// out at lock-in.
+//
+// Granted once per account, ever. Its star value is recorded on the
+// participation row and subtracted from the lock-in refund, so this teaches
+// the mechanic without becoming a signup bonus paid in global stars.
+define('STARTER_GRANT_TIER', 1);
+define('STARTER_GRANT_COUNT', 5);
+
 // Utility valuation is separate from lock-in reference values.
 // It is used for tactical ability and theft calculations. Tier 6 utility
 // deliberately exceeds its lock-in reference so spending a Tier 6 stays

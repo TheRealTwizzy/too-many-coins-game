@@ -21,6 +21,25 @@ SET joined_season_id = NULL,
     idle_since_tick = NULL,
     last_activity_tick = NULL;
 
+-- Re-arm the starter grant.
+--
+-- starter_grant_at is a once-ever flag, so leaving it set would mean returning
+-- players get no onboarding at a day-0 relaunch while new signups do. Clearing
+-- it makes the relaunch consistent: everyone forges on their first join.
+--
+-- Guarded because the column only exists once the starter-grant migration has
+-- run, and these scripts must still work on a database that predates it.
+SET @has_starter_grant := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'players' AND column_name = 'starter_grant_at'
+);
+SET @sql := IF(@has_starter_grant > 0, 'UPDATE `players` SET `starter_grant_at` = NULL', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+
 -- Reset server bootstrap state so a fresh request/tick recreates canonical timing rows.
 SET @has_server_state := (
     SELECT COUNT(*)

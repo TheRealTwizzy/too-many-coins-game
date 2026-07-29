@@ -272,10 +272,20 @@ function lockIn(ctx, season, player) {
     const canLock = Boolean(player.can_lock_in);
     const payout = num(player.lock_in_stars);
     const busy = Boolean(store.get('ui.lockingIn'));
+    const starterOffset = num((player.participation || {}).starter_grant_stars);
 
     return panel(h, 'Lock in',
         h('p', { class: 'panel-sub' },
             'Ends your season and converts what you hold into global stars. There is no undo.'),
+
+        // Disclosed here rather than only at join, so it is visible at the
+        // moment it actually applies. A deduction a player meets for the first
+        // time in their payout reads as the game taking something.
+        starterOffset > 0
+            ? h('p', { class: 'muted small' },
+                `${fmt.format(starterOffset)} stars will be deducted from the sigil refund — `
+                + 'the starting hand you were given when you joined.')
+            : null,
 
         h('div', { class: 'lockin-row' },
             h('div', { class: 'stat' },
