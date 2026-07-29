@@ -3028,9 +3028,9 @@ const TMC = {
 
         this.setLeaderboardMeta(
             'Global Leaderboard',
-            'Ranked by Global Stars earned this yearly cycle.'
+            'Ranked by total Global Stars earned. Spending on cosmetics does not lower your rank.'
         );
-        this.setLeaderboardHeader(['Rank', 'Player', 'Global Stars', 'Status']);
+        this.setLeaderboardHeader(['Rank', 'Player', 'Stars Earned', 'Status']);
         const lb = await this.api('global_leaderboard');
 
         if (!Array.isArray(lb) || lb.length === 0 || lb.error) {
@@ -3056,7 +3056,7 @@ const TMC = {
                 <tr class="${isMe ? 'my-row' : ''} ${rank <= 3 ? 'top-three' : ''}">
                     <td class="rank-cell">${rank <= 3 ? ['&#129351;', '&#129352;', '&#129353;'][rank-1] : rank}</td>
                     <td class="player-cell">${playerMarkup}</td>
-                    <td class="stars-cell">${this.formatNumber(entry.global_stars)}</td>
+                    <td class="stars-cell">${this.formatNumber(entry.global_stars_lifetime ?? entry.global_stars)}</td>
                     <td class="status-cell">${this.renderPlayerStatusBadge(entry)}</td>
                 </tr>
             `;

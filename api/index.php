@@ -1804,11 +1804,17 @@ function attachEquippedCosmeticsToRows(array $rows): array {
 
 function getGlobalLeaderboard() {
     $db = Database::getInstance();
+    // Ranked on LIFETIME EARNED, not the spendable balance.
+    //
+    // Ordering by global_stars meant buying a cosmetic - the only Global Star
+    // sink - permanently lowered your rank, so the prestige shop cost the
+    // prestige metric one-for-one. global_stars_lifetime is monotonic, so the
+    // leaderboard now measures achievement and cosmetics are a real reward.
     $rows = $db->fetchAll(
-        "SELECT player_id, handle, global_stars, activity_state, online_current
-         FROM players 
-         WHERE global_stars > 0 AND profile_deleted_at IS NULL
-         ORDER BY global_stars DESC, player_id ASC"
+        "SELECT player_id, handle, global_stars, global_stars_lifetime, activity_state, online_current
+         FROM players
+         WHERE global_stars_lifetime > 0 AND profile_deleted_at IS NULL
+         ORDER BY global_stars_lifetime DESC, player_id ASC"
     );
     return attachEquippedCosmeticsToRows($rows);
 }

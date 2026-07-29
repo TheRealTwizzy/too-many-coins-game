@@ -845,6 +845,25 @@ class Economy {
         $table = json_decode($season['starprice_table'], true);
         $price = self::piecewiseLinear($totalCoinsEndOfTick, $table, 'm', 'price');
 
+        // Apply market affordability bias to the RAW TABLE TARGET, before the
+        // velocity clamp (fp_1e6; 1000000 = no effect; < 1000000 = cheaper stars).
+        //
+        // This used to run *after* the clamp, applied to the value that was then
+        // written back as current_star_price. Because the clamp reads that same
+        // published price as its reference, the bias compounded every tick while
+        // the up-clamp could only ever add max(1, intdiv(prev * 83, 1e6)) - which
+        // is 1 for any price below 12,048. The result was a fixed point of
+        // p = floor(0.97 * (p + 1)) = 32, so the price converged to 32 coins at
+        // EVERY supply level and starprice_table / star_price_cap / the whole
+        // active-vs-idle supply pipeline had no observable effect.
+        //
+        // Applied here it means what its name says: a standing discount on the
+        // table price, which the clamp then walks toward at a bounded rate.
+        $biasFp = max(1, (int)($season['market_affordability_bias_fp'] ?? FP_SCALE));
+        if ($biasFp !== FP_SCALE) {
+            $price = max(1, intdiv($price * $biasFp, FP_SCALE));
+        }
+
         // Apply per-tick velocity clamp relative to previous price.
         $prevPrice = (int)($season['current_star_price'] ?? 0);
         if ($prevPrice > 0) {
@@ -860,13 +879,6 @@ class Economy {
             $maxDown = max(1, intdiv($prevPrice * $maxDownstepFp, FP_SCALE));
             $price   = min($price, $prevPrice + $maxUp);
             $price   = max($price, $prevPrice - $maxDown);
-        }
-
-        // Apply market affordability bias (fp_1e6; 1000000 = no effect; < 1000000 = cheaper stars).
-        // Default to FP_SCALE (no effect) when absent.
-        $biasFp = max(1, (int)($season['market_affordability_bias_fp'] ?? FP_SCALE));
-        if ($biasFp !== FP_SCALE) {
-            $price = max(1, intdiv($price * $biasFp, FP_SCALE));
         }
 
         // Hard cap and floor (preserved as final guardrails).

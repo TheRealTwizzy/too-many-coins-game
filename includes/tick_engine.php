@@ -822,8 +822,10 @@ class TickEngine {
 
                 // Apply to player
                 $db->query(
-                    "UPDATE players SET global_stars = global_stars + ?, global_stars_fractional_fp = ? WHERE player_id = ?",
-                    [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
+                    "UPDATE players SET global_stars = global_stars + ?,
+                     global_stars_lifetime = global_stars_lifetime + ?,
+                     global_stars_fractional_fp = ? WHERE player_id = ?",
+                    [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
                 );
                 
                 // Record in participation

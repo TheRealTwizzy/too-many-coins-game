@@ -373,6 +373,17 @@ define('FREEZE_STACK_EXTENSION_TICKS', ABILITY_UNIT_DURATION_TICKS); // +15 minu
 // Blackout-phase pacing (50% of Active timers for cut-throat end-game pressure).
 define('SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS', intdiv((int)SIGIL_THEFT_COOLDOWN_TICKS, 2));
 define('SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS', intdiv((int)SIGIL_THEFT_PROTECTION_TICKS, 2));
+
+// Freeze pacing, symmetric with theft.
+//
+// Freeze previously had NO attacker cooldown, NO per-target protection window,
+// and no cap on stacked duration - so a group could hold one player at zero
+// income indefinitely, and the victim was never told who was doing it. Theft
+// already had both limiters; freeze is the harsher verb and had neither.
+define('SIGIL_FREEZE_COOLDOWN_TICKS', ABILITY_UNIT_DURATION_TICKS);
+define('SIGIL_FREEZE_PROTECTION_TICKS', ABILITY_UNIT_DURATION_TICKS);
+define('SIGIL_FREEZE_BLACKOUT_COOLDOWN_TICKS', intdiv((int)SIGIL_FREEZE_COOLDOWN_TICKS, 2));
+define('SIGIL_FREEZE_BLACKOUT_PROTECTION_TICKS', intdiv((int)SIGIL_FREEZE_PROTECTION_TICKS, 2));
 define('SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER', [
     4 => max(1, intdiv((int)SIGIL_FREEZE_DURATION_TICKS_BY_TIER[4], 2)),
     5 => max(1, intdiv((int)SIGIL_FREEZE_DURATION_TICKS_BY_TIER[5], 2)),
