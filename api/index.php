@@ -1815,12 +1815,25 @@ function getGlobalLeaderboard() {
     // sink - permanently lowered your rank, so the prestige shop cost the
     // prestige metric one-for-one. global_stars_lifetime is monotonic, so the
     // leaderboard now measures achievement and cosmetics are a real reward.
-    $rows = $db->fetchAll(
-        "SELECT player_id, handle, global_stars, global_stars_lifetime, activity_state, online_current
-         FROM players
-         WHERE global_stars_lifetime > 0 AND profile_deleted_at IS NULL
-         ORDER BY global_stars_lifetime DESC, player_id ASC"
-    );
+    // Falls back to the balance ordering when the lifetime column is not yet
+    // present, so this code can deploy ahead of its migration without taking
+    // the leaderboard down.
+    if ($db->columnExists('players', 'global_stars_lifetime')) {
+        $rows = $db->fetchAll(
+            "SELECT player_id, handle, global_stars, global_stars_lifetime, activity_state, online_current
+             FROM players
+             WHERE global_stars_lifetime > 0 AND profile_deleted_at IS NULL
+             ORDER BY global_stars_lifetime DESC, player_id ASC"
+        );
+    } else {
+        $rows = $db->fetchAll(
+            "SELECT player_id, handle, global_stars, global_stars AS global_stars_lifetime,
+                    activity_state, online_current
+             FROM players
+             WHERE global_stars > 0 AND profile_deleted_at IS NULL
+             ORDER BY global_stars DESC, player_id ASC"
+        );
+    }
     return attachEquippedCosmeticsToRows($rows);
 }
 

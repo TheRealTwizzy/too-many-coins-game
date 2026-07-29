@@ -825,12 +825,22 @@ class TickEngine {
                 $placementBonus = (int)$naturalExpiryPayout['placement_bonus'];
 
                 // Apply to player
-                $db->query(
-                    "UPDATE players SET global_stars = global_stars + ?,
-                     global_stars_lifetime = global_stars_lifetime + ?,
-                     global_stars_fractional_fp = ? WHERE player_id = ?",
-                    [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
-                );
+                // Season expiry pays out every remaining participant. A missing
+                // column here would fail the whole finalisation transaction.
+                if ($db->columnExists('players', 'global_stars_lifetime')) {
+                    $db->query(
+                        "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_lifetime = global_stars_lifetime + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                        [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
+                    );
+                } else {
+                    $db->query(
+                        "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                        [$naturalExpiryPayout['global_stars_gained'], $naturalExpiryPayout['global_stars_fractional_fp'], $ef['player_id']]
+                    );
+                }
                 
                 // Record in participation
                 $db->query(

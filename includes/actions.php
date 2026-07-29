@@ -574,12 +574,22 @@ class Actions {
             }
 
             // 2. Convert total seasonal stars → global stars at 65% while preserving carry
-            $db->query(
-                "UPDATE players SET global_stars = global_stars + ?,
-                     global_stars_lifetime = global_stars_lifetime + ?,
-                     global_stars_fractional_fp = ? WHERE player_id = ?",
-                [$globalStarsGained, $globalStarsGained, $globalStarsCarryFp, $playerId]
-            );
+            // Lock-in is the game's one irreversible exit. It must not depend on
+            // a migration having been applied first.
+            if ($db->columnExists('players', 'global_stars_lifetime')) {
+                $db->query(
+                    "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_lifetime = global_stars_lifetime + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                    [$globalStarsGained, $globalStarsGained, $globalStarsCarryFp, $playerId]
+                );
+            } else {
+                $db->query(
+                    "UPDATE players SET global_stars = global_stars + ?,
+                         global_stars_fractional_fp = ? WHERE player_id = ?",
+                    [$globalStarsGained, $globalStarsCarryFp, $playerId]
+                );
+            }
             
             // 3. Destroy all season-bound resources
             $db->query(

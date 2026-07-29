@@ -240,6 +240,35 @@ class Database {
         return $this->pdo;
     }
 
+    /**
+     * Does a column exist? Cached per process.
+     *
+     * Deployments are expected to run with TMC_AUTO_SQL_MIGRATIONS=false (the
+     * documented production recommendation), so code can land before its
+     * migration is applied. Any query that hard-references a brand-new column
+     * would then be a fatal error, not a degraded feature - and for columns on
+     * the lock-in and expiry paths that means the game's exit path breaks.
+     * Guard with this and fall back.
+     */
+    private static $columnCache = [];
+    public function columnExists($table, $column) {
+        $key = $table . '.' . $column;
+        if (array_key_exists($key, self::$columnCache)) {
+            return self::$columnCache[$key];
+        }
+        try {
+            $row = $this->fetch(
+                "SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+                [(string)$table, (string)$column]
+            );
+            self::$columnCache[$key] = ((int)($row['c'] ?? 0)) > 0;
+        } catch (Throwable $e) {
+            self::$columnCache[$key] = false;
+        }
+        return self::$columnCache[$key];
+    }
+
     public function query($sql, $params = []) {
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
