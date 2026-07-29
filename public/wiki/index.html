@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Too Many Coins Wiki">
     <title>Too Many Coins Wiki</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="icon" href="/icon-192.png">
     <link rel="stylesheet" href="/wiki/assets/wiki.css">
 </head>
 <body>
@@ -24,55 +23,36 @@
 
         <main class="wiki-main">
             <aside class="wiki-sidebar">
-                <nav class="wiki-nav" aria-label="Wiki Navigation">
-                    <a class="wiki-nav-link active" href="/wiki/">Home</a>
-                    <a class="wiki-nav-link" href="/wiki/getting-started/">Getting Started</a>
-                    <a class="wiki-nav-link" href="/wiki/game-systems/">Game Systems</a>
-                    <a class="wiki-nav-link" href="/wiki/competition/">Competition & Prestige</a>
-                    <a class="wiki-nav-link" href="/wiki/social/">Social & Community</a>
-                    <a class="wiki-nav-link" href="/wiki/strategy/">Strategy & Tips</a>
-                    <a class="wiki-nav-link" href="/wiki/search/">Search</a>
-                </nav>
+                <nav class="wiki-nav" data-wiki-nav aria-label="Wiki Navigation"></nav>
             </aside>
 
             <section class="wiki-content wiki-page">
                 <div class="wiki-hero">
                     <h1>Too Many Coins Player Wiki</h1>
                     <p>
-                        Game-guide reference focused on systems that exist in this repository's runtime logic.
-                        Use these chapters to understand mechanics, timing, and decision tradeoffs in live seasons.
+                        Every number here is read from the game's own source, not remembered. Values that an operator can change per season are marked as such in Reference, because a constant is only useful if you know whether it can move.
                     </p>
                 </div>
 
-                <h2>Quick Navigation</h2>
-                <div class="wiki-quick-links">
-                    <a class="wiki-quick-link" href="/wiki/getting-started/">
-                        <strong>Getting Started</strong>
-                        <span>What the game is, your first season, and beginner decisions.</span>
-                    </a>
-                    <a class="wiki-quick-link" href="/wiki/game-systems/">
-                        <strong>Game Systems</strong>
-                        <span>Seasons, resources, sigils, boosts, and trading mechanics.</span>
-                    </a>
-                    <a class="wiki-quick-link" href="/wiki/competition/">
-                        <strong>Competition & Prestige</strong>
-                        <span>Leaderboards, lock-in strategy, badges, and yearly reset.</span>
-                    </a>
-                    <a class="wiki-quick-link" href="/wiki/social/">
-                        <strong>Social & Community</strong>
-                        <span>Chat, friends, profiles, and fair-play policy boundaries.</span>
-                    </a>
-                    <a class="wiki-quick-link" href="/wiki/strategy/">
-                        <strong>Strategy & Tips</strong>
-                        <span>Pro approaches, common mistakes, and core terminology.</span>
-                    </a>
-                    <a class="wiki-quick-link" href="/wiki/search/">
-                        <strong>Search</strong>
-                        <span>Find chapters and section text across the full migrated dataset.</span>
-                    </a>
-                </div>
+                <h2>Categories</h2>
+                <div class="wiki-quick-links" id="home-cards"></div>
             </section>
         </main>
     </div>
+<script src="/wiki/assets/wiki-data.js"></script>
+    <script src="/wiki/assets/wiki-render.js"></script>
+    <script>
+      window.WIKI_RENDER.renderNav(null);
+      document.getElementById('home-cards').innerHTML =
+        (window.WIKI_CATEGORIES || []).map(function (c) {
+          var n = c.chapters.length;
+          return '<a class="wiki-quick-link" href="/wiki/' + c.id + '/"><strong>' +
+                 c.title + '</strong><span>' + c.summary + '</span>' +
+                 '<span class="wiki-card-meta">' + n + (n === 1 ? ' chapter' : ' chapters') +
+                 '</span></a>';
+        }).join('') +
+        '<a class="wiki-quick-link" href="/wiki/search/"><strong>Search</strong>' +
+        '<span>Find any chapter or section by text.</span></a>';
+    </script>
 </body>
 </html>

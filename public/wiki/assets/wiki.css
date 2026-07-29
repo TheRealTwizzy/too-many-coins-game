@@ -344,3 +344,83 @@ a:hover {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================================
+   CROSS-REFERENCES
+   Added with the restructure. The wiki had no internal linking at
+   all - inline markdown handled bold and code and nothing else - so
+   every chapter was a dead end and related topics could only be
+   found by going back to the index.
+   ============================================================ */
+
+/* Inline [[link]]. Underlined rather than colour-only: colour alone
+   is not a sufficient affordance, and these sit inside body copy
+   where there is no other cue that a word is clickable. */
+.wiki-xref {
+    color: var(--wiki-accent, #d8a13a);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+.wiki-xref:hover,
+.wiki-xref:focus-visible {
+    text-decoration-color: currentColor;
+}
+
+/* A cross-reference that resolves to nothing. Deliberately loud: a
+   broken link that renders as ordinary prose is invisible to the
+   person who broke it, which is how a linked wiki quietly stops
+   being one. */
+.wiki-xref-missing {
+    color: #e07a7a;
+    border-bottom: 1px dashed currentColor;
+    cursor: help;
+}
+
+/* "See also", generated from ids listed on the chapter. */
+.wiki-seealso {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--wiki-line, #2a3140);
+}
+.wiki-seealso h5 {
+    margin: 0 0 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--wiki-muted, #8b93a4);
+}
+.wiki-seealso ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.wiki-seealso li { margin: 0; }
+.wiki-seealso a {
+    display: inline-block;
+    padding: 5px 12px;
+    border: 1px solid var(--wiki-line, #2a3140);
+    border-radius: 999px;
+    font-size: 0.82rem;
+    text-decoration: none;
+}
+.wiki-seealso a:hover,
+.wiki-seealso a:focus-visible {
+    border-color: currentColor;
+}
+
+/* Chapter count on the home page cards. */
+.wiki-card-meta {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wiki-muted, #8b93a4);
+    opacity: 0.75;
+}

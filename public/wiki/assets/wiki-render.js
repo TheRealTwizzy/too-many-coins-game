@@ -14,11 +14,57 @@
             .replace(/'/g, "&#39;");
     }
 
+    // ---- cross-references -------------------------------------------------
+    // An index of every chapter and section id in the wiki, so [[an-id]] can be
+    // resolved to the page that actually holds it. Built once and cached: a
+    // wiki whose links depend on the author remembering which category a topic
+    // lives in will rot the first time anything is moved.
+    var _xrefIndex = null;
+    function xrefIndex() {
+        if (_xrefIndex) { return _xrefIndex; }
+        _xrefIndex = {};
+        getCategories().forEach(function (cat) {
+            (cat.chapters || []).forEach(function (ch) {
+                _xrefIndex[ch.id] = {
+                    label: ch.title,
+                    href: "/wiki/" + categoryToRoute(cat.id) + "/#" + ch.id
+                };
+                (ch.sections || []).forEach(function (sec) {
+                    // A chapter id wins over a section id of the same name; the
+                    // chapter is the more useful landing place.
+                    if (!_xrefIndex[sec.id]) {
+                        _xrefIndex[sec.id] = {
+                            label: sec.title,
+                            href: "/wiki/" + categoryToRoute(cat.id) + "/#" + sec.id
+                        };
+                    }
+                });
+            });
+        });
+        return _xrefIndex;
+    }
+
+    // [[chapter-id]] or [[chapter-id|custom label]]
+    function resolveXrefs(safeHtml) {
+        return safeHtml.replace(/\[\[([a-z0-9\-]+)(?:\|([^\]]+))?\]\]/gi, function (m, id, label) {
+            var hit = xrefIndex()[id];
+            if (!hit) {
+                // A broken link must be visible, not silently rendered as prose.
+                // Silent failure is how a cross-referenced wiki quietly stops
+                // being one.
+                return '<span class="wiki-xref-missing" title="No wiki entry with id &quot;' +
+                       escapeHtml(id) + '&quot;">' + escapeHtml(label || id) + '</span>';
+            }
+            return '<a class="wiki-xref" href="' + hit.href + '">' +
+                   escapeHtml(label || hit.label) + "</a>";
+        });
+    }
+
     function inlineMarkdown(text) {
         var safe = escapeHtml(text);
         safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
         safe = safe.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-        return safe;
+        return resolveXrefs(safe);
     }
 
     function parseTable(lines, startIndex) {
@@ -137,15 +183,30 @@
         return out.join("\n");
     }
 
+    // Category ids are the routes. The old map existed because two ids differed
+    // from their directory names ("gameplay" served /game-systems/); the
+    // restructure removed that split, and /wiki/game-systems/ and /wiki/social/
+    // now redirect so old links keep working.
     function categoryToRoute(categoryId) {
-        var map = {
-            "getting-started": "getting-started",
-            "gameplay": "game-systems",
-            "competition": "competition",
-            "social": "social",
-            "strategy": "strategy"
-        };
-        return map[categoryId] || categoryId;
+        return categoryId;
+    }
+
+    // "See also" is generated from ids the author lists on the chapter, run
+    // through the same resolver as inline links - so a renamed chapter breaks
+    // loudly in one place instead of leaving a dead end at the foot of a page.
+    function buildSeeAlso(chapter) {
+        var ids = chapter.seeAlso || [];
+        if (!ids.length) { return ""; }
+        var links = ids.map(function (id) {
+            var hit = xrefIndex()[id];
+            if (!hit) {
+                return '<li><span class="wiki-xref-missing">' + escapeHtml(id) + "</span></li>";
+            }
+            return '<li><a class="wiki-xref" href="' + hit.href + '">' +
+                   escapeHtml(hit.label) + "</a></li>";
+        }).join("");
+        return '<nav class="wiki-seealso" aria-label="See also">' +
+               "<h5>See also</h5><ul>" + links + "</ul></nav>";
     }
 
     function buildChapterHtml(chapter) {
@@ -164,13 +225,31 @@
             "<h3>" + escapeHtml(chapter.title) + "</h3>",
             "<p class=\"wiki-muted\">" + escapeHtml(chapter.description || "") + "</p>",
             sectionHtml,
+            buildSeeAlso(chapter),
             "</article>"
         ].join("\n");
+    }
+
+    // The sidebar was duplicated by hand into every page, so adding a category
+    // meant editing seven files and the odds of one drifting were high. Render
+    // it from the data instead.
+    function renderNav(activeId) {
+        var navs = document.querySelectorAll("[data-wiki-nav]");
+        if (!navs.length) { return; }
+        var items = ['<a class="wiki-nav-link' + (activeId ? "" : " active") + '" href="/wiki/">Home</a>'];
+        getCategories().forEach(function (cat) {
+            items.push('<a class="wiki-nav-link' + (cat.id === activeId ? " active" : "") +
+                       '" href="/wiki/' + categoryToRoute(cat.id) + '/">' +
+                       escapeHtml(cat.title) + "</a>");
+        });
+        items.push('<a class="wiki-nav-link" href="/wiki/search/">Search</a>');
+        Array.prototype.forEach.call(navs, function (n) { n.innerHTML = items.join(""); });
     }
 
     function initCategoryPage(categoryId) {
         var categories = getCategories();
         var category = categories.find(function (c) { return c.id === categoryId; });
+        renderNav(categoryId);
         if (!category) {
             return;
         }
@@ -182,8 +261,10 @@
 
         var subtitleEl = document.getElementById("category-subtitle");
         if (subtitleEl) {
-            subtitleEl.textContent = "Player guide content synced to current repository game logic.";
+            subtitleEl.textContent = category.summary ||
+                "Player guide content synced to current repository game logic.";
         }
+        document.title = category.title + " - Too Many Coins Wiki";
 
         var contentEl = document.getElementById("category-content");
         if (contentEl) {
@@ -295,8 +376,33 @@
         });
     }
 
+    // Reports every [[id]] that resolves to nothing. A cross-referenced wiki is
+    // only as good as its links, and broken ones are invisible from the page
+    // that contains them - you have to look from the outside.
+    function auditXrefs() {
+        var idx = xrefIndex();
+        var broken = [];
+        getCategories().forEach(function (cat) {
+            (cat.chapters || []).forEach(function (ch) {
+                (ch.seeAlso || []).forEach(function (id) {
+                    if (!idx[id]) { broken.push({ where: cat.id + "/" + ch.id + " (see also)", id: id }); }
+                });
+                (ch.sections || []).forEach(function (sec) {
+                    var m = String(sec.content || "").match(/\[\[([a-z0-9\-]+)(?:\|[^\]]+)?\]\]/gi) || [];
+                    m.forEach(function (raw) {
+                        var id = raw.replace(/^\[\[/, "").replace(/\]\]$/, "").split("|")[0];
+                        if (!idx[id]) { broken.push({ where: cat.id + "/" + sec.id, id: id }); }
+                    });
+                });
+            });
+        });
+        return broken;
+    }
+
     window.WIKI_RENDER = {
         initCategoryPage: initCategoryPage,
-        initSearchPage: initSearchPage
+        initSearchPage: initSearchPage,
+        renderNav: renderNav,
+        auditXrefs: auditXrefs
     };
 })();
