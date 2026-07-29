@@ -288,6 +288,16 @@ class Database {
         return $this->pdo->lastInsertId();
     }
 
+    /**
+     * True when a transaction is already open. Lets an operation that normally
+     * manages its own transaction be composed into a larger one instead of
+     * committing piecemeal - MySQL has no real nested transactions, so the
+     * inner caller must defer to the outer.
+     */
+    public function inTransaction() {
+        return $this->pdo->inTransaction();
+    }
+
     public function beginTransaction() {
         return $this->pdo->beginTransaction();
     }

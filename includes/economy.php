@@ -174,6 +174,67 @@ class Economy {
     }
 
     /**
+     * THE definition of "frozen". Both the tick engine and the API must use it.
+     *
+     * There were previously two, and they disagreed. The tick engine matched
+     * only `is_active = 1 AND expires_tick >= now`, while the API additionally
+     * required `activated_tick >= first_joined_at` - i.e. the freeze had to have
+     * been applied during the player's CURRENT run in the season.
+     *
+     * The tick engine is authoritative for income and the API is authoritative
+     * for the UI, so any freeze predating the player's current run zeroed their
+     * UBI while the HUD showed a normal rate: silent, unexplained zero income
+     * with no visible cause and nothing the player could act on.
+     *
+     * Run-scoped semantics win. seasonJoin does clear freezes on rejoin, but
+     * only when active_freezes exists (it is behind a doesTableExist guard), so
+     * on a partially-migrated database stale rows survive a rejoin. Scoping to
+     * the current run means such a row cannot silently suppress income forever.
+     *
+     * @param array $runStartByPlayerId  player_id => first_joined_at tick
+     * @return array                     player_id => true, for frozen players
+     */
+    public static function frozenPlayerSet($db, array $runStartByPlayerId, $seasonId, $gameTime) {
+        if (empty($runStartByPlayerId)) {
+            return [];
+        }
+
+        $playerIds = array_map('intval', array_keys($runStartByPlayerId));
+        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
+        $params = $playerIds;
+        $params[] = (int)$seasonId;
+        $params[] = (int)$gameTime;
+
+        // activated_tick is compared per player in PHP rather than in SQL,
+        // because each player has their own run start.
+        $rows = $db->fetchAll(
+            "SELECT DISTINCT target_player_id, activated_tick
+             FROM active_freezes
+             WHERE target_player_id IN ({$placeholders})
+               AND season_id = ?
+               AND is_active = 1
+               AND expires_tick >= ?",
+            $params
+        );
+
+        $set = [];
+        foreach ($rows as $row) {
+            $targetId = (int)$row['target_player_id'];
+            $runStart = max(0, (int)($runStartByPlayerId[$targetId] ?? 0));
+            if ((int)$row['activated_tick'] >= $runStart) {
+                $set[$targetId] = true;
+            }
+        }
+        return $set;
+    }
+
+    /** Single-player form of frozenPlayerSet(). */
+    public static function isPlayerFrozenAt($db, $playerId, $seasonId, $gameTime, $runStartTick) {
+        $set = self::frozenPlayerSet($db, [(int)$playerId => (int)$runStartTick], $seasonId, $gameTime);
+        return !empty($set[(int)$playerId]);
+    }
+
+    /**
      * Convert whole-coin value into fixed-point units.
      */
     public static function toFixedPoint($coins) {

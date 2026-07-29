@@ -1525,8 +1525,14 @@ function getLeaderboard($seasonId, int $limit = 0) {
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     if (!$season) return [];
     $effectiveScoreSql = seasonEffectiveScoreSql('sp');
-    $limit = max(0, min(LEADERBOARD_MAX_LIMIT, (int)$limit));
-    $limitClause = $limit > 0 ? " LIMIT ?" : "";
+    // limit=0 (or an omitted limit) used to mean NO LIMIT clause at all, so a
+    // single request could return every participant in the season. Zero now
+    // means "the maximum", which is what callers passing 0 actually intend -
+    // the expand-leaderboard toggle in the client passes limit: 0 for "show
+    // everyone" and gets the capped set instead of an unbounded scan.
+    $limit = (int)$limit;
+    $limit = ($limit <= 0) ? (int)LEADERBOARD_MAX_LIMIT : min((int)LEADERBOARD_MAX_LIMIT, $limit);
+    $limitClause = " LIMIT ?";
 
     $status = GameTime::getSeasonStatus($season);
     if ($status === 'Active' || $status === 'Blackout') {
@@ -1570,9 +1576,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  ) frz ON frz.player_id = p.player_id
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-                $limit > 0
-                    ? [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
-                    : [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId]
+                [$boostCapFp, $seasonId, $gameTime, $boostTimeCapTicks, $gameTime, $seasonId, $gameTime, $seasonId, $limit]
             );
         } elseif ($hasFreezeTable) {
             $rows = $db->fetchAll(
@@ -1602,9 +1606,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  ) frz ON frz.player_id = p.player_id
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-                $limit > 0
-                    ? [$seasonId, $gameTime, $seasonId, $limit]
-                    : [$seasonId, $gameTime, $seasonId]
+                [$seasonId, $gameTime, $seasonId, $limit]
             );
         } else {
             $rows = $db->fetchAll(
@@ -1628,9 +1630,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
                  JOIN players p ON p.player_id = sp.player_id
                  WHERE sp.season_id = ?
                  ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-                $limit > 0
-                    ? [$seasonId, $limit]
-                    : [$seasonId]
+                [$seasonId, $limit]
             );
         }
         $rows = attachEquippedCosmeticsToRows($rows);
@@ -1656,7 +1656,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
          JOIN players p ON p.player_id = sp.player_id
          WHERE sp.season_id = ?
          ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC{$limitClause}",
-        $limit > 0 ? [$seasonId, $limit] : [$seasonId]
+        [$seasonId, $limit]
     );
     $rows = attachEquippedCosmeticsToRows($rows);
     $rows = normalizeParticipationScorePayloads($rows);
@@ -1869,7 +1869,20 @@ function sendChat($player, $input) {
         if (!$player['joined_season_id']) return ['error' => 'Not in a season'];
         $seasonId = $player['joined_season_id'];
     }
-    if ($channelKind === 'DM' && !$recipientId) return ['error' => 'Recipient required for DM'];
+    // DMs are closed.
+    //
+    // sendChat accepted, stored and indexed them, but getChatMessages has no DM
+    // branch and returns [] - so every DM ever sent is unreadable by its
+    // recipient and invisible to moderation, since ModerationService works on
+    // message ids nobody can see to report. That is a private, unmoderatable
+    // channel between players, which is strictly worse than no channel.
+    //
+    // Reopening this means building the read path with block filtering, a
+    // mailbox surface, and a way for staff to action reports. Until then it is
+    // rejected rather than silently swallowed.
+    if ($channelKind === 'DM') {
+        return ['error' => 'Direct messages are not available', 'reason_code' => 'dm_disabled'];
+    }
 
     $muteScope = $channelKind === 'SEASON' ? 'SEASON' : 'GLOBAL';
     $mute = ModerationService::isMuted((int)$player['player_id'], $muteScope);
@@ -2309,16 +2322,17 @@ function shouldRevealTier6($participation) {
 }
 
 function isPlayerFrozen($playerId, $seasonId, $participation = null) {
-    $db = Database::getInstance();
-    $gameTime = GameTime::now();
-    $runStartTick = getSeasonRunStartTick($playerId, $seasonId, $participation);
-    $row = $db->fetch(
-        "SELECT COUNT(*) AS cnt
-         FROM active_freezes
-         WHERE target_player_id = ? AND season_id = ? AND is_active = 1 AND expires_tick >= ? AND activated_tick >= ?",
-        [(int)$playerId, (int)$seasonId, (int)$gameTime, (int)$runStartTick]
+    // Delegates to the shared predicate in Economy so the API and the tick
+    // engine cannot disagree about who is frozen. They previously did: the tick
+    // engine omitted the run-start scoping, so a freeze predating a player's
+    // current run zeroed their income while this reported "not frozen".
+    return Economy::isPlayerFrozenAt(
+        Database::getInstance(),
+        (int)$playerId,
+        (int)$seasonId,
+        (int)GameTime::now(),
+        (int)getSeasonRunStartTick($playerId, $seasonId, $participation)
     );
-    return ((int)($row['cnt'] ?? 0)) > 0;
 }
 
 function getFreezeStatusForPlayer($playerId, $seasonId, $participation = null) {

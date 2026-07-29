@@ -1480,7 +1480,12 @@ class Actions {
             }
         }
 
-        $db->beginTransaction();
+        // Defer to an outer transaction when combineAllSigils is driving us, so a
+        // batch is one atomic unit and one commit rather than up to 500 of each.
+        $ownsTransaction = !$db->inTransaction();
+        if ($ownsTransaction) {
+            $db->beginTransaction();
+        }
         try {
             // Guarded so concurrent combines cannot each consume the same sigils
             // and each mint an output (the sigil columns are signed INTs).
@@ -1491,7 +1496,12 @@ class Actions {
                 [$required, $playerId, $seasonId, $required]
             )->rowCount();
             if ($consumed !== 1) {
-                $db->rollback();
+                // Nothing was written, so when nested we simply report the miss
+                // and leave the outer transaction intact - combineAllSigils uses
+                // this error as its normal loop terminator.
+                if ($ownsTransaction) {
+                    $db->rollback();
+                }
                 return ['error' => 'Not enough sigils'];
             }
             if ($familiesActive && $ascendFamilyId !== null) {
@@ -1504,7 +1514,9 @@ class Actions {
                 [GameTime::now(), $playerId]
             );
 
-            $db->commit();
+            if ($ownsTransaction) {
+                $db->commit();
+            }
             $familyLabel = $ascendFamilyId !== null ? (SigilFamilies::familyName($ascendFamilyId) . ' ') : '';
             return [
                 'success' => true,
@@ -1516,6 +1528,11 @@ class Actions {
                 'message' => "Combined {$required} {$familyLabel}Tier {$fromTier} sigils into 1 {$familyLabel}Tier {$toTier} sigil."
             ];
         } catch (Exception $e) {
+            if (!$ownsTransaction) {
+                // Partial writes may exist; the outer transaction must own the
+                // rollback, so surface the failure rather than swallowing it.
+                throw $e;
+            }
             $db->rollback();
             return ['error' => 'Sigil combine failed'];
         }
@@ -1525,12 +1542,22 @@ class Actions {
      * Combine all available sigils, including chain reactions across tiers.
      */
     public static function combineAllSigils($playerId) {
+        $db = Database::getInstance();
         $maxOperations = 500;
         $operations = [];
         $totalConsumed = 0;
         $totalProduced = 0;
         $operationCount = 0;
 
+        // One transaction for the whole batch.
+        //
+        // This used to call combineSigils in a loop, each iteration opening and
+        // committing its own transaction: up to 500 commits per request, and
+        // non-atomic overall, so a failure halfway left the player partially
+        // combined with no way to tell how far it got. combineSigils now defers
+        // to this transaction when one is already open.
+        $db->beginTransaction();
+        try {
         // Re-scan all source tiers until we complete a full pass with no combines.
         while ($operationCount < $maxOperations) {
             $didCombineThisPass = false;
@@ -1565,8 +1592,15 @@ class Actions {
             }
         }
 
-        if ($operationCount === 0) {
-            return ['error' => 'No sigil combinations currently available'];
+            if ($operationCount === 0) {
+                $db->rollback();
+                return ['error' => 'No sigil combinations currently available'];
+            }
+
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            return ['error' => 'Sigil combine failed'];
         }
 
         $summary = "Combined {$totalConsumed} sigils into {$totalProduced} higher-tier sigils across {$operationCount} operation";
@@ -1677,8 +1711,18 @@ class Actions {
         }
 
         $existing = $db->fetch(
+            // Run-scoped, matching Economy::frozenPlayerSet. A freeze applied
+            // before the target's current run does not suppress their income, so
+            // it must not count as "frozen" here either - otherwise melt would
+            // burn a sigil on a freeze that costs nothing, and the targeting
+            // check would block a legitimate freeze on someone who is fine.
             "SELECT freeze_id, expires_tick FROM active_freezes
              WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?
+               AND activated_tick >= COALESCE((
+                     SELECT sp.first_joined_at FROM season_participation sp
+                     WHERE sp.player_id = active_freezes.target_player_id
+                       AND sp.season_id = active_freezes.season_id
+                   ), 0)
              ORDER BY expires_tick DESC LIMIT 1",
             [$seasonId, (int)$target['player_id'], $nowTick]
         );
@@ -1867,8 +1911,18 @@ class Actions {
 
         $nowTick = GameTime::now();
         $existing = $db->fetch(
+            // Run-scoped, matching Economy::frozenPlayerSet. A freeze applied
+            // before the target's current run does not suppress their income, so
+            // it must not count as "frozen" here either - otherwise melt would
+            // burn a sigil on a freeze that costs nothing, and the targeting
+            // check would block a legitimate freeze on someone who is fine.
             "SELECT freeze_id, expires_tick FROM active_freezes
              WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?
+               AND activated_tick >= COALESCE((
+                     SELECT sp.first_joined_at FROM season_participation sp
+                     WHERE sp.player_id = active_freezes.target_player_id
+                       AND sp.season_id = active_freezes.season_id
+                   ), 0)
              ORDER BY expires_tick DESC LIMIT 1",
             [$seasonId, (int)$playerId, $nowTick]
         );

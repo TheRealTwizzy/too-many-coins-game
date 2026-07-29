@@ -244,7 +244,7 @@ class TickEngine {
             self::expireFreezes($seasonId, $gameTime);
             
             $playerSelfBoosts = self::getActivePlayerBoostsByIds($participantIds, $seasonId, $gameTime);
-            $frozenPlayers = self::getFrozenPlayerSetByIds($participantIds, $seasonId, $gameTime);
+            $frozenPlayers = self::getFrozenPlayerSet($participants, $seasonId, $gameTime);
             
             $totalNewCoins    = 0;
             $totalBurnedCoins = 0;
@@ -680,33 +680,20 @@ class TickEngine {
      * Prefetch active freeze state for a set of target players in one query.
      * Returns set-like map: player_id => true
      */
-    private static function getFrozenPlayerSetByIds(array $playerIds, $seasonId, $gameTime) {
-        if (empty($playerIds)) {
-            return [];
+    /**
+     * Delegates to Economy::frozenPlayerSet so the tick engine and the API
+     * cannot drift apart again. This used to carry its own query that omitted
+     * the run-start scoping, which meant a freeze predating a player's current
+     * run zeroed their income while the API reported them as not frozen.
+     *
+     * @param array $participants  rows carrying player_id and first_joined_at
+     */
+    private static function getFrozenPlayerSet(array $participants, $seasonId, $gameTime) {
+        $runStartByPlayerId = [];
+        foreach ($participants as $p) {
+            $runStartByPlayerId[(int)$p['player_id']] = max(0, (int)($p['first_joined_at'] ?? 0));
         }
-
-        $db = Database::getInstance();
-        $placeholders = implode(',', array_fill(0, count($playerIds), '?'));
-        $params = $playerIds;
-        $params[] = $seasonId;
-        $params[] = $gameTime;
-
-        $rows = $db->fetchAll(
-            "SELECT DISTINCT target_player_id
-             FROM active_freezes
-             WHERE target_player_id IN ({$placeholders})
-               AND season_id = ?
-               AND is_active = 1
-               AND expires_tick >= ?",
-            $params
-        );
-
-        $set = [];
-        foreach ($rows as $row) {
-            $set[(int)$row['target_player_id']] = true;
-        }
-
-        return $set;
+        return Economy::frozenPlayerSet(Database::getInstance(), $runStartByPlayerId, $seasonId, $gameTime);
     }
     
     /**
