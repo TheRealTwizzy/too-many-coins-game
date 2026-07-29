@@ -602,6 +602,11 @@ class Actions {
                 [$playerId, $seasonId]
             );
 
+            // Zeroing sigils_t* without clearing the mirror left orphan holdings
+            // rows behind for a player who has left the season. leaveSeason and
+            // the expiry path in the tick engine both clear them; lock-in did not.
+            SigilFamilies::clearSeasonHoldings($db, (int)$playerId, (int)$seasonId);
+
             self::clearSeasonRunAuxiliaryState($db, $playerId, $seasonId);
             
             // 4. Exit season
@@ -1782,6 +1787,14 @@ class Actions {
                 return ['error' => 'You do not own the selected sigil tier'];
             }
 
+            // season_sigil_holdings is a per-(family, tier) mirror of the
+            // sigils_t* columns, and every spend has to move both. This one did
+            // not: the tier column went down and the mirror kept the sigil, so
+            // the same sigil could then be spent AGAIN on a family verb, which
+            // reads the mirror via spendSpecific(). One sigil, two effects.
+            // syncSpendTier's own docblock names freeze as a caller.
+            SigilFamilies::syncSpendTier($db, $seasonId, $playerId, (int)$requestedTier, 1);
+
             // Always a fresh row: an already-frozen target is rejected before the
             // transaction, so there is no active freeze to extend.
             $db->query(
@@ -1949,6 +1962,10 @@ class Actions {
                 $db->rollback();
                 return ['error' => 'You do not own the selected sigil tier for Melt'];
             }
+
+            // Same mirror drift as freeze above - melt spends T5/T6 and left the
+            // holdings row intact, so the sigil stayed spendable on a family verb.
+            SigilFamilies::syncSpendTier($db, $seasonId, $playerId, (int)$requestedTier, 1);
 
             $db->query(
                 "UPDATE active_freezes
