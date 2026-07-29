@@ -34,7 +34,7 @@ $table = json_encode([
 
 const BIAS_FP = 970000;
 
-function settlePrice(int $supply, string $table, int $ticks = 8000): int {
+function settlePrice(int $supply, string $table, int $ticks = 8000, int $modelVersion = 2): int {
     $season = [
         'starprice_table'              => $table,
         'star_price_cap'               => 6000,
@@ -44,6 +44,7 @@ function settlePrice(int $supply, string $table, int $ticks = 8000): int {
         'starprice_active_only'        => 1,
         'effective_price_supply'       => $supply,
         'current_star_price'           => 100,
+        'starprice_model_version'      => $modelVersion,
     ];
     for ($i = 0; $i < $ticks; $i++) {
         $season['current_star_price'] = Economy::calculateStarPrice($season);
@@ -86,6 +87,21 @@ foreach ($supplies as $supply) {
         $failures[] = "price is not monotonic in supply (supply {$supply} settled below the previous level)";
     }
     $prev = $settled[$supply];
+}
+
+// v1 is the legacy ordering, kept only so seasons already in flight are not
+// repriced underneath their players. It is SUPPOSED to collapse to 32 - assert
+// that too, so the compatibility branch cannot be silently lost or inverted.
+$v1 = [];
+foreach ($supplies as $supply) {
+    $v1[$supply] = settlePrice($supply, $table, 8000, STARPRICE_MODEL_V1_BIAS_AFTER_CLAMP);
+}
+if ($verbose) {
+    echo "\n  legacy v1 (expected to collapse): " . implode(', ', $v1) . "\n";
+}
+if (count(array_unique($v1)) !== 1 || (int)reset($v1) !== 32) {
+    $failures[] = 'legacy v1 seasons no longer reproduce the old behaviour ('
+                . implode(', ', $v1) . ') - in-flight seasons would be repriced';
 }
 
 echo str_repeat('-', 60) . "\n";

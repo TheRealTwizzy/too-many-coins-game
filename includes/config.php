@@ -117,7 +117,26 @@ define('FORCED_OFFLINE_IDLE_HOLD_TICKS', ticks_from_real_seconds(2700)); // 45 r
 define('TMC_PRESENCE_STALE_OFFLINE_SECONDS', max((int)TMC_PRESENCE_TOUCH_SECONDS, (int)(getenv('TMC_PRESENCE_STALE_OFFLINE_SECONDS') ?: 120)));
 
 // Economy v2 scaffolding
-define('STARPRICE_MODEL_VERSION_DEFAULT', max(1, (int)(getenv('TMC_STARPRICE_MODEL_VERSION_DEFAULT') ?: 1)));
+// Star price model versions.
+//
+// v1 applies the market affordability bias AFTER the velocity clamp, to the
+// value then written back as current_star_price - which the clamp reads as its
+// reference next tick. The bias therefore compounds while the up-clamp can only
+// add max(1, intdiv(prev * 83, 1e6)) = 1 below price 12,048, giving the fixed
+// point p = floor(0.97 * (p + 1)) = 32. Every v1 season's price converges to 32
+// regardless of coin supply.
+//
+// v2 applies the bias to the raw table target, before the clamp, so the price
+// tracks supply and the bias means what its name says.
+//
+// v1 is kept ONLY so seasons already in flight are not repriced underneath their
+// players: a live season would jump from a flat 32 toward its table value (up to
+// ~4,074 at high supply) over a few hours, devaluing every held coin balance
+// with no warning. New seasons are created at v2; this branch can be deleted
+// once every pre-cutover season has expired.
+define('STARPRICE_MODEL_V1_BIAS_AFTER_CLAMP', 1);
+define('STARPRICE_MODEL_V2_BIAS_BEFORE_CLAMP', 2);
+define('STARPRICE_MODEL_VERSION_DEFAULT', max(1, (int)(getenv('TMC_STARPRICE_MODEL_VERSION_DEFAULT') ?: STARPRICE_MODEL_V2_BIAS_BEFORE_CLAMP)));
 define('STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT', ticks_from_real_seconds(4860)); // 81 real minutes (conservative-v2)
 
 // Maximum ticks a single processSeasonTick call will advance.

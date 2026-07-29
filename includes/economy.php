@@ -845,22 +845,22 @@ class Economy {
         $table = json_decode($season['starprice_table'], true);
         $price = self::piecewiseLinear($totalCoinsEndOfTick, $table, 'm', 'price');
 
-        // Apply market affordability bias to the RAW TABLE TARGET, before the
-        // velocity clamp (fp_1e6; 1000000 = no effect; < 1000000 = cheaper stars).
+        // Market affordability bias (fp_1e6; 1000000 = no effect; < 1000000 =
+        // cheaper stars). WHERE it is applied is the whole ballgame - see the
+        // STARPRICE_MODEL_* notes in config.php.
         //
-        // This used to run *after* the clamp, applied to the value that was then
-        // written back as current_star_price. Because the clamp reads that same
-        // published price as its reference, the bias compounded every tick while
-        // the up-clamp could only ever add max(1, intdiv(prev * 83, 1e6)) - which
-        // is 1 for any price below 12,048. The result was a fixed point of
-        // p = floor(0.97 * (p + 1)) = 32, so the price converged to 32 coins at
-        // EVERY supply level and starprice_table / star_price_cap / the whole
-        // active-vs-idle supply pipeline had no observable effect.
+        // v2 applies it to the raw table target here, before the clamp, so it is
+        // a standing discount the clamp then walks toward at a bounded rate.
+        // v1 applied it after the clamp to the previously published price, which
+        // compounded into a fixed point of 32 coins at every supply level.
         //
-        // Applied here it means what its name says: a standing discount on the
-        // table price, which the clamp then walks toward at a bounded rate.
+        // Seasons already in flight stay on v1 so their prices are not repriced
+        // underneath the players holding coins.
+        $modelVersion = (int)($season['starprice_model_version'] ?? STARPRICE_MODEL_V1_BIAS_AFTER_CLAMP);
+        $biasBeforeClamp = ($modelVersion >= STARPRICE_MODEL_V2_BIAS_BEFORE_CLAMP);
         $biasFp = max(1, (int)($season['market_affordability_bias_fp'] ?? FP_SCALE));
-        if ($biasFp !== FP_SCALE) {
+
+        if ($biasBeforeClamp && $biasFp !== FP_SCALE) {
             $price = max(1, intdiv($price * $biasFp, FP_SCALE));
         }
 
@@ -879,6 +879,11 @@ class Economy {
             $maxDown = max(1, intdiv($prevPrice * $maxDownstepFp, FP_SCALE));
             $price   = min($price, $prevPrice + $maxUp);
             $price   = max($price, $prevPrice - $maxDown);
+        }
+
+        // Legacy v1 ordering, retained for in-flight seasons only.
+        if (!$biasBeforeClamp && $biasFp !== FP_SCALE) {
+            $price = max(1, intdiv($price * $biasFp, FP_SCALE));
         }
 
         // Hard cap and floor (preserved as final guardrails).
