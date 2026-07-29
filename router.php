@@ -113,6 +113,8 @@ if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
         || $path === '/css/tokens.css'
         || $path === '/css/next.css'
         || $path === '/css/assets.css'
+        || $path === '/css/screens.css'
+        || strpos($path, '/js/screens/') === 0
         || strpos($path, '/js/core/') === 0
     );
     if ($isAppShellAsset) {

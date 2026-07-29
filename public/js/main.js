@@ -15,6 +15,7 @@ import { createClock } from './core/clock.js';
 import { createMotion } from './core/motion.js';
 import { createAssets } from './core/assets.js';
 import { h, render } from './core/render.js';
+import { getScreen } from './screens/index.js';
 
 const POLL_MS = 3000;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
@@ -117,6 +118,153 @@ function displayedOr(field, fallback) {
  * view
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * screen context
+ *
+ * The single object every screen is handed. Screens get capabilities, not
+ * globals: they never import the store or the api directly, which keeps them
+ * testable and means a screen cannot quietly start its own poll.
+ *
+ * Actions live here rather than inside screens because most of them touch
+ * state two screens care about — buying a cosmetic changes the shop *and* the
+ * HUD's star balance.
+ * ------------------------------------------------------------------ */
+
+const ctx = {
+    h,
+    store,
+    assets,
+    motion,
+    clock,
+
+    navigate(screenId) {
+        store.set('screen', screenId);
+    },
+
+    async joinSeason(seasonId) {
+        store.set('ui.joining', seasonId);
+        const res = await api.request('season_join', { season_id: seasonId });
+        store.set('ui.joining', null);
+        if (res && res.error) return toast(res.error, 'error');
+        // Refresh immediately rather than waiting up to 3s for the next poll —
+        // joining is the one action where the whole screen changes meaning.
+        await poll();
+    },
+
+    async loadLeaderboard(page = 1) {
+        const res = await api.request('global_leaderboard', { page, per_page: 25 });
+        if (!res || res.error) return;
+        const entries = Array.isArray(res) ? res : (res.entries || res.leaderboard || []);
+        store.set('screens.ranks', { entries, page });
+    },
+
+    async loadChat() {
+        const channel = store.get('ui.chatChannel') || 'GLOBAL';
+        const res = await api.request('chat_messages', { channel }, { channel: 'chat', dedupe: true, respectBackoff: true });
+        if (!res || res.error || res.skipped) return;
+        const messages = Array.isArray(res) ? res : (res.messages || []);
+        store.set('screens.chat', { messages, channel });
+    },
+
+    switchChat(channel) {
+        store.set('ui.chatChannel', channel);
+        store.set('screens.chat', null);
+        ctx.chatWasPinned = true;
+        ctx.loadChat();
+    },
+
+    async sendChat(formEl) {
+        const draft = String(store.get('ui.chatDraft') || '').trim();
+        if (!draft) return;
+
+        store.set('ui.chatSending', true);
+        const res = await api.request('chat_send', {
+            channel: store.get('ui.chatChannel') || 'GLOBAL',
+            content: draft,
+        });
+        store.set('ui.chatSending', false);
+
+        if (res && res.error) return toast(res.error, 'error');
+
+        store.set('ui.chatDraft', '');
+
+        // The reconciler will not write `value` to a focused text field — that
+        // guard is what stops a poll eating a half-typed message. It also means
+        // it cannot clear the box after a successful send, so that is done
+        // explicitly here. Deliberate clears are the caller's job; accidental
+        // ones are what the guard exists to prevent.
+        const input = formEl && formEl.querySelector('input');
+        if (input) input.value = '';
+
+        ctx.chatWasPinned = true;
+        await ctx.loadChat();
+    },
+
+    async loadShop() {
+        const [catalog, mine] = await Promise.all([
+            api.request('cosmetic_catalog'),
+            api.request('my_cosmetics'),
+        ]);
+        if (!catalog || catalog.error) return;
+        store.set('screens.shop', {
+            catalog: Array.isArray(catalog) ? catalog : (catalog.items || []),
+            owned: mine && !mine.error ? (Array.isArray(mine) ? mine : (mine.owned || [])) : [],
+            equipped: mine && !mine.error ? (mine.equipped || {}) : {},
+        });
+    },
+
+    async buyCosmetic(cosmeticId) {
+        store.set('ui.shopBusy', cosmeticId);
+        const res = await api.request('purchase_cosmetic', { cosmetic_id: cosmeticId });
+        store.set('ui.shopBusy', null);
+        if (res && res.error) return toast(res.error, 'error');
+        await Promise.all([ctx.loadShop(), poll()]);
+    },
+
+    async equipCosmetic(cosmeticId) {
+        store.set('ui.shopBusy', cosmeticId);
+        const res = await api.request('equip_cosmetic', { cosmetic_id: cosmeticId });
+        store.set('ui.shopBusy', null);
+        if (res && res.error) return toast(res.error, 'error');
+        await ctx.loadShop();
+    },
+};
+
+/**
+ * Transient message. Kept in the store so it renders through the reconciler
+ * like everything else rather than being appended to the DOM behind its back.
+ */
+let toastTimer = null;
+function toast(text, kind = 'info') {
+    store.set('ui.toast', { text, kind });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => store.set('ui.toast', null), 4000);
+}
+
+/* ------------------------------------------------------------------ *
+ * screen lifecycle
+ * ------------------------------------------------------------------ */
+
+let activeScreenId = null;
+
+async function activateScreen(id) {
+    if (activeScreenId === id) return;
+
+    const previous = getScreen(activeScreenId);
+    if (previous && previous.leave) {
+        try { previous.leave(ctx); } catch (err) { console.error('[main] leave failed:', err); }
+    }
+
+    activeScreenId = id;
+    scheduleRender();
+
+    const next = getScreen(id);
+    if (next && next.enter) {
+        try { await next.enter(ctx); } catch (err) { console.error('[main] enter failed:', err); }
+        scheduleRender();
+    }
+}
+
 const NAV = [
     { id: 'home', label: 'Home', icon: 'nav-home' },
     { id: 'seasons', label: 'Seasons', icon: 'nav-seasons' },
@@ -197,6 +345,14 @@ function connectionNote(state) {
     return h('div', { class: 'conn-note', role: 'status' }, 'Reconnecting…');
 }
 
+function toastView() {
+    const t = store.get('ui.toast');
+    if (!t) return null;
+    // assertive rather than polite: a toast is almost always an error the
+    // player needs before they retry the thing that failed.
+    return h('div', { class: `toast toast-${t.kind}`, role: 'alert', 'aria-live': 'assertive' }, t.text);
+}
+
 function themeSwitch() {
     return h('div', { class: 'theme-switch' },
         THEMES.map(name => h('button', {
@@ -210,6 +366,25 @@ function themeSwitch() {
     );
 }
 
+function deck(screenId) {
+    const screen = getScreen(screenId);
+    if (!screen) {
+        return h('p', { class: 'deck-placeholder' }, `No screen named "${screenId}".`);
+    }
+    try {
+        return screen.view(ctx);
+    } catch (err) {
+        // A screen that throws must not take the shell down with it — the rail
+        // has to stay usable so the player can navigate away from the broken
+        // one rather than reloading.
+        console.error(`[main] screen "${screenId}" failed to render:`, err);
+        return h('div', { class: 'screen-error' },
+            h('p', null, 'This screen hit an error.'),
+            h('p', { class: 'muted small' }, String(err && err.message || err)),
+        );
+    }
+}
+
 function shell() {
     const screen = store.get('screen');
     return h('div', { id: 'shell' },
@@ -217,13 +392,10 @@ function shell() {
         h('div', { id: 'stage' },
             hud(store.get('player')),
             connectionNote(store.get('connection')),
-            h('main', { id: 'deck', 'data-screen': screen },
-                // Stage 2 mounts screen modules here.
-                h('p', { class: 'deck-placeholder' },
-                    'Foundation online. Screens land in the next stage.'),
-            ),
+            h('main', { id: 'deck', 'data-screen': screen }, deck(screen)),
             themeSwitch(),
         ),
+        toastView(),
         h('div', { id: 'dialog-host' }),
     );
 }
@@ -241,6 +413,14 @@ function scheduleRender() {
     requestAnimationFrame(() => {
         renderQueued = false;
         render(shell(), root);
+
+        // Post-render hook, for the small number of things that genuinely
+        // cannot be expressed declaratively — chat pinning its scroll to the
+        // newest message is the only current use. Runs after the DOM settles.
+        const screen = getScreen(store.get('screen'));
+        if (screen && screen.afterRender) {
+            try { screen.afterRender(ctx); } catch (err) { console.error('[main] afterRender failed:', err); }
+        }
     });
 }
 
@@ -346,6 +526,11 @@ function boot() {
     // redraw free, so there is no need to be clever about which paths matter.
     store.subscribe('*', scheduleRender);
 
+    // Screen transitions run enter/leave. Subscribing rather than doing this
+    // inside navigate() means a screen change from anywhere — a deep link, an
+    // action, a 401 bouncing us to auth — goes through the same path.
+    store.subscribe('screen', (next) => { activateScreen(next); });
+
     // Figures animate toward their new values rather than jumping.
     store.subscribe('player.coins', (next) => animateField('coins', Number(next) || 0));
     store.subscribe('player.seasonal_stars', (next) => animateField('stars', Number(next) || 0));
@@ -373,6 +558,10 @@ function boot() {
 
     scheduleRender();
     poll();
+
+    // Run the initial screen's enter() — the subscription above only fires on
+    // a *change*, and the first screen was set before anyone was listening.
+    activateScreen(store.get('screen'));
 }
 
 if (document.readyState === 'loading') {
