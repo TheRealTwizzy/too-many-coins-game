@@ -13,6 +13,7 @@ import { createStore } from './core/store.js';
 import { createApi } from './core/api.js';
 import { createClock } from './core/clock.js';
 import { createMotion } from './core/motion.js';
+import { createAssets } from './core/assets.js';
 import { h, render } from './core/render.js';
 
 const POLL_MS = 3000;
@@ -32,6 +33,11 @@ const store = createStore({
 
 const clock = createClock();
 const motion = createMotion();
+
+// Art is referenced by name, never by glyph or path. Everything below asks for
+// 'nav-home' or 'coin'; what those look like is core/assets.js's business, so
+// swapping placeholders for real art touches that file and nothing here.
+const assets = createAssets({ h, motion });
 
 const api = createApi({
     onUnauthorized() {
@@ -112,11 +118,11 @@ function displayedOr(field, fallback) {
  * ------------------------------------------------------------------ */
 
 const NAV = [
-    { id: 'home', label: 'Home', glyph: '★' },
-    { id: 'seasons', label: 'Seasons', glyph: '\u{1F3C6}' },
-    { id: 'ranks', label: 'Ranks', glyph: '\u{1F3C5}' },
-    { id: 'chat', label: 'Chat', glyph: '\u{1F4AC}' },
-    { id: 'shop', label: 'Shop', glyph: '\u{1F48E}' },
+    { id: 'home', label: 'Home', icon: 'nav-home' },
+    { id: 'seasons', label: 'Seasons', icon: 'nav-seasons' },
+    { id: 'ranks', label: 'Ranks', icon: 'nav-ranks' },
+    { id: 'chat', label: 'Chat', icon: 'nav-chat' },
+    { id: 'shop', label: 'Shop', icon: 'nav-shop' },
 ];
 
 function rail(screen) {
@@ -127,15 +133,18 @@ function rail(screen) {
             'aria-current': screen === item.id ? 'page' : false,
             onClick: () => store.set('screen', item.id),
         },
-            h('span', { class: 'rail-glyph', 'aria-hidden': 'true' }, item.glyph),
+            h('span', { class: 'rail-glyph' }, assets.icon(item.icon)),
             h('span', { class: 'rail-label' }, item.label),
         )),
     );
 }
 
-function hudFigure(field, label, value, format) {
+function hudFigure(field, label, value, format, iconName) {
     return h('div', { key: field, class: 'hud-figure' },
-        h('span', { class: 'hud-label' }, label),
+        h('span', { class: 'hud-label' },
+            iconName ? assets.icon(iconName, { class: 'hud-icon' }) : null,
+            label,
+        ),
         h('span', { class: 'hud-value' }, format(value)),
     );
 }
@@ -144,11 +153,14 @@ function hud(player) {
     if (!player) return null;
 
     return h('div', { id: 'hud', role: 'status', 'aria-live': 'off' },
-        hudFigure('coins', 'Coins', displayedOr('coins', player.coins || 0), formatCount),
-        hudFigure('stars', 'Stars', displayedOr('stars', player.seasonal_stars || 0), formatCount),
-        hudFigure('sigils', 'Sigils', displayedOr('sigils', player.sigils || 0), formatCount),
-        hudFigure('rate', 'Rate', displayedOr('rate', player.ubi_rate || 0), formatRate),
+        hudFigure('coins', 'Coins', displayedOr('coins', player.coins || 0), formatCount, 'coin'),
+        hudFigure('stars', 'Stars', displayedOr('stars', player.seasonal_stars || 0), formatCount, 'star-season'),
+        hudFigure('sigils', 'Sigils', displayedOr('sigils', player.sigils || 0), formatCount, 'sigil'),
+        hudFigure('rate', 'Rate', displayedOr('rate', player.ubi_rate || 0), formatRate, null),
         tickIndicator(),
+        // Moments play over the HUD rather than beside it. Empty and inert
+        // until a sprite is registered for 'payout-burst'.
+        h('div', { key: 'burst', id: 'payout-burst', class: 'sprite-host' }),
     );
 }
 
@@ -323,10 +335,21 @@ function boot() {
     // One clock: the poll, the countdown repaint, and the payout pulse.
     clock.every(POLL_MS, poll);
     clock.every(1000, scheduleRender);
+    // A payout landing gets two treatments: the CSS glow, which works today,
+    // and a sprite, which is a no-op until 'payout-burst' has art behind it.
+    // Both are driven by clock.onTick, so neither can fire while the tick
+    // phase is unknown and the moment would be a guess.
     clock.onTick(() => {
         const el = document.getElementById('hud');
         if (el) motion.pulse(el, 'is-paid');
+
+        const host = document.getElementById('payout-burst');
+        if (host) assets.playSprite(host, 'payout-burst');
     });
+
+    // Warm the sprite sheets so the first moment does not flash a blank frame.
+    // Resolves immediately while every slot is still a placeholder.
+    assets.preload(['payout-burst', 'sigil-drop', 'theft-strike']);
 
     scheduleRender();
     poll();

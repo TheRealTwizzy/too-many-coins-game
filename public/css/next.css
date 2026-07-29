@@ -103,6 +103,9 @@ body {
 /* ---------- hud ---------- */
 
 #hud {
+    /* Positioned so .sprite-host can cover it: moments play over the figures
+       they concern rather than somewhere off to the side. */
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: var(--s2);
@@ -121,11 +124,18 @@ body {
 }
 
 .hud-label {
+    display: flex;
+    align-items: center;
+    gap: var(--s1);
     font-size: var(--fs-micro);
     text-transform: uppercase;
     letter-spacing: var(--tracking-wide);
     color: var(--ink-3);
 }
+
+/* Sized in ems so the icon tracks the label rather than needing its own
+   value here and a second one once real art replaces the placeholder. */
+.hud-icon { font-size: 1.15em; }
 
 .hud-value {
     font-size: var(--fs-title);

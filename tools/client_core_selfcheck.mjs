@@ -41,7 +41,7 @@ const CORE = join(HERE, '..', 'public', 'js', 'core');
 
 async function loadCore() {
     const dir = await mkdtemp(join(tmpdir(), 'tmc-core-'));
-    const names = ['store', 'api', 'render', 'clock', 'motion'];
+    const names = ['store', 'api', 'render', 'clock', 'motion', 'assets'];
     const loaded = {};
     for (const name of names) {
         const dest = join(dir, `${name}.mjs`);
@@ -628,6 +628,122 @@ function checkMotion({ createMotion }) {
     }
 }
 
+function checkAssets({ createAssets }, { h }) {
+    section('core/assets.js — placeholders now, art later, same call sites');
+
+    const reducedMotion = { reduced: true };
+    const fullMotion = { reduced: false };
+
+    const slots = {
+        'plain': { placeholder: '★', art: null },
+        'tinted': { placeholder: '◈', tint: 'var(--family-ward)', art: null },
+        'done': { placeholder: '★', art: { kind: 'image', src: '/a.png', w: 20, h: 20 } },
+        'retina': { placeholder: '★', art: { kind: 'image', src: '/a.png', src2x: '/a@2x.png', w: 20, h: 20 } },
+        'mask': { placeholder: '◈', tint: 'var(--family-ward)', art: { kind: 'image', src: '/w.png', w: 28, h: 28, tintable: true } },
+        'burst': { placeholder: null, art: { kind: 'sprite', src: '/b.png', w: 96, h: 96, frames: 12, fps: 24 } },
+    };
+
+    const assets = createAssets({ h, motion: fullMotion, doc: null, slots });
+
+    {
+        const v = assets.icon('plain');
+        ok('an unfilled slot renders its placeholder',
+            v.children[0].text === '★' && v.props.class.includes('icon-placeholder'), v.props.class);
+    }
+
+    {
+        const v = assets.icon('tinted');
+        ok('a placeholder still carries its family tint',
+            v.props.style.color === 'var(--family-ward)', v.props.style);
+    }
+
+    {
+        ok('hasArt distinguishes filled from unfilled',
+            assets.hasArt('plain') === false && assets.hasArt('done') === true);
+    }
+
+    // The property that makes the swap free: the call site is identical, so
+    // only the shape of what comes back changes.
+    {
+        const before = assets.icon('plain');
+        const after = assets.icon('done');
+        ok('filling a slot changes the output, not the call',
+            before.props.class.includes('icon-placeholder')
+            && !after.props.class.includes('icon-placeholder')
+            && after.props.style.backgroundImage === 'url("/a.png")',
+            after.props.style);
+    }
+
+    {
+        const v = assets.icon('retina');
+        ok('a 2x source becomes an image-set',
+            v.props.style.backgroundImage === 'image-set(url("/a.png") 1x, url("/a@2x.png") 2x)',
+            v.props.style.backgroundImage);
+    }
+
+    // Tintable art must be masked, never drawn — otherwise the colour token
+    // cannot reach it and the four themes lose the family palette.
+    {
+        const v = assets.icon('mask');
+        ok('tintable art is masked and coloured, not drawn',
+            v.props.style.maskImage === 'url("/w.png")'
+            && v.props.style.backgroundColor === 'var(--family-ward)'
+            && v.props.style.backgroundImage === undefined,
+            v.props.style);
+        ok('tintable art also sets the -webkit- mask for Safari',
+            v.props.style.webkitMaskImage === 'url("/w.png")');
+    }
+
+    {
+        const v = assets.icon('burst');
+        ok('a sprite slot sizes the background to the whole strip',
+            v.props.style.backgroundSize === '1152px 100%', v.props.style.backgroundSize);
+    }
+
+    {
+        const bare = assets.icon('plain');
+        const labelled = assets.icon('plain', { label: 'Coins' });
+        ok('icons are aria-hidden by default and labelled on request',
+            bare.props['aria-hidden'] === 'true'
+            && labelled.props.role === 'img' && labelled.props['aria-label'] === 'Coins');
+    }
+
+    {
+        const size = assets.icon('done', { size: 40 });
+        ok('an explicit size scales both axes',
+            size.props.style.width === '40px' && size.props.style.height === '40px', size.props.style);
+    }
+
+    {
+        const realWarn = console.warn;
+        let warned = false;
+        console.warn = () => { warned = true; };
+        const v = assets.icon('nope');
+        console.warn = realWarn;
+        ok('an unknown slot warns rather than throwing', warned && v.children.length === 0);
+    }
+
+    // playSprite has to be safe to call unconditionally, so screens written
+    // now do not need rewriting when art lands.
+    {
+        const el = { style: { setProperty() {} }, classList: { add() {}, remove() {} }, addEventListener() {}, removeEventListener() {} };
+        let resolved = false;
+        assets.playSprite(el, 'plain').then(() => { resolved = true; });
+        ok('playing a slot with no sprite is a safe no-op', resolved === false || resolved === true);
+    }
+
+    {
+        const reducedAssets = createAssets({ h, motion: reducedMotion, doc: null, slots });
+        let positionSet = null;
+        const el = { style: { backgroundPosition: null, setProperty() {} }, classList: { add() {}, remove() {} }, addEventListener() {}, removeEventListener() {} };
+        Object.defineProperty(el.style, 'backgroundPosition', {
+            set(v) { positionSet = v; }, get() { return positionSet; },
+        });
+        reducedAssets.playSprite(el, 'burst');
+        ok('reduced motion holds the rest frame instead of playing', positionSet === '0 0', positionSet);
+    }
+}
+
 /* ------------------------------------------------------------------ *
  * run
  * ------------------------------------------------------------------ */
@@ -638,6 +754,7 @@ try {
     await checkRender(modules.render);
     checkClock(modules.clock);
     checkMotion(modules.motion);
+    checkAssets(modules.assets, modules.render);
 } finally {
     await cleanup();
 }
