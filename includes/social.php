@@ -176,6 +176,45 @@ class SocialService {
         return ['success' => true];
     }
 
+    /** Directional: has $blockerId blocked $blockedId? */
+    public static function hasBlocked(int $blockerId, int $blockedId): bool {
+        if ($blockerId <= 0 || $blockedId <= 0) {
+            return false;
+        }
+        $row = Database::getInstance()->fetch(
+            "SELECT 1 AS ok FROM blocks WHERE blocker_id = ? AND blocked_id = ? LIMIT 1",
+            [$blockerId, $blockedId]
+        );
+        return !empty($row);
+    }
+
+    /** Player ids this player has blocked. Used to filter chat. */
+    public static function blockedIds(int $playerId): array {
+        if ($playerId <= 0) {
+            return [];
+        }
+        $rows = Database::getInstance()->fetchAll(
+            "SELECT blocked_id FROM blocks WHERE blocker_id = ?",
+            [$playerId]
+        );
+        return array_map(static fn($r) => (int)$r['blocked_id'], $rows);
+    }
+
+    /** Is there an outstanding friend request in either direction? */
+    public static function hasPendingRequest(int $a, int $b): bool {
+        if ($a <= 0 || $b <= 0) {
+            return false;
+        }
+        $row = Database::getInstance()->fetch(
+            "SELECT 1 AS ok FROM friend_requests
+             WHERE status = 'PENDING'
+               AND ((from_player = ? AND to_player = ?) OR (from_player = ? AND to_player = ?))
+             LIMIT 1",
+            [$a, $b, $b, $a]
+        );
+        return !empty($row);
+    }
+
     public static function isBlockedEitherWay(int $a, int $b): bool {
         $row = Database::getInstance()->fetch(
             "SELECT 1 FROM blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1",

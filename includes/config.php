@@ -134,6 +134,10 @@ define('TMC_PRESENCE_STALE_OFFLINE_SECONDS', max((int)TMC_PRESENCE_TOUCH_SECONDS
 // ~4,074 at high supply) over a few hours, devaluing every held coin balance
 // with no warning. New seasons are created at v2; this branch can be deleted
 // once every pre-cutover season has expired.
+// A star can never be free. Stars are the score, so a zero price would let a
+// player mint unbounded score from any coin balance.
+define('STAR_PRICE_ABSOLUTE_FLOOR', 1);
+
 define('STARPRICE_MODEL_V1_BIAS_AFTER_CLAMP', 1);
 define('STARPRICE_MODEL_V2_BIAS_BEFORE_CLAMP', 2);
 define('STARPRICE_MODEL_VERSION_DEFAULT', max(1, (int)(getenv('TMC_STARPRICE_MODEL_VERSION_DEFAULT') ?: STARPRICE_MODEL_V2_BIAS_BEFORE_CLAMP)));

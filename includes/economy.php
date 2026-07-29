@@ -986,9 +986,16 @@ class Economy {
         }
 
         // Hard cap and floor (preserved as final guardrails).
+        //
+        // The floor used to read $season['star_price_minimum_absolute'], a
+        // column that exists in no schema and no migration - so the ?? 1
+        // fallback was the only path that ever ran and the "configurable floor"
+        // was a fiction. Rather than add another written-but-never-read column
+        // to a schema that already carries several, the floor is the explicit
+        // constant it has always effectively been. A tunable floor, if wanted
+        // later, should arrive deliberately with its own migration.
         $price = min($price, (int)$season['star_price_cap']);
-        $minPrice = (int)($season['star_price_minimum_absolute'] ?? 1);
-        return max($minPrice, $price);
+        return max(STAR_PRICE_ABSOLUTE_FLOOR, $price);
     }
     
     /**

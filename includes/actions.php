@@ -1648,12 +1648,10 @@ class Actions {
                 "SELECT player_id, handle FROM players WHERE player_id = ? AND joined_season_id = ? AND participation_enabled = 1",
                 [$targetPlayerId, $seasonId]
             );
-        } elseif ($targetHandle !== null && trim((string)$targetHandle) !== '') {
-            $target = $db->fetch(
-                "SELECT player_id, handle FROM players WHERE handle_lower = ? AND joined_season_id = ? AND participation_enabled = 1",
-                [strtolower(trim((string)$targetHandle)), $seasonId]
-            );
         }
+        // The handle-resolution branch is gone: the endpoint no longer accepts
+        // target_handle. $targetHandle is kept in the signature so existing
+        // internal callers do not break, but it is never resolved.
 
         if (!$target) {
             return ['error' => 'Target player not found in this active season'];

@@ -508,7 +508,11 @@ try {
             echo json_encode(Actions::freezePlayerUbi(
                 $player['player_id'],
                 (int)($input['target_player_id'] ?? 0),
-                isset($input['target_handle']) ? (string)$input['target_handle'] : null,
+                // target_handle is no longer accepted. Combined with the
+                // leaderboard handing out every handle, it let a twenty-line
+                // script freeze-lock a named rival without ever opening the UI.
+                // Targeting is by player_id from the profile surface only.
+                null,
                 isset($input['requested_tier']) ? (int)$input['requested_tier'] : null
             ));
             break;
@@ -1905,14 +1909,33 @@ function getChatMessages($player, $input) {
     $seasonId = $input['season_id'] ?? null;
     $canViewRemoved = $player && Permissions::isStaff($player);
     $removedSql = $canViewRemoved ? "1=1" : "is_removed = 0";
-    
+
+    // Blocking now hides the blocked player's messages.
+    //
+    // SocialService::isBlockedEitherWay had exactly one caller - sendRequest -
+    // so blocking did nothing a player could perceive. Note that blocking
+    // deliberately does NOT prevent being frozen or robbed: letting a player
+    // block the whole leaderboard to become untouchable would be a far worse
+    // exploit. The UI must say what it does, or it reads as a safety tool it
+    // is not.
+    $blockedSql = '';
+    $blockedParams = [];
+    if ($player && !$canViewRemoved) {
+        $blockedIds = SocialService::blockedIds((int)$player['player_id']);
+        if (!empty($blockedIds)) {
+            $blockedSql = ' AND (sender_id IS NULL OR sender_id NOT IN ('
+                        . implode(',', array_fill(0, count($blockedIds), '?')) . '))';
+            $blockedParams = $blockedIds;
+        }
+    }
+
     if ($channelKind === 'GLOBAL') {
         $messages = $db->fetchAll(
             "SELECT message_id, sender_id, handle_snapshot, content, is_admin_post, is_removed, removed_by, removed_at, removal_reason, created_at
              FROM chat_messages 
-             WHERE channel_kind = 'GLOBAL' AND {$removedSql}
+             WHERE channel_kind = 'GLOBAL' AND {$removedSql}{$blockedSql}
              ORDER BY created_at DESC LIMIT ?",
-            [CHAT_MAX_ROWS]
+            array_merge($blockedParams, [CHAT_MAX_ROWS])
         );
         foreach ($messages as &$m) {
             $m['created_at'] = iso_utc_datetime($m['created_at'] ?? null);
@@ -1924,9 +1947,9 @@ function getChatMessages($player, $input) {
         $messages = $db->fetchAll(
             "SELECT message_id, sender_id, handle_snapshot, content, is_removed, removed_by, removed_at, removal_reason, created_at
              FROM chat_messages 
-             WHERE channel_kind = 'SEASON' AND season_id = ? AND {$removedSql}
+             WHERE channel_kind = 'SEASON' AND season_id = ? AND {$removedSql}{$blockedSql}
              ORDER BY created_at DESC LIMIT ?",
-            [$seasonId, CHAT_MAX_ROWS]
+            array_merge([$seasonId], $blockedParams, [CHAT_MAX_ROWS])
         );
         foreach ($messages as &$m) {
             $m['created_at'] = iso_utc_datetime($m['created_at'] ?? null);
@@ -1993,6 +2016,16 @@ function getProfile($viewer, $targetId) {
         [$targetId]
     );
     
+    // Relationship state, so the client can render the correct social action.
+    // Without it there was no way to know whether to offer Add Friend or Remove
+    // Friend, Block or Unblock - which is part of why neither button was ever
+    // built and the block list could only ever be empty.
+    $target['relationship'] = ($viewerId > 0 && !$viewerIsSelf) ? [
+        'is_friend'       => SocialService::areFriends($viewerId, $targetIdInt),
+        'is_blocked'      => SocialService::hasBlocked($viewerId, $targetIdInt),
+        'request_pending' => SocialService::hasPendingRequest($viewerId, $targetIdInt),
+    ] : null;
+
     $target['badges'] = $badges;
     $target['season_history'] = normalizeParticipationScorePayloads($history);
     $target['active_participation'] = null;
