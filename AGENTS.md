@@ -27,3 +27,9 @@
 - No simulation may start unless `effective_config.json` and `effective_config_audit.md` are generated.
 - Unknown config keys are errors, not warnings.
 - Candidate patches must be validated against the canonical schema before execution.
+
+## Working with prompts
+- Complicated, multi-step, or multi-question prompts must be **improved before they are executed**.
+- Write the improved prompt out in full, present it for approval, and wait. Do not begin the work.
+- Only execute once the improved version is approved.
+- This applies to the prompt as given, not to routine follow-ups within work already approved.
