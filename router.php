@@ -103,7 +103,18 @@ if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
     }
 
     // Keep app shell assets fresh while still caching media/fonts.
-    $isAppShellAsset = ($path === '/js/app.js' || $path === '/css/style.css');
+    // The ?ui=next client's modules count as shell assets too: they are loaded
+    // by URL from an import graph, so a stale cached module can be paired with
+    // a fresh one and produce a mismatch no reload seems to fix.
+    $isAppShellAsset = (
+        $path === '/js/app.js'
+        || $path === '/css/style.css'
+        || $path === '/js/main.js'
+        || $path === '/css/tokens.css'
+        || $path === '/css/next.css'
+        || $path === '/css/assets.css'
+        || strpos($path, '/js/core/') === 0
+    );
     if ($isAppShellAsset) {
         header('Cache-Control: no-cache, no-store, must-revalidate');
     } else if (in_array($ext, ['css', 'js', 'png', 'jpg', 'gif', 'svg', 'woff2', 'woff', 'ico'])) {

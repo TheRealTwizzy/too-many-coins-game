@@ -5274,5 +5274,16 @@ const TMC = {
     },
 };
 
-// Initialize on load
-document.addEventListener('DOMContentLoaded', () => TMC.init());
+// Initialize on load.
+//
+// index.html injects this script dynamically so it can pick between clients,
+// and a dynamically inserted script is async: it can finish loading after
+// DOMContentLoaded has already fired. Listening unconditionally would then
+// register a handler for an event that has been and gone, and the client
+// would never boot at all. Behaviour is unchanged when the document is still
+// parsing, which is the case this always used to hit.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => TMC.init());
+} else {
+    TMC.init();
+}

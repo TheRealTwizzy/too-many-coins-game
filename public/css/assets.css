@@ -1,0 +1,83 @@
+/**
+ * assets.css — icons and sprite playback
+ *
+ * Paired with core/assets.js. Components never write these rules directly;
+ * they call assets.icon() / assets.playSprite() and this is what those land on.
+ */
+
+/* ---------- icons ---------- */
+
+.icon {
+    display: inline-block;
+    vertical-align: middle;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex: none;
+}
+
+/* Placeholder icons are text (emoji or a geometric glyph). Sized in ems so a
+   slot inherits the surrounding type scale until real art gives it pixels. */
+.icon-placeholder {
+    font-size: 1em;
+    line-height: 1;
+    font-style: normal;
+    text-align: center;
+}
+
+/* ---------- sprite playback ---------- */
+/*
+ * Horizontal strip: N frames of equal width, left to right in one image.
+ *
+ * steps() walks background-position one frame at a time, so the compositor
+ * owns playback and no JavaScript runs per frame. Travelling from 0 to
+ * -(frames x width) with steps(frames) displays 0, -1w, -2w ... -(n-1)w: the
+ * end position is the boundary past the last frame and is never painted,
+ * which is exactly right.
+ *
+ * The custom properties are set per element by playSprite().
+ */
+
+.sprite {
+    width: var(--sprite-w);
+    height: var(--sprite-h);
+    background-image: var(--sprite-image);
+    background-repeat: no-repeat;
+    background-size: calc(var(--sprite-w) * var(--sprite-frames)) 100%;
+    background-position: 0 0;
+    animation: sprite-run var(--sprite-duration) steps(var(--sprite-frames)) 1 both;
+}
+
+@keyframes sprite-run {
+    from { background-position: 0 0; }
+    to   { background-position: calc(-1 * var(--sprite-w) * var(--sprite-frames)) 0; }
+}
+
+/*
+ * Reduced motion holds the rest frame.
+ *
+ * playSprite() already returns early in this case, so this is belt and braces
+ * for any sprite mounted declaratively rather than played — and it means the
+ * guarantee holds in CSS even if a future caller forgets to ask.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .sprite {
+        animation: none;
+        background-position: 0 0;
+    }
+}
+
+/* ---------- sprite host ---------- */
+/*
+ * Moments (a payout landing, a sigil dropping) play over the element they
+ * concern rather than in a corner, so the host is positioned and does not
+ * take part in hit testing.
+ */
+
+.sprite-host {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    z-index: var(--z-focus);
+}
