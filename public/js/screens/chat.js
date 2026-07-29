@@ -26,6 +26,10 @@ const CHANNELS = [
 
 const SCROLL_PIN_SLOP_PX = 48;
 
+// Matches the game_state cadence. Chat has its own backoff channel in
+// core/api.js, so a rate-limited transcript does not stall the main poll.
+const CHAT_POLL_MS = 3000;
+
 function timeOf(created) {
     const t = Date.parse(created);
     if (Number.isNaN(t)) return '';
@@ -66,8 +70,29 @@ function availableChannels(ctx) {
 export default {
     id: 'chat',
 
-    async enter(ctx) {
-        await ctx.loadChat();
+    /**
+     * Chat is the one screen with its own poll.
+     *
+     * game_state carries the player and the seasons, but not the transcript,
+     * so without this the message list would be fetched once on entry and then
+     * never again — the room would look permanently frozen at whatever was
+     * there when you walked in.
+     *
+     * It runs on the shared clock rather than its own setInterval, so it stops
+     * with everything else in a hidden tab instead of polling a backgrounded
+     * chat window forever, and it is torn down in leave() so leaving the
+     * screen actually stops the traffic.
+     */
+    enter(ctx) {
+        ctx.loadChat();
+        ctx.chatPollStop = ctx.clock.every(CHAT_POLL_MS, () => ctx.loadChat());
+    },
+
+    leave(ctx) {
+        if (ctx.chatPollStop) {
+            ctx.chatPollStop();
+            ctx.chatPollStop = null;
+        }
     },
 
     /**

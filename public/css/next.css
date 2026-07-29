@@ -219,14 +219,12 @@ body {
 
 #dialog-host:empty { display: none; }
 
+/* Positioning only. The scrim and centring belong to .dialog-backdrop in
+   screens.css — putting them here too would double-darken the page. */
 #dialog-host {
     position: fixed;
     inset: 0;
     z-index: var(--z-overlay);
-    display: grid;
-    place-items: center;
-    padding: var(--s4);
-    background: rgba(0, 0, 0, .55);
 }
 
 /* ---------- narrow viewports ---------- */

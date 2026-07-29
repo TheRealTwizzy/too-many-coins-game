@@ -38,7 +38,14 @@ function seasonCard(ctx, season, joinedId) {
         'data-status': status,
     },
         h('header', { class: 'season-head' },
-            h('h3', { class: 'season-name' }, season.name || `Season ${id}`),
+            // The name opens the season rather than the whole card being
+            // clickable: the card also carries a Join button, and a card-wide
+            // click target makes it far too easy to open a season when you
+            // meant to join one.
+            h('button', {
+                class: 'season-name season-open',
+                onClick: () => ctx.openSeason(id),
+            }, season.name || `Season ${id}`),
             h('span', { class: 'season-status', 'data-status': status }, status),
         ),
 
