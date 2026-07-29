@@ -1038,33 +1038,12 @@ class Economy {
         ];
     }
 
-    /**
-     * Calculate vault cost for a tier based on remaining supply
-     */
-    public static function calculateVaultCost($vaultConfig, $tier, $remaining) {
-        $config = json_decode($vaultConfig, true);
-        $tierConfig = null;
-        foreach ($config as $tc) {
-            if ($tc['tier'] == $tier) {
-                $tierConfig = $tc;
-                break;
-            }
-        }
-        
-        if (!$tierConfig || $remaining <= 0) return null;
-        
-        $costTable = $tierConfig['cost_table'];
-        // Step-based pricing: pick the FIRST entry where remaining >= entry's remaining_inclusive_min
-        foreach ($costTable as $entry) {
-            if ($remaining >= $entry['remaining']) {
-                return $entry['cost'];
-            }
-        }
-        
-        // Fallback to last entry
-        return end($costTable)['cost'];
-    }
-    
+    // Economy::calculateVaultCost() was removed here. The sigil vault
+    // (season_vault / player_season_vault) has no gameplay code path: nothing
+    // ever INSERTs stock, nothing SELECTs it to sell, and this function had
+    // zero callers. seasons.vault_config is still written per season because
+    // the column is JSON NOT NULL, and still read by nothing.
+
     /**
      * Compute sigil drop configuration.
      *
