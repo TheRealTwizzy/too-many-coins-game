@@ -72,6 +72,53 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- ------------------------------------------------------------------
+-- Sigil family state.
+--
+-- These tables arrived with the families migration, after this script was
+-- first written, so they were previously left behind by a reset. That is not
+-- cosmetic: truncating season_participation zeroes the tier columns while a
+-- populated season_sigil_holdings still claims the sigils, and the family verbs
+-- (ward, market prime, transmute) spend from the mirror rather than from the
+-- tier columns. A reset would therefore have handed every returning player a
+-- stock of phantom sigils that were still spendable, and made
+-- tools/sigil_reconcile.php report the entire mirror as drift.
+--
+-- Catalog tables are deliberately NOT cleared here - sigil_family,
+-- sigil_catalog, sigil_ability and boost_catalog are definitions rather than
+-- state. Truncating them would leave the game with no sigils to define.
+-- ------------------------------------------------------------------
+
+SET @has_season_sigil_holdings := (
+    SELECT COUNT(*)
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'season_sigil_holdings'
+);
+SET @sql := IF(@has_season_sigil_holdings > 0, 'TRUNCATE TABLE `season_sigil_holdings`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @has_active_wards := (
+    SELECT COUNT(*)
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'active_wards'
+);
+SET @sql := IF(@has_active_wards > 0, 'TRUNCATE TABLE `active_wards`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @has_season_events := (
+    SELECT COUNT(*)
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'season_events'
+);
+SET @sql := IF(@has_season_events > 0, 'TRUNCATE TABLE `season_events`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SET @has_sigil_drop_tracking := (
     SELECT COUNT(*)
     FROM information_schema.tables

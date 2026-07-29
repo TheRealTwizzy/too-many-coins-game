@@ -1157,6 +1157,44 @@ function getGameState($player) {
         'seasons' => [],
         'player' => null
     ];
+
+    // Publish when the last tick actually fired, not just how long a tick is.
+    //
+    // tick_real_seconds alone gives a client the period but not the phase, so a
+    // countdown built from it hits zero at an arbitrary offset from when coins
+    // land and teaches players a rhythm that is wrong. With this, the countdown
+    // is real. Clients that cannot see it are expected to show the cadence as a
+    // static fact rather than guess.
+    //
+    // The column is written by TickEngine on every processed tick and has
+    // existed since the original schema, so this is a read, not a migration.
+    // Null before the first tick of a fresh install, and after a reset that
+    // clears server_state - both of which the client already handles.
+    //
+    // Two fields rather than one, deliberately:
+    //
+    //   last_tick_at     absolute epoch ms. Converted by MySQL via
+    //                    UNIX_TIMESTAMP rather than by PHP's strtotime, which
+    //                    would read the DATETIME in PHP's timezone while NOW()
+    //                    wrote it in MySQL's. When those differ the epoch comes
+    //                    out silently wrong by whole hours.
+    //
+    //   tick_age_seconds how long ago that was. This is what a countdown should
+    //                    actually be built from: the client derives its own
+    //                    local timestamp as (its now - age), so a device with a
+    //                    misset clock still counts down correctly. Comparing an
+    //                    absolute server epoch against a wrong Date.now() does
+    //                    not, and phone clocks drift.
+    $tickHeartbeat = $db->fetch(
+        "SELECT UNIX_TIMESTAMP(last_tick_processed_at) AS last_tick_epoch,
+                TIMESTAMPDIFF(SECOND, last_tick_processed_at, NOW()) AS tick_age_seconds
+         FROM server_state WHERE id = 1"
+    );
+    $lastTickEpoch = $tickHeartbeat['last_tick_epoch'] ?? null;
+    $state['timing']['last_tick_at'] = $lastTickEpoch !== null ? (int)$lastTickEpoch * 1000 : null;
+    $state['timing']['tick_age_seconds'] = $tickHeartbeat['tick_age_seconds'] !== null
+        ? (int)$tickHeartbeat['tick_age_seconds']
+        : null;
     
     // Get visible seasons
     $seasons = GameTime::getVisibleSeasons();
