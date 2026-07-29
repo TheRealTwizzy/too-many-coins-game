@@ -218,7 +218,17 @@ $costEach = $starsEach * $price;
 echo "before:   coins={$before['coins']} stars={$before['stars']} price={$price}\n";
 echo "firing:   {$parallel} x purchase_stars({$starsEach}) @ {$costEach} coins each\n";
 
-$results = reqParallel($api, 'purchase_stars', ['stars_requested' => $starsEach], $token, $parallel);
+// confirm_economic_impact is required by gatedStarPurchase: a medium/high risk
+// purchase - which spending the whole balance always is - returns
+// 'confirmation_required' and never reaches the transactional code. Without it
+// all N requests died at the gate and the race was never run.
+$results = reqParallel(
+    $api,
+    'purchase_stars',
+    ['stars_requested' => $starsEach, 'confirm_economic_impact' => true],
+    $token,
+    $parallel
+);
 $ok = 0; $rejected = 0; $other = [];
 foreach ($results as $r) {
     if (!empty($r['success'])) { $ok++; }
@@ -256,19 +266,37 @@ if ($starsGained > 0 && $coinsBurned + 1 < $expectedBurn) {
 if ($ok > 1 && $starsGained * $price > $before['coins']) {
     $failures[] = "{$ok} full-balance purchases succeeded against a single balance";
 }
-if ($ok === 0) {
-    $notes[] = "no purchase succeeded - the run proved nothing; check rate limiting "
-             . "(a 429 storm looks like rejection) and re-run with a smaller --parallel";
+// An inconclusive run must NOT report PASS. A green light from a test that
+// exercised nothing is worse than a red one - it retires the question while
+// leaving the bug in place.
+$inconclusive = ($ok === 0);
+if ($inconclusive) {
+    $notes[] = "NO purchase succeeded, so the guarded write was never reached and "
+             . "nothing was proven. Common causes: an unmet gate (the response "
+             . "'error' above names it), or a 429 storm from rate limiting, which "
+             . "looks identical to correct rejection. Re-run with --parallel=8.";
 }
 
 echo str_repeat('-', 62) . "\n";
 foreach ($notes as $n) { echo "note: {$n}\n"; }
-if (empty($failures)) {
-    echo "Result: PASS - balance never negative, no stars minted without coins burned.\n";
-    exit(0);
+if ($failures) {
+    echo "Result: FAIL\n";
+    foreach ($failures as $f) { echo "  - {$f}\n"; }
+    echo "\nExpected fix: read inside the transaction with FOR UPDATE, guard the write\n";
+    echo "with \"AND coins >= ?\", and assert rowCount() === 1.\n";
+    exit(1);
 }
-echo "Result: FAIL\n";
-foreach ($failures as $f) { echo "  - {$f}\n"; }
-echo "\nExpected fix: read inside the transaction with FOR UPDATE, guard the write\n";
-echo "with \"AND coins >= ?\", and assert rowCount() === 1.\n";
-exit(1);
+if ($inconclusive) {
+    echo "Result: INCONCLUSIVE - the integrity guard was never exercised.\n";
+    exit(2);
+}
+// What a PASS actually establishes: under genuine concurrency against one
+// balance, no value was created - the balance never went negative and every
+// star minted was paid for. It does not distinguish WHICH check rejected each
+// loser; a request that reads after the winner commits is turned away by the
+// pre-transaction check, and only one that reads before it reaches the guarded
+// UPDATE. Both are correct outcomes, and no-value-created is the property the
+// double-spend violated.
+echo "Result: PASS - {$ok} of {$parallel} succeeded, balance never negative, "
+   . "no stars minted without coins burned.\n";
+exit(0);
