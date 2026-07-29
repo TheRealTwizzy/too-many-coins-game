@@ -144,24 +144,65 @@ $readMe = function () use ($api, $token, $seasonId): array {
     $gs = req($api, 'game_state', [], $token);
     $p = $gs['player'] ?? [];
     $part = $p['participation'] ?? $p;
+    // Find the season we joined by id. seasons[0] is not reliable - there are
+    // normally several visible at once (one Active, the rest Scheduled), and
+    // reading the wrong one gives a price that has nothing to do with our
+    // purchases.
+    $price = 0;
+    foreach (($gs['seasons'] ?? []) as $s) {
+        if ((int)($s['season_id'] ?? 0) === $seasonId) {
+            $price = (int)($s['current_star_price'] ?? 0);
+            break;
+        }
+    }
     return [
         'coins' => (int)($part['coins'] ?? 0),
         'stars' => (int)($part['seasonal_stars'] ?? 0),
-        'price' => (int)($gs['seasons'][0]['current_star_price'] ?? 0),
+        'price' => $price,
     ];
 };
 
 // --- wait for a spendable balance -----------------------------------------
-echo "waiting for UBI to accrue";
+//
+// The target has to be derived from the STAR PRICE, not a fixed number. The
+// first version waited for 50 coins, which on a v1 season (price pinned at 32)
+// is not even two stars - every one of the N racers would have been rejected
+// for insufficient funds and the run would have "passed" while proving nothing.
+//
+// We want enough that a full-balance purchase is several stars, so exactly one
+// racer can legitimately win and the rest must be turned away by the guard.
 $me = $readMe();
-for ($i = 0; $i < 30 && $me['coins'] < 50; $i++) {
-    sleep(2);
-    echo '.';
+$price = max(1, (int)$me['price']);
+$target = $price * 4;
+
+$rateHint = 'base UBI is 30 coins/min, so this takes about '
+          . max(1, (int)ceil(($target - $me['coins']) / 30)) . ' min';
+echo "star price {$price}, need {$target} coins to make the race meaningful ({$rateHint})\n";
+echo "waiting for UBI to accrue";
+
+// Generous ceiling: at 30 coins/min a 128-coin target is ~4 minutes, and a
+// player who starts Idle accrues at 30% of that.
+$deadline = time() + 900;
+$lastShown = -1;
+while ($me['coins'] < $target && time() < $deadline) {
+    sleep(5);
     $me = $readMe();
+    if ($me['coins'] !== $lastShown) {
+        echo '.';
+        $lastShown = $me['coins'];
+    }
 }
 echo "\n";
-if ($me['coins'] < 50) {
-    fwrite(STDERR, "\nBalance never accrued (coins={$me['coins']}). Is the tick worker running?\n");
+
+if ($me['coins'] < $target) {
+    fwrite(STDERR, "\nOnly reached {$me['coins']} of {$target} coins before the deadline.\n");
+    if ($me['coins'] > 0) {
+        // It IS accruing - just not fast enough. Do not blame the worker.
+        fwrite(STDERR, "Coins ARE accruing, so the tick worker is running; it is simply slow at\n"
+                     . "this rate. Re-run and let it sit, or lower the bar with --parallel=8.\n");
+    } else {
+        fwrite(STDERR, "No coins at all. Check the tick worker and that the account is Active.\n");
+    }
     exit(1);
 }
 
