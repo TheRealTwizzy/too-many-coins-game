@@ -821,6 +821,11 @@ function checkScreens(screens, { h, render }) {
             joinSeason() {}, loadLeaderboard() {}, loadChat() {},
             switchChat() {}, sendChat() {}, loadShop() {},
             buyCosmetic() {}, equipCosmetic() {},
+            // Mirrors main.js: null/undefined = server not gating.
+            unlocked(key) {
+                const u = state.unlocks;
+                return u === null || u === undefined || u.includes(key);
+            },
             store: {
                 get(path) {
                     if (!path) return state;
@@ -965,6 +970,29 @@ function checkScreens(screens, { h, render }) {
         // a screen that never entered.
         chat.leave(ctx);
         ok('leaving twice is harmless', stopped === 1, { stopped });
+    }
+
+    // Progression gates: an undiscovered feature is absent - not zeroed, not
+    // teased. unlocks null means the server is not gating (flag off), and
+    // everything renders exactly as before the gates existed.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const inSeason = { player: { ...PLAYER, joined_season_id: 1 }, seasons: [SEASON] };
+
+        const ungated = allText(screens.home.default.view(stubCtx({ ...inSeason }))).join(' ');
+        ok('home shows sigils when the server is not gating', ungated.includes('Sigils'));
+
+        const gated = allText(screens.home.default.view(stubCtx({ ...inSeason, unlocks: [] }))).join(' ');
+        ok('home hides sigils until they are discovered', !gated.includes('Sigils'));
+
+        const discovered = allText(screens.home.default.view(stubCtx({ ...inSeason, unlocks: ['sigils.ui'] }))).join(' ');
+        ok('home shows sigils once discovered', discovered.includes('Sigils'));
     }
 }
 

@@ -35,6 +35,8 @@ const store = createStore({
     // Trusted only after the first poll; defaulting to NORMAL avoids flashing
     // the construction page at every boot.
     serverMode: 'NORMAL',
+    // Progression gates: null = ungated (server flag off or logged out).
+    unlocks: null,
 });
 
 const clock = createClock();
@@ -147,6 +149,17 @@ const ctx = {
 
     navigate(screenId) {
         store.set('screen', screenId);
+    },
+
+    /**
+     * Progression gate check. null/undefined unlocks = the server is not
+     * gating (flag off), so everything is visible; otherwise a feature is
+     * visible only once its key has been discovered.
+     */
+    unlocked(key) {
+        const unlocks = store.get('unlocks');
+        if (unlocks === null || unlocks === undefined) return true;
+        return unlocks.includes(key);
     },
 
     async joinSeason(seasonId) {
@@ -981,6 +994,7 @@ async function poll() {
         timing: gs.timing || null,
         connection: 'live',
         serverMode: gs.server_mode || 'NORMAL',
+        unlocks: gs.player ? (gs.player.unlocks ?? null) : null,
     });
 
     if (gs.timing) {

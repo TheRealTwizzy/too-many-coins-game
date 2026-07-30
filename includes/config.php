@@ -498,6 +498,15 @@ define('SIGIL_TIER_ODDS', [
 ]);
 
 // ============================================================
+// Progression gates
+// With the flag off (default) nothing is hidden and game_state publishes
+// unlocks = null (= everything visible), byte-compatible with older clients.
+// Discoveries are still RECORDED while off - see Progression::unlock - so
+// enabling later never hides something a player has already seen.
+// ============================================================
+define('TMC_PROGRESSION_GATES_ENABLED', filter_var(env_first(['TMC_PROGRESSION_GATES_ENABLED'], '0'), FILTER_VALIDATE_BOOLEAN));
+
+// ============================================================
 // Sigil families (P0 config keys — see Sigil Systems Spec §10)
 // The entire family system is flag-gated: with TMC_SIGIL_FAMILIES_ENABLED
 // off (default) every constant below is inert and behavior is identical

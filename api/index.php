@@ -1291,6 +1291,19 @@ function getGameState($player) {
             );
         }
 
+        // Progression gates: null = ungated (flag off, old-client compatible).
+        // When enabled, an empty unlock list for a player whose participation
+        // proves prior sight gets a one-time lazy backfill, so flipping the
+        // flag on can never take UI away from an established player.
+        $playerUnlocks = null;
+        if (Progression::enabled($db)) {
+            $playerUnlocks = Progression::keysForPlayer($db, (int)$player['player_id']);
+            if (empty($playerUnlocks) && $participation) {
+                Progression::backfillFromParticipation($db, (int)$player['player_id'], $participation);
+                $playerUnlocks = Progression::keysForPlayer($db, (int)$player['player_id']);
+            }
+        }
+
         $activeBoosts = getActiveBoosts($player, $participation);
         $rateMetrics = calculatePlayerRatePerTick($joinedSeason, $player, $participation, $activeBoosts);
         $joinedSeasonStatus = $joinedSeason ? GameTime::getSeasonStatus($joinedSeason, $gameTime) : null;
@@ -1354,6 +1367,7 @@ function getGameState($player) {
                 'net_rate_per_tick' => (float)$rateMetrics['net_rate_per_tick'],
                 'hoarding_sink_active' => (bool)$rateMetrics['hoarding_sink_active'],
             ] : null,
+            'unlocks' => $playerUnlocks,
             'season_event' => ($player['joined_season_id'] && SigilFamilies::active($db))
                 ? SigilFamilies::modifierEventPayload(
                     SigilFamilies::activeModifierEvent($db, (int)$player['joined_season_id'], $gameTime)

@@ -21,6 +21,7 @@ require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/runtime_readiness.php';
 require_once __DIR__ . '/sigil_families.php';
+require_once __DIR__ . '/progression.php';
 
 class TickEngine {
 
@@ -511,6 +512,12 @@ class TickEngine {
              WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
+
+        // Discovery: the first drop reveals the sigil UI; every drop reveals
+        // its tier. Recorded even while progression gating is off, so
+        // enabling the flag later hides nothing a player has already seen.
+        Progression::unlock($db, $playerId, 'sigils.ui', $dropTick);
+        Progression::unlock($db, $playerId, 'sigils.tier.' . (int)$tier, $dropTick);
 
         // Log the drop
         $db->query(

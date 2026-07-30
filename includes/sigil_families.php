@@ -27,6 +27,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/economy.php';
 require_once __DIR__ . '/game_time.php';
+require_once __DIR__ . '/progression.php';
 
 class SigilFamilies {
     const YIELD_ID = 1;
@@ -289,6 +290,10 @@ class SigilFamilies {
              ON DUPLICATE KEY UPDATE count = count + VALUES(count)",
             [(int)$seasonId, (int)$playerId, (int)$familyId, (int)$tier, $amount]
         );
+        // Discovery: gaining any family sigil reveals the family panel. Every
+        // grant path (drop roll, transmute, distil, theft transfer) lands
+        // here, so this is the one choke point for the unlock.
+        Progression::unlock($db, $playerId, 'families.panel');
     }
 
     /**

@@ -11,6 +11,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/sigil_families.php';
+require_once __DIR__ . '/progression.php';
 
 class Actions {
 
@@ -423,6 +424,9 @@ class Actions {
              WHERE player_id = ? AND season_id = ?",
             [$count, $count, $playerId, $seasonId]
         );
+        // Discovery: the starter grant is many players' first sigil.
+        Progression::unlock($db, $playerId, 'sigils.ui');
+        Progression::unlock($db, $playerId, 'sigils.tier.' . $tier);
 
         // The mirror has to move with the tier column or the two disagree, and
         // the family verbs spend from the mirror. Wild is the family with no
@@ -1641,6 +1645,9 @@ class Actions {
             if ($ownsTransaction) {
                 $db->commit();
             }
+            // Discovery: forging a tier reveals it before its first drop can.
+            Progression::unlock($db, $playerId, 'sigils.ui');
+            Progression::unlock($db, $playerId, 'sigils.tier.' . (int)$toTier);
             $familyLabel = $ascendFamilyId !== null ? (SigilFamilies::familyName($ascendFamilyId) . ' ') : '';
             return [
                 'success' => true,
