@@ -312,14 +312,26 @@ check('throttle: window and cap positive',
 // ×LEGION multiplier) must be able to hit it. Both directions matter — a cap
 // below the base expectation starves normal play; a cap above the swarm
 // expectation is decoration.
-$expectedDropsPerWindow = ((int)SIGIL_DROP_WINDOW_TICKS * (int)SIGIL_DROP_CHANCE_FP) / FP_SCALE;
-$expectedUnderSwarm = $expectedDropsPerWindow * ((int)LEGION_SWARM_DROP_MULTIPLIER_FP / FP_SCALE);
-check('throttle: cap clears ordinary base-rate luck',
-    (float)SIGIL_MAX_DROPS_WINDOW > $expectedDropsPerWindow,
-    ['cap' => SIGIL_MAX_DROPS_WINDOW, 'expected_base' => round($expectedDropsPerWindow, 2)]);
-check('throttle: cap binds under a swarm event',
-    (float)SIGIL_MAX_DROPS_WINDOW < $expectedUnderSwarm,
-    ['cap' => SIGIL_MAX_DROPS_WINDOW, 'expected_swarm' => round($expectedUnderSwarm, 2)]);
+//
+// Drop chance is per TICK while the window is defined in real time, so how
+// many drops a real day holds depends on the tick cadence: a compressed test
+// clock (TMC_TICK_REAL_SECONDS=1, TMC_TIME_SCALE=60) deliberately runs a much
+// denser economy and would fail these bounds by design. So this pair is
+// scoped to the shipped cadence, where the tuning is actually defined.
+$atShippedCadence = ((int)TICK_REAL_SECONDS === 60 && (int)TIME_SCALE === 1);
+if ($atShippedCadence) {
+    $expectedDropsPerWindow = ((int)SIGIL_DROP_WINDOW_TICKS * (int)SIGIL_DROP_CHANCE_FP) / FP_SCALE;
+    $expectedUnderSwarm = $expectedDropsPerWindow * ((int)LEGION_SWARM_DROP_MULTIPLIER_FP / FP_SCALE);
+    check('throttle: cap clears ordinary base-rate luck',
+        (float)SIGIL_MAX_DROPS_WINDOW > $expectedDropsPerWindow,
+        ['cap' => SIGIL_MAX_DROPS_WINDOW, 'expected_base' => round($expectedDropsPerWindow, 2)]);
+    check('throttle: cap binds under a swarm event',
+        (float)SIGIL_MAX_DROPS_WINDOW < $expectedUnderSwarm,
+        ['cap' => SIGIL_MAX_DROPS_WINDOW, 'expected_swarm' => round($expectedUnderSwarm, 2)]);
+} else {
+    echo "  note  drop-rate bounds skipped: not at the shipped tick cadence"
+       . " (TICK_REAL_SECONDS=" . TICK_REAL_SECONDS . ", TIME_SCALE=" . TIME_SCALE . ")\n";
+}
 
 // The throttle can never mask the pity guarantee: a fully-throttled window
 // contributes no attempt ticks, so pity time only accrues when drops are

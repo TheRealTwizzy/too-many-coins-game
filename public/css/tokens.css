@@ -132,8 +132,10 @@
    without the surrounding prose paying for them. */
 
 :root {
-    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-num: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* Platform UI faces first: no network dependency, no first-paint stall, and
+       'Inter' is still honoured when a player happens to have it installed. */
+    --font-ui: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+    --font-num: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
 
     --fs-micro: 11px;
     --fs-small: 12px;
