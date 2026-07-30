@@ -1303,6 +1303,14 @@ async function checkShellSource() {
         src.includes('reason_code'));
     ok('the HUD reads season figures from player.participation',
         src.includes('player.participation') && !/player\.ubi_rate/.test(src));
+    // A rate that rounds to "0.0" tells an earning player they earn nothing.
+    ok('small rates keep enough precision to not read as zero',
+        /toFixed\(3\)/.test(src) && /n === 0/.test(src));
+    // The idle gate must be pinned to the viewport, not centred in the
+    // document — otherwise a long page hides it off-screen.
+    ok('the idle gate is viewport-pinned',
+        /#idle-host\s*\{[^}]*position:\s*fixed/.test(
+            await readFile(join(HERE, '..', 'public', 'css', 'next.css'), 'utf8')));
     ok('gated spends re-send with confirm_economic_impact after the preview',
         src.includes("res.error === 'confirmation_required'")
         && src.includes('confirm_economic_impact: true'));

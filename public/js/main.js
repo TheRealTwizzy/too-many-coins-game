@@ -93,9 +93,22 @@ function formatCount(value) {
     return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + 'B';
 }
 
+/**
+ * A rate, at a precision that never reports flowing income as nothing.
+ *
+ * toFixed(1) alone renders any rate below 0.05 as "0.0/tick", which tells a
+ * player who IS earning that they are not — and the smaller the rate, the
+ * more they care about the difference. Small values keep significant digits;
+ * genuine zero is the only thing allowed to print as zero.
+ */
 function formatRate(value) {
     const n = Number(value) || 0;
-    return (n >= 100 ? Math.round(n) : n.toFixed(1)) + '/tick';
+    if (n === 0) return '0/tick';
+    const abs = Math.abs(n);
+    if (abs >= 100) return Math.round(n) + '/tick';
+    if (abs >= 0.1) return n.toFixed(1) + '/tick';
+    if (abs >= 0.001) return n.toFixed(3) + '/tick';
+    return n.toExponential(1) + '/tick';
 }
 
 /* ------------------------------------------------------------------ *

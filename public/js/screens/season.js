@@ -81,10 +81,15 @@ function income(ctx, part) {
     const sinkActive = Boolean(part.hoarding_sink_active);
     const sink = Number(part.hoarding_sink_per_tick) || 0;
 
+    // Same reasoning as formatRate() in main.js: a rate that rounds to 0.0
+    // tells an earning player they earn nothing, and this panel is where they
+    // look to check exactly that.
+    const showRate = (n) => (n === 0 ? '0' : Math.abs(n) >= 0.1 ? n.toFixed(1) : n.toFixed(3));
+
     return panel(h, 'Income',
         h('div', { class: 'rate-row' },
             h('div', { class: 'rate-primary' },
-                h('span', { class: 'rate-value tabular' }, net.toFixed(1)),
+                h('span', { class: 'rate-value tabular' }, showRate(net)),
                 h('span', { class: 'rate-unit' }, 'coins / tick'),
             ),
             // The sink is the one deduction a player can act on, so it is shown
@@ -97,7 +102,7 @@ function income(ctx, part) {
                         'You are holding a large coin balance. The sink scales with it — spending reduces it.'),
                 )
                 : h('p', { class: 'muted small' },
-                    `Gross ${gross.toFixed(1)} / tick. No hoarding sink at your balance.`),
+                    `Gross ${showRate(gross)} / tick. No hoarding sink at your balance.`),
         ),
     );
 }

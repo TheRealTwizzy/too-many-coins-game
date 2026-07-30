@@ -287,20 +287,25 @@ body {
 
 /* ---------- idle gate ---------- */
 
-/* Scoped to the stage, never the viewport: the rail (and through it, chat)
-   must stay reachable while the idle gate is up. The stage's own stacking
-   context (z-grid) keeps everything here beneath the rail. */
+/* Pinned to the VIEWPORT, not the document.
+   `position: absolute` centred the gate inside the full scroll height of the
+   stage, so on a long screen it sat somewhere in the middle of the page and
+   a player at the top saw a dimmed screen with no dialog on it.
+
+   It still sits below the rail in the stacking order on purpose: the gate
+   pauses the season economy, never chat, so the rail has to stay reachable
+   through it. */
 #idle-host:empty { display: none; }
 
 #idle-host {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: calc(var(--z-rail) - 10);
     pointer-events: none;
 }
 #idle-host > * { pointer-events: auto; }
 
-#idle-host .idle-backdrop { position: absolute; inset: 0; }
+#idle-host .idle-backdrop { position: fixed; inset: 0; }
 
 #idle-host .idle-banner {
     position: absolute;
@@ -392,4 +397,29 @@ body {
     }
 
     .rail-btn { padding: var(--s1); }
+
+    /* The rail moves to the bottom edge here and still sits above the idle
+       gate, so anything centred in the gate has to clear it — otherwise the
+       dialog's own buttons end up underneath the nav. */
+    #idle-host .dialog-backdrop,
+    #idle-host.idle-backdrop {
+        padding-bottom: calc(var(--rail-bottom) + var(--safe-bottom) + var(--s4));
+    }
+
+    #idle-host .idle-banner {
+        width: calc(100% - var(--s4));
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--s2);
+    }
+
+    /* The notification panel is anchored to the bell; at this width an
+       absolutely-positioned 360px panel would hang off the right edge. */
+    .notif-panel {
+        position: fixed;
+        top: calc(var(--safe-top) + 52px);
+        right: var(--s3);
+        left: var(--s3);
+        width: auto;
+    }
 }
