@@ -1311,6 +1311,24 @@ async function checkShellSource() {
     ok('the idle gate is viewport-pinned',
         /#idle-host\s*\{[^}]*position:\s*fixed/.test(
             await readFile(join(HERE, '..', 'public', 'css', 'next.css'), 'utf8')));
+
+    // The legacy client is deleted, not parked. Two clients drifting apart is
+    // the problem the rebuild exists to end, so a reintroduced reference —
+    // or a restored file — should fail here rather than ship.
+    const shell = await readFile(join(HERE, '..', 'public', 'index.html'), 'utf8');
+    ok('index.html loads exactly one client and no legacy assets',
+        /js\/main\.js/.test(shell)
+        && !/src=["'][^"']*js\/app\.js/.test(shell)
+        && !/href=["'][^"']*css\/style\.css/.test(shell));
+    for (const gone of ['public/js/app.js', 'public/css/style.css']) {
+        let exists = true;
+        try { await readFile(join(HERE, '..', gone)); } catch { exists = false; }
+        ok(`${gone} stays deleted`, !exists);
+    }
+    // No third-party asset may gate first paint: it fails closed in a
+    // restricted network and fills the console with errors.
+    ok('the shell pulls no external stylesheet or font',
+        !/<link[^>]+href=["']https?:\/\//i.test(shell));
     ok('gated spends re-send with confirm_economic_impact after the preview',
         src.includes("res.error === 'confirmation_required'")
         && src.includes('confirm_economic_impact: true'));
