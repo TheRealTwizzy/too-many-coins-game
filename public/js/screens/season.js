@@ -256,7 +256,7 @@ function verbs(ctx, season, part) {
                 class: 'btn',
                 disabled: !canSteal,
                 title: canSteal ? null : 'Needs a spendable sigil, and no active cooldown',
-                onClick: () => ctx.navigate('seasons'),
+                onClick: () => ctx.startTheft(),
             }, 'Steal'),
             h('button', {
                 class: 'btn',

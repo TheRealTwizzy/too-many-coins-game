@@ -473,6 +473,53 @@
 .target-btn:focus-visible { outline: 2px solid var(--coin); outline-offset: 2px; }
 .target-handle { font-weight: var(--fw-medium); }
 
+/* ---------- theft dialog ---------- */
+
+.theft-block-label { font-size: var(--fs-small); color: var(--ink-2); margin-bottom: var(--s1); }
+
+.theft-tiers { display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+.theft-tier {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s1);
+    padding: var(--s1) var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+    min-width: 64px;
+}
+.theft-tier.has-some { border-color: var(--coin); }
+.theft-tier-label { font-size: var(--fs-small); font-weight: var(--fw-medium); }
+
+.stepper { display: flex; align-items: center; gap: var(--s1); }
+.stepper-count { min-width: 2ch; text-align: center; }
+
+.stepper-btn {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--r1);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+}
+.stepper-btn:disabled { opacity: .4; cursor: default; }
+.stepper-btn:not(:disabled):hover { border-color: var(--coin); }
+.stepper-btn:focus-visible { outline: 2px solid var(--coin); outline-offset: 1px; }
+
+.theft-preview {
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+}
+.theft-odds strong { font-size: var(--fs-title); }
+
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialog-in {
     from { opacity: 0; transform: translateY(8px) scale(.98); }

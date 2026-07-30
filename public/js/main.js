@@ -537,7 +537,10 @@ const ctx = {
         const detail = store.get('screens.season');
         const me = store.get('player');
         const candidates = ((detail && detail.leaderboard) || [])
-            .filter(r => !me || Number(r.player_id) !== Number(me.player_id));
+            .filter(r => !me || Number(r.player_id) !== Number(me.player_id))
+            // A locked-in player has left the live economy — the server would
+            // reject them as a target, so don't offer them.
+            .filter(r => !r.lock_in_effect_tick);
 
         if (!candidates.length) {
             toast('Nobody else in this season yet.', 'error');
@@ -547,6 +550,91 @@ const ctx = {
         return new Promise(resolve => {
             store.set('ui.dialog', { kind: 'target', ...options, candidates, resolve });
         });
+    },
+
+    // ---- theft ----
+
+    /**
+     * The theft flow: pick a target from the standings, then compose the
+     * attempt in a dialog — which tiers to spend (consumed win or lose) and
+     * which to request. The dialog always fetches the server preview before
+     * the attempt is possible, so the odds shown are the server's, never a
+     * client guess.
+     */
+    async startTheft() {
+        const target = await ctx.pickTarget({ title: 'Steal from whom?' });
+        if (!target) return;
+        store.set('ui.theft', {
+            target: { player_id: Number(target.player_id), handle: target.handle || '—' },
+            spend: [0, 0, 0, 0, 0, 0],
+            request: [0, 0, 0, 0, 0, 0],
+            preview: null,
+            busy: false,
+        });
+        store.set('ui.dialog', { kind: 'theft', title: 'Sigil theft' });
+    },
+
+    /** Step a tier count in the theft form. Any edit invalidates the preview. */
+    theftAdjust(kind, tier, delta) {
+        const t = store.get('ui.theft');
+        if (!t) return;
+        const list = (t[kind] || [0, 0, 0, 0, 0, 0]).slice();
+        const idx = tier - 1;
+        let ceiling = 99;
+        if (kind === 'spend') {
+            const player = store.get('player');
+            const owned = ((player && player.participation) || {}).sigils || [];
+            ceiling = Number(owned[idx]) || 0;
+        }
+        list[idx] = Math.max(0, Math.min(ceiling, (Number(list[idx]) || 0) + delta));
+        store.set(`ui.theft.${kind}`, list);
+        store.set('ui.theft.preview', null);
+    },
+
+    async theftPreview() {
+        const t = store.get('ui.theft');
+        if (!t) return;
+        store.set('ui.theft.busy', true);
+        const res = await api.request('sigil_theft_preview', {
+            target_player_id: t.target.player_id,
+            spent_sigils: t.spend,
+            requested_sigils: t.request,
+        });
+        store.set('ui.theft.busy', false);
+        if (!res || res.error) {
+            store.set('ui.theft.preview', null);
+            return toast((res && res.error) || 'Preview failed', 'error');
+        }
+        store.set('ui.theft.preview', res);
+    },
+
+    async theftAttempt() {
+        const t = store.get('ui.theft');
+        if (!t || !t.preview) return;
+        store.set('ui.theft.busy', true);
+        // The fetched preview on screen IS the informed consent, so the
+        // attempt carries the confirm flag; if state moved underneath it the
+        // server answers balance_changed with a fresh preview instead of
+        // executing on stale numbers.
+        const res = await api.request('sigil_theft_attempt', {
+            target_player_id: t.target.player_id,
+            spent_sigils: t.spend,
+            requested_sigils: t.request,
+            confirm_economic_impact: true,
+        });
+        store.set('ui.theft.busy', false);
+
+        if (res && res.error === 'balance_changed' && res.preview) {
+            store.set('ui.theft.preview', res.preview);
+            return toast(res.message || 'State changed — review the new odds.', 'error');
+        }
+        if (!res || res.error) return actionFailed(res, 'Theft failed');
+
+        ctx.closeDialog(null);
+        store.set('ui.theft', null);
+        toast(res.message || (res.theft_success ? 'Theft succeeded.' : 'Theft failed.'),
+            res.theft_success ? 'success' : 'info');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
 
     closeDialog(result) {
@@ -926,7 +1014,9 @@ function dialogView() {
     const dialog = store.get('ui.dialog');
     if (!dialog) return null;
 
-    const body = dialog.kind === 'target' ? targetDialog(dialog) : confirmDialog(dialog);
+    const body = dialog.kind === 'target' ? targetDialog(dialog)
+        : dialog.kind === 'theft' ? theftDialog(dialog)
+            : confirmDialog(dialog);
 
     return h('div', {
         class: 'dialog-backdrop',
@@ -996,6 +1086,93 @@ function targetDialog(dialog) {
         ),
         h('div', { class: 'dialog-actions' },
             h('button', { class: 'btn btn-ghost', onClick: () => ctx.closeDialog(null) }, 'Cancel'),
+        ),
+    ];
+}
+
+// Which tiers theft can spend and request. Mirrors the server's
+// SIGIL_THEFT_SPEND_TIERS / SIGIL_THEFT_TARGET_TIERS — the server validates,
+// this only shapes the form.
+const THEFT_SPEND_TIERS = [1, 2, 3, 4, 5];
+const THEFT_REQUEST_TIERS = [1, 2, 3, 4, 5, 6];
+const ROMAN_TIER = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
+
+function theftStepperRow(label, kind, tiers, owned) {
+    const t = store.get('ui.theft') || {};
+    const counts = t[kind] || [];
+
+    return h('div', { class: 'theft-block' },
+        h('p', { class: 'theft-block-label' }, label),
+        h('div', { class: 'theft-tiers' },
+            tiers.map(tier => {
+                const count = Number(counts[tier - 1]) || 0;
+                const cap = owned ? (Number(owned[tier - 1]) || 0) : null;
+                return h('div', { key: tier, class: 'theft-tier' + (count > 0 ? ' has-some' : '') },
+                    h('span', { class: 'theft-tier-label' },
+                        ROMAN_TIER[tier], owned ? h('span', { class: 'muted small' }, ` /${cap}`) : null),
+                    h('div', { class: 'stepper' },
+                        h('button', {
+                            class: 'stepper-btn', 'aria-label': `Fewer tier ${tier}`,
+                            disabled: count <= 0,
+                            onClick: () => ctx.theftAdjust(kind, tier, -1),
+                        }, '−'),
+                        h('span', { class: 'stepper-count tabular' }, String(count)),
+                        h('button', {
+                            class: 'stepper-btn', 'aria-label': `More tier ${tier}`,
+                            disabled: cap !== null && count >= cap,
+                            onClick: () => ctx.theftAdjust(kind, tier, +1),
+                        }, '+'),
+                    ),
+                );
+            }),
+        ),
+    );
+}
+
+function theftDialog() {
+    const t = store.get('ui.theft');
+    if (!t) return [h('p', null, 'No theft in progress.')];
+
+    const player = store.get('player');
+    const owned = ((player && player.participation) || {}).sigils || [];
+    const preview = t.preview;
+    const busy = Boolean(t.busy);
+    const anySpend = (t.spend || []).some(n => Number(n) > 0);
+    const anyRequest = (t.request || []).some(n => Number(n) > 0);
+
+    return [
+        h('h2', { class: 'dialog-title' }, `Steal from ${t.target.handle}`),
+        h('p', { class: 'dialog-body' },
+            'Spent sigils are consumed whether the theft lands or not. '
+            + 'Asking for more loot lowers the odds.'),
+
+        theftStepperRow('Spend (yours, consumed either way)', 'spend', THEFT_SPEND_TIERS, owned),
+        theftStepperRow(`Request from ${t.target.handle}`, 'request', THEFT_REQUEST_TIERS, null),
+
+        // The odds shown are always the server's. Editing any count clears
+        // them, so the Attempt button can never fire on stale numbers.
+        preview
+            ? h('div', { class: 'theft-preview' },
+                h('p', { class: 'theft-odds' },
+                    h('strong', null, `${preview.success_chance_pct}% `), 'success chance'),
+                h('p', { class: 'muted small' },
+                    `Spend value ${preview.spend_value} vs loot value ${preview.requested_value}. `
+                    + String((preview.risk && preview.risk.explain) || '')),
+            )
+            : h('p', { class: 'muted small' }, 'Preview to see the server\'s odds before you commit.'),
+
+        h('div', { class: 'dialog-actions' },
+            h('button', { class: 'btn btn-ghost', onClick: () => { store.set('ui.theft', null); ctx.closeDialog(null); } }, 'Cancel'),
+            h('button', {
+                class: 'btn',
+                disabled: busy || !anySpend || !anyRequest,
+                onClick: () => ctx.theftPreview(),
+            }, busy ? 'Working…' : 'Preview odds'),
+            h('button', {
+                class: 'btn btn-danger',
+                disabled: busy || !preview,
+                onClick: () => ctx.theftAttempt(),
+            }, busy ? 'Working…' : 'Attempt theft'),
         ),
     ];
 }

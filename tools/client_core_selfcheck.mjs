@@ -1120,6 +1120,13 @@ async function checkShellSource() {
         && src.includes('confirm_economic_impact: true'));
     ok('star purchases go through the impact-confirm handler',
         /requestWithImpactConfirm\(\s*'purchase_stars'/.test(src));
+    ok('theft attempts only fire after a fetched server preview',
+        src.includes("if (!t || !t.preview) return;")
+        && src.includes("api.request('sigil_theft_preview'"));
+    ok('editing the theft form invalidates the preview',
+        /theftAdjust[\s\S]{0,600}ui\.theft\.preview',\s*null\)/.test(src));
+    ok('locked-in players are never offered as targets',
+        src.includes('!r.lock_in_effect_tick'));
 }
 
 /* ------------------------------------------------------------------ *
