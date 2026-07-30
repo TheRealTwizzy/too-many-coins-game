@@ -278,6 +278,49 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $input = array_merge($_GET, $_POST, $input);
 
+/**
+ * Anything that changes state must arrive as POST.
+ *
+ * Every action was reachable by plain GET, with parameters taken from the
+ * query string - verified: a bare
+ *   GET /api/?action=chat_send&channel=GLOBAL&content=...
+ * stored a message. The session cookie is SameSite=Lax, which withholds it
+ * from cross-site subresources but SENDS it on top-level navigations, so a
+ * link or a redirect on any page was enough to act as whoever clicked it.
+ * Against an Admin that reaches admin_role_update.
+ *
+ * Requiring POST is what closes it, and it closes it completely here rather
+ * than only partly: Lax already withholds the cookie from cross-site POSTs,
+ * so an attacker page can neither navigate (wrong method) nor submit a form
+ * (no cookie). No token to mint, rotate or leak.
+ *
+ * The list below is the read-only surface, and it is an allowlist on purpose:
+ * an action added later is POST-only until someone deliberately decides it is
+ * safe to fetch, which is the correct default to fail to. The rebuilt client
+ * POSTs everything already, so nothing in the app changes.
+ */
+const TMC_GET_SAFE_ACTIONS = [
+    'game_state', 'season_detail', 'leaderboard', 'global_leaderboard',
+    'boost_catalog', 'active_boosts', 'sigil_drops', 'cosmetic_catalog',
+    'my_cosmetics', 'chat_messages', 'notifications_list', 'profile',
+    'my_badges', 'season_history', 'friends_list', 'friend_requests_list',
+    'blocks_list', 'family_state', 'season_events', 'account_get',
+    'star_purchase_preview', 'boost_activate_preview', 'sigil_theft_preview',
+    'rate_limit_diagnostics',
+];
+
+$requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+if ($action !== '' && $requestMethod !== 'POST' && $requestMethod !== 'OPTIONS'
+    && !in_array($action, TMC_GET_SAFE_ACTIONS, true)) {
+    http_response_code(405);
+    header('Allow: POST');
+    echo json_encode([
+        'error' => 'This action requires POST',
+        'reason_code' => 'method_not_allowed',
+    ]);
+    exit;
+}
+
 // Initialize server state if needed
 $db = Database::getInstance();
 $serverState = $db->fetch("SELECT * FROM server_state WHERE id = 1");

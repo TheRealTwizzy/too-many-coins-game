@@ -254,19 +254,62 @@ check('a forged 64-hex token is not accepted as a session', (function () {
     return ($res['body']['player'] ?? null) === null;
 })());
 
-check('a forged token cannot raise the caller above the anonymous tier', (function () {
-    // Burst past the anonymous allowance with a token that changes every
-    // request. If the limiter still trusted the header, every request would
-    // land in its own bucket and none would be refused.
-    $anonLimit = (int)TMC_RATE_LIMIT_ANON_PER_WINDOW;
-    $shots = $anonLimit + 30;
-    $refused = 0;
-    for ($i = 0; $i < $shots; $i++) {
-        $token = str_pad(dechex(0xF0000 + $i), 64, '0', STR_PAD_LEFT);
-        if (req('game_state', [], $token)['status'] === 429) $refused++;
+// The burst check that proves the limiter cannot be steered lives at the very
+// END of this file, because passing it necessarily exhausts the anonymous
+// bucket for this IP and would 429 every anonymous check that ran after it.
+
+// ---------------------------------------------------------------------------
+// State-changing actions cannot be driven by a link (CSRF)
+// ---------------------------------------------------------------------------
+//
+// Every action used to run over a plain GET with query-string parameters, and
+// the session cookie is SameSite=Lax - which withholds it from cross-site
+// subresources but SENDS it on top-level navigations. A link on any page was
+// therefore enough to act as whoever clicked it; against an Admin that reaches
+// admin_role_update.
+
+/** GET the API with query parameters, the way a hostile link would. */
+function reqGet(string $action, array $params = [], ?string $token = null): array {
+    global $api;
+    $url = $api . '?action=' . urlencode($action) . '&' . http_build_query($params);
+    $ch = curl_init($url);
+    $headers = [];
+    if ($token !== null) $headers[] = 'X-Session-Token: ' . $token;
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $raw = curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $decoded = json_decode((string)$raw, true);
+    return ['status' => $status, 'body' => is_array($decoded) ? $decoded : []];
+}
+
+$csrfMarker = 'csrf_probe_' . bin2hex(random_bytes(4));
+$csrfAttempt = reqGet('chat_send', ['channel' => 'GLOBAL', 'content' => $csrfMarker], $alice['token']);
+check('a state-changing action is refused over GET',
+    $csrfAttempt['status'] === 405, $csrfAttempt);
+
+check('...and the GET attempt changed nothing', (function () use ($csrfMarker, $alice) {
+    $res = req('chat_messages', ['channel' => 'GLOBAL'], $alice['token']);
+    $rows = isset($res['body'][0]) ? $res['body'] : ($res['body']['messages'] ?? []);
+    foreach ($rows as $r) {
+        if (strpos((string)($r['content'] ?? ''), $csrfMarker) !== false) return false;
     }
-    return $refused > 0;
-})(), 'a rotating forged token was never rate limited');
+    return true;
+})());
+
+check('privilege escalation over GET is refused',
+    reqGet('admin_role_update', ['target_player_id' => 1, 'role' => 'Admin'], $alice['token'])['status'] === 405);
+
+check('the same action still works over POST', (function () use ($alice) {
+    return !refused(req('chat_send', ['channel' => 'GLOBAL', 'content' => 'post path intact'], $alice['token']));
+})());
+
+check('read-only actions remain reachable over GET',
+    reqGet('game_state')['status'] === 200);
 
 // ---------------------------------------------------------------------------
 // Audit snapshots never carry credentials
@@ -320,6 +363,28 @@ check('audit redaction marks the field rather than dropping it', (function () {
     $clean = $method->invoke(null, ['password_hash' => 'secret']);
     return array_key_exists('password_hash', $clean) && $clean['password_hash'] === '[redacted]';
 })());
+
+// ---------------------------------------------------------------------------
+// LAST: the rate limiter cannot be steered by the caller
+// ---------------------------------------------------------------------------
+//
+// Deliberately final. The limiter used to key on a session token it never
+// validated, so a fresh random X-Session-Token per request minted a fresh
+// high-tier bucket and the limiter was decorative - unmetered password
+// guessing. Proving it is closed means bursting past the anonymous allowance,
+// which exhausts this IP's bucket; anything after it would be refused for the
+// wrong reason.
+
+check('a forged token cannot raise the caller above the anonymous tier', (function () {
+    $anonLimit = (int)TMC_RATE_LIMIT_ANON_PER_WINDOW;
+    $shots = $anonLimit + 30;
+    $refused = 0;
+    for ($i = 0; $i < $shots; $i++) {
+        $token = str_pad(dechex(0xF0000 + $i), 64, '0', STR_PAD_LEFT);
+        if (req('game_state', [], $token)['status'] === 429) $refused++;
+    }
+    return $refused > 0;
+})(), 'a rotating forged token was never rate limited');
 
 echo "\n" . str_repeat('-', 62) . "\n";
 echo "{$pass} passed, {$fail} failed\n";
