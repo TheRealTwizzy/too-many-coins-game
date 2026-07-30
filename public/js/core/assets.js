@@ -55,6 +55,7 @@ export const registry = {
     'nav-ranks':    { placeholder: '\u{1F3C5}',   art: null },
     'nav-chat':     { placeholder: '\u{1F4AC}',   art: null },
     'nav-shop':     { placeholder: '\u{1F48E}',   art: null },
+    'nav-staff':    { placeholder: '\u{1F6E1}',   art: null },   // staff/admin rail entry (staff viewers only)
 
     // --- currencies ---
     'coin':         { placeholder: '\u{1FA99}',   art: null },

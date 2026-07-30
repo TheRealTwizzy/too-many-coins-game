@@ -62,7 +62,7 @@ async function loadCore() {
     }
 
     await mkdir(join(dir, 'screens'), { recursive: true });
-    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'index'];
+    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'index'];
     const screens = {};
     for (const name of screenNames) {
         await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
@@ -870,7 +870,7 @@ function checkScreens(screens, { h, render }) {
         }],
     ];
 
-    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth']) {
+    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff']) {
         const screen = screens[name].default;
         let failedAt = null;
         for (const [label, overrides] of cases) {
@@ -993,6 +993,29 @@ function checkScreens(screens, { h, render }) {
 
         const discovered = allText(screens.home.default.view(stubCtx({ ...inSeason, unlocks: ['sigils.ui'] }))).join(' ');
         ok('home shows sigils once discovered', discovered.includes('Sigils'));
+    }
+
+    // Staff screen: locked for everyone below Moderator; the server-mode
+    // panel is admin-only on top of that.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const staff = screens.staff.default;
+
+        const asPlayer = allText(staff.view(stubCtx({ player: PLAYER }))).join(' ');
+        ok('staff screen locks out non-staff', asPlayer.includes('Staff only'));
+
+        const asMod = allText(staff.view(stubCtx({ player: { ...PLAYER, role: 'Moderator' } }))).join(' ');
+        ok('moderators get the tools but not the server-mode panel',
+            asMod.includes('Find player') && !asMod.includes('Server mode'));
+
+        const asAdmin = allText(staff.view(stubCtx({ player: { ...PLAYER, role: 'Admin' } }))).join(' ');
+        ok('admins get the server-mode panel', asAdmin.includes('Server mode'));
     }
 }
 
