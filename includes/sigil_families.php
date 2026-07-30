@@ -26,6 +26,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/economy.php';
+require_once __DIR__ . '/game_time.php';
 
 class SigilFamilies {
     const YIELD_ID = 1;
@@ -251,7 +252,17 @@ class SigilFamilies {
             'sigil_sight',
             $season['season_seed']
         ) % FP_SCALE;
-        return $roll < (int)SIGIL_SIGHT_TRICKLE_CHANCE_FP;
+        $chanceFp = (int)SIGIL_SIGHT_TRICKLE_CHANCE_FP;
+        // Legion 'foresight' event: threshold only, per exact tick - same
+        // determinism rules as the swarm hook in evaluateSigilDropForTick.
+        $modifierEvent = $season['_modifier_event'] ?? null;
+        if ($modifierEvent !== null
+            && (string)$modifierEvent['event_kind'] === 'foresight'
+            && (int)$tickIndex >= (int)$modifierEvent['started_tick']
+            && (int)$tickIndex < (int)$modifierEvent['ends_tick']) {
+            $chanceFp = min(FP_SCALE, intdiv($chanceFp * (int)LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP, FP_SCALE));
+        }
+        return $roll < $chanceFp;
     }
 
     // ---------------------------------------------------------------
@@ -545,6 +556,67 @@ class SigilFamilies {
     }
 
     // ---------------------------------------------------------------
+    // Season-wide modifier events (Legion critical mass)
+    // ---------------------------------------------------------------
+
+    /** Event window in ticks for the consumed tier. */
+    public static function modifierEventDurationTicks($tier) {
+        $unitsX100 = (int)(LEGION_EVENT_UNITS_X100_BY_TIER[(int)$tier] ?? 0);
+        return max(0, intdiv($unitsX100 * (int)ABILITY_UNIT_DURATION_TICKS, 100));
+    }
+
+    /**
+     * The modifier event live at $tick, or null. Request-time paths use this
+     * (frenzy timing, state payloads). No static cache on purpose: an event
+     * can start mid-request-lifetime and every caller must see it.
+     */
+    public static function activeModifierEvent($db, $seasonId, $tick) {
+        if (!self::tableExists($db, 'season_modifier_events')) {
+            return null;
+        }
+        $row = $db->fetch(
+            "SELECT * FROM season_modifier_events
+             WHERE season_id = ? AND started_tick <= ? AND ends_tick > ?
+             ORDER BY event_id DESC LIMIT 1",
+            [(int)$seasonId, (int)$tick, (int)$tick]
+        );
+        return $row ?: null;
+    }
+
+    /**
+     * The modifier event overlapping a tick window, for the tick engine's
+     * catch-up batches. Fetched once per processSeasonTick and threaded via
+     * the $season array; use sites re-check started/ends against the exact
+     * tick being processed, so a mid-batch start or end stays deterministic.
+     * One-event-at-a-time makes LIMIT 1 sufficient.
+     */
+    public static function modifierEventForWindow($db, $seasonId, $windowStartTick, $windowEndTick) {
+        if (!self::tableExists($db, 'season_modifier_events')) {
+            return null;
+        }
+        $row = $db->fetch(
+            "SELECT * FROM season_modifier_events
+             WHERE season_id = ? AND ends_tick > ? AND started_tick < ?
+             ORDER BY event_id DESC LIMIT 1",
+            [(int)$seasonId, (int)$windowStartTick, (int)$windowEndTick]
+        );
+        return $row ?: null;
+    }
+
+    /** Compact public payload for an event row (never leaks the recipe). */
+    public static function modifierEventPayload($eventRow) {
+        if (!$eventRow) {
+            return null;
+        }
+        return [
+            'kind' => (string)$eventRow['event_kind'],
+            'source_tier' => (int)$eventRow['source_tier'],
+            'started_tick' => (int)$eventRow['started_tick'],
+            'ends_tick' => (int)$eventRow['ends_tick'],
+        ];
+    }
+
+    // ---------------------------------------------------------------
     // Season events ticker (drama budget: the act, never the number)
     // ---------------------------------------------------------------
 
@@ -622,6 +694,11 @@ class SigilFamilies {
         }
         if ($seasonId && $playerId) {
             $payload['holdings'] = self::holdingsForPlayer($db, $seasonId, $playerId);
+        }
+        if ($seasonId) {
+            $payload['season_event'] = self::modifierEventPayload(
+                self::activeModifierEvent($db, $seasonId, GameTime::now())
+            );
         }
         if ($participation) {
             $payload['affinity_family_id'] = isset($participation['affinity_family_id'])

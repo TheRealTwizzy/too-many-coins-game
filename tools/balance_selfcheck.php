@@ -241,6 +241,54 @@ check('five T1 settle for exactly one T2',
         $spread <= 0.05, $ratios);
 }
 
+/* ---------------- legion critical mass ---------------- */
+
+// Every tier must map to an event window, and the windows must rise with the
+// tier - a bigger sacrifice buys a longer event, never a shorter one.
+{
+    $missing = [];
+    for ($t = 1; $t <= 6; $t++) {
+        if ((int)(LEGION_EVENT_UNITS_X100_BY_TIER[$t] ?? 0) <= 0) $missing[] = $t;
+    }
+    check('legion: every tier has an event duration', $missing === [], $missing);
+
+    $monotonic = true;
+    for ($t = 2; $t <= 6; $t++) {
+        if ((int)LEGION_EVENT_UNITS_X100_BY_TIER[$t] <= (int)LEGION_EVENT_UNITS_X100_BY_TIER[$t - 1]) $monotonic = false;
+    }
+    check('legion: event duration rises with tier', $monotonic, LEGION_EVENT_UNITS_X100_BY_TIER);
+}
+
+// Bounds: T1 at least 30 real minutes (an event nobody notices is dead
+// content), T6 at most 12 hours (a season-long modifier is a season setting,
+// not an event).
+{
+    $t1 = intdiv((int)LEGION_EVENT_UNITS_X100_BY_TIER[1] * (int)ABILITY_UNIT_DURATION_TICKS, 100);
+    $t6 = intdiv((int)LEGION_EVENT_UNITS_X100_BY_TIER[6] * (int)ABILITY_UNIT_DURATION_TICKS, 100);
+    check('legion: T1 event >= 30 minutes', $t1 >= ticks_from_real_seconds(1800), ['ticks' => $t1]);
+    check('legion: T6 event <= 12 hours', $t6 <= ticks_from_real_seconds(43200), ['ticks' => $t6]);
+}
+
+// The mass must exceed the transmute output (2 wildcards), or one transmute
+// re-arms an awakening; and it must fit under the per-family holding cap, or
+// the critical mass is unreachable and the whole mechanic is dead.
+check('legion: critical mass exceeds one transmute output',
+    (int)LEGION_CRITICAL_MASS_COUNT > 2, ['mass' => LEGION_CRITICAL_MASS_COUNT]);
+check('legion: critical mass reachable under the holding cap',
+    (int)LEGION_CRITICAL_MASS_COUNT <= (int)CAPS_PER_FAMILY_HOLDING,
+    ['mass' => LEGION_CRITICAL_MASS_COUNT, 'cap' => CAPS_PER_FAMILY_HOLDING]);
+
+// Effect magnitudes: multipliers must actually amplify (> 1x) without being
+// absurd (<= 10x), and the frenzy divisor must actually shorten timings.
+check('legion: swarm multiplier sane',
+    (int)LEGION_SWARM_DROP_MULTIPLIER_FP > FP_SCALE && (int)LEGION_SWARM_DROP_MULTIPLIER_FP <= 10 * FP_SCALE,
+    ['fp' => LEGION_SWARM_DROP_MULTIPLIER_FP]);
+check('legion: foresight multiplier sane',
+    (int)LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP > FP_SCALE && (int)LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP <= 10 * FP_SCALE,
+    ['fp' => LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP]);
+check('legion: frenzy divisor shortens timings',
+    (int)LEGION_FRENZY_TIMING_DIVISOR >= 2, ['divisor' => LEGION_FRENZY_TIMING_DIVISOR]);
+
 echo str_repeat('-', 68) . "\n";
 echo "{$pass} passed, {$fail} failed\n";
 echo $fail === 0

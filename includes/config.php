@@ -534,6 +534,23 @@ define('WARD_DEFLECT_TIER', 1);
 define('WARD_UNITS_X100_BY_TIER', [2 => 25, 3 => 100, 4 => 300, 5 => 900, 6 => 1800]);
 define('WARD_MAX_FRACTION_OF_REMAINING_FP', 250000); // <= 25% of remaining season, non-stacking
 
+// Legion critical mass: consuming this many wildcard sigils of ONE tier
+// triggers a random season-wide modifier event. The event is announced loudly
+// (ticker + season-wide notification); the trigger itself is deliberately
+// undocumented - an easter egg reached through the combine surface. Must stay
+// above the transmute output (2) so a single transmute cannot re-arm it, and
+// at or below CAPS_PER_FAMILY_HOLDING so it is actually reachable.
+define('LEGION_CRITICAL_MASS_COUNT', 5);
+define('LEGION_EVENT_KINDS', ['swarm', 'frenzy', 'foresight']);
+// Event window by consumed tier (x100 units of ABILITY_UNIT_DURATION_TICKS):
+// T1 30min, T2 1h, T3 2h, T4 4h, T5 8h, T6 12h.
+define('LEGION_EVENT_UNITS_X100_BY_TIER', [1 => 200, 2 => 400, 3 => 800, 4 => 1600, 5 => 3200, 6 => 4800]);
+// Effect magnitudes. Multipliers scale a threshold compare only - never the
+// deterministic roll inputs - and are clamped to FP_SCALE at the use site.
+define('LEGION_SWARM_DROP_MULTIPLIER_FP', 3000000);      // 3x sigil drop gate chance
+define('LEGION_FRENZY_TIMING_DIVISOR', 2);               // halves hostile cooldowns/protections
+define('LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP', 3000000); // 3x sight trickle chance
+
 // Market: one star-purchase discount, rate-relative and self-scoped.
 // coins_saved = VP(tier) x rate_hours x own gross hourly rate, capped below.
 define('MARKET_RATE_HOURS_PER_VP_FP', 1000000);   // 1.0 hour of own income per VP

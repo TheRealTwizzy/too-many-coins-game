@@ -186,6 +186,15 @@ class TickEngine {
         }
         $processedThroughTick = $startTime + $lastSeasonTick + $ticksToProcess;
         $summary['advanced_ticks'] = $ticksToProcess;
+
+        // Legion modifier event overlapping this batch, fetched ONCE and
+        // threaded via the $season array (already passed down to the drop
+        // path). Use sites re-check started/ends against the exact tick being
+        // processed, so a mid-batch start or end stays deterministic. No
+        // static cache: the next batch must see a newly triggered event.
+        $season['_modifier_event'] = SigilFamilies::modifierEventForWindow(
+            $db, $seasonId, $startTime + $lastSeasonTick, $processedThroughTick
+        );
         
         // Check if this is the expiration tick
         $isExpiration = ($gameTime >= $endTime && !$season['expiration_finalized']);

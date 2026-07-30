@@ -442,6 +442,14 @@ try {
             $player = Auth::requireAuth();
             $fromTier = (int)($input['from_tier'] ?? 0);
             $familyCode = isset($input['family']) ? (string)$input['family'] : null;
+            // Easter egg, deliberately undocumented: explicitly combining the
+            // Legion (wild) family routes to the critical-mass awakening
+            // instead of an ascend. Auto-selected combines (no family sent)
+            // keep their behavior, including wild auto-substitution.
+            if ($familyCode !== null && strtolower(trim($familyCode)) === 'wild') {
+                echo json_encode(FamilyActions::legionAwaken($player['player_id'], $fromTier));
+                break;
+            }
             echo json_encode(Actions::combineSigils($player['player_id'], $fromTier, $familyCode));
             break;
 
@@ -1291,6 +1299,11 @@ function getGameState($player) {
                 'net_rate_per_tick' => (float)$rateMetrics['net_rate_per_tick'],
                 'hoarding_sink_active' => (bool)$rateMetrics['hoarding_sink_active'],
             ] : null,
+            'season_event' => ($player['joined_season_id'] && SigilFamilies::active($db))
+                ? SigilFamilies::modifierEventPayload(
+                    SigilFamilies::activeModifierEvent($db, (int)$player['joined_season_id'], $gameTime)
+                )
+                : null,
             'active_boosts' => $activeBoosts,
             'equipped_cosmetics' => getEquippedCosmeticsForPlayerIds([(int)$player['player_id']])[(int)$player['player_id']] ?? getEmptyEquippedCosmeticsPayload(),
             'recent_drops' => ($player['joined_season_id']) ? getRecentSigilDrops($player, $participation) : [],

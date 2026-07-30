@@ -286,6 +286,19 @@ class Actions {
 
         return min((int)SIGIL_THEFT_SUCCESS_CAP_FP, intdiv($spendValue * FP_SCALE, $denominator));
     }
+
+    /**
+     * Divisor applied to hostile cooldown/protection windows while a Legion
+     * 'frenzy' event is live. 1 when no event is active; the caller always
+     * wraps as max(1, intdiv($ticks, $divisor)).
+     */
+    private static function hostileTimingDivisor($db, $seasonId, $nowTick) {
+        $event = SigilFamilies::activeModifierEvent($db, $seasonId, $nowTick);
+        if ($event !== null && (string)$event['event_kind'] === 'frenzy') {
+            return max(1, (int)LEGION_FRENZY_TIMING_DIVISOR);
+        }
+        return 1;
+    }
     
     /**
      * Join a season
@@ -802,8 +815,11 @@ class Actions {
 
         $nowTick = GameTime::now();
         $seasonTick = GameTime::seasonTick((int)$season['start_time'], $nowTick);
-        $cooldownExpires = $nowTick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS);
-        $protectionExpires = $nowTick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS : SIGIL_THEFT_PROTECTION_TICKS);
+        // Legion 'frenzy': cooldowns and protections shrink together, so the
+        // event speeds the whole hostile loop up rather than favouring attack.
+        $timingDivisor = self::hostileTimingDivisor($db, $seasonId, $nowTick);
+        $cooldownExpires = $nowTick + max(1, intdiv((int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS), $timingDivisor));
+        $protectionExpires = $nowTick + max(1, intdiv((int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS : SIGIL_THEFT_PROTECTION_TICKS), $timingDivisor));
         $successChanceFp = self::calculateTheftSuccessChanceFp($spendValue, $requestedValue);
         $rollFp = random_int(1, FP_SCALE);
         $theftSuccess = $rollFp <= $successChanceFp;
@@ -1800,6 +1816,9 @@ class Actions {
         $freezeCooldownTicks = (int)($status === 'Blackout'
             ? SIGIL_FREEZE_BLACKOUT_COOLDOWN_TICKS
             : SIGIL_FREEZE_COOLDOWN_TICKS);
+        // Legion 'frenzy' shortens the freeze loop the same way it does theft.
+        $freezeTimingDivisor = self::hostileTimingDivisor($db, $seasonId, $nowTick);
+        $freezeCooldownTicks = max(1, intdiv($freezeCooldownTicks, $freezeTimingDivisor));
         $lastCast = $db->fetch(
             "SELECT MAX(activated_tick) AS last_tick FROM active_freezes
              WHERE season_id = ? AND source_player_id = ?",
@@ -1853,6 +1872,7 @@ class Actions {
         $freezeProtectionTicks = (int)($status === 'Blackout'
             ? SIGIL_FREEZE_BLACKOUT_PROTECTION_TICKS
             : SIGIL_FREEZE_PROTECTION_TICKS);
+        $freezeProtectionTicks = max(1, intdiv($freezeProtectionTicks, $freezeTimingDivisor));
         $recent = $db->fetch(
             "SELECT MAX(expires_tick) AS last_expiry FROM active_freezes
              WHERE season_id = ? AND target_player_id = ?",
