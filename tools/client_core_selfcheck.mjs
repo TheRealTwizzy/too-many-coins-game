@@ -1207,6 +1207,46 @@ function checkScreens(screens, { h, render }) {
 }
 
 /**
+ * The shipped art registry, as opposed to the stub slots the behaviour tests
+ * above use. The AAA bar is "no placeholder art reachable by a normal
+ * player", which is only true if every slot is filled AND every file it
+ * points at is actually committed.
+ */
+async function checkShippedArt({ registry }) {
+    section('core/assets.js — every slot ships real art');
+
+    const names = Object.keys(registry);
+    const unfilled = names.filter(n => !registry[n].art);
+    ok('every registry slot has art (no reachable placeholder)', unfilled.length === 0, unfilled);
+
+    const missing = [];
+    const badSprite = [];
+    for (const [name, slot] of Object.entries(registry)) {
+        const art = slot.art;
+        if (!art) continue;
+        // src is an absolute web path ('/assets/x.svg'); map it back to disk.
+        const onDisk = join(HERE, '..', 'public', art.src.replace(/^\//, ''));
+        try {
+            await readFile(onDisk);
+        } catch {
+            missing.push(`${name} -> ${art.src}`);
+        }
+        if (art.kind === 'sprite' && (!art.frames || !art.fps || art.loop !== false)) {
+            badSprite.push(name);
+        }
+    }
+    ok('every art file referenced by the registry exists on disk', missing.length === 0, missing);
+    ok('every sprite declares frames, fps and plays once', badSprite.length === 0, badSprite);
+
+    // Families must be masked, not drawn: that is what lets one silhouette
+    // carry the family's colour token across all four themes.
+    const families = names.filter(n => n.startsWith('family-'));
+    const undrawn = families.filter(n => !registry[n].art.tintable || !registry[n].tint);
+    ok('all seven families ship tintable silhouettes with a colour token',
+        families.length === 7 && undrawn.length === 0, undrawn);
+}
+
+/**
  * main.js is the shell, not a module the harness can import (it boots on
  * load), so its contracts are guarded at source level. Weaker than executing
  * them, but these are the invariants that soft-locked players when absent.
@@ -1262,6 +1302,7 @@ try {
     checkClock(modules.clock);
     checkMotion(modules.motion);
     checkAssets(modules.assets, modules.render);
+    await checkShippedArt(modules.assets);
     checkScreens(screens, modules.render);
     await checkShellSource();
 } finally {
