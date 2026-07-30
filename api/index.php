@@ -1253,6 +1253,9 @@ function getGameState($player) {
     // Publish the REAL mode (this was a hardcoded 'NORMAL' literal for as
     // long as the column existed) so clients can render the maintenance gate.
     $state['server_mode'] = (string)($tickHeartbeat['server_mode'] ?? 'NORMAL');
+    // Whether the sigil-family layer is live — the client gates the Family
+    // rail entry on this rather than discovering it by a failed fetch.
+    $state['families_enabled'] = SigilFamilies::active($db);
     $lastTickEpoch = $tickHeartbeat['last_tick_epoch'] ?? null;
     $state['timing']['last_tick_at'] = $lastTickEpoch !== null ? (int)$lastTickEpoch * 1000 : null;
     $state['timing']['tick_age_seconds'] = $tickHeartbeat['tick_age_seconds'] !== null

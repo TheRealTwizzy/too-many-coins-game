@@ -32,8 +32,9 @@ import shop from './shop.js';
 import auth from './auth.js';
 import staff from './staff.js';
 import profile from './profile.js';
+import family from './family.js';
 
-const SCREENS = [home, seasons, season, ranks, chat, shop, auth, staff, profile];
+const SCREENS = [home, seasons, season, ranks, chat, shop, auth, staff, profile, family];
 
 /**
  * Screens reachable from the rail, in rail order.

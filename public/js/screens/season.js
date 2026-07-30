@@ -291,10 +291,11 @@ function boosts(ctx, player, part) {
  * ------------------------------------------------------------------ */
 
 function verbs(ctx, season, part) {
-    const { h } = ctx;
+    const { h, store } = ctx;
     const freeze = part.freeze || season.player_freeze || {};
     const theft = part.theft || season.player_theft || {};
     const frozen = Boolean(freeze.is_frozen);
+    const familiesLive = Boolean(store.get('familiesEnabled'));
 
     const canFreeze = Boolean(part.can_freeze ?? season.player_can_freeze);
     const canMelt = Boolean(part.can_melt ?? season.player_can_melt);
@@ -307,6 +308,16 @@ function verbs(ctx, season, part) {
                 freeze.remaining_real_seconds
                     ? h('span', null, ` ${formatRemaining(freeze.remaining_real_seconds)} remaining.`)
                     : null,
+            )
+            : null,
+
+        // The advertised protection window (a windowed ward or post-theft
+        // protection). The one-shot deflect is deliberately absent — it is a
+        // hidden trap, not a visible shield.
+        theft.is_protected && theft.protection_remaining_real_seconds
+            ? h('div', { class: 'notice notice-ward' },
+                h('strong', null, '🛡 Protected.'),
+                h('span', null, ` Theft attempts against you fail for ${formatRemaining(theft.protection_remaining_real_seconds)}.`),
             )
             : null,
 
@@ -329,6 +340,13 @@ function verbs(ctx, season, part) {
                 title: canMelt ? null : 'Only while frozen, and needs a T5+ sigil',
                 onClick: () => ctx.selfMelt(),
             }, 'Melt'),
+            familiesLive
+                ? h('button', {
+                    class: 'btn',
+                    title: 'Raise a ward from the family panel',
+                    onClick: () => ctx.navigate('family'),
+                }, 'Ward')
+                : null,
         ),
 
         theft.is_on_cooldown && theft.cooldown_remaining_real_seconds

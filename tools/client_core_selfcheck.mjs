@@ -62,7 +62,7 @@ async function loadCore() {
     }
 
     await mkdir(join(dir, 'screens'), { recursive: true });
-    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile', 'index'];
+    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile', 'family', 'index'];
     const screens = {};
     for (const name of screenNames) {
         await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
@@ -817,10 +817,14 @@ function checkScreens(screens, { h, render }) {
         };
         return {
             h,
+            // A minimal assets facade: screens ask for icons by slot name and
+            // must tolerate whatever comes back, including nothing.
+            assets: { icon: () => null, hasArt: () => false, playSprite: () => Promise.resolve() },
             navigate() {},
             joinSeason() {}, loadLeaderboard() {}, loadChat() {},
             switchChat() {}, sendChat() {}, loadShop() {},
             buyCosmetic() {}, equipCosmetic() {},
+            loadFamily() {}, loadSeasonDetail() {}, loadProfile() {},
             // Mirrors main.js: null/undefined = server not gating.
             unlocked(key) {
                 const u = state.unlocks;
@@ -915,7 +919,7 @@ function checkScreens(screens, { h, render }) {
         }],
     ];
 
-    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile']) {
+    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile', 'family']) {
         const screen = screens[name].default;
         let failedAt = null;
         for (const [label, overrides] of cases) {
@@ -1071,6 +1075,56 @@ function checkScreens(screens, { h, render }) {
             seasonText.includes('5× I → 1× II'));
         ok('season shows the boosts panel for a joined player',
             seasonText.includes('Boosts') && seasonText.includes('No boost running'));
+    }
+
+    // The family panel renders the full family_state shape — roster, holdings,
+    // affinity, ward/market state, forge switches, live event — and honest
+    // states for signed-out / no-season / disabled.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const familyScreen = screens.family.default;
+        const FAMILY_STATE = {
+            enabled: true,
+            families: [
+                { family_id: 1, code: 'yield', name: 'Goliath', min_tier: 1, enabled: true },
+                { family_id: 2, code: 'time', name: 'Anak', min_tier: 1, enabled: true },
+                { family_id: 3, code: 'ward', name: 'Michael', min_tier: 1, enabled: true },
+                { family_id: 4, code: 'larceny', name: 'Valefor', min_tier: 1, enabled: true },
+                { family_id: 5, code: 'market', name: 'Mammon', min_tier: 1, enabled: true },
+                { family_id: 6, code: 'sight', name: 'Azazel', min_tier: 1, enabled: true },
+                { family_id: 7, code: 'wild', name: 'Legion', min_tier: 1, enabled: true },
+            ],
+            holdings: [
+                { family_id: 3, code: 'ward', name: 'Michael', tiers: { 1: 2, 3: 1 } },
+                { family_id: 6, code: 'sight', name: 'Azazel', tiers: { 1: 1 } },
+            ],
+            affinity_family_id: null,
+            affinity_repicked: false,
+            forge: { transmute_enabled: true, distil_enabled: true },
+            caps: { per_family_holding: 12 },
+            season_event: { kind: 'swarm', source_tier: 2, started_tick: 10, ends_tick: 5000 },
+            ward: { active: false, expires_tick: 0, one_shot: false },
+            market: { pending_vp: 0, last_used_tick: 0, window_ticks: 86400 },
+        };
+
+        const full = allText(familyScreen.view(stubCtx({
+            player: JOINED_PLAYER, familiesEnabled: true,
+            screens: { family: FAMILY_STATE, familyEvents: [{ event_id: 1, event_tick: 42, public_text: 'tester used a Market sigil' }] },
+        }))).join(' ');
+        ok('family panel renders all seven families',
+            ['Goliath', 'Anak', 'Michael', 'Valefor', 'Mammon', 'Azazel', 'Legion'].every(n => full.includes(n)));
+        ok('family panel offers a ward raise from ward holdings', full.includes('Raise ward'));
+        ok('family panel announces the live season event', full.includes('The Legion swarms'));
+        ok('family panel shows the season chronicle', full.includes('used a Market sigil'));
+
+        const noSeason = allText(familyScreen.view(stubCtx({ player: PLAYER }))).join(' ');
+        ok('family panel asks for a season before showing verbs', noSeason.includes('Join one first'));
     }
 
     // The profile screen renders every payload variant the server can return:

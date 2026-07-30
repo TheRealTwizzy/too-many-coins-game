@@ -40,6 +40,8 @@ const store = createStore({
     // The last 50 notifications and the unread count, straight off the poll.
     notifications: [],
     notificationsUnread: 0,
+    // Whether the sigil-family layer is live server-side.
+    familiesEnabled: false,
 });
 
 const clock = createClock();
@@ -555,6 +557,52 @@ const ctx = {
         });
     },
 
+    // ---- sigil families ----
+
+    async loadFamily() {
+        const [state, events] = await Promise.all([
+            api.request('family_state', {}),
+            api.request('season_events', { limit: 25 }),
+        ]);
+        if (state && !state.error) store.set('screens.family', state);
+        if (events && !events.error) store.set('screens.familyEvents', events.events || []);
+    },
+
+    /**
+     * Shared runner for the family verbs: ward_activate, market_prime,
+     * affinity_pick, transmute_sigils, distil_sigils. Success surfaces the
+     * server's message and refreshes both the family state and the poll.
+     */
+    async familyVerb(action, payload, busyKey) {
+        store.set('ui.familyBusy', busyKey);
+        const res = await api.request(action, payload);
+        store.set('ui.familyBusy', null);
+        if (!res || res.error) return actionFailed(res, 'Action failed');
+        toast(res.message || 'Done.', 'success');
+        await Promise.all([ctx.loadFamily(), poll()]);
+    },
+
+    /**
+     * Sight reveals return information rather than state, so the result is
+     * kept for the screen to render instead of being toasted away.
+     */
+    async sightReveal(kind) {
+        let targetId = 0;
+        if (kind === 'target_rate' || kind === 'ward_status') {
+            const target = await ctx.pickTarget({
+                title: kind === 'target_rate' ? 'Read whose income?' : 'Scout whose ward?',
+            });
+            if (!target) return;
+            targetId = Number(target.player_id);
+        }
+        store.set('ui.familyBusy', `sight:${kind}`);
+        const res = await api.request('sight_reveal', { kind, target_player_id: targetId });
+        store.set('ui.familyBusy', null);
+        if (!res || res.error) return actionFailed(res, 'The Sight fails');
+        store.set('screens.familyReveal', { kind, ...res });
+        await Promise.all([ctx.loadFamily(), poll()]);
+    },
+
     // ---- profile & social ----
 
     openProfile(playerId) {
@@ -1005,11 +1053,19 @@ const NAV = [
 ];
 
 const STAFF_NAV = { id: 'staff', label: 'Staff', icon: 'nav-staff' };
+const FAMILY_NAV = { id: 'family', label: 'Family', icon: 'nav-family' };
 
 function navItems() {
     const player = store.get('player');
     const staff = player && (player.role === 'Admin' || player.role === 'Moderator');
-    return staff ? [...NAV, STAFF_NAV] : NAV;
+    // The Family entry appears when the server says the family layer is live
+    // and the player has a season to use it in.
+    const families = Boolean(store.get('familiesEnabled')) && player && player.joined_season_id;
+
+    const items = [...NAV];
+    if (families) items.push(FAMILY_NAV);
+    if (staff) items.push(STAFF_NAV);
+    return items;
 }
 
 function rail(screen) {
@@ -1639,6 +1695,7 @@ async function poll() {
         // them instead of throwing them away.
         notifications: gs.player ? (gs.player.notifications || []) : [],
         notificationsUnread: gs.player ? (Number(gs.player.notifications_unread_count) || 0) : 0,
+        familiesEnabled: Boolean(gs.families_enabled),
     });
 
     if (gs.timing) {

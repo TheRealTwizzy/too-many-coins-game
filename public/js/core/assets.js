@@ -56,6 +56,7 @@ export const registry = {
     'nav-chat':     { placeholder: '\u{1F4AC}',   art: null },
     'nav-shop':     { placeholder: '\u{1F48E}',   art: null },
     'nav-staff':    { placeholder: '\u{1F6E1}',   art: null },   // staff/admin rail entry (staff viewers only)
+    'nav-family':   { placeholder: '⁂',      art: null },   // family panel rail entry (families-enabled seasons)
 
     // --- currencies ---
     'coin':         { placeholder: '\u{1FA99}',   art: null },
