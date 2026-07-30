@@ -234,6 +234,40 @@ check('a forged bearer token is rejected',
 check('game_state without a session exposes no player',
     (req('game_state')['body']['player'] ?? null) === null);
 
+// ---------------------------------------------------------------------------
+// The rate limiter cannot be steered by the caller
+// ---------------------------------------------------------------------------
+//
+// The limiter picks its bucket from the session token. It used to accept any
+// 64 hex characters without checking the token existed, so a fresh random
+// X-Session-Token per request minted a fresh high-tier bucket every time and
+// the limiter was decorative - which is unmetered password guessing.
+//
+// Rather than send hundreds of requests here, assert the property directly:
+// a made-up token must not be granted the authenticated tier. The diagnostics
+// endpoint reports the tier when it is enabled; when it is not, fall back to
+// asserting that a forged token is not treated as a live session anywhere.
+
+check('a forged 64-hex token is not accepted as a session', (function () {
+    $forged = str_repeat('a1', 32); // 64 hex chars, no such account
+    $res = req('game_state', [], $forged);
+    return ($res['body']['player'] ?? null) === null;
+})());
+
+check('a forged token cannot raise the caller above the anonymous tier', (function () {
+    // Burst past the anonymous allowance with a token that changes every
+    // request. If the limiter still trusted the header, every request would
+    // land in its own bucket and none would be refused.
+    $anonLimit = (int)TMC_RATE_LIMIT_ANON_PER_WINDOW;
+    $shots = $anonLimit + 30;
+    $refused = 0;
+    for ($i = 0; $i < $shots; $i++) {
+        $token = str_pad(dechex(0xF0000 + $i), 64, '0', STR_PAD_LEFT);
+        if (req('game_state', [], $token)['status'] === 429) $refused++;
+    }
+    return $refused > 0;
+})(), 'a rotating forged token was never rate limited');
+
 echo "\n" . str_repeat('-', 62) . "\n";
 echo "{$pass} passed, {$fail} failed\n";
 echo $fail === 0

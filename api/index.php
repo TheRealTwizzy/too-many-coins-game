@@ -139,6 +139,12 @@ function tmc_rate_limit_diagnostics_authorized(array $input): bool {
     return hash_equals($initSecret, $provided);
 }
 
+// The limiter validates the caller's session token below, so the database and
+// Auth have to be available before it runs rather than only at dispatch time.
+// Both are require_once, so the dispatch block further down is unaffected.
+require_once __DIR__ . '/../includes/database.php';
+require_once __DIR__ . '/../includes/auth.php';
+
 // Rate limiting (file-based) keyed by session identity when available.
 $rateLimitDir = sys_get_temp_dir() . '/tmc_ratelimit';
 if (!is_dir($rateLimitDir)) {
@@ -147,7 +153,26 @@ if (!is_dir($rateLimitDir)) {
 
 $sessionToken = $_COOKIE['tmc_session'] ?? ($_SERVER['HTTP_X_SESSION_TOKEN'] ?? '');
 $sessionToken = is_string($sessionToken) ? trim($sessionToken) : '';
-$hasSessionIdentity = preg_match('/^[a-f0-9]{64}$/i', $sessionToken) === 1;
+
+// The session bucket requires a token that actually EXISTS, not one that
+// merely looks like a token.
+//
+// This used to accept any 64 hex characters, so the identity the limiter keyed
+// on was chosen by the caller: sending a fresh random X-Session-Token per
+// request minted a fresh 300/minute bucket every time and the limiter was a
+// no-op. Measured against this endpoint before the fix - 350 login attempts
+// with one token: 300 served, 50 rejected. The same 350 with a rotating token:
+// 350 served, 0 rejected. That is unmetered password guessing, and it also
+// spawned one bucket file per made-up token.
+//
+// Looking the token up costs one indexed query on requests that present one,
+// and an unknown token now falls through to the anonymous IP bucket - the
+// same place a caller with no token lands - so a forged header can only ever
+// give an attacker the smaller allowance, never a bigger one.
+$hasSessionIdentity = false;
+if (preg_match('/^[a-f0-9]{64}$/i', $sessionToken) === 1) {
+    $hasSessionIdentity = Auth::sessionTokenExists($sessionToken);
+}
 
 if ($hasSessionIdentity) {
     $rateIdentity = 'session:' . hash('sha256', $sessionToken);

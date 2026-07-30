@@ -69,6 +69,35 @@ class Auth {
     }
 
     /**
+     * Does this session token belong to a real account?
+     *
+     * Existence only - no presence touch, no player row returned, and it is
+     * deliberately callable before the request is dispatched. The rate limiter
+     * needs to know whether a caller-supplied token is genuine before it
+     * decides which bucket to charge, and using getCurrentPlayer() for that
+     * would mark a forged token's "session" as online on every probe.
+     */
+    public static function sessionTokenExists($token): bool {
+        if (!is_string($token) || $token === '') return false;
+        try {
+            $row = Database::getInstance()->fetch(
+                "SELECT 1 AS ok FROM players WHERE session_token = ? AND profile_deleted_at IS NULL LIMIT 1",
+                [$token]
+            );
+            return !empty($row);
+        } catch (Throwable $e) {
+            // A database problem must not decide the rate limit, in either
+            // direction. Throwing here would take down every request including
+            // the ones that need no database at all, and it would skip the
+            // limiter entirely - so an attacker who can make the database
+            // wobble would get unmetered access at the same moment the server
+            // is least able to absorb it. Unknown token -> the smaller
+            // anonymous allowance, and the endpoint reports the real fault.
+            return false;
+        }
+    }
+
+    /**
      * Mark player as online with throttling to avoid request-path write contention.
      */
     public static function touchPresence($playerId, $player = null) {
