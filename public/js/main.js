@@ -381,6 +381,40 @@ const ctx = {
         store.set('screens.season', res);
     },
 
+    /**
+     * Run a gated economy action. The server refuses a medium- or high-impact
+     * spend until the request carries confirm_economic_impact — on that
+     * refusal it returns a preview, which is shown in a confirm dialog and
+     * the action re-sent with the flag. One handler for every action behind
+     * the gate (stars, theft, boosts), so a new gated verb costs nothing.
+     *
+     * Resolves to the final response, or null if the player declined.
+     */
+    async requestWithImpactConfirm(action, payload, { title = 'Confirm this action?' } = {}) {
+        let res = await api.request(action, payload);
+        if (res && res.error === 'confirmation_required' && res.preview) {
+            const fmt = new Intl.NumberFormat('en-US');
+            const p = res.preview;
+            const risk = p.risk || {};
+            const lines = [risk.explain || 'This action has a large economic impact.'];
+            if (Number(p.estimated_total_cost) > 0) {
+                lines.push(`Estimated cost: ${fmt.format(p.estimated_total_cost)} ${p.balance_type || 'coins'}.`);
+            }
+            if (p.post_balance_estimate !== null && p.post_balance_estimate !== undefined) {
+                lines.push(`Balance after: about ${fmt.format(p.post_balance_estimate)}.`);
+            }
+            const confirmed = await ctx.confirm({
+                title,
+                body: lines.join(' '),
+                confirmLabel: 'Proceed',
+                danger: risk.severity === 'high',
+            });
+            if (!confirmed) return null;
+            res = await api.request(action, { ...payload, confirm_economic_impact: true });
+        }
+        return res;
+    },
+
     async buyStars(quantity, cost) {
         const confirmed = await ctx.confirm({
             title: `Buy ${quantity} star${quantity === 1 ? '' : 's'}?`,
@@ -392,10 +426,17 @@ const ctx = {
 
         store.set('ui.buyingStars', true);
         // The server reads stars_requested; sending { quantity } silently
-        // requested zero stars on every purchase.
-        const res = await api.request('purchase_stars', { stars_requested: quantity });
+        // requested zero stars on every purchase. Purchases at ≥50% of the
+        // coin balance come back confirmation_required — the impact handler
+        // shows the server's preview and re-sends with the flag.
+        const res = await ctx.requestWithImpactConfirm(
+            'purchase_stars',
+            { stars_requested: quantity },
+            { title: 'Large purchase — proceed?' },
+        );
         store.set('ui.buyingStars', false);
-        if (res && res.error) return actionFailed(res);
+        if (!res) return;
+        if (res.error) return actionFailed(res);
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
 

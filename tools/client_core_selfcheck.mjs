@@ -1115,6 +1115,11 @@ async function checkShellSource() {
         src.includes('reason_code'));
     ok('the HUD reads season figures from player.participation',
         src.includes('player.participation') && !/player\.ubi_rate/.test(src));
+    ok('gated spends re-send with confirm_economic_impact after the preview',
+        src.includes("res.error === 'confirmation_required'")
+        && src.includes('confirm_economic_impact: true'));
+    ok('star purchases go through the impact-confirm handler',
+        /requestWithImpactConfirm\(\s*'purchase_stars'/.test(src));
 }
 
 /* ------------------------------------------------------------------ *
