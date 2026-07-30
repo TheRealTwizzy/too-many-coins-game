@@ -1197,6 +1197,22 @@ class Economy {
             return null;
         }
 
+        // Legion 'swarm' event: scales the gate THRESHOLD only, for the exact
+        // ticks the event covers. The deterministic roll inputs below are
+        // never touched, so history replays identically; and because events
+        // are only ever inserted at the current tick, a catch-up batch sees
+        // exactly the events that were live when each tick occurred.
+        $modifierEvent = $season['_modifier_event'] ?? null;
+        if ($modifierEvent !== null
+            && (string)$modifierEvent['event_kind'] === 'swarm'
+            && (int)$tickIndex >= (int)$modifierEvent['started_tick']
+            && (int)$tickIndex < (int)$modifierEvent['ends_tick']) {
+            $effectiveDropChanceFp = min(
+                FP_SCALE,
+                intdiv($effectiveDropChanceFp * (int)LEGION_SWARM_DROP_MULTIPLIER_FP, FP_SCALE)
+            );
+        }
+
         $seasonId = (int)$season['season_id'];
         $playerId = (int)$player['player_id'];
         $tickIndex = (int)$tickIndex;

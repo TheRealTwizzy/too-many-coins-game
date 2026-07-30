@@ -17,6 +17,7 @@ import { createAssets } from './core/assets.js';
 import { h, render } from './core/render.js';
 import { getScreen, RAIL_PARENT } from './screens/index.js';
 import { HANDLE_RE, PASSWORD_MIN } from './screens/auth.js';
+import { constructionShell } from './screens/construction.js';
 
 const POLL_MS = 3000;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
@@ -31,6 +32,11 @@ const store = createStore({
     timing: null,
     screen: 'home',
     connection: 'connecting', // connecting | live | retrying
+    // Trusted only after the first poll; defaulting to NORMAL avoids flashing
+    // the construction page at every boot.
+    serverMode: 'NORMAL',
+    // Progression gates: null = ungated (server flag off or logged out).
+    unlocks: null,
 });
 
 const clock = createClock();
@@ -143,6 +149,17 @@ const ctx = {
 
     navigate(screenId) {
         store.set('screen', screenId);
+    },
+
+    /**
+     * Progression gate check. null/undefined unlocks = the server is not
+     * gating (flag off), so everything is visible; otherwise a feature is
+     * visible only once its key has been discovered.
+     */
+    unlocked(key) {
+        const unlocks = store.get('unlocks');
+        if (unlocks === null || unlocks === undefined) return true;
+        return unlocks.includes(key);
     },
 
     async joinSeason(seasonId) {
@@ -283,7 +300,9 @@ const ctx = {
         if (!confirmed) return;
 
         store.set('ui.buyingStars', true);
-        const res = await api.request('purchase_stars', { quantity });
+        // The server reads stars_requested; sending { quantity } silently
+        // requested zero stars on every purchase.
+        const res = await api.request('purchase_stars', { stars_requested: quantity });
         store.set('ui.buyingStars', false);
         if (res && res.error) return toast(res.error, 'error');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
@@ -401,11 +420,14 @@ const ctx = {
         if (dialog && dialog.resolve) dialog.resolve(result);
     },
 
-    async loadLeaderboard(page = 1) {
-        const res = await api.request('global_leaderboard', { page, per_page: 25 });
+    async loadLeaderboard() {
+        // global_leaderboard takes no arguments and returns the full ranked
+        // list; the old page/per_page params were ignored server-side and the
+        // client pager just re-rendered the same list.
+        const res = await api.request('global_leaderboard', {});
         if (!res || res.error) return;
         const entries = Array.isArray(res) ? res : (res.entries || res.leaderboard || []);
-        store.set('screens.ranks', { entries, page });
+        store.set('screens.ranks', { entries });
     },
 
     async loadChat() {
@@ -799,6 +821,18 @@ function userArea() {
 
 function shell() {
     const screen = store.get('screen');
+
+    // Maintenance gate. shell() is the only producer of the tree, so the
+    // short-circuit hides rail, HUD and deck at once. The screen id in the
+    // store is deliberately untouched — when the gate lifts, the player is
+    // still where they were. The auth escape lets staff reach sign-in; once
+    // signed in as staff the gate no longer applies to them.
+    const player = store.get('player');
+    const isStaff = Boolean(player && (player.role === 'Admin' || player.role === 'Moderator'));
+    if (store.get('serverMode') === 'MAINTENANCE_LOCKDOWN' && !isStaff && screen !== 'auth') {
+        return constructionShell(h, { onStaffSignIn: () => store.set('screen', 'auth') });
+    }
+
     return h('div', { id: 'shell' },
         rail(screen),
         h('div', { id: 'stage' },
@@ -959,6 +993,8 @@ async function poll() {
         seasons: gs.seasons || [],
         timing: gs.timing || null,
         connection: 'live',
+        serverMode: gs.server_mode || 'NORMAL',
+        unlocks: gs.player ? (gs.player.unlocks ?? null) : null,
     });
 
     if (gs.timing) {

@@ -153,6 +153,28 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+SET @has_season_modifier_events := (
+    SELECT COUNT(*)
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'season_modifier_events'
+);
+SET @sql := IF(@has_season_modifier_events > 0, 'TRUNCATE TABLE `season_modifier_events`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Feature discovery is account knowledge and survives SEASON resets; only
+-- this full global reset (a fresh world) clears it.
+SET @has_player_feature_unlocks := (
+    SELECT COUNT(*)
+    FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'player_feature_unlocks'
+);
+SET @sql := IF(@has_player_feature_unlocks > 0, 'TRUNCATE TABLE `player_feature_unlocks`', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 SET @has_sigil_drop_tracking := (
     SELECT COUNT(*)
     FROM information_schema.tables

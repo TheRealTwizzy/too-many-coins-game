@@ -1829,7 +1829,7 @@ const TMC = {
         const marketTiers = [];
         holdings.forEach((h) => {
             Object.keys(h.tiers).forEach((tier) => {
-                if ((h.code === 'ward' || h.code === 'wild') && Number(tier) >= 2 && !wardTiers.includes(tier)) wardTiers.push(tier);
+                if ((h.code === 'ward' || h.code === 'wild') && !wardTiers.includes(tier)) wardTiers.push(tier);
                 if ((h.code === 'market' || h.code === 'wild') && !marketTiers.includes(tier)) marketTiers.push(tier);
             });
         });
@@ -1854,8 +1854,8 @@ const TMC = {
                     <div class="family-ability family-ward">
                         <span class="family-ability-label">Ward</span>
                         ${wardActive
-                            ? '<span class="family-status-ok">Active</span>'
-                            : `<select id="ward-tier-select" class="input-field input-compact">${wardTiers.map((t) => `<option value="${t}">${this.tierRoman(Number(t))}</option>`).join('')}</select>
+                            ? `<span class="family-status-ok">${fs.ward.one_shot ? 'Deflect primed' : 'Active'}</span>`
+                            : `<select id="ward-tier-select" class="input-field input-compact">${wardTiers.map((t) => `<option value="${t}">${this.tierRoman(Number(t))}${Number(t) === 1 ? ' (deflect)' : ''}</option>`).join('')}</select>
                                <button class="btn btn-sm btn-primary" onclick="TMC.wardActivateUI()" ${wardTiers.length ? '' : 'disabled'}>Raise</button>`}
                     </div>
                     <div class="family-ability family-market">
@@ -3273,7 +3273,7 @@ const TMC = {
         const targetPart = profile.active_participation;
         const targetTheft = targetPart.theft || {};
         const viewerTheft = viewerPart.theft || {};
-        const spendTiers = [3, 4, 5];
+        const spendTiers = [1, 2, 3, 4, 5];
         const lootTiers = [1, 2, 3, 4, 5, 6];
         const targetActivityState = targetPart.activity_state || profile.activity_state || 'Active';
         const canSubmit = !viewerTheft.is_on_cooldown && !targetTheft.is_protected;
@@ -3287,7 +3287,7 @@ const TMC = {
 
             <div class="theft-form-container">
                 <h3>Target: ${this.escapeHtml(profile.handle)}</h3>
-                <p class="panel-info">Spend Tier 3, Tier 4, or Tier 5 sigils for a chance-based theft. Spent sigils are always lost, even on failure. Idle targets are valid.</p>
+                <p class="panel-info">Spend Tier 1 to Tier 5 sigils for a chance-based theft. Spent sigils are always lost, even on failure. Idle targets are valid.</p>
                 <p class="panel-info">Target status: <strong>${this.escapeHtml(String(targetActivityState))}</strong></p>
                 ${viewerTheft.is_on_cooldown ? `<p class="panel-warning">Your theft cooldown: ${this.formatDurationFromSeconds(Number(viewerTheft.cooldown_remaining_real_seconds || 0), 'short')}</p>` : ''}
                 ${targetTheft.is_protected ? `<p class="panel-warning">Target protection: ${this.formatDurationFromSeconds(Number(targetTheft.protection_remaining_real_seconds || 0), 'short')}</p>` : ''}

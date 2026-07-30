@@ -11,6 +11,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/sigil_families.php';
+require_once __DIR__ . '/progression.php';
 
 class Actions {
 
@@ -286,6 +287,19 @@ class Actions {
 
         return min((int)SIGIL_THEFT_SUCCESS_CAP_FP, intdiv($spendValue * FP_SCALE, $denominator));
     }
+
+    /**
+     * Divisor applied to hostile cooldown/protection windows while a Legion
+     * 'frenzy' event is live. 1 when no event is active; the caller always
+     * wraps as max(1, intdiv($ticks, $divisor)).
+     */
+    private static function hostileTimingDivisor($db, $seasonId, $nowTick) {
+        $event = SigilFamilies::activeModifierEvent($db, $seasonId, $nowTick);
+        if ($event !== null && (string)$event['event_kind'] === 'frenzy') {
+            return max(1, (int)LEGION_FRENZY_TIMING_DIVISOR);
+        }
+        return 1;
+    }
     
     /**
      * Join a season
@@ -410,6 +424,9 @@ class Actions {
              WHERE player_id = ? AND season_id = ?",
             [$count, $count, $playerId, $seasonId]
         );
+        // Discovery: the starter grant is many players' first sigil.
+        Progression::unlock($db, $playerId, 'sigils.ui');
+        Progression::unlock($db, $playerId, 'sigils.tier.' . $tier);
 
         // The mirror has to move with the tier column or the two disagree, and
         // the family verbs spend from the mirror. Wild is the family with no
@@ -795,14 +812,18 @@ class Actions {
         //
         // Punching up is now the point. The odds fall away steeply with the gap
         // (see calculateTheftSuccessChanceFp), the target must actually hold
-        // what is being asked for, and stakes are gated to T3-T5 - so this is a
-        // priced gamble against someone ahead of you, not a way to farm players
-        // below you, which stays negative on every measure.
+        // what is being asked for, and punching down stays negative on every
+        // measure - so this is a priced gamble against someone ahead of you,
+        // not a way to farm players below you. Stakes open at T1: a stake's
+        // odds scale with its value, so the floor needs no separate tier gate.
 
         $nowTick = GameTime::now();
         $seasonTick = GameTime::seasonTick((int)$season['start_time'], $nowTick);
-        $cooldownExpires = $nowTick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS);
-        $protectionExpires = $nowTick + (int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS : SIGIL_THEFT_PROTECTION_TICKS);
+        // Legion 'frenzy': cooldowns and protections shrink together, so the
+        // event speeds the whole hostile loop up rather than favouring attack.
+        $timingDivisor = self::hostileTimingDivisor($db, $seasonId, $nowTick);
+        $cooldownExpires = $nowTick + max(1, intdiv((int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_COOLDOWN_TICKS : SIGIL_THEFT_COOLDOWN_TICKS), $timingDivisor));
+        $protectionExpires = $nowTick + max(1, intdiv((int)($status === 'Blackout' ? SIGIL_THEFT_BLACKOUT_PROTECTION_TICKS : SIGIL_THEFT_PROTECTION_TICKS), $timingDivisor));
         $successChanceFp = self::calculateTheftSuccessChanceFp($spendValue, $requestedValue);
         $rollFp = random_int(1, FP_SCALE);
         $theftSuccess = $rollFp <= $successChanceFp;
@@ -841,27 +862,43 @@ class Actions {
                 return ['error' => 'Your theft cooldown is active'];
             }
 
+            // Protection is checked before the ward so a live protection window
+            // never burns the target's one-shot deflect on an attempt it would
+            // have blocked anyway.
             $currentProtection = self::getTheftProtectionExpiresTick($db, (int)$target['player_id'], $seasonId);
-            $wardExpires = SigilFamilies::wardExpiresTick($db, (int)$target['player_id'], $seasonId);
-            if ($currentProtection >= $nowTick || $wardExpires >= $nowTick) {
+            if ($currentProtection >= $nowTick) {
                 $db->rollback();
-                if ($wardExpires >= $nowTick && $wardExpires > $currentProtection) {
-                    // Ward reports what it blocked (drama budget: the act, not the value).
-                    $db->query(
-                        "UPDATE active_wards SET blocked_count = blocked_count + 1
-                         WHERE player_id = ? AND season_id = ? AND expires_tick >= ?",
-                        [(int)$target['player_id'], $seasonId, $nowTick]
-                    );
-                    Notifications::create(
-                        (int)$target['player_id'],
-                        'ward_blocked',
-                        'Ward Held',
-                        $player['handle'] . "'s theft attempt broke against your Ward.",
-                        ['event_key' => 'ward_block:' . $seasonId . ':' . (int)$target['player_id'] . ':' . $nowTick]
-                    );
-                    return ['error' => 'Target is warded'];
-                }
                 return ['error' => 'Target theft protection is active'];
+            }
+            $wardRow = SigilFamilies::activeWardRow($db, (int)$target['player_id'], $seasonId, $nowTick);
+            if ($wardRow !== null) {
+                $db->rollback();
+                $wardIsDeflect = (int)$wardRow['spent_tier'] === (int)WARD_DEFLECT_TIER;
+                // Ward reports what it blocked (drama budget: the act, not the
+                // value). A deflect blocks exactly one attempt: consuming it
+                // means expiring the row on the tick it fired.
+                if ($wardIsDeflect) {
+                    $db->query(
+                        "UPDATE active_wards SET blocked_count = blocked_count + 1, expires_tick = ?
+                         WHERE ward_id = ?",
+                        [$nowTick - 1, (int)$wardRow['ward_id']]
+                    );
+                } else {
+                    $db->query(
+                        "UPDATE active_wards SET blocked_count = blocked_count + 1 WHERE ward_id = ?",
+                        [(int)$wardRow['ward_id']]
+                    );
+                }
+                Notifications::create(
+                    (int)$target['player_id'],
+                    'ward_blocked',
+                    $wardIsDeflect ? 'Deflect Spent' : 'Ward Held',
+                    $wardIsDeflect
+                        ? $player['handle'] . "'s theft attempt broke on your deflect - it is now spent."
+                        : $player['handle'] . "'s theft attempt broke against your Ward.",
+                    ['event_key' => 'ward_block:' . $seasonId . ':' . (int)$target['player_id'] . ':' . $nowTick]
+                );
+                return ['error' => 'Target is warded'];
             }
 
             foreach (SIGIL_THEFT_SPEND_TIERS as $tier) {
@@ -1608,6 +1645,9 @@ class Actions {
             if ($ownsTransaction) {
                 $db->commit();
             }
+            // Discovery: forging a tier reveals it before its first drop can.
+            Progression::unlock($db, $playerId, 'sigils.ui');
+            Progression::unlock($db, $playerId, 'sigils.tier.' . (int)$toTier);
             $familyLabel = $ascendFamilyId !== null ? (SigilFamilies::familyName($ascendFamilyId) . ' ') : '';
             return [
                 'success' => true,
@@ -1783,6 +1823,9 @@ class Actions {
         $freezeCooldownTicks = (int)($status === 'Blackout'
             ? SIGIL_FREEZE_BLACKOUT_COOLDOWN_TICKS
             : SIGIL_FREEZE_COOLDOWN_TICKS);
+        // Legion 'frenzy' shortens the freeze loop the same way it does theft.
+        $freezeTimingDivisor = self::hostileTimingDivisor($db, $seasonId, $nowTick);
+        $freezeCooldownTicks = max(1, intdiv($freezeCooldownTicks, $freezeTimingDivisor));
         $lastCast = $db->fetch(
             "SELECT MAX(activated_tick) AS last_tick FROM active_freezes
              WHERE season_id = ? AND source_player_id = ?",
@@ -1836,6 +1879,7 @@ class Actions {
         $freezeProtectionTicks = (int)($status === 'Blackout'
             ? SIGIL_FREEZE_BLACKOUT_PROTECTION_TICKS
             : SIGIL_FREEZE_PROTECTION_TICKS);
+        $freezeProtectionTicks = max(1, intdiv($freezeProtectionTicks, $freezeTimingDivisor));
         $recent = $db->fetch(
             "SELECT MAX(expires_tick) AS last_expiry FROM active_freezes
              WHERE season_id = ? AND target_player_id = ?",

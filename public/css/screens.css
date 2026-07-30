@@ -532,3 +532,43 @@
 }
 
 .user-handle { font-weight: var(--fw-medium); color: var(--ink-2); }
+
+/* ---------- construction gate ---------- */
+
+.construction-shell { display: grid; place-items: start center; min-height: 100vh; padding: var(--s5) var(--s3); }
+
+.construction {
+    max-width: 40rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+}
+
+.construction-badge { font-size: 2.5rem; line-height: 1; }
+
+.construction h1 { font-size: var(--fs-title, 1.6rem); }
+
+.construction-lede { color: var(--ink-2); }
+
+.construction-version { color: var(--ink-3); font-size: var(--fs-small); }
+
+.construction-block {
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface);
+    padding: var(--s3) var(--s4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+}
+
+.construction-block h2 { font-size: var(--fs-small); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); }
+
+.construction-block ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: var(--s1); color: var(--ink-2); }
+
+.construction-patch h3 { font-size: 1rem; color: var(--ink); margin-bottom: var(--s1); }
+
+.construction-patch + .construction-patch { margin-top: var(--s2); }
+
+.construction-foot { display: flex; justify-content: flex-end; }

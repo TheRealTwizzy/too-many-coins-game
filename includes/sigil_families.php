@@ -26,6 +26,8 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/economy.php';
+require_once __DIR__ . '/game_time.php';
+require_once __DIR__ . '/progression.php';
 
 class SigilFamilies {
     const YIELD_ID = 1;
@@ -251,7 +253,17 @@ class SigilFamilies {
             'sigil_sight',
             $season['season_seed']
         ) % FP_SCALE;
-        return $roll < (int)SIGIL_SIGHT_TRICKLE_CHANCE_FP;
+        $chanceFp = (int)SIGIL_SIGHT_TRICKLE_CHANCE_FP;
+        // Legion 'foresight' event: threshold only, per exact tick - same
+        // determinism rules as the swarm hook in evaluateSigilDropForTick.
+        $modifierEvent = $season['_modifier_event'] ?? null;
+        if ($modifierEvent !== null
+            && (string)$modifierEvent['event_kind'] === 'foresight'
+            && (int)$tickIndex >= (int)$modifierEvent['started_tick']
+            && (int)$tickIndex < (int)$modifierEvent['ends_tick']) {
+            $chanceFp = min(FP_SCALE, intdiv($chanceFp * (int)LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP, FP_SCALE));
+        }
+        return $roll < $chanceFp;
     }
 
     // ---------------------------------------------------------------
@@ -278,6 +290,10 @@ class SigilFamilies {
              ON DUPLICATE KEY UPDATE count = count + VALUES(count)",
             [(int)$seasonId, (int)$playerId, (int)$familyId, (int)$tier, $amount]
         );
+        // Discovery: gaining any family sigil reveals the family panel. Every
+        // grant path (drop roll, transmute, distil, theft transfer) lands
+        // here, so this is the one choke point for the unlock.
+        Progression::unlock($db, $playerId, 'families.panel');
     }
 
     /**
@@ -472,6 +488,44 @@ class SigilFamilies {
     }
 
     /**
+     * Latest expiry among windowed wards only. The one-shot deflect is
+     * deliberately excluded: it is a hidden trap, and folding it into the
+     * advertised protection window would turn it into season-long visible
+     * immunity - nobody attempts against a target the UI marks protected, so
+     * the deflect would never be consumed. Sight's ward_status reveal is the
+     * intended way to learn about it.
+     */
+    public static function windowedWardExpiresTick($db, $playerId, $seasonId) {
+        if (!self::tableExists($db, 'active_wards')) {
+            return 0;
+        }
+        $row = $db->fetch(
+            "SELECT MAX(expires_tick) AS expires_tick FROM active_wards
+             WHERE player_id = ? AND season_id = ? AND spent_tier <> ?",
+            [(int)$playerId, (int)$seasonId, (int)WARD_DEFLECT_TIER]
+        );
+        return max(0, (int)($row['expires_tick'] ?? 0));
+    }
+
+    /**
+     * The currently active ward row, or null. Non-stacking is enforced at
+     * activation, so at most one row can be live; callers use spent_tier to
+     * distinguish a windowed ward from the one-shot T1 deflect.
+     */
+    public static function activeWardRow($db, $playerId, $seasonId, $nowTick) {
+        if (!self::tableExists($db, 'active_wards')) {
+            return null;
+        }
+        $row = $db->fetch(
+            "SELECT * FROM active_wards
+             WHERE player_id = ? AND season_id = ? AND expires_tick >= ?
+             ORDER BY expires_tick DESC LIMIT 1",
+            [(int)$playerId, (int)$seasonId, (int)$nowTick]
+        );
+        return $row ?: null;
+    }
+
+    /**
      * Time family: derived extension, never authored.
      * added_seconds = VP(tier) x 0.1h / (active_modifier_pct / 100)
      * On a +25% boost, tier 1 adds ~24 minutes and tier 4 adds ~24 hours.
@@ -504,6 +558,67 @@ class SigilFamilies {
         $saved = intdiv($savedFp, FP_SCALE);
         $cap = intdiv((int)$coinsNeeded * (int)MARKET_MAX_DISCOUNT_FRACTION_FP, FP_SCALE);
         return max(0, min($saved, $cap));
+    }
+
+    // ---------------------------------------------------------------
+    // Season-wide modifier events (Legion critical mass)
+    // ---------------------------------------------------------------
+
+    /** Event window in ticks for the consumed tier. */
+    public static function modifierEventDurationTicks($tier) {
+        $unitsX100 = (int)(LEGION_EVENT_UNITS_X100_BY_TIER[(int)$tier] ?? 0);
+        return max(0, intdiv($unitsX100 * (int)ABILITY_UNIT_DURATION_TICKS, 100));
+    }
+
+    /**
+     * The modifier event live at $tick, or null. Request-time paths use this
+     * (frenzy timing, state payloads). No static cache on purpose: an event
+     * can start mid-request-lifetime and every caller must see it.
+     */
+    public static function activeModifierEvent($db, $seasonId, $tick) {
+        if (!self::tableExists($db, 'season_modifier_events')) {
+            return null;
+        }
+        $row = $db->fetch(
+            "SELECT * FROM season_modifier_events
+             WHERE season_id = ? AND started_tick <= ? AND ends_tick > ?
+             ORDER BY event_id DESC LIMIT 1",
+            [(int)$seasonId, (int)$tick, (int)$tick]
+        );
+        return $row ?: null;
+    }
+
+    /**
+     * The modifier event overlapping a tick window, for the tick engine's
+     * catch-up batches. Fetched once per processSeasonTick and threaded via
+     * the $season array; use sites re-check started/ends against the exact
+     * tick being processed, so a mid-batch start or end stays deterministic.
+     * One-event-at-a-time makes LIMIT 1 sufficient.
+     */
+    public static function modifierEventForWindow($db, $seasonId, $windowStartTick, $windowEndTick) {
+        if (!self::tableExists($db, 'season_modifier_events')) {
+            return null;
+        }
+        $row = $db->fetch(
+            "SELECT * FROM season_modifier_events
+             WHERE season_id = ? AND ends_tick > ? AND started_tick < ?
+             ORDER BY event_id DESC LIMIT 1",
+            [(int)$seasonId, (int)$windowStartTick, (int)$windowEndTick]
+        );
+        return $row ?: null;
+    }
+
+    /** Compact public payload for an event row (never leaks the recipe). */
+    public static function modifierEventPayload($eventRow) {
+        if (!$eventRow) {
+            return null;
+        }
+        return [
+            'kind' => (string)$eventRow['event_kind'],
+            'source_tier' => (int)$eventRow['source_tier'],
+            'started_tick' => (int)$eventRow['started_tick'],
+            'ends_tick' => (int)$eventRow['ends_tick'],
+        ];
     }
 
     // ---------------------------------------------------------------
@@ -584,6 +699,11 @@ class SigilFamilies {
         }
         if ($seasonId && $playerId) {
             $payload['holdings'] = self::holdingsForPlayer($db, $seasonId, $playerId);
+        }
+        if ($seasonId) {
+            $payload['season_event'] = self::modifierEventPayload(
+                self::activeModifierEvent($db, $seasonId, GameTime::now())
+            );
         }
         if ($participation) {
             $payload['affinity_family_id'] = isset($participation['affinity_family_id'])

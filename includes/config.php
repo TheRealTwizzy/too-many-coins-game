@@ -391,10 +391,12 @@ define('SIGIL_UTILITY_VALUE_BY_TIER', [
 // Shared tactical timing unit (15 real minutes).
 define('ABILITY_UNIT_DURATION_TICKS', ticks_from_real_seconds(900));
 
-// Ability tier gates.
+// Ability tier gates. Theft stakes open at T1: success odds scale with the
+// staked value, so a low stake buys proportionally low odds and the floor
+// needs no separate tier gate (a T1/T2 Valefor sigil is otherwise inert).
 define('SIGIL_FREEZE_SPEND_TIERS', [4, 5, 6]);
 define('SIGIL_MELT_SPEND_TIERS', [5, 6]);
-define('SIGIL_THEFT_SPEND_TIERS', [3, 4, 5]);
+define('SIGIL_THEFT_SPEND_TIERS', [1, 2, 3, 4, 5]);
 define('SIGIL_THEFT_TARGET_TIERS', [1, 2, 3, 4, 5, 6]);
 
 // Freeze durations by consumed tier. Tier 6 preserves the original premium freeze.
@@ -496,6 +498,15 @@ define('SIGIL_TIER_ODDS', [
 ]);
 
 // ============================================================
+// Progression gates
+// With the flag off (default) nothing is hidden and game_state publishes
+// unlocks = null (= everything visible), byte-compatible with older clients.
+// Discoveries are still RECORDED while off - see Progression::unlock - so
+// enabling later never hides something a player has already seen.
+// ============================================================
+define('TMC_PROGRESSION_GATES_ENABLED', filter_var(env_first(['TMC_PROGRESSION_GATES_ENABLED'], '0'), FILTER_VALIDATE_BOOLEAN));
+
+// ============================================================
 // Sigil families (P0 config keys — see Sigil Systems Spec §10)
 // The entire family system is flag-gated: with TMC_SIGIL_FAMILIES_ENABLED
 // off (default) every constant below is inert and behavior is identical
@@ -524,9 +535,30 @@ define('SIGIL_AFFINITY_REPICK_PHASE', 'BLACKOUT'); // one free public re-pick
 define('SIGIL_SIGHT_TRICKLE_CHANCE_FP', 333000);
 
 // Ward protection units per tier (x100; 100 = one ABILITY_UNIT_DURATION_TICKS
-// window = one blocked theft attempt). No Ward at tier 1 by design.
+// window = one blocked theft attempt). Tier 1 is deliberately absent from the
+// windowed table: a T1 Michael primes a one-shot deflect instead - it holds
+// until it blocks a single theft attempt (or the season ends) and is consumed
+// by that block. Same non-stacking slot as a windowed ward.
+define('WARD_DEFLECT_TIER', 1);
 define('WARD_UNITS_X100_BY_TIER', [2 => 25, 3 => 100, 4 => 300, 5 => 900, 6 => 1800]);
 define('WARD_MAX_FRACTION_OF_REMAINING_FP', 250000); // <= 25% of remaining season, non-stacking
+
+// Legion critical mass: consuming this many wildcard sigils of ONE tier
+// triggers a random season-wide modifier event. The event is announced loudly
+// (ticker + season-wide notification); the trigger itself is deliberately
+// undocumented - an easter egg reached through the combine surface. Must stay
+// above the transmute output (2) so a single transmute cannot re-arm it, and
+// at or below CAPS_PER_FAMILY_HOLDING so it is actually reachable.
+define('LEGION_CRITICAL_MASS_COUNT', 5);
+define('LEGION_EVENT_KINDS', ['swarm', 'frenzy', 'foresight']);
+// Event window by consumed tier (x100 units of ABILITY_UNIT_DURATION_TICKS):
+// T1 30min, T2 1h, T3 2h, T4 4h, T5 8h, T6 12h.
+define('LEGION_EVENT_UNITS_X100_BY_TIER', [1 => 200, 2 => 400, 3 => 800, 4 => 1600, 5 => 3200, 6 => 4800]);
+// Effect magnitudes. Multipliers scale a threshold compare only - never the
+// deterministic roll inputs - and are clamped to FP_SCALE at the use site.
+define('LEGION_SWARM_DROP_MULTIPLIER_FP', 3000000);      // 3x sigil drop gate chance
+define('LEGION_FRENZY_TIMING_DIVISOR', 2);               // halves hostile cooldowns/protections
+define('LEGION_FORESIGHT_SIGHT_MULTIPLIER_FP', 3000000); // 3x sight trickle chance
 
 // Market: one star-purchase discount, rate-relative and self-scoped.
 // coins_saved = VP(tier) x rate_hours x own gross hourly rate, capped below.

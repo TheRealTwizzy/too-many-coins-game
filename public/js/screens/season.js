@@ -160,16 +160,27 @@ function stars(ctx, season, player) {
 
 function forge(ctx, season, player) {
     const { h, store } = ctx;
+
+    // Progression gate: sigils are invisible until the first one is seen.
+    // No placeholder, no teaser - an undiscovered feature simply is not there.
+    if (!ctx.unlocked('sigils.ui')) return null;
+
     const participation = player.participation || {};
     const tier6Visible = Boolean(player.tier6_visible ?? season.player_tier6_visible);
     const maxTier = tier6Visible ? 6 : 5;
-    const recipes = player.combine_recipes || season.player_combine_recipes || [];
+    const allRecipes = player.combine_recipes || season.player_combine_recipes || [];
     const busy = store.get('ui.forgeBusy');
 
     const counts = [];
     for (let t = 1; t <= maxTier; t++) {
+        // Undiscovered tiers are absent, not zeroed - you cannot see a tier
+        // you have never held or forged.
+        if (!ctx.unlocked(`sigils.tier.${t}`)) continue;
         counts.push({ tier: t, count: num(participation[`sigils_t${t}`]) });
     }
+    // A recipe is visible once its INPUT tier is discovered; its output tier
+    // being unknown is the point - forging is how you discover it.
+    const recipes = allRecipes.filter(r => ctx.unlocked(`sigils.tier.${r.from_tier}`));
     const anyCombinable = recipes.some(r => r.can_combine);
 
     return panel(h, 'Sigils',

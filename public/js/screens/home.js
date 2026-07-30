@@ -64,7 +64,8 @@ function loggedIn(ctx) {
                 h('div', { class: 'stat-row' },
                     stat(h, 'Coins', player.coins),
                     stat(h, 'Seasonal stars', player.seasonal_stars),
-                    stat(h, 'Sigils', player.sigils),
+                    // Hidden until the first sigil is discovered.
+                    ctx.unlocked('sigils.ui') ? stat(h, 'Sigils', player.sigils) : null,
                 ),
                 h('button', {
                     class: 'btn btn-primary',

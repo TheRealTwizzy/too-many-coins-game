@@ -147,8 +147,9 @@ class FamilyActions {
         if (!SigilFamilies::familyEnabled($db, SigilFamilies::WARD_ID)) {
             return ['error' => 'The Ward family is not enabled'];
         }
-        if (!isset(WARD_UNITS_X100_BY_TIER[$tier])) {
-            return ['error' => 'Ward requires a Tier 2+ sigil'];
+        $isDeflect = $tier === (int)WARD_DEFLECT_TIER;
+        if (!$isDeflect && !isset(WARD_UNITS_X100_BY_TIER[$tier])) {
+            return ['error' => 'That tier cannot raise a Ward'];
         }
         if ((int)($ctx['participation']['sigils_t' . $tier] ?? 0) < 1) {
             return ['error' => "Insufficient Tier {$tier} Sigils"];
@@ -158,12 +159,21 @@ class FamilyActions {
         }
 
         $nowTick = GameTime::now();
-        if (SigilFamilies::wardExpiresTick($db, $playerId, $ctx['season_id']) >= $nowTick) {
-            return ['error' => 'A Ward is already active (wards do not stack)'];
+        $activeWard = SigilFamilies::activeWardRow($db, $playerId, $ctx['season_id'], $nowTick);
+        if ($activeWard !== null) {
+            return ['error' => (int)$activeWard['spent_tier'] === (int)WARD_DEFLECT_TIER
+                ? 'A deflect is already primed (wards do not stack)'
+                : 'A Ward is already active (wards do not stack)'];
         }
 
         $remaining = max(0, (int)$ctx['season']['end_time'] - $nowTick);
-        $window = SigilFamilies::wardWindowTicks($tier, $ctx['status'] === 'Blackout', $remaining);
+        if ($isDeflect) {
+            // One-shot: no time window. The row holds until the theft path
+            // consumes it or the season ends; expires_tick is the season end.
+            $window = $remaining;
+        } else {
+            $window = SigilFamilies::wardWindowTicks($tier, $ctx['status'] === 'Blackout', $remaining);
+        }
         if ($window <= 0) {
             return ['error' => 'Not enough season remaining to ward'];
         }
@@ -200,18 +210,167 @@ class FamilyActions {
         Notifications::create(
             $playerId,
             'ward_activated',
-            'Ward Active',
-            sprintf('Ward %s raised: theft protection for ~%d minutes.', self::roman($tier), max(1, intdiv($realSeconds, 60))),
+            $isDeflect ? 'Deflect Primed' : 'Ward Active',
+            $isDeflect
+                ? sprintf('Ward %s primed: the next theft attempt against you breaks on it.', self::roman($tier))
+                : sprintf('Ward %s raised: theft protection for ~%d minutes.', self::roman($tier), max(1, intdiv($realSeconds, 60))),
             ['event_key' => 'ward:' . $ctx['season_id'] . ':' . $nowTick]
         );
 
         return [
             'success' => true,
             'tier' => $tier,
+            'one_shot' => $isDeflect,
             'expires_tick' => $nowTick + $window,
             'window_ticks' => $window,
-            'message' => 'Ward ' . self::roman($tier) . ' raised.',
+            'message' => $isDeflect
+                ? 'Ward ' . self::roman($tier) . ' primed: one theft deflect.'
+                : 'Ward ' . self::roman($tier) . ' raised.',
         ];
+    }
+
+    // ---------------------------------------------------------------
+    // Legion critical mass (hidden trigger; reached via the combine surface)
+    // ---------------------------------------------------------------
+
+    /**
+     * Consume LEGION_CRITICAL_MASS_COUNT wildcard sigils of one tier and
+     * trigger a random season-wide modifier event. Deliberately undocumented
+     * player-side: the API routes here when combine_sigil is called with an
+     * explicit family of 'wild'. The event is announced loudly; the recipe
+     * never is.
+     */
+    public static function legionAwaken($playerId, $tier) {
+        $ctx = self::context($playerId);
+        if (isset($ctx['error'])) {
+            return $ctx;
+        }
+        $db = $ctx['db'];
+        $tier = (int)$tier;
+        if ($tier < 1 || $tier > SIGIL_MAX_TIER) {
+            return ['error' => 'Invalid sigil tier'];
+        }
+
+        $mass = (int)LEGION_CRITICAL_MASS_COUNT;
+        // Wildcards only - holdingCount, not spendableCount, so no family can
+        // substitute INTO Legion. Short holdings get the breadcrumb, not an
+        // explanation: the recipe stays an easter egg.
+        if (SigilFamilies::holdingCount($db, $ctx['season_id'], $playerId, SigilFamilies::WILD_ID, $tier) < $mass) {
+            return ['error' => 'The Legion stirs, but does not wake.'];
+        }
+        if ((int)($ctx['participation']['sigils_t' . $tier] ?? 0) < $mass) {
+            return ['error' => "Insufficient Tier {$tier} Sigils"];
+        }
+
+        $nowTick = GameTime::now();
+        $remaining = max(0, (int)$ctx['season']['end_time'] - $nowTick);
+        $window = min(SigilFamilies::modifierEventDurationTicks($tier), $remaining);
+        if ($window <= 0) {
+            return ['error' => 'Not enough season remaining'];
+        }
+        if (SigilFamilies::activeModifierEvent($db, $ctx['season_id'], $nowTick) !== null) {
+            return ['error' => 'The Legion is already abroad.'];
+        }
+
+        $kinds = LEGION_EVENT_KINDS;
+        $kind = $kinds[random_int(0, count($kinds) - 1)];
+
+        $db->beginTransaction();
+        try {
+            $sigilCol = 'sigils_t' . $tier;
+            $spentPositional = $db->query(
+                "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - ?
+                 WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= ?",
+                [$mass, (int)$playerId, $ctx['season_id'], $mass]
+            )->rowCount();
+            if ($spentPositional !== 1) {
+                $db->rollback();
+                return ['error' => "Insufficient Tier {$tier} Sigils"];
+            }
+            // With WILD_ID as the named family, spendSpecific's substitution
+            // list collapses to Legion alone - this is the mirror decrement.
+            $spentWild = SigilFamilies::spendSpecific($db, $ctx['season_id'], $playerId, SigilFamilies::WILD_ID, $tier, $mass);
+            if ($spentWild !== $mass) {
+                $db->rollback();
+                return ['error' => 'The Legion stirs, but does not wake.'];
+            }
+            // One event at a time, enforced at insert so two awakenings racing
+            // cannot both land.
+            $inserted = $db->query(
+                "INSERT INTO season_modifier_events
+                 (season_id, source_player_id, event_kind, source_tier, started_tick, ends_tick)
+                 SELECT ?, ?, ?, ?, ?, ?
+                 FROM DUAL
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM season_modifier_events WHERE season_id = ? AND ends_tick > ?
+                 )",
+                [$ctx['season_id'], (int)$playerId, $kind, $tier, $nowTick, $nowTick + $window,
+                 $ctx['season_id'], $nowTick]
+            )->rowCount();
+            if ($inserted !== 1) {
+                $db->rollback();
+                return ['error' => 'The Legion is already abroad.'];
+            }
+            self::touchActivity($db, $playerId, $nowTick);
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollback();
+            return ['error' => 'The Legion did not answer.'];
+        }
+
+        $minutes = max(1, intdiv((int)($window * TICK_REAL_SECONDS), 60));
+        $flavor = self::legionEventFlavor($kind, $minutes);
+        // Loud on purpose: the whole season hears the act. The recipe that
+        // caused it is never stated anywhere.
+        SigilFamilies::emitEvent(
+            $db, $ctx['season_id'], (int)$playerId, 'legion_awaken',
+            sprintf('The Legion answers %s: %s', (string)$ctx['player']['handle'], $flavor['ticker']),
+            $nowTick
+        );
+        Notifications::createForSeason(
+            $ctx['season_id'],
+            'legion_event',
+            'The Legion Awakens',
+            $flavor['body'],
+            [
+                'severity' => 'warning',
+                'event_key' => 'legion:' . $ctx['season_id'] . ':' . $nowTick,
+                'payload' => ['kind' => $kind, 'ends_tick' => $nowTick + $window],
+            ]
+        );
+
+        return [
+            'success' => true,
+            'event_kind' => $kind,
+            'source_tier' => $tier,
+            'started_tick' => $nowTick,
+            'ends_tick' => $nowTick + $window,
+            'message' => 'The Legion awakens: ' . $flavor['body'],
+        ];
+    }
+
+    private static function legionEventFlavor($kind, $minutes) {
+        $duration = $minutes >= 120
+            ? sprintf('~%d hours', intdiv($minutes, 60))
+            : sprintf('~%d minutes', $minutes);
+        switch ($kind) {
+            case 'swarm':
+                return [
+                    'ticker' => 'sigils swarm the season for ' . $duration,
+                    'body' => 'Sigils swarm the season: drop chances surge for everyone for ' . $duration . '.',
+                ];
+            case 'frenzy':
+                return [
+                    'ticker' => 'a frenzy grips the season for ' . $duration,
+                    'body' => 'A frenzy grips the season: hostile cooldowns and protections are halved for ' . $duration . '.',
+                ];
+            case 'foresight':
+            default:
+                return [
+                    'ticker' => 'foresight spreads through the season for ' . $duration,
+                    'body' => 'Foresight spreads: Sight finds players far more often for ' . $duration . '.',
+                ];
+        }
     }
 
     // ---------------------------------------------------------------
@@ -576,9 +735,11 @@ class FamilyActions {
         if (SigilFamilies::active($db) && $seasonId > 0) {
             $nowTick = GameTime::now();
             $wardExpires = SigilFamilies::wardExpiresTick($db, (int)$playerId, $seasonId);
+            $wardRow = SigilFamilies::activeWardRow($db, (int)$playerId, $seasonId, $nowTick);
             $payload['ward'] = [
-                'active' => $wardExpires >= $nowTick,
+                'active' => $wardRow !== null,
                 'expires_tick' => $wardExpires,
+                'one_shot' => $wardRow !== null && (int)$wardRow['spent_tier'] === (int)WARD_DEFLECT_TIER,
             ];
             $payload['market'] = [
                 'pending_vp' => (int)($participation['market_pending_vp'] ?? 0),

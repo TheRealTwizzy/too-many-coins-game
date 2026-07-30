@@ -108,6 +108,68 @@ class Notifications {
         return $count;
     }
 
+    /**
+     * Broadcast to every active participant of one season. Same chunked
+     * multi-insert shape as createForAll; the shared event_key is safe because
+     * the dedupe key is (player_id, event_key).
+     */
+    public static function createForSeason($seasonId, $category, $title, $body = null, $options = []) {
+        $db = Database::getInstance();
+        $players = $db->fetchAll(
+            "SELECT p.player_id
+             FROM players p
+             JOIN season_participation sp ON sp.player_id = p.player_id AND sp.season_id = ?
+             WHERE p.joined_season_id = ? AND p.participation_enabled = 1 AND p.profile_deleted_at IS NULL
+             ORDER BY p.player_id ASC",
+            [(int)$seasonId, (int)$seasonId]
+        );
+        if (empty($players)) {
+            return 0;
+        }
+
+        $isRead = !empty($options['is_read']) ? 1 : 0;
+        $readAt = $isRead ? date('Y-m-d H:i:s') : null;
+        $eventKey = isset($options['event_key']) ? (string)$options['event_key'] : null;
+        $payload = array_key_exists('payload', $options) ? json_encode($options['payload']) : null;
+        $severity = isset($options['severity']) ? (string)$options['severity'] : 'info';
+        if (!in_array($severity, ['info', 'success', 'warning', 'danger'], true)) {
+            $severity = 'info';
+        }
+        $actionUrl = isset($options['action_url']) ? (string)$options['action_url'] : null;
+
+        $chunkSize = 500;
+        $count = 0;
+        foreach (array_chunk($players, $chunkSize) as $chunk) {
+            $valuesSql = [];
+            $params = [];
+            foreach ($chunk as $player) {
+                $valuesSql[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                array_push(
+                    $params,
+                    (int)$player['player_id'],
+                    (string)$category,
+                    $severity,
+                    (string)$title,
+                    $body !== null ? (string)$body : null,
+                    $eventKey,
+                    $payload,
+                    $actionUrl,
+                    $isRead,
+                    $readAt
+                );
+            }
+            $db->query(
+                "INSERT INTO player_notifications
+                 (player_id, category, severity, title, body, event_key, payload_json, action_url, is_read, read_at)
+                 VALUES " . implode(', ', $valuesSql) . "
+                 ON DUPLICATE KEY UPDATE notification_id = notification_id",
+                $params
+            );
+            $count += count($chunk);
+        }
+        return $count;
+    }
+
     public static function listForPlayer($playerId, $limit = 50) {
         $db = Database::getInstance();
         $safeLimit = max(1, min(100, (int)$limit));

@@ -21,6 +21,7 @@ require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/runtime_readiness.php';
 require_once __DIR__ . '/sigil_families.php';
+require_once __DIR__ . '/progression.php';
 
 class TickEngine {
 
@@ -186,6 +187,15 @@ class TickEngine {
         }
         $processedThroughTick = $startTime + $lastSeasonTick + $ticksToProcess;
         $summary['advanced_ticks'] = $ticksToProcess;
+
+        // Legion modifier event overlapping this batch, fetched ONCE and
+        // threaded via the $season array (already passed down to the drop
+        // path). Use sites re-check started/ends against the exact tick being
+        // processed, so a mid-batch start or end stays deterministic. No
+        // static cache: the next batch must see a newly triggered event.
+        $season['_modifier_event'] = SigilFamilies::modifierEventForWindow(
+            $db, $seasonId, $startTime + $lastSeasonTick, $processedThroughTick
+        );
         
         // Check if this is the expiration tick
         $isExpiration = ($gameTime >= $endTime && !$season['expiration_finalized']);
@@ -502,6 +512,12 @@ class TickEngine {
              WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
+
+        // Discovery: the first drop reveals the sigil UI; every drop reveals
+        // its tier. Recorded even while progression gating is off, so
+        // enabling the flag later hides nothing a player has already seen.
+        Progression::unlock($db, $playerId, 'sigils.ui', $dropTick);
+        Progression::unlock($db, $playerId, 'sigils.tier.' . (int)$tier, $dropTick);
 
         // Log the drop
         $db->query(
