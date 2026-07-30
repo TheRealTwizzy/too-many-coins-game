@@ -268,6 +268,59 @@ check('a forged token cannot raise the caller above the anonymous tier', (functi
     return $refused > 0;
 })(), 'a rotating forged token was never rate limited');
 
+// ---------------------------------------------------------------------------
+// Audit snapshots never carry credentials
+// ---------------------------------------------------------------------------
+//
+// Several callers hand Audit::record a whole `SELECT * FROM players` row as
+// the before-state, so the row arrives carrying the target's password hash and
+// their live session token - and staff_user_get served those rows back, which
+// let any Moderator lift a working token for anyone they had edited.
+//
+// Exercised through reflection rather than over HTTP because reproducing it
+// live needs an Admin account, and the property worth locking down is the
+// redaction itself: it must strip secrets at any depth and leave everything
+// else untouched.
+require_once __DIR__ . '/../includes/audit.php';
+
+check('audit redaction strips credentials at any depth', (function () {
+    $method = new ReflectionMethod('Audit', 'redact');
+    $method->setAccessible(true);
+    $dirty = [
+        'player_id' => 7,
+        'handle' => 'victim',
+        'password_hash' => '$2y$10$abcdefghijklmnopqrstuv',
+        'session_token' => str_repeat('d', 64),
+        'nested' => ['session_token' => str_repeat('e', 64), 'bio' => 'keep me'],
+    ];
+    $clean = $method->invoke(null, $dirty);
+    $blob = json_encode($clean);
+    return strpos($blob, '$2y$') === false
+        && strpos($blob, str_repeat('d', 64)) === false
+        && strpos($blob, str_repeat('e', 64)) === false;
+})());
+
+check('audit redaction preserves non-secret fields', (function () {
+    $method = new ReflectionMethod('Audit', 'redact');
+    $method->setAccessible(true);
+    $clean = $method->invoke(null, [
+        'player_id' => 7,
+        'handle' => 'victim',
+        'nested' => ['bio' => 'keep me', 'role' => 'Player'],
+    ]);
+    return $clean['player_id'] === 7
+        && $clean['handle'] === 'victim'
+        && $clean['nested']['bio'] === 'keep me'
+        && $clean['nested']['role'] === 'Player';
+})());
+
+check('audit redaction marks the field rather than dropping it', (function () {
+    $method = new ReflectionMethod('Audit', 'redact');
+    $method->setAccessible(true);
+    $clean = $method->invoke(null, ['password_hash' => 'secret']);
+    return array_key_exists('password_hash', $clean) && $clean['password_hash'] === '[redacted]';
+})());
+
 echo "\n" . str_repeat('-', 62) . "\n";
 echo "{$pass} passed, {$fail} failed\n";
 echo $fail === 0
