@@ -795,9 +795,10 @@ class Actions {
         //
         // Punching up is now the point. The odds fall away steeply with the gap
         // (see calculateTheftSuccessChanceFp), the target must actually hold
-        // what is being asked for, and stakes are gated to T3-T5 - so this is a
-        // priced gamble against someone ahead of you, not a way to farm players
-        // below you, which stays negative on every measure.
+        // what is being asked for, and punching down stays negative on every
+        // measure - so this is a priced gamble against someone ahead of you,
+        // not a way to farm players below you. Stakes open at T1: a stake's
+        // odds scale with its value, so the floor needs no separate tier gate.
 
         $nowTick = GameTime::now();
         $seasonTick = GameTime::seasonTick((int)$season['start_time'], $nowTick);
@@ -841,27 +842,43 @@ class Actions {
                 return ['error' => 'Your theft cooldown is active'];
             }
 
+            // Protection is checked before the ward so a live protection window
+            // never burns the target's one-shot deflect on an attempt it would
+            // have blocked anyway.
             $currentProtection = self::getTheftProtectionExpiresTick($db, (int)$target['player_id'], $seasonId);
-            $wardExpires = SigilFamilies::wardExpiresTick($db, (int)$target['player_id'], $seasonId);
-            if ($currentProtection >= $nowTick || $wardExpires >= $nowTick) {
+            if ($currentProtection >= $nowTick) {
                 $db->rollback();
-                if ($wardExpires >= $nowTick && $wardExpires > $currentProtection) {
-                    // Ward reports what it blocked (drama budget: the act, not the value).
-                    $db->query(
-                        "UPDATE active_wards SET blocked_count = blocked_count + 1
-                         WHERE player_id = ? AND season_id = ? AND expires_tick >= ?",
-                        [(int)$target['player_id'], $seasonId, $nowTick]
-                    );
-                    Notifications::create(
-                        (int)$target['player_id'],
-                        'ward_blocked',
-                        'Ward Held',
-                        $player['handle'] . "'s theft attempt broke against your Ward.",
-                        ['event_key' => 'ward_block:' . $seasonId . ':' . (int)$target['player_id'] . ':' . $nowTick]
-                    );
-                    return ['error' => 'Target is warded'];
-                }
                 return ['error' => 'Target theft protection is active'];
+            }
+            $wardRow = SigilFamilies::activeWardRow($db, (int)$target['player_id'], $seasonId, $nowTick);
+            if ($wardRow !== null) {
+                $db->rollback();
+                $wardIsDeflect = (int)$wardRow['spent_tier'] === (int)WARD_DEFLECT_TIER;
+                // Ward reports what it blocked (drama budget: the act, not the
+                // value). A deflect blocks exactly one attempt: consuming it
+                // means expiring the row on the tick it fired.
+                if ($wardIsDeflect) {
+                    $db->query(
+                        "UPDATE active_wards SET blocked_count = blocked_count + 1, expires_tick = ?
+                         WHERE ward_id = ?",
+                        [$nowTick - 1, (int)$wardRow['ward_id']]
+                    );
+                } else {
+                    $db->query(
+                        "UPDATE active_wards SET blocked_count = blocked_count + 1 WHERE ward_id = ?",
+                        [(int)$wardRow['ward_id']]
+                    );
+                }
+                Notifications::create(
+                    (int)$target['player_id'],
+                    'ward_blocked',
+                    $wardIsDeflect ? 'Deflect Spent' : 'Ward Held',
+                    $wardIsDeflect
+                        ? $player['handle'] . "'s theft attempt broke on your deflect - it is now spent."
+                        : $player['handle'] . "'s theft attempt broke against your Ward.",
+                    ['event_key' => 'ward_block:' . $seasonId . ':' . (int)$target['player_id'] . ':' . $nowTick]
+                );
+                return ['error' => 'Target is warded'];
             }
 
             foreach (SIGIL_THEFT_SPEND_TIERS as $tier) {

@@ -472,6 +472,44 @@ class SigilFamilies {
     }
 
     /**
+     * Latest expiry among windowed wards only. The one-shot deflect is
+     * deliberately excluded: it is a hidden trap, and folding it into the
+     * advertised protection window would turn it into season-long visible
+     * immunity - nobody attempts against a target the UI marks protected, so
+     * the deflect would never be consumed. Sight's ward_status reveal is the
+     * intended way to learn about it.
+     */
+    public static function windowedWardExpiresTick($db, $playerId, $seasonId) {
+        if (!self::tableExists($db, 'active_wards')) {
+            return 0;
+        }
+        $row = $db->fetch(
+            "SELECT MAX(expires_tick) AS expires_tick FROM active_wards
+             WHERE player_id = ? AND season_id = ? AND spent_tier <> ?",
+            [(int)$playerId, (int)$seasonId, (int)WARD_DEFLECT_TIER]
+        );
+        return max(0, (int)($row['expires_tick'] ?? 0));
+    }
+
+    /**
+     * The currently active ward row, or null. Non-stacking is enforced at
+     * activation, so at most one row can be live; callers use spent_tier to
+     * distinguish a windowed ward from the one-shot T1 deflect.
+     */
+    public static function activeWardRow($db, $playerId, $seasonId, $nowTick) {
+        if (!self::tableExists($db, 'active_wards')) {
+            return null;
+        }
+        $row = $db->fetch(
+            "SELECT * FROM active_wards
+             WHERE player_id = ? AND season_id = ? AND expires_tick >= ?
+             ORDER BY expires_tick DESC LIMIT 1",
+            [(int)$playerId, (int)$seasonId, (int)$nowTick]
+        );
+        return $row ?: null;
+    }
+
+    /**
      * Time family: derived extension, never authored.
      * added_seconds = VP(tier) x 0.1h / (active_modifier_pct / 100)
      * On a +25% boost, tier 1 adds ~24 minutes and tier 4 adds ~24 hours.

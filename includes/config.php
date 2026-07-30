@@ -391,10 +391,12 @@ define('SIGIL_UTILITY_VALUE_BY_TIER', [
 // Shared tactical timing unit (15 real minutes).
 define('ABILITY_UNIT_DURATION_TICKS', ticks_from_real_seconds(900));
 
-// Ability tier gates.
+// Ability tier gates. Theft stakes open at T1: success odds scale with the
+// staked value, so a low stake buys proportionally low odds and the floor
+// needs no separate tier gate (a T1/T2 Valefor sigil is otherwise inert).
 define('SIGIL_FREEZE_SPEND_TIERS', [4, 5, 6]);
 define('SIGIL_MELT_SPEND_TIERS', [5, 6]);
-define('SIGIL_THEFT_SPEND_TIERS', [3, 4, 5]);
+define('SIGIL_THEFT_SPEND_TIERS', [1, 2, 3, 4, 5]);
 define('SIGIL_THEFT_TARGET_TIERS', [1, 2, 3, 4, 5, 6]);
 
 // Freeze durations by consumed tier. Tier 6 preserves the original premium freeze.
@@ -524,7 +526,11 @@ define('SIGIL_AFFINITY_REPICK_PHASE', 'BLACKOUT'); // one free public re-pick
 define('SIGIL_SIGHT_TRICKLE_CHANCE_FP', 333000);
 
 // Ward protection units per tier (x100; 100 = one ABILITY_UNIT_DURATION_TICKS
-// window = one blocked theft attempt). No Ward at tier 1 by design.
+// window = one blocked theft attempt). Tier 1 is deliberately absent from the
+// windowed table: a T1 Michael primes a one-shot deflect instead - it holds
+// until it blocks a single theft attempt (or the season ends) and is consumed
+// by that block. Same non-stacking slot as a windowed ward.
+define('WARD_DEFLECT_TIER', 1);
 define('WARD_UNITS_X100_BY_TIER', [2 => 25, 3 => 100, 4 => 300, 5 => 900, 6 => 1800]);
 define('WARD_MAX_FRACTION_OF_REMAINING_FP', 250000); // <= 25% of remaining season, non-stacking
 

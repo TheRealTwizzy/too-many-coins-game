@@ -468,7 +468,9 @@ Use it when the target holds something specific and valuable, or when the disrup
             title: "Raising a Ward",
             content: `A **Ward** blocks incoming hostile actions for a duration. It is the direct counter to both [[freeze]] and [[theft]], and it is checked before either resolves.
 
-A ward's duration is capped as a fraction of the season's remaining time, so you cannot raise one early and coast to the end untouchable.`
+A ward's duration is capped as a fraction of the season's remaining time, so you cannot raise one early and coast to the end untouchable.
+
+A **Tier 1** Michael sigil works differently: instead of a timed window it primes a one-shot **deflect**, which holds until it blocks a single theft attempt (or the season ends) and is consumed by that block. A deflect occupies the same non-stacking slot as a timed ward - you cannot hold both at once.`
           },
           {
             id: "blocking-is-not-defence",
@@ -775,12 +777,13 @@ Reference Star values by tier: **50 / 250 / 1,000 / 3,000 / 9,000 / 12,000**.
 | Freeze - base duration | 30 minutes |
 | Freeze - cooldown | 15 minutes |
 | Freeze - target protection | 15 minutes |
-| Theft - spendable tiers | T3, T4, T5 |
+| Theft - spendable tiers | T1 to T5 |
 | Theft - targetable tiers | T1 to T6 |
 | Theft - success cap | 60% |
 | Theft - cooldown | 15 minutes |
 | Theft - target protection | 15 minutes |
-| Ward - max duration | 25% of season remaining |
+| Ward - max duration (T2+) | 25% of season remaining |
+| Ward - T1 deflect | one-shot; holds until it blocks a theft |
 | Self-melt - spendable tiers | T5, T6 |
 
 Cooldown and protection windows are shortened during the Blackout. See [[blackout]].`

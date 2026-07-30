@@ -147,8 +147,9 @@ class FamilyActions {
         if (!SigilFamilies::familyEnabled($db, SigilFamilies::WARD_ID)) {
             return ['error' => 'The Ward family is not enabled'];
         }
-        if (!isset(WARD_UNITS_X100_BY_TIER[$tier])) {
-            return ['error' => 'Ward requires a Tier 2+ sigil'];
+        $isDeflect = $tier === (int)WARD_DEFLECT_TIER;
+        if (!$isDeflect && !isset(WARD_UNITS_X100_BY_TIER[$tier])) {
+            return ['error' => 'That tier cannot raise a Ward'];
         }
         if ((int)($ctx['participation']['sigils_t' . $tier] ?? 0) < 1) {
             return ['error' => "Insufficient Tier {$tier} Sigils"];
@@ -158,12 +159,21 @@ class FamilyActions {
         }
 
         $nowTick = GameTime::now();
-        if (SigilFamilies::wardExpiresTick($db, $playerId, $ctx['season_id']) >= $nowTick) {
-            return ['error' => 'A Ward is already active (wards do not stack)'];
+        $activeWard = SigilFamilies::activeWardRow($db, $playerId, $ctx['season_id'], $nowTick);
+        if ($activeWard !== null) {
+            return ['error' => (int)$activeWard['spent_tier'] === (int)WARD_DEFLECT_TIER
+                ? 'A deflect is already primed (wards do not stack)'
+                : 'A Ward is already active (wards do not stack)'];
         }
 
         $remaining = max(0, (int)$ctx['season']['end_time'] - $nowTick);
-        $window = SigilFamilies::wardWindowTicks($tier, $ctx['status'] === 'Blackout', $remaining);
+        if ($isDeflect) {
+            // One-shot: no time window. The row holds until the theft path
+            // consumes it or the season ends; expires_tick is the season end.
+            $window = $remaining;
+        } else {
+            $window = SigilFamilies::wardWindowTicks($tier, $ctx['status'] === 'Blackout', $remaining);
+        }
         if ($window <= 0) {
             return ['error' => 'Not enough season remaining to ward'];
         }
@@ -200,17 +210,22 @@ class FamilyActions {
         Notifications::create(
             $playerId,
             'ward_activated',
-            'Ward Active',
-            sprintf('Ward %s raised: theft protection for ~%d minutes.', self::roman($tier), max(1, intdiv($realSeconds, 60))),
+            $isDeflect ? 'Deflect Primed' : 'Ward Active',
+            $isDeflect
+                ? sprintf('Ward %s primed: the next theft attempt against you breaks on it.', self::roman($tier))
+                : sprintf('Ward %s raised: theft protection for ~%d minutes.', self::roman($tier), max(1, intdiv($realSeconds, 60))),
             ['event_key' => 'ward:' . $ctx['season_id'] . ':' . $nowTick]
         );
 
         return [
             'success' => true,
             'tier' => $tier,
+            'one_shot' => $isDeflect,
             'expires_tick' => $nowTick + $window,
             'window_ticks' => $window,
-            'message' => 'Ward ' . self::roman($tier) . ' raised.',
+            'message' => $isDeflect
+                ? 'Ward ' . self::roman($tier) . ' primed: one theft deflect.'
+                : 'Ward ' . self::roman($tier) . ' raised.',
         ];
     }
 
@@ -576,9 +591,11 @@ class FamilyActions {
         if (SigilFamilies::active($db) && $seasonId > 0) {
             $nowTick = GameTime::now();
             $wardExpires = SigilFamilies::wardExpiresTick($db, (int)$playerId, $seasonId);
+            $wardRow = SigilFamilies::activeWardRow($db, (int)$playerId, $seasonId, $nowTick);
             $payload['ward'] = [
-                'active' => $wardExpires >= $nowTick,
+                'active' => $wardRow !== null,
                 'expires_tick' => $wardExpires,
+                'one_shot' => $wardRow !== null && (int)$wardRow['spent_tier'] === (int)WARD_DEFLECT_TIER,
             ];
             $payload['market'] = [
                 'pending_vp' => (int)($participation['market_pending_vp'] ?? 0),

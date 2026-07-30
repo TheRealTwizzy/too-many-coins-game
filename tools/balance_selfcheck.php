@@ -134,6 +134,32 @@ foreach (SIGIL_THEFT_SPEND_TIERS as $st) {
     check('the success cap binds on at least one play', $capHit);
 }
 
+/* ---------------- the low-tier floor ---------------- */
+
+// A T1/T2 Valefor sigil must be stakeable on its family verb. The old T3
+// gate made low-tier Larceny inert; the success formula already prices a
+// small stake at proportionally small odds, so no gate is needed.
+check('theft stakes open at the floor (T1 and T2 spendable)',
+    in_array(1, SIGIL_THEFT_SPEND_TIERS, true) && in_array(2, SIGIL_THEFT_SPEND_TIERS, true),
+    SIGIL_THEFT_SPEND_TIERS);
+
+// The deflect tier and the windowed ward table are mutually exclusive
+// branches in activateWard; a tier in both would make behaviour depend on
+// branch order.
+check('ward deflect tier is not also a windowed ward tier',
+    !isset(WARD_UNITS_X100_BY_TIER[WARD_DEFLECT_TIER]),
+    ['deflect_tier' => WARD_DEFLECT_TIER]);
+
+// Every tier does something as a Michael sigil: T1 deflects, the rest are
+// windowed. A tier in neither set is inert - which is how this started.
+{
+    $inert = [];
+    for ($t = 1; $t <= 6; $t++) {
+        if ($t !== (int)WARD_DEFLECT_TIER && !isset(WARD_UNITS_X100_BY_TIER[$t])) $inert[] = $t;
+    }
+    check('no ward tier is inert (deflect or windowed)', $inert === [], $inert);
+}
+
 /* ---------------- hoard vs spend ---------------- */
 
 // Every tier a verb can actually spend must be worth more spent than settled.

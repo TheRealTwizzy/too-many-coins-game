@@ -1454,8 +1454,10 @@ function getTheftStatusForPlayer($playerId, $seasonId, $participation = null) {
 
     $cooldownTick = max(0, (int)($row['cooldown_expires_tick'] ?? 0));
     $protectionTick = max(0, (int)($row['protection_expires_tick'] ?? 0));
-    // An active Ward extends effective protection (families).
-    $protectionTick = max($protectionTick, SigilFamilies::wardExpiresTick($db, (int)$playerId, (int)$seasonId));
+    // An active windowed Ward extends effective protection (families). The
+    // one-shot deflect is excluded on purpose - it blocks silently at attempt
+    // time and must not be advertised here (see windowedWardExpiresTick).
+    $protectionTick = max($protectionTick, SigilFamilies::windowedWardExpiresTick($db, (int)$playerId, (int)$seasonId));
     $cooldownActive = $cooldownTick >= $gameTime;
     $protectionActive = $protectionTick >= $gameTime;
     $cooldownExpiresAtReal = $cooldownActive ? GameTime::tickStartRealUnix($cooldownTick + 1) : null;
