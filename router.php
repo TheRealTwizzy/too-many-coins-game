@@ -110,6 +110,7 @@ if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
         $path === '/js/app.js'
         || $path === '/css/style.css'
         || $path === '/js/main.js'
+        || $path === '/js/patch-notes.js'
         || $path === '/css/tokens.css'
         || $path === '/css/next.css'
         || $path === '/css/assets.css'

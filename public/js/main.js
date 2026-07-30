@@ -17,6 +17,7 @@ import { createAssets } from './core/assets.js';
 import { h, render } from './core/render.js';
 import { getScreen, RAIL_PARENT } from './screens/index.js';
 import { HANDLE_RE, PASSWORD_MIN } from './screens/auth.js';
+import { constructionShell } from './screens/construction.js';
 
 const POLL_MS = 3000;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
@@ -31,6 +32,9 @@ const store = createStore({
     timing: null,
     screen: 'home',
     connection: 'connecting', // connecting | live | retrying
+    // Trusted only after the first poll; defaulting to NORMAL avoids flashing
+    // the construction page at every boot.
+    serverMode: 'NORMAL',
 });
 
 const clock = createClock();
@@ -799,6 +803,18 @@ function userArea() {
 
 function shell() {
     const screen = store.get('screen');
+
+    // Maintenance gate. shell() is the only producer of the tree, so the
+    // short-circuit hides rail, HUD and deck at once. The screen id in the
+    // store is deliberately untouched — when the gate lifts, the player is
+    // still where they were. The auth escape lets staff reach sign-in; once
+    // signed in as staff the gate no longer applies to them.
+    const player = store.get('player');
+    const isStaff = Boolean(player && (player.role === 'Admin' || player.role === 'Moderator'));
+    if (store.get('serverMode') === 'MAINTENANCE_LOCKDOWN' && !isStaff && screen !== 'auth') {
+        return constructionShell(h, { onStaffSignIn: () => store.set('screen', 'auth') });
+    }
+
     return h('div', { id: 'shell' },
         rail(screen),
         h('div', { id: 'stage' },
@@ -959,6 +975,7 @@ async function poll() {
         seasons: gs.seasons || [],
         timing: gs.timing || null,
         connection: 'live',
+        serverMode: gs.server_mode || 'NORMAL',
     });
 
     if (gs.timing) {

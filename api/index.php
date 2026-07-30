@@ -310,6 +310,37 @@ if (TMC_TICK_ON_REQUEST) {
     }
 }
 
+// Maintenance lockdown gate. Sits AFTER the tick paths - the game world keeps
+// running under maintenance, only play is blocked - and BEFORE the switch so
+// it covers every action without touching the cases. Staff pass through
+// (non-exiting isStaff check); everyone else gets read-only + auth actions so
+// the construction page can render and staff can sign in to bypass. The
+// break-glass toggle is plain SQL: UPDATE server_state SET server_mode =
+// 'MAINTENANCE_LOCKDOWN'|'NORMAL' WHERE id = 1 (or the staff_server_mode
+// action below).
+$serverMode = (string)($serverState['server_mode'] ?? 'NORMAL');
+if ($serverMode === 'MAINTENANCE_LOCKDOWN') {
+    $maintenanceAllowed = [
+        'login', 'logout', 'register',
+        'game_state', 'season_detail', 'leaderboard', 'global_leaderboard',
+        'boost_catalog', 'cosmetic_catalog', 'profile',
+        'rate_limit_diagnostics', 'runtime_readiness',
+        'staff_server_mode',
+    ];
+    if (!in_array($action, $maintenanceAllowed, true)) {
+        $gatePlayer = Auth::getCurrentPlayer();
+        if (!$gatePlayer || !Permissions::isStaff($gatePlayer)) {
+            http_response_code(503);
+            echo json_encode([
+                'error' => 'The game is under maintenance.',
+                'reason_code' => 'maintenance_lockdown',
+                'server_mode' => 'MAINTENANCE_LOCKDOWN',
+            ]);
+            exit;
+        }
+    }
+}
+
 /**
  * Convert a MySQL DATETIME string ("YYYY-MM-DD HH:MM:SS") to an ISO 8601
  * UTC string ("YYYY-MM-DDTHH:MM:SS+00:00") for unambiguous JS Date parsing.
@@ -776,6 +807,26 @@ try {
             echo json_encode(ModerationService::updateUser($actor, (int)($input['target_player_id'] ?? 0), $input));
             break;
 
+        case 'staff_server_mode':
+            // Admin-gated maintenance toggle. Only the two modes the gate
+            // understands are accepted; the other server_mode ENUM values are
+            // reserved and rejected until something reads them.
+            $actor = Permissions::requireAdmin();
+            $requestedMode = strtoupper(trim((string)($input['mode'] ?? '')));
+            if (!in_array($requestedMode, ['NORMAL', 'MAINTENANCE_LOCKDOWN'], true)) {
+                echo json_encode(['error' => 'mode must be NORMAL or MAINTENANCE_LOCKDOWN']);
+                break;
+            }
+            $db->query("UPDATE server_state SET server_mode = ? WHERE id = 1", [$requestedMode]);
+            Audit::record(
+                (int)$actor['player_id'], null, 'staff_server_mode',
+                trim((string)($input['reason'] ?? 'Server mode change')),
+                ['server_mode' => (string)($serverState['server_mode'] ?? 'NORMAL')],
+                ['server_mode' => $requestedMode]
+            );
+            echo json_encode(['success' => true, 'server_mode' => $requestedMode]);
+            break;
+
         case 'admin_role_update':
             $actor = Permissions::requireAdmin();
             echo json_encode(AdminService::updateRole(
@@ -1195,9 +1246,13 @@ function getGameState($player) {
     //                    not, and phone clocks drift.
     $tickHeartbeat = $db->fetch(
         "SELECT UNIX_TIMESTAMP(last_tick_processed_at) AS last_tick_epoch,
-                TIMESTAMPDIFF(SECOND, last_tick_processed_at, NOW()) AS tick_age_seconds
+                TIMESTAMPDIFF(SECOND, last_tick_processed_at, NOW()) AS tick_age_seconds,
+                server_mode
          FROM server_state WHERE id = 1"
     );
+    // Publish the REAL mode (this was a hardcoded 'NORMAL' literal for as
+    // long as the column existed) so clients can render the maintenance gate.
+    $state['server_mode'] = (string)($tickHeartbeat['server_mode'] ?? 'NORMAL');
     $lastTickEpoch = $tickHeartbeat['last_tick_epoch'] ?? null;
     $state['timing']['last_tick_at'] = $lastTickEpoch !== null ? (int)$lastTickEpoch * 1000 : null;
     $state['timing']['tick_age_seconds'] = $tickHeartbeat['tick_age_seconds'] !== null
