@@ -1303,6 +1303,15 @@ async function checkShellSource() {
         src.includes('reason_code'));
     ok('the HUD reads season figures from player.participation',
         src.includes('player.participation') && !/player\.ubi_rate/.test(src));
+    // All five moment sprites must actually fire. Authoring the art and then
+    // never playing it is the same as not having it.
+    for (const moment of ['payout-burst', 'sigil-drop', 'theft-strike', 'freeze-lock', 'lockin-seal']) {
+        ok(`the ${moment} moment is played somewhere`, src.includes(`'${moment}'`));
+    }
+    // A drop is an increase; spending sigils must not fire the reward beat.
+    ok('the sigil-drop moment only plays on an increase',
+        /sigils_total[\s\S]{0,400}to > \(Number\(prev\)/.test(src));
+
     // A rate that rounds to "0.0" tells an earning player they earn nothing.
     ok('small rates keep enough precision to not read as zero',
         /toFixed\(3\)/.test(src) && /n === 0/.test(src));

@@ -285,6 +285,18 @@ body {
 .chip-constraint.is-idle { border-color: var(--coin); color: var(--ink); }
 .chip-constraint.is-disconnected { border-color: var(--down); color: var(--down); }
 
+/* ---------- moments ---------- */
+
+/* Viewport-pinned for the same reason as the idle gate: .sprite-host is
+   absolute, which on a page taller than the screen would play the moment
+   somewhere down the document where nobody is looking. Never interactive,
+   and above the deck but below the rail. */
+#moment-host {
+    position: fixed;
+    z-index: var(--z-focus);
+    pointer-events: none;
+}
+
 /* ---------- idle gate ---------- */
 
 /* Pinned to the VIEWPORT, not the document.

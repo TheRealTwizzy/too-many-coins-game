@@ -498,6 +498,8 @@ const ctx = {
         store.set('ui.lockingIn', false);
         if (res && res.error) return actionFailed(res);
 
+        // The one irreversible act in the game gets the longest moment.
+        playMoment('lockin-seal');
         toast(res && res.message ? res.message : 'Locked in.', 'info');
         await poll();
         store.set('screen', 'home');
@@ -857,6 +859,9 @@ const ctx = {
 
         ctx.closeDialog(null);
         store.set('ui.theft', null);
+        // The strike plays on both outcomes: the attempt happened either way,
+        // and the toast carries which way it went.
+        playMoment('theft-strike');
         toast(res.message || (res.theft_success ? 'Theft succeeded.' : 'Theft failed.'),
             res.theft_success ? 'success' : 'info');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
@@ -1184,6 +1189,20 @@ function tickIndicator() {
 function connectionNote(state) {
     if (state !== 'retrying') return null;
     return h('div', { class: 'conn-note', role: 'status' }, 'Reconnecting…');
+}
+
+/**
+ * Play a one-shot moment over the stage.
+ *
+ * The moments are the game's punctuation: a sigil landing, a theft resolving,
+ * a freeze biting, a season ending. They are deliberately fire-and-forget and
+ * never block an action — the state change they announce has already
+ * happened, and under reduced motion assets.playSprite holds the rest frame
+ * instead, so nothing is conveyed by animation alone.
+ */
+function playMoment(name) {
+    const host = document.getElementById('moment-host');
+    if (host) assets.playSprite(host, name);
 }
 
 /**
@@ -1567,6 +1586,9 @@ function shell() {
             connectionNote(store.get('connection')),
             h('main', { id: 'deck', 'data-screen': screen }, deck(screen)),
             themeSwitch(),
+            // One host for every one-shot moment. Inert and empty until a
+            // sprite is played into it.
+            h('div', { key: 'moment', id: 'moment-host', class: 'sprite-host' }),
             // Scoped to the stage so the rail stays reachable underneath it.
             h('div', { id: 'idle-host' }, idleModalView()),
         ),
@@ -1790,8 +1812,23 @@ function boot() {
     // match where game_state actually puts them: under player.participation.
     store.subscribe('player.participation.coins', (next) => animateField('coins', Number(next) || 0));
     store.subscribe('player.participation.effective_seasonal_stars', (next) => animateField('stars', Number(next) || 0));
-    store.subscribe('player.participation.sigils_total', (next) => animateField('sigils', Number(next) || 0));
     store.subscribe('player.participation.net_rate_per_tick', (next) => animateField('rate', Number(next) || 0));
+
+    // A sigil landing is the game's reward beat, and the poll is the only
+    // place the client learns about one — drops are awarded by the tick
+    // engine, never by an action the client took. Only an increase plays:
+    // spending sigils moves this number down and is not a drop.
+    store.subscribe('player.participation.sigils_total', (next, prev) => {
+        const to = Number(next) || 0;
+        animateField('sigils', to);
+        if (prev !== undefined && prev !== null && to > (Number(prev) || 0)) playMoment('sigil-drop');
+    });
+
+    // Likewise a freeze: it is something done TO the player, so the first
+    // they can know of it is a poll reporting it.
+    store.subscribe('player.participation.freeze.is_frozen', (next, prev) => {
+        if (next && !prev) playMoment('freeze-lock');
+    });
 
     // One clock: the poll, the countdown repaint, and the payout pulse.
     clock.every(POLL_MS, poll);
