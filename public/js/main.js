@@ -237,7 +237,7 @@ const ctx = {
         store.set('ui.joining', seasonId);
         const res = await api.request('season_join', { season_id: seasonId });
         store.set('ui.joining', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
 
         // Refresh immediately rather than waiting up to 3s for the next poll —
         // joining is the one action where the whole screen changes meaning.
@@ -375,7 +375,7 @@ const ctx = {
         // requested zero stars on every purchase.
         const res = await api.request('purchase_stars', { stars_requested: quantity });
         store.set('ui.buyingStars', false);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
 
@@ -383,7 +383,7 @@ const ctx = {
         store.set('ui.forgeBusy', fromTier);
         const res = await api.request('combine_sigil', { from_tier: fromTier });
         store.set('ui.forgeBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await poll();
     },
 
@@ -391,19 +391,22 @@ const ctx = {
         store.set('ui.forgeBusy', 'all');
         const res = await api.request('combine_all_sigils', {});
         store.set('ui.forgeBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await poll();
     },
 
     /**
      * Lock in. The one action in the game with no undo, so the confirmation
-     * states the payout in figures and requires an explicit acknowledgement
-     * rather than a single click.
+     * states the stake in figures and requires an explicit acknowledgement
+     * rather than a single click. The exact global-star payout (conversion
+     * rate, sigil refund, fractional carry) is server math — the dialog names
+     * the stake and the server's success message reports the real figures.
      */
-    async lockIn(payout) {
+    async lockIn(stake) {
         const confirmed = await ctx.confirm({
             title: 'Lock in and end your season?',
-            body: `You will receive ${new Intl.NumberFormat('en-US').format(payout)} global stars. `
+            body: `Your ${new Intl.NumberFormat('en-US').format(stake)} seasonal stars, plus a refund for `
+                + 'unspent sigils, convert to global stars at the lock-in rate. '
                 + 'Your seasonal position, coins and sigils are gone. This cannot be undone.',
             confirmLabel: 'Lock in',
             danger: true,
@@ -414,9 +417,9 @@ const ctx = {
         store.set('ui.lockingIn', true);
         const res = await api.request('lock_in', {});
         store.set('ui.lockingIn', false);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
 
-        toast('Locked in.', 'info');
+        toast(res && res.message ? res.message : 'Locked in.', 'info');
         await poll();
         store.set('screen', 'home');
     },
@@ -434,7 +437,7 @@ const ctx = {
         if (!confirmed) return;
 
         const res = await api.request('freeze_player_ubi', { target_player_id: target.player_id });
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         toast(`Froze ${target.handle}.`, 'info');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
@@ -448,7 +451,7 @@ const ctx = {
         if (!confirmed) return;
 
         const res = await api.request('self_melt_freeze', {});
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         toast('Freeze melted.', 'info');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
@@ -527,7 +530,7 @@ const ctx = {
         });
         store.set('ui.chatSending', false);
 
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
 
         store.set('ui.chatDraft', '');
 
@@ -560,7 +563,7 @@ const ctx = {
         store.set('ui.shopBusy', cosmeticId);
         const res = await api.request('purchase_cosmetic', { cosmetic_id: cosmeticId });
         store.set('ui.shopBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await Promise.all([ctx.loadShop(), poll()]);
     },
 
@@ -568,7 +571,7 @@ const ctx = {
         store.set('ui.shopBusy', cosmeticId);
         const res = await api.request('equip_cosmetic', { cosmetic_id: cosmeticId });
         store.set('ui.shopBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await ctx.loadShop();
     },
 };
@@ -643,6 +646,20 @@ function toast(text, kind = 'info') {
     toastTimer = setTimeout(() => store.set('ui.toast', null), 4000);
 }
 
+/**
+ * Standard surface for a rejected action: the server's message, the machine
+ * reason_code when one exists, and a snapshot refresh. The refresh is the
+ * important half — a rejection means the client's picture of legality was
+ * stale, so keep rendering from that picture and the next click fails the
+ * same way.
+ */
+function actionFailed(res, fallback = 'Action failed') {
+    const msg = (res && res.error) || fallback;
+    const code = res && res.reason_code;
+    toast(code ? `${msg} [${code}]` : msg, 'error');
+    poll();
+}
+
 /* ------------------------------------------------------------------ *
  * screen lifecycle
  * ------------------------------------------------------------------ */
@@ -713,11 +730,16 @@ function hudFigure(field, label, value, format, iconName) {
 function hud(player) {
     if (!player) return null;
 
+    // Season-bound figures live under player.participation in game_state —
+    // null when the player is not in a season, in which case the HUD shows
+    // zeroes, which is the truth.
+    const part = player.participation || {};
+
     return h('div', { id: 'hud', role: 'status', 'aria-live': 'off' },
-        hudFigure('coins', 'Coins', displayedOr('coins', player.coins || 0), formatCount, 'coin'),
-        hudFigure('stars', 'Stars', displayedOr('stars', player.seasonal_stars || 0), formatCount, 'star-season'),
-        hudFigure('sigils', 'Sigils', displayedOr('sigils', player.sigils || 0), formatCount, 'sigil'),
-        hudFigure('rate', 'Rate', displayedOr('rate', player.ubi_rate || 0), formatRate, null),
+        hudFigure('coins', 'Coins', displayedOr('coins', part.coins || 0), formatCount, 'coin'),
+        hudFigure('stars', 'Stars', displayedOr('stars', part.effective_seasonal_stars ?? part.seasonal_stars ?? 0), formatCount, 'star-season'),
+        hudFigure('sigils', 'Sigils', displayedOr('sigils', part.sigils_total || 0), formatCount, 'sigil'),
+        hudFigure('rate', 'Rate', displayedOr('rate', part.net_rate_per_tick ?? part.rate_per_tick ?? 0), formatRate, null),
         tickIndicator(),
         // Moments play over the HUD rather than beside it. Empty and inert
         // until a sprite is registered for 'payout-burst'.
@@ -1132,11 +1154,12 @@ function boot() {
     // action, a 401 bouncing us to auth — goes through the same path.
     store.subscribe('screen', (next) => { activateScreen(next); });
 
-    // Figures animate toward their new values rather than jumping.
-    store.subscribe('player.coins', (next) => animateField('coins', Number(next) || 0));
-    store.subscribe('player.seasonal_stars', (next) => animateField('stars', Number(next) || 0));
-    store.subscribe('player.sigils', (next) => animateField('sigils', Number(next) || 0));
-    store.subscribe('player.ubi_rate', (next) => animateField('rate', Number(next) || 0));
+    // Figures animate toward their new values rather than jumping. The paths
+    // match where game_state actually puts them: under player.participation.
+    store.subscribe('player.participation.coins', (next) => animateField('coins', Number(next) || 0));
+    store.subscribe('player.participation.effective_seasonal_stars', (next) => animateField('stars', Number(next) || 0));
+    store.subscribe('player.participation.sigils_total', (next) => animateField('sigils', Number(next) || 0));
+    store.subscribe('player.participation.net_rate_per_tick', (next) => animateField('rate', Number(next) || 0));
 
     // One clock: the poll, the countdown repaint, and the payout pulse.
     clock.every(POLL_MS, poll);

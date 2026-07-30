@@ -43,6 +43,7 @@ function pitchCard(h, title, body) {
 function loggedIn(ctx) {
     const { h, store, navigate } = ctx;
     const player = store.get('player');
+    const part = player.participation || {};
     const seasons = store.get('seasons') || [];
 
     const joinedId = player.joined_season_id ?? null;
@@ -62,10 +63,10 @@ function loggedIn(ctx) {
         joined
             ? panel(ctx.h, 'Your season',
                 h('div', { class: 'stat-row' },
-                    stat(h, 'Coins', player.coins),
-                    stat(h, 'Seasonal stars', player.seasonal_stars),
+                    stat(h, 'Coins', part.coins),
+                    stat(h, 'Seasonal stars', part.effective_seasonal_stars ?? part.seasonal_stars),
                     // Hidden until the first sigil is discovered.
-                    ctx.unlocked('sigils.ui') ? stat(h, 'Sigils', player.sigils) : null,
+                    ctx.unlocked('sigils.ui') ? stat(h, 'Sigils', part.sigils_total) : null,
                 ),
                 h('button', {
                     class: 'btn btn-primary',

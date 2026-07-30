@@ -841,20 +841,64 @@ function checkScreens(screens, { h, render }) {
         };
     };
 
+    // These fixtures mirror what api/index.php getGameState() ACTUALLY
+    // publishes — season-bound figures nested under player.participation,
+    // sigils as a [t1..t6] array, countdowns in *_real_seconds. The first
+    // version of this harness used the client's imagined flat shape
+    // (player.coins, season.seconds_remaining), so every screen passed while
+    // rendering zeroes against the real API. Fixture realism is the guard:
+    // if a screen reads a field the server does not publish, these cases
+    // must make it visible.
+    const PARTICIPATION = {
+        coins: 1234, seasonal_stars: 12, effective_seasonal_stars: 12,
+        sigils: [3, 0, 0, 0, 0, 0], sigils_total: 3,
+        rate_per_tick: 4.5, gross_rate_per_tick: 4.5, net_rate_per_tick: 4.5,
+        hoarding_sink_per_tick: 0, hoarding_sink_active: false,
+        lock_in_stars: null, sigil_drops_total: 1,
+        combine_recipes: [{ from_tier: 1, to_tier: 2, required: 5, owned: 3, can_combine: false }],
+        tier6_visible: false,
+        can_freeze: false, can_melt: false, can_steal: true,
+        freeze: { is_frozen: false, remaining_real_seconds: 0 },
+        theft: { is_on_cooldown: false, cooldown_remaining_real_seconds: 0 },
+    };
+
     const PLAYER = {
-        player_id: 7, handle: 'tester', coins: 1234, seasonal_stars: 12,
-        sigils: 3, global_stars: 99, ubi_rate: 4.5, joined_season_id: null, role: 'player',
+        player_id: 7, handle: 'tester', role: 'Player', global_stars: 99,
+        joined_season_id: null, participation_enabled: false,
+        idle_modal_active: false, activity_state: 'Active',
+        participation: null, unlocks: null,
+        can_lock_in: false, can_purchase_stars: false,
+    };
+
+    const JOINED_PLAYER = {
+        ...PLAYER, joined_season_id: 1, participation_enabled: true,
+        can_lock_in: true, can_purchase_stars: true,
+        participation: PARTICIPATION,
     };
 
     const SEASON = {
-        season_id: 1, name: 'Season 1', computed_status: 'Active',
-        seconds_remaining: 90000, current_star_price: 213, participant_count: 12,
+        season_id: 1, name: 'Season 1', status: 'Active', computed_status: 'Active',
+        time_remaining: 90000, time_remaining_real_seconds: 90000,
+        countdown_mode: 'running', countdown_label: 'Time Left',
+        current_star_price: 213, published_star_price: 213,
+        player_count: 12, is_blackout: false,
     };
 
     const cases = [
         ['logged out', {}],
         ['logged in, no season', { player: PLAYER }],
-        ['logged in, in a season', { player: { ...PLAYER, joined_season_id: 1 }, seasons: [SEASON] }],
+        ['logged in, in a season', { player: JOINED_PLAYER, seasons: [SEASON] }],
+        ['in-season detail loaded', {
+            player: JOINED_PLAYER,
+            seasons: [SEASON],
+            ui: { seasonId: 1 },
+            screens: {
+                season: {
+                    ...SEASON,
+                    leaderboard: [{ player_id: 7, handle: 'tester', seasonal_stars: 12, effective_seasonal_stars: 12, lock_in_effect_tick: null }],
+                },
+            },
+        }],
         ['data loaded', {
             player: PLAYER,
             seasons: [SEASON],
@@ -983,7 +1027,7 @@ function checkScreens(screens, { h, render }) {
             (node.children || []).forEach(c => allText(c, out));
             return out;
         };
-        const inSeason = { player: { ...PLAYER, joined_season_id: 1 }, seasons: [SEASON] };
+        const inSeason = { player: JOINED_PLAYER, seasons: [SEASON] };
 
         const ungated = allText(screens.home.default.view(stubCtx({ ...inSeason }))).join(' ');
         ok('home shows sigils when the server is not gating', ungated.includes('Sigils'));
@@ -993,6 +1037,37 @@ function checkScreens(screens, { h, render }) {
 
         const discovered = allText(screens.home.default.view(stubCtx({ ...inSeason, unlocks: ['sigils.ui'] }))).join(' ');
         ok('home shows sigils once discovered', discovered.includes('Sigils'));
+    }
+
+    // Field-truth: a joined player's figures come from player.participation,
+    // and season countdowns from time_remaining_real_seconds — the shapes
+    // game_state actually publishes. If any of these render as zero, a client
+    // read has drifted off the real contract again.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+
+        const homeText = allText(screens.home.default.view(stubCtx({ player: JOINED_PLAYER, seasons: [SEASON] }))).join(' ');
+        ok('home renders real coins from participation.*', homeText.includes('1,234'));
+
+        const detailCtx = stubCtx({
+            player: JOINED_PLAYER,
+            seasons: [SEASON],
+            ui: { seasonId: 1 },
+            screens: { season: { ...SEASON, leaderboard: [] } },
+        });
+        const seasonText = allText(screens.season.default.view(detailCtx)).join(' ');
+        ok('season header renders a real countdown, not zero',
+            seasonText.includes('1d 1h'), seasonText.slice(0, 160));
+        ok('season header uses the server countdown label', seasonText.includes('Time Left'));
+        ok('season stars panel prices from the published surface', seasonText.includes('213'));
+        ok('season forge reads tier counts from the sigils array',
+            seasonText.includes('5× I → 1× II'));
     }
 
     // Staff screen: locked for everyone below Moderator; the server-mode

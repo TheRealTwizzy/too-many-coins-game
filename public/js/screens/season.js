@@ -52,9 +52,13 @@ function header(ctx, season) {
             h('span', { class: 'season-status', 'data-status': status }, status),
         ),
         h('div', { class: 'season-header-facts' },
-            headFact(h, 'Ends in', formatRemaining(season.seconds_remaining ?? season.end_remaining)),
-            headFact(h, 'Star price', fmt.format(num(season.current_star_price))),
-            headFact(h, 'Players', fmt.format(num(season.participant_count ?? (season.leaderboard || []).length))),
+            // countdown_label distinguishes "Begins in" from "Time Left" — the
+            // server decides which countdown this is, not the client.
+            headFact(h, season.countdown_label || 'Ends in', formatRemaining(season.time_remaining_real_seconds)),
+            // published_star_price is the acceptance-time quote (blackout-
+            // snapshot aware); current_star_price is the raw column.
+            headFact(h, 'Star price', fmt.format(num(season.published_star_price ?? season.current_star_price))),
+            headFact(h, 'Players', fmt.format(num(season.player_count ?? (season.leaderboard || []).length))),
         ),
     );
 }
@@ -70,12 +74,12 @@ function headFact(h, label, value) {
  * income
  * ------------------------------------------------------------------ */
 
-function income(ctx, player) {
+function income(ctx, part) {
     const { h } = ctx;
-    const gross = Number(player.gross_rate_per_tick ?? player.rate_per_tick) || 0;
-    const net = Number(player.net_rate_per_tick ?? player.rate_per_tick) || 0;
-    const sinkActive = Boolean(player.hoarding_sink_active);
-    const sink = Number(player.hoarding_sink_per_tick) || 0;
+    const gross = Number(part.gross_rate_per_tick ?? part.rate_per_tick) || 0;
+    const net = Number(part.net_rate_per_tick ?? part.rate_per_tick) || 0;
+    const sinkActive = Boolean(part.hoarding_sink_active);
+    const sink = Number(part.hoarding_sink_per_tick) || 0;
 
     return panel(h, 'Income',
         h('div', { class: 'rate-row' },
@@ -102,10 +106,10 @@ function income(ctx, player) {
  * stars
  * ------------------------------------------------------------------ */
 
-function stars(ctx, season, player) {
+function stars(ctx, season, player, part) {
     const { h, store } = ctx;
-    const price = num(season.current_star_price);
-    const coins = num(player.coins);
+    const price = num(season.published_star_price ?? season.current_star_price);
+    const coins = num(part.coins);
     const affordable = price > 0 ? Math.floor(coins / price) : 0;
     const qty = Math.max(1, num(store.get('ui.starQty') || 1));
     const cost = qty * price;
@@ -120,7 +124,7 @@ function stars(ctx, season, player) {
             h('div', { class: 'stat' },
                 h('span', { class: 'stat-label' }, 'Seasonal stars'),
                 h('span', { class: 'stat-value tabular' },
-                    fmt.format(num(player.effective_seasonal_stars ?? player.seasonal_stars)))),
+                    fmt.format(num(part.effective_seasonal_stars ?? part.seasonal_stars)))),
             h('div', { class: 'stat' },
                 h('span', { class: 'stat-label' }, 'Price each'),
                 h('span', { class: 'stat-value tabular' }, fmt.format(price))),
@@ -158,25 +162,26 @@ function stars(ctx, season, player) {
  * sigil forge
  * ------------------------------------------------------------------ */
 
-function forge(ctx, season, player) {
+function forge(ctx, season, player, part) {
     const { h, store } = ctx;
 
     // Progression gate: sigils are invisible until the first one is seen.
     // No placeholder, no teaser - an undiscovered feature simply is not there.
     if (!ctx.unlocked('sigils.ui')) return null;
 
-    const participation = player.participation || {};
-    const tier6Visible = Boolean(player.tier6_visible ?? season.player_tier6_visible);
+    const tier6Visible = Boolean(part.tier6_visible ?? season.player_tier6_visible);
     const maxTier = tier6Visible ? 6 : 5;
-    const allRecipes = player.combine_recipes || season.player_combine_recipes || [];
+    const allRecipes = part.combine_recipes || season.player_combine_recipes || [];
     const busy = store.get('ui.forgeBusy');
 
+    // game_state publishes tier counts as an array, [t1..t6].
+    const sigils = Array.isArray(part.sigils) ? part.sigils : [];
     const counts = [];
     for (let t = 1; t <= maxTier; t++) {
         // Undiscovered tiers are absent, not zeroed - you cannot see a tier
         // you have never held or forged.
         if (!ctx.unlocked(`sigils.tier.${t}`)) continue;
-        counts.push({ tier: t, count: num(participation[`sigils_t${t}`]) });
+        counts.push({ tier: t, count: num(sigils[t - 1]) });
     }
     // A recipe is visible once its INPUT tier is discovered; its output tier
     // being unknown is the point - forging is how you discover it.
@@ -226,22 +231,22 @@ function forge(ctx, season, player) {
  * hostile verbs
  * ------------------------------------------------------------------ */
 
-function verbs(ctx, season, player) {
+function verbs(ctx, season, part) {
     const { h } = ctx;
-    const freeze = player.freeze || season.player_freeze || {};
-    const theft = player.theft || season.player_theft || {};
+    const freeze = part.freeze || season.player_freeze || {};
+    const theft = part.theft || season.player_theft || {};
     const frozen = Boolean(freeze.is_frozen);
 
-    const canFreeze = Boolean(player.can_freeze ?? season.player_can_freeze);
-    const canMelt = Boolean(player.can_melt ?? season.player_can_melt);
-    const canSteal = Boolean(player.can_steal ?? season.player_can_steal);
+    const canFreeze = Boolean(part.can_freeze ?? season.player_can_freeze);
+    const canMelt = Boolean(part.can_melt ?? season.player_can_melt);
+    const canSteal = Boolean(part.can_steal ?? season.player_can_steal);
 
     return panel(h, 'Actions',
         frozen
             ? h('div', { class: 'notice notice-frozen' },
                 h('strong', null, 'Your income is frozen.'),
-                freeze.remaining_seconds
-                    ? h('span', null, ` ${formatRemaining(freeze.remaining_seconds)} remaining.`)
+                freeze.remaining_real_seconds
+                    ? h('span', null, ` ${formatRemaining(freeze.remaining_real_seconds)} remaining.`)
                     : null,
             )
             : null,
@@ -267,9 +272,9 @@ function verbs(ctx, season, player) {
             }, 'Melt'),
         ),
 
-        theft.is_on_cooldown && theft.cooldown_remaining_seconds
+        theft.is_on_cooldown && theft.cooldown_remaining_real_seconds
             ? h('p', { class: 'muted small' },
-                `Theft cooldown: ${formatRemaining(theft.cooldown_remaining_seconds)}`)
+                `Theft cooldown: ${formatRemaining(theft.cooldown_remaining_real_seconds)}`)
             : null,
     );
 }
@@ -278,12 +283,15 @@ function verbs(ctx, season, player) {
  * lock-in
  * ------------------------------------------------------------------ */
 
-function lockIn(ctx, season, player) {
+function lockIn(ctx, season, player, part) {
     const { h, store } = ctx;
     const canLock = Boolean(player.can_lock_in);
-    const payout = num(player.lock_in_stars);
+    // What the client can truthfully show is the stake: current seasonal
+    // stars. The payout adds a sigil refund and applies the lock-in rate —
+    // server math, reported exactly in the success message.
+    const stake = num(part.effective_seasonal_stars ?? part.seasonal_stars);
     const busy = Boolean(store.get('ui.lockingIn'));
-    const starterOffset = num((player.participation || {}).starter_grant_stars);
+    const starterOffset = num(part.starter_grant_stars);
 
     return panel(h, 'Lock in',
         h('p', { class: 'panel-sub' },
@@ -300,12 +308,12 @@ function lockIn(ctx, season, player) {
 
         h('div', { class: 'lockin-row' },
             h('div', { class: 'stat' },
-                h('span', { class: 'stat-label' }, 'Would pay out'),
-                h('span', { class: 'stat-value tabular' }, `${fmt.format(payout)} ★`)),
+                h('span', { class: 'stat-label' }, 'Stars at stake'),
+                h('span', { class: 'stat-value tabular' }, `${fmt.format(stake)} ★`)),
             h('button', {
                 class: 'btn btn-danger',
                 disabled: !canLock || busy,
-                onClick: () => ctx.lockIn(payout),
+                onClick: () => ctx.lockIn(stake),
             }, busy ? 'Locking in…' : 'Lock in'),
         ),
 
@@ -397,16 +405,21 @@ export default {
             && Number(player.joined_season_id) === Number(seasonId)
             && Boolean(player.participation_enabled);
 
+        // Season-bound state lives under player.participation in game_state;
+        // season_detail's player_* fields remain the fallbacks inside each
+        // panel for anything the poll has not caught up on yet.
+        const part = (player && player.participation) || {};
+
         return h('div', { class: 'season-detail' },
             header(ctx, detail),
 
             joined
                 ? [
-                    income(ctx, player),
-                    stars(ctx, detail, player),
-                    forge(ctx, detail, player),
-                    verbs(ctx, detail, player),
-                    lockIn(ctx, detail, player),
+                    income(ctx, part),
+                    stars(ctx, detail, player, part),
+                    forge(ctx, detail, player, part),
+                    verbs(ctx, detail, part),
+                    lockIn(ctx, detail, player, part),
                 ]
                 : h('div', { class: 'spectating' },
                     emptyState(h, {
