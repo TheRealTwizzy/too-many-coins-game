@@ -37,6 +37,9 @@ const store = createStore({
     serverMode: 'NORMAL',
     // Progression gates: null = ungated (server flag off or logged out).
     unlocks: null,
+    // The last 50 notifications and the unread count, straight off the poll.
+    notifications: [],
+    notificationsUnread: 0,
 });
 
 const clock = createClock();
@@ -355,9 +358,9 @@ const ctx = {
         clearToken();
 
         // Drop every trace of the session, not just the player: leaving the
-        // previous account's chat transcript or shop inventory in the store
-        // would show it to whoever signs in next.
-        store.patch({ player: null, seasons: [], screens: {} });
+        // previous account's chat transcript, notifications or shop inventory
+        // in the store would show it to whoever signs in next.
+        store.patch({ player: null, seasons: [], screens: {}, notifications: [], notificationsUnread: 0 });
         store.set('ui.seasonId', null);
         store.set('screen', 'home');
         toast('Signed out.', 'info');
@@ -550,6 +553,38 @@ const ctx = {
         return new Promise(resolve => {
             store.set('ui.dialog', { kind: 'target', ...options, candidates, resolve });
         });
+    },
+
+    // ---- notifications ----
+
+    toggleNotifications() {
+        store.set('ui.notifOpen', !store.get('ui.notifOpen'));
+    },
+
+    async markNotifRead(id) {
+        const res = await api.request('notifications_mark_read', { notification_id: id });
+        if (!res || res.error) return;
+        // Patch locally so the row greys out now rather than on the next poll.
+        store.set('notificationsUnread', Number(res.unread_count) || 0);
+        store.set('notifications',
+            (store.get('notifications') || []).map(n =>
+                n.notification_id === id ? { ...n, is_read: true } : n));
+    },
+
+    async markAllNotifsRead() {
+        const res = await api.request('notifications_mark_all_read', {});
+        if (!res || res.error) return;
+        store.set('notificationsUnread', 0);
+        store.set('notifications',
+            (store.get('notifications') || []).map(n => ({ ...n, is_read: true })));
+    },
+
+    async removeNotif(id) {
+        const res = await api.request('notifications_remove', { notification_id: id });
+        if (!res || res.error) return;
+        store.set('notificationsUnread', Number(res.unread_count) || 0);
+        store.set('notifications',
+            (store.get('notifications') || []).filter(n => n.notification_id !== id));
     },
 
     // ---- boosts ----
@@ -1268,6 +1303,53 @@ function deck(screenId) {
     }
 }
 
+function timeAgo(iso) {
+    const t = Date.parse(iso || '');
+    if (!Number.isFinite(t)) return '';
+    const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (s < 60) return 'now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
+}
+
+function notificationsPanel() {
+    if (!store.get('ui.notifOpen')) return null;
+
+    const list = store.get('notifications') || [];
+    const anyUnread = list.some(n => !n.is_read);
+
+    return h('div', { class: 'notif-panel', role: 'region', 'aria-label': 'Notifications' },
+        h('div', { class: 'notif-head' },
+            h('strong', null, 'Notifications'),
+            anyUnread
+                ? h('button', { class: 'btn btn-ghost btn-sm', onClick: () => ctx.markAllNotifsRead() }, 'Mark all read')
+                : null,
+        ),
+        list.length
+            ? h('ul', { class: 'notif-list' },
+                list.map(n => h('li', {
+                    key: n.notification_id,
+                    class: `notif notif-${n.severity || 'info'}` + (n.is_read ? '' : ' is-unread'),
+                },
+                    h('button', {
+                        class: 'notif-main',
+                        onClick: () => { if (!n.is_read) ctx.markNotifRead(n.notification_id); },
+                    },
+                        h('span', { class: 'notif-title' }, n.title || ''),
+                        n.body ? h('span', { class: 'notif-body' }, n.body) : null,
+                        h('span', { class: 'notif-time' }, timeAgo(n.created_at)),
+                    ),
+                    h('button', {
+                        class: 'notif-x',
+                        'aria-label': 'Dismiss notification',
+                        onClick: () => ctx.removeNotif(n.notification_id),
+                    }, '×'),
+                )))
+            : h('p', { class: 'notif-empty' }, 'Nothing yet.'),
+    );
+}
+
 function userArea() {
     const player = store.get('player');
 
@@ -1277,9 +1359,20 @@ function userArea() {
         );
     }
 
+    const unread = Number(store.get('notificationsUnread')) || 0;
+
     return h('div', { class: 'user-area' },
+        h('button', {
+            class: 'btn btn-ghost btn-sm notif-bell',
+            'aria-label': unread ? `Notifications, ${unread} unread` : 'Notifications',
+            onClick: () => ctx.toggleNotifications(),
+        },
+            assets.icon('bell'),
+            unread ? h('span', { class: 'notif-badge tabular' }, unread > 99 ? '99+' : String(unread)) : null,
+        ),
         h('span', { class: 'user-handle' }, player.handle || 'Player'),
         h('button', { class: 'btn btn-ghost btn-sm', onClick: () => ctx.doLogout() }, 'Log out'),
+        notificationsPanel(),
     );
 }
 
@@ -1462,6 +1555,10 @@ async function poll() {
         connection: 'live',
         serverMode: gs.server_mode || 'NORMAL',
         unlocks: gs.player ? (gs.player.unlocks ?? null) : null,
+        // The poll already carries these on every response — the bell renders
+        // them instead of throwing them away.
+        notifications: gs.player ? (gs.player.notifications || []) : [],
+        notificationsUnread: gs.player ? (Number(gs.player.notifications_unread_count) || 0) : 0,
     });
 
     if (gs.timing) {

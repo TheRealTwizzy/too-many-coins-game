@@ -177,6 +177,93 @@ body {
     border-radius: var(--r3);
 }
 
+/* ---------- notifications ---------- */
+
+.user-area { position: relative; }
+
+.notif-bell { position: relative; }
+
+.notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: var(--r-pill);
+    background: var(--down);
+    color: #fff;
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+}
+
+.notif-panel {
+    position: absolute;
+    top: calc(100% + var(--s2));
+    right: 0;
+    width: min(360px, 92vw);
+    max-height: 60vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    padding: var(--s3);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r3);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .5);
+    z-index: calc(var(--z-rail) - 5);
+}
+
+.notif-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+
+.notif-list { list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
+
+.notif {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s1);
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    border-radius: var(--r2);
+    background: var(--surface-2);
+    opacity: .75;
+}
+.notif.is-unread { opacity: 1; }
+.notif-success { border-left-color: var(--up); }
+.notif-warning { border-left-color: var(--coin); }
+.notif-danger  { border-left-color: var(--down); }
+
+.notif-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--s2);
+    background: none;
+    border: 0;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.notif-title { font-weight: var(--fw-medium); }
+.notif-body { color: var(--ink-2); font-size: var(--fs-small); }
+.notif-time { color: var(--ink-3); font-size: var(--fs-small); }
+
+.notif-x {
+    flex: none;
+    padding: var(--s1) var(--s2);
+    background: none;
+    border: 0;
+    color: var(--ink-3);
+    font: inherit;
+    cursor: pointer;
+}
+.notif-x:hover { color: var(--down); }
+
+.notif-empty { color: var(--ink-3); font-size: var(--fs-small); }
+
 /* ---------- header chips ---------- */
 
 /* Capped at two by the code: participation mode, then the one most relevant

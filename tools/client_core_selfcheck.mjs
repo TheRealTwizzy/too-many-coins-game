@@ -1133,6 +1133,13 @@ async function checkShellSource() {
     ok('boost spends preview server-side before the confirm',
         src.includes("api.request('boost_activate_preview'")
         && /purchase_boost[\s\S]{0,200}confirm_economic_impact: true/.test(src));
+    ok('the poll keeps notifications instead of discarding them',
+        src.includes('notifications_unread_count')
+        && /store\.patch\(\{[\s\S]{0,600}notifications:/.test(src));
+    ok('the bell renders an unread badge and a feed',
+        src.includes('notif-badge') && src.includes("api.request('notifications_mark_read'"));
+    ok('logout clears the notification feed',
+        /doLogout[\s\S]{0,600}notifications: \[\]/.test(src));
 }
 
 /* ------------------------------------------------------------------ *

@@ -84,6 +84,9 @@ export const registry = {
     'freeze-lock':  { placeholder: null, art: null, wants: 'sprite' },
     'lockin-seal':  { placeholder: null, art: null, wants: 'sprite' },
 
+    // --- ui chrome ---
+    'bell':           { placeholder: '\u{1F514}', art: null },
+
     // --- states ---
     'state-idle':     { placeholder: '⏳', art: null },
     'state-blackout': { placeholder: '⚠', art: null },
