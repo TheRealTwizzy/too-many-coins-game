@@ -177,6 +177,62 @@ body {
     border-radius: var(--r3);
 }
 
+/* ---------- header chips ---------- */
+
+/* Capped at two by the code: participation mode, then the one most relevant
+   constraint (Disconnected outranks Idle). */
+.chip-strip { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s1);
+    padding: 2px var(--s3);
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+}
+
+.chip-constraint.is-idle { border-color: var(--coin); color: var(--ink); }
+.chip-constraint.is-disconnected { border-color: var(--down); color: var(--down); }
+
+/* ---------- idle gate ---------- */
+
+/* Scoped to the stage, never the viewport: the rail (and through it, chat)
+   must stay reachable while the idle gate is up. The stage's own stacking
+   context (z-grid) keeps everything here beneath the rail. */
+#idle-host:empty { display: none; }
+
+#idle-host {
+    position: absolute;
+    inset: 0;
+    z-index: calc(var(--z-rail) - 10);
+    pointer-events: none;
+}
+#idle-host > * { pointer-events: auto; }
+
+#idle-host .idle-backdrop { position: absolute; inset: 0; }
+
+#idle-host .idle-banner {
+    position: absolute;
+    top: var(--s3);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(92%, 640px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--coin);
+    border-radius: var(--r2);
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .4);
+    font-size: var(--fs-small);
+}
+
 /* ---------- connection ---------- */
 
 .conn-note {

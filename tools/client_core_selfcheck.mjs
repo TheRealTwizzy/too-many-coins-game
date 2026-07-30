@@ -21,7 +21,7 @@
  * merely "ended up correct".
  */
 
-import { mkdtemp, copyFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, copyFile, rm, writeFile, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -1094,6 +1094,29 @@ function checkScreens(screens, { h, render }) {
     }
 }
 
+/**
+ * main.js is the shell, not a module the harness can import (it boots on
+ * load), so its contracts are guarded at source level. Weaker than executing
+ * them, but these are the invariants that soft-locked players when absent.
+ */
+async function checkShellSource() {
+    section('main.js — shell contracts (source-level)');
+    const src = await readFile(join(HERE, '..', 'public', 'js', 'main.js'), 'utf8');
+
+    ok('the idle gate renders from the server flag, not local guesses',
+        src.includes('player.idle_modal_active'));
+    ok('the idle gate acknowledges via the idle_ack action',
+        src.includes("api.request('idle_ack'"));
+    ok('the chat screen is exempt from the idle overlay',
+        /screen === 'chat'/.test(src));
+    ok('the countdown yields while a modal is up',
+        /ui\.dialog.*idle_modal_active.*return null/s.test(src));
+    ok('rejected actions surface the server reason_code',
+        src.includes('reason_code'));
+    ok('the HUD reads season figures from player.participation',
+        src.includes('player.participation') && !/player\.ubi_rate/.test(src));
+}
+
 /* ------------------------------------------------------------------ *
  * run
  * ------------------------------------------------------------------ */
@@ -1106,6 +1129,7 @@ try {
     checkMotion(modules.motion);
     checkAssets(modules.assets, modules.render);
     checkScreens(screens, modules.render);
+    await checkShellSource();
 } finally {
     await cleanup();
 }

@@ -233,6 +233,26 @@ const ctx = {
         return unlocks.includes(key);
     },
 
+    /**
+     * Acknowledge the idle gate. idle_ack is the only action that can bring a
+     * stale-offline idle player back — every season verb is refused until it
+     * runs — so it never goes through the season screens: the modal calls it
+     * directly. A "Not idle" rejection just means the server already cleared
+     * the flag; either way the next poll is the truth.
+     */
+    async idleAck() {
+        store.set('ui.idleAcking', true);
+        const res = await api.request('idle_ack', {});
+        store.set('ui.idleAcking', false);
+        if (res && res.error) {
+            await poll();
+            if (res.error !== 'Not idle') toast(res.error, 'error');
+            return;
+        }
+        toast(res && res.message ? res.message : 'Welcome back.', 'success');
+        await poll();
+    },
+
     async joinSeason(seasonId) {
         store.set('ui.joining', seasonId);
         const res = await api.request('season_join', { season_id: seasonId });
@@ -757,6 +777,12 @@ function hud(player) {
  * everyone; nothing here needs to change when it does.
  */
 function tickIndicator() {
+    // A countdown must not run behind a modal: the moment it reaches zero is
+    // exactly when the player cannot act on it, and a timer ticking behind a
+    // scrim reads as pressure to dismiss the dialog.
+    const player = store.get('player');
+    if (store.get('ui.dialog') || (player && player.idle_modal_active)) return null;
+
     const seconds = clock.secondsToNextTick();
     const timing = store.get('timing');
     const period = timing && Number(timing.tick_real_seconds);
@@ -778,6 +804,74 @@ function tickIndicator() {
 function connectionNote(state) {
     if (state !== 'retrying') return null;
     return h('div', { class: 'conn-note', role: 'status' }, 'Reconnecting…');
+}
+
+/**
+ * Header chips: at most two — participation mode, then the single most
+ * relevant constraint, with Disconnected taking precedence over Idle. The
+ * idle chip renders from the server's idle_modal_active flag, never from
+ * local inactivity guesses.
+ */
+function chipStrip() {
+    const player = store.get('player');
+    if (!player) return null;
+
+    const chips = [
+        h('span', { key: 'mode', class: 'chip chip-mode' },
+            player.joined_season_id ? 'In season' : 'Spectating'),
+    ];
+
+    if (store.get('connection') === 'retrying') {
+        chips.push(h('span', { key: 'constraint', class: 'chip chip-constraint is-disconnected' }, 'Disconnected'));
+    } else if (player.idle_modal_active) {
+        chips.push(h('span', { key: 'constraint', class: 'chip chip-constraint is-idle' },
+            assets.icon('state-idle', { class: 'chip-icon' }),
+            'Idle (activity required)'));
+    }
+
+    return h('div', { class: 'chip-strip' }, chips);
+}
+
+/**
+ * The idle gate. The server sets idle_modal_active after 15 quiet minutes and
+ * refuses every season economy action until idle_ack runs — without this
+ * surface an idle player is soft-locked behind opaque rejections.
+ *
+ * It deliberately does NOT cover the rail, and on the chat screen it
+ * collapses to a banner: idle gates the season economy only, never chat.
+ */
+function idleModalView() {
+    const player = store.get('player');
+    if (!player || !player.idle_modal_active) return null;
+
+    const acking = Boolean(store.get('ui.idleAcking'));
+    const ackBtn = h('button', {
+        class: 'btn btn-primary',
+        disabled: acking,
+        onClick: () => ctx.idleAck(),
+    }, acking ? 'Waking…' : "I'm here");
+
+    const screen = store.get('screen');
+    if (screen === 'chat' || screen === 'auth') {
+        return h('div', { class: 'idle-banner', role: 'status' },
+            h('span', null, 'You are idle — season actions are paused. Chat still works.'),
+            ackBtn,
+        );
+    }
+
+    return h('div', { class: 'dialog-backdrop idle-backdrop' },
+        h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'You are idle' },
+            h('h2', { class: 'dialog-title' }, 'Still there?'),
+            h('p', { class: 'dialog-body' },
+                'After 15 quiet minutes you are marked idle: income slows and season '
+                + 'actions are paused until you check back in. Chat and the rail stay '
+                + 'open — this only pauses the economy.'),
+            h('div', { class: 'dialog-actions' },
+                h('button', { class: 'btn btn-ghost', onClick: () => ctx.doLogout() }, 'Log out'),
+                ackBtn,
+            ),
+        ),
+    );
 }
 
 /**
@@ -938,10 +1032,13 @@ function shell() {
         rail(screen),
         h('div', { id: 'stage' },
             userArea(),
+            chipStrip(),
             hud(store.get('player')),
             connectionNote(store.get('connection')),
             h('main', { id: 'deck', 'data-screen': screen }, deck(screen)),
             themeSwitch(),
+            // Scoped to the stage so the rail stays reachable underneath it.
+            h('div', { id: 'idle-host' }, idleModalView()),
         ),
         toastView(),
         h('div', { id: 'dialog-host' }, dialogView()),
