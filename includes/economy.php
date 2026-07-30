@@ -1175,8 +1175,15 @@ class Economy {
     /**
      * Deterministically evaluate one sigil drop attempt for one tick.
      * Returns null (no drop) or a payload with tier and metadata.
+     *
+     * $wasEligible reports whether this tick was a real drop attempt — the
+     * player reached the gate roll (online, non-zero chance, not blackout).
+     * The pity counter accrues on exactly these ticks and no others, so the
+     * distinction between "no luck" and "not even eligible" must come from
+     * the same branch structure the drop itself uses.
      */
-    public static function evaluateSigilDropForTick($season, $player, $tickIndex, $participation = null, $boostModFp = 0) {
+    public static function evaluateSigilDropForTick($season, $player, $tickIndex, $participation = null, $boostModFp = 0, &$wasEligible = false) {
+        $wasEligible = false;
         $activityState = self::resolveSigilDropActivityState($player);
         $activityMultiplierFp = self::sigilActivityMultiplierFp($activityState);
         $inventoryPressureFp = self::sigilInventoryDropPressureFp($participation);
@@ -1196,6 +1203,10 @@ class Economy {
         if ($seasonPhase === (string)SIGIL_SEASON_PHASE_BLACKOUT) {
             return null;
         }
+
+        // Every branch above is "not an attempt"; from here on the tick is a
+        // genuine attempt whether or not the gate roll pays out.
+        $wasEligible = true;
 
         // Legion 'swarm' event: scales the gate THRESHOLD only, for the exact
         // ticks the event covers. The deterministic roll inputs below are
