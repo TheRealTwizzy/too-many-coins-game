@@ -30,8 +30,9 @@ import ranks from './ranks.js';
 import chat from './chat.js';
 import shop from './shop.js';
 import auth from './auth.js';
+import staff from './staff.js';
 
-const SCREENS = [home, seasons, season, ranks, chat, shop, auth];
+const SCREENS = [home, seasons, season, ranks, chat, shop, auth, staff];
 
 /**
  * Screens reachable from the rail, in rail order.
@@ -40,6 +41,8 @@ const SCREENS = [home, seasons, season, ranks, chat, shop, auth];
  * seasons list, not from the rail. It still highlights Seasons while open —
  * see RAIL_PARENT.
  */
+// 'staff' joins the rail only for Moderator/Admin viewers — see navItems()
+// in main.js; this list is the everyone-sees-it baseline.
 export const RAIL_IDS = ['home', 'seasons', 'ranks', 'chat', 'shop'];
 
 /**

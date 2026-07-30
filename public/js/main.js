@@ -151,6 +151,77 @@ const ctx = {
         store.set('screen', screenId);
     },
 
+    // ---- staff / admin (server enforces requireStaff/requireAdmin on every
+    // one of these; the client gating is presentation only) ----
+
+    async staffSearch() {
+        const query = String(store.get('ui.staffQuery') || '').trim();
+        const res = await api.request('staff_users_search', { query });
+        if (!res || res.error) return toast((res && res.error) || 'Search failed', 'error');
+        store.set('screens.staff.results', res.users || []);
+    },
+
+    async staffOpenUser(playerId) {
+        const res = await api.request('staff_user_get', { target_player_id: playerId });
+        if (!res || res.error) return toast((res && res.error) || 'Load failed', 'error');
+        store.set('screens.staff.detail', res);
+    },
+
+    async staffServerMode(mode) {
+        const res = await api.request('staff_server_mode', {
+            mode,
+            reason: String(store.get('ui.staffModeReason') || '').trim() || 'Toggled from staff screen',
+        });
+        if (!res || res.error) return toast((res && res.error) || 'Mode change failed', 'error');
+        toast(`Server mode: ${res.server_mode}`, 'success');
+        await poll();
+    },
+
+    async staffSetRole(playerId, currentRole) {
+        const role = store.get('ui.staffRole') || currentRole;
+        const res = await api.request('admin_role_update', {
+            target_player_id: playerId,
+            role,
+            reason: String(store.get('ui.staffRoleReason') || '').trim() || 'Role update from staff screen',
+        });
+        if (!res || res.error) return toast((res && res.error) || 'Role update failed', 'error');
+        toast(`Role set to ${role}`, 'success');
+        await ctx.staffOpenUser(playerId);
+    },
+
+    async staffMute(playerId) {
+        const minutes = parseInt(store.get('ui.staffMuteMinutes'), 10) || 0;
+        const res = await api.request('staff_chat_mute_user', {
+            target_player_id: playerId,
+            scope: store.get('ui.staffMuteScope') || 'ALL',
+            minutes: minutes > 0 ? minutes : null,
+            reason: String(store.get('ui.staffMuteReason') || '').trim() || 'Muted by staff',
+        });
+        if (!res || res.error) return toast((res && res.error) || 'Mute failed', 'error');
+        toast('Muted', 'success');
+        await ctx.staffOpenUser(playerId);
+    },
+
+    async staffUnmute(muteId, playerId) {
+        const res = await api.request('staff_chat_unmute_user', { mute_id: muteId });
+        if (!res || res.error) return toast((res && res.error) || 'Unmute failed', 'error');
+        toast('Unmuted', 'success');
+        await ctx.staffOpenUser(playerId);
+    },
+
+    /** targetPlayerId null = broadcast to every player. */
+    async staffNotify(targetPlayerId) {
+        const title = String(store.get('ui.staffNoteTitle') || '').trim();
+        const body = String(store.get('ui.staffNoteBody') || '').trim();
+        if (!title) return toast('Notification title required', 'error');
+        const action = targetPlayerId === null ? 'staff_notifications_send_all' : 'staff_notifications_send_player';
+        const payload = { title, body: body || null };
+        if (targetPlayerId !== null) payload.target_player_id = targetPlayerId;
+        const res = await api.request(action, payload);
+        if (!res || res.error) return toast((res && res.error) || 'Send failed', 'error');
+        toast(targetPlayerId === null ? `Broadcast sent to ${res.count} players` : 'Notification sent', 'success');
+    },
+
     /**
      * Progression gate check. null/undefined unlocks = the server is not
      * gating (flag off), so everything is visible; otherwise a feature is
@@ -604,12 +675,20 @@ const NAV = [
     { id: 'shop', label: 'Shop', icon: 'nav-shop' },
 ];
 
+const STAFF_NAV = { id: 'staff', label: 'Staff', icon: 'nav-staff' };
+
+function navItems() {
+    const player = store.get('player');
+    const staff = player && (player.role === 'Admin' || player.role === 'Moderator');
+    return staff ? [...NAV, STAFF_NAV] : NAV;
+}
+
 function rail(screen) {
     return h('nav', { id: 'rail', 'aria-label': 'Primary' },
         // A screen that is not itself on the rail still lights up its parent —
         // season detail keeps Seasons highlighted, so opening one does not read
         // as having navigated out of the section.
-        NAV.map(item => h('button', {
+        navItems().map(item => h('button', {
             key: item.id,
             class: 'rail-btn' + (screen === item.id || RAIL_PARENT[screen] === item.id ? ' is-active' : ''),
             'aria-current': screen === item.id ? 'page' : false,
