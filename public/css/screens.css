@@ -473,6 +473,25 @@
 .target-btn:focus-visible { outline: 2px solid var(--coin); outline-offset: 2px; }
 .target-handle { font-weight: var(--fw-medium); }
 
+/* ---------- boosts ---------- */
+
+.boost-list { list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
+
+.boost-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
+    padding: var(--s1) var(--s2);
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+}
+.boost-tier { font-weight: var(--fw-medium); }
+.boost-actions { display: flex; gap: var(--s1); }
+
+.notice-boost { border-color: var(--coin); }
+
 /* ---------- theft dialog ---------- */
 
 .theft-block-label { font-size: var(--fs-small); color: var(--ink-2); margin-bottom: var(--s1); }

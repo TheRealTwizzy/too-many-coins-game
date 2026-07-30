@@ -874,6 +874,7 @@ function checkScreens(screens, { h, render }) {
         ...PLAYER, joined_season_id: 1, participation_enabled: true,
         can_lock_in: true, can_purchase_stars: true,
         participation: PARTICIPATION,
+        active_boosts: { self: [], global: [], total_modifier_fp: 0, total_modifier_percent: 0 },
     };
 
     const SEASON = {
@@ -1068,6 +1069,8 @@ function checkScreens(screens, { h, render }) {
         ok('season stars panel prices from the published surface', seasonText.includes('213'));
         ok('season forge reads tier counts from the sigils array',
             seasonText.includes('5× I → 1× II'));
+        ok('season shows the boosts panel for a joined player',
+            seasonText.includes('Boosts') && seasonText.includes('No boost running'));
     }
 
     // Staff screen: locked for everyone below Moderator; the server-mode
@@ -1127,6 +1130,9 @@ async function checkShellSource() {
         /theftAdjust[\s\S]{0,600}ui\.theft\.preview',\s*null\)/.test(src));
     ok('locked-in players are never offered as targets',
         src.includes('!r.lock_in_effect_tick'));
+    ok('boost spends preview server-side before the confirm',
+        src.includes("api.request('boost_activate_preview'")
+        && /purchase_boost[\s\S]{0,200}confirm_economic_impact: true/.test(src));
 }
 
 /* ------------------------------------------------------------------ *

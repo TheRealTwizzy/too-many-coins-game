@@ -552,6 +552,57 @@ const ctx = {
         });
     },
 
+    // ---- boosts ----
+
+    /**
+     * Spend one sigil of a tier on the running boost (or start one). Always
+     * previews first: the effect of a spend depends on server state — initial
+     * activation vs power stack vs time extension — so the confirm dialog
+     * quotes the server's numbers, then the purchase carries the confirm flag.
+     */
+    async buyBoost(sigilTier, purchaseKind) {
+        const busyKey = `${sigilTier}:${purchaseKind}`;
+        store.set('ui.boostBusy', busyKey);
+        const preview = await api.request('boost_activate_preview', {
+            sigil_tier: sigilTier,
+            purchase_kind: purchaseKind,
+        });
+        if (!preview || preview.error) {
+            store.set('ui.boostBusy', null);
+            return actionFailed(preview, 'Boost unavailable');
+        }
+
+        const spanOf = (s) => (s >= 3600 ? `${Math.round((s / 3600) * 10) / 10}h` : `${Math.round(s / 60)}m`);
+        const effect = preview.initialized_from_inactive
+            ? `Starts a +${preview.modifier_percent}% income boost running for ${spanOf(preview.time_extension_real_seconds)}. `
+            : purchaseKind === 'power'
+                ? `Adds power to your running boost (currently +${preview.modifier_percent}%). `
+                : `Extends your running boost by ${spanOf(preview.time_extension_real_seconds)}. `;
+
+        const confirmed = await ctx.confirm({
+            title: `Spend a Tier ${sigilTier} sigil?`,
+            body: effect
+                + `Consumes 1 of your ${preview.sigils_owned} Tier ${sigilTier} sigils. `
+                + String((preview.risk && preview.risk.explain) || ''),
+            confirmLabel: 'Spend sigil',
+            danger: Boolean(preview.risk && preview.risk.severity === 'high'),
+        });
+        if (!confirmed) {
+            store.set('ui.boostBusy', null);
+            return;
+        }
+
+        const res = await api.request('purchase_boost', {
+            sigil_tier: sigilTier,
+            purchase_kind: purchaseKind,
+            confirm_economic_impact: true,
+        });
+        store.set('ui.boostBusy', null);
+        if (!res || res.error) return actionFailed(res, 'Boost failed');
+        toast(res.message || 'Boost active.', 'success');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
+    },
+
     // ---- theft ----
 
     /**

@@ -228,6 +228,65 @@ function forge(ctx, season, player, part) {
 }
 
 /* ------------------------------------------------------------------ *
+ * boosts
+ * ------------------------------------------------------------------ */
+
+function boosts(ctx, player, part) {
+    const { h, store } = ctx;
+
+    // Boosts are a sigil spend, so they surface with the sigil UI — a player
+    // who has never seen a sigil has nothing to spend.
+    if (!ctx.unlocked('sigils.ui')) return null;
+
+    const activeBoosts = player.active_boosts || {};
+    const running = (activeBoosts.self || [])[0] || null;
+    const totalPct = Number(activeBoosts.total_modifier_percent) || 0;
+    const sigils = Array.isArray(part.sigils) ? part.sigils : [];
+    const busy = store.get('ui.boostBusy');
+
+    const rows = [1, 2, 3, 4, 5]
+        .filter(t => ctx.unlocked(`sigils.tier.${t}`))
+        .map(t => {
+            const owned = num(sigils[t - 1]);
+            return h('li', { key: t, class: 'boost-row' },
+                h('span', { class: 'boost-tier' },
+                    ROMAN[t], ' ',
+                    h('span', { class: 'muted small tabular' }, `${fmt.format(owned)} held`)),
+                h('div', { class: 'boost-actions' },
+                    h('button', {
+                        class: 'btn btn-ghost btn-sm',
+                        disabled: owned <= 0 || busy === `${t}:power`,
+                        title: 'Raise the income multiplier',
+                        onClick: () => ctx.buyBoost(t, 'power'),
+                    }, busy === `${t}:power` ? '…' : 'Power'),
+                    h('button', {
+                        class: 'btn btn-ghost btn-sm',
+                        disabled: owned <= 0 || busy === `${t}:time`,
+                        title: 'Extend the running boost',
+                        onClick: () => ctx.buyBoost(t, 'time'),
+                    }, busy === `${t}:time` ? '…' : 'Time'),
+                ),
+            );
+        });
+
+    return panel(h, 'Boosts',
+        h('p', { class: 'panel-sub' },
+            'Spend a sigil for more income now: power raises the rate, time stretches the clock.'),
+
+        running
+            ? h('div', { class: 'notice notice-boost' },
+                h('strong', null, `+${totalPct}% income`),
+                running.remaining_real_seconds
+                    ? h('span', null, ` — ${formatRemaining(running.remaining_real_seconds)} remaining.`)
+                    : null,
+            )
+            : h('p', { class: 'muted small' }, 'No boost running. Spending any tier starts one.'),
+
+        h('ul', { class: 'boost-list' }, rows),
+    );
+}
+
+/* ------------------------------------------------------------------ *
  * hostile verbs
  * ------------------------------------------------------------------ */
 
@@ -418,6 +477,7 @@ export default {
                     income(ctx, part),
                     stars(ctx, detail, player, part),
                     forge(ctx, detail, player, part),
+                    boosts(ctx, player, part),
                     verbs(ctx, detail, part),
                     lockIn(ctx, detail, player, part),
                 ]
