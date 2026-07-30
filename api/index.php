@@ -716,39 +716,19 @@ try {
             ]);
             break;
 
-        case 'notifications_create':
-            $player = Auth::requireAuth();
-            $category = trim((string)($input['category'] ?? 'gameplay'));
-            if ($category === '') $category = 'gameplay';
-            $title = trim((string)($input['title'] ?? $input['message'] ?? 'Notification'));
-            if ($title === '') $title = 'Notification';
-            $bodyRaw = $input['body'] ?? null;
-            $body = is_string($bodyRaw) ? trim($bodyRaw) : null;
-            if ($body === '') $body = null;
-
-            $payload = null;
-            if (isset($input['payload']) && is_array($input['payload'])) {
-                $payload = $input['payload'];
-            }
-
-            $id = Notifications::create(
-                $player['player_id'],
-                $category,
-                $title,
-                $body,
-                [
-                    'is_read' => !empty($input['is_read']),
-                    'event_key' => isset($input['event_key']) ? (string)$input['event_key'] : null,
-                    'payload' => $payload
-                ]
-            );
-
-            echo json_encode([
-                'success' => true,
-                'notification' => Notifications::getByIdForPlayer($player['player_id'], $id),
-                'unread_count' => Notifications::unreadCount($player['player_id'])
-            ]);
-            break;
+        // notifications_create is deliberately gone.
+        //
+        // It let any authenticated player write an arbitrary notification into
+        // their own feed with a category, title and body of their choosing -
+        // so a player could manufacture a notice indistinguishable from one
+        // the server sends, in the same feed that carries real moderation
+        // warnings, theft alerts and staff broadcasts. Nothing legitimate ever
+        // called it: notifications are written by the tick engine and the game
+        // actions, and staff have staff_notifications_send_player /
+        // staff_notifications_send_all, which are permission-gated and audited.
+        //
+        // Removing it rather than staff-gating it, because a staff-gated
+        // duplicate of two actions that already exist is just a third way in.
 
         // ==================== SOCIAL ====================
         case 'friends_list':
@@ -992,7 +972,14 @@ try {
             break;
             
         case 'chat_messages':
-            $player = Auth::getCurrentPlayer();
+            // Reading chat requires a session. It did not, so the entire
+            // global transcript - every handle, every message - was readable
+            // by anyone who could reach the endpoint, and the block list
+            // could not be applied because there was no viewer to apply it
+            // for. The client already presents chat as players-only ("Chat is
+            // for players / Log in to read and post"); this makes the server
+            // agree rather than relying on the client to keep the secret.
+            $player = Auth::requireAuth();
             echo json_encode(getChatMessages($player, $input));
             break;
             
@@ -1026,7 +1013,7 @@ try {
                 'account_delete_request', 'account_delete_confirm',
                 'staff_account_delete_request', 'staff_account_delete_confirm',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
-                'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
+                'notifications_mark_all_read', 'notifications_remove',
                 'friends_list', 'friend_requests_list', 'friend_request_send',
                 'friend_request_respond', 'friend_remove', 'blocks_list',
                 'block_add', 'block_remove',
@@ -1996,8 +1983,18 @@ function sendChat($player, $input) {
     
     if (empty($content)) return ['error' => 'Message cannot be empty'];
     if (strlen($content) > CHAT_MAX_LENGTH) return ['error' => 'Message too long'];
-    
+
     // Channel validation
+    //
+    // The kind is checked against the set that has a read path BEFORE the
+    // insert. Previously any string reached the INSERT: channel_kind is an
+    // ENUM, so an unknown kind either raised a driver error or, on a
+    // permissive server, stored as '' - a message accepted from the player,
+    // charged against their mute state, and then readable by nobody. Failing
+    // it by name is the honest answer.
+    if ($channelKind !== 'GLOBAL' && $channelKind !== 'SEASON' && $channelKind !== 'DM') {
+        return ['error' => 'Unknown chat channel', 'reason_code' => 'unknown_channel'];
+    }
     if ($channelKind === 'SEASON') {
         if (!$player['joined_season_id']) return ['error' => 'Not in a season'];
         $seasonId = $player['joined_season_id'];
@@ -2035,16 +2032,36 @@ function sendChat($player, $input) {
 function getChatMessages($player, $input) {
     $db = Database::getInstance();
     $channelKind = strtoupper($input['channel'] ?? 'GLOBAL');
-    $seasonId = $input['season_id'] ?? null;
-    // Reads bind to the participation season exactly as sends do: the send
-    // path derives the season from joined_season_id, but this read path
-    // required an explicit season_id no client ever sent — so the Season tab
-    // always rendered empty while sends landed fine. Deriving here also keeps
-    // a viewer browsing another season bound to their own season's chat.
-    if ($channelKind === 'SEASON' && !$seasonId && $player && !empty($player['joined_season_id'])) {
-        $seasonId = (int)$player['joined_season_id'];
+
+    // Only the two channels with a read path exist. Anything else - a typo, a
+    // probe, or the DM kind that is deliberately closed - is refused by name
+    // rather than falling through to an empty list that looks like an outage.
+    if ($channelKind !== 'GLOBAL' && $channelKind !== 'SEASON') {
+        return ['error' => 'Unknown chat channel', 'reason_code' => 'unknown_channel'];
     }
-    $canViewRemoved = $player && Permissions::isStaff($player);
+
+    // The season transcript is bound to the viewer's own participation, and a
+    // client-supplied season_id is ignored outright.
+    //
+    // It used to be honoured, which made every season's chat world-readable:
+    // passing season_id=N returned that season's full transcript to anyone,
+    // including callers with no session at all. Deriving it from the player
+    // is also what the send path does, so read and write now agree on which
+    // season "SEASON" means.
+    //
+    // Staff are the one exception, because moderating a transcript requires
+    // reading it, and they may not be in the season they are moderating.
+    $isStaff = $player && Permissions::isStaff($player);
+    $seasonId = null;
+    if ($channelKind === 'SEASON') {
+        if ($isStaff && !empty($input['season_id'])) {
+            $seasonId = (int)$input['season_id'];
+        } elseif ($player && !empty($player['joined_season_id'])) {
+            $seasonId = (int)$player['joined_season_id'];
+        }
+    }
+
+    $canViewRemoved = $isStaff;
     $removedSql = $canViewRemoved ? "1=1" : "is_removed = 0";
 
     // Blocking now hides the blocked player's messages.

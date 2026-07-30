@@ -18,10 +18,18 @@
 
 import { pending, emptyState, errorState } from './ui.js';
 
+// Only the channels the server can actually serve.
+//
+// A STAFF tab used to be listed here. It was unreachable in two independent
+// ways: the gate tested for lowercase 'staff'/'admin' while the server
+// publishes 'Admin'/'Moderator', so it never appeared for anyone including
+// admins; and had it appeared, chat_messages has no STAFF read path and
+// channel_kind is an ENUM of GLOBAL/SEASON/DM, so posting to it could not
+// store and reading it could not return. Staff coordination lives in the
+// staff_chat_* thread actions, which are a different surface entirely.
 const CHANNELS = [
     { id: 'GLOBAL', label: 'Global', always: true },
     { id: 'SEASON', label: 'Season', needsSeason: true },
-    { id: 'STAFF', label: 'Staff', needsStaff: true },
 ];
 
 const SCROLL_PIN_SLOP_PX = 48;
@@ -69,10 +77,8 @@ function availableChannels(ctx) {
     const player = ctx.store.get('player');
     if (!player) return [];
     const inSeason = (player.joined_season_id ?? null) !== null;
-    const role = String(player.role || '').toLowerCase();
-    const isStaff = role === 'staff' || role === 'admin';
 
-    return CHANNELS.filter(c => c.always || (c.needsSeason && inSeason) || (c.needsStaff && isStaff));
+    return CHANNELS.filter(c => c.always || (c.needsSeason && inSeason));
 }
 
 export default {
