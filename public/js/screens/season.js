@@ -410,7 +410,10 @@ function standings(ctx, season, player) {
                     },
                         h('td', { class: 'lb-rank tabular' }, String(i + 1)),
                         h('td', null,
-                            h('span', { class: 'lb-handle' }, r.handle || '—'),
+                            h('button', {
+                                class: 'link-handle',
+                                onClick: () => ctx.openProfile(r.player_id),
+                            }, r.handle || '—'),
                             r.lock_in_effect_tick ? h('span', { class: 'badge' }, 'locked in') : null,
                         ),
                         h('td', { class: 'lb-stars tabular' },

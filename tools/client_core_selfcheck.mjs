@@ -62,7 +62,7 @@ async function loadCore() {
     }
 
     await mkdir(join(dir, 'screens'), { recursive: true });
-    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'index'];
+    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile', 'index'];
     const screens = {};
     for (const name of screenNames) {
         await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
@@ -915,7 +915,7 @@ function checkScreens(screens, { h, render }) {
         }],
     ];
 
-    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff']) {
+    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile']) {
         const screen = screens[name].default;
         let failedAt = null;
         for (const [label, overrides] of cases) {
@@ -1071,6 +1071,61 @@ function checkScreens(screens, { h, render }) {
             seasonText.includes('5× I → 1× II'));
         ok('season shows the boosts panel for a joined player',
             seasonText.includes('Boosts') && seasonText.includes('No boost running'));
+    }
+
+    // The profile screen renders every payload variant the server can return:
+    // full, restricted, deleted, error — plus the owner view with account
+    // controls and the other-player view with relationship actions.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const profileScreen = screens.profile.default;
+        const FULL_PROFILE = {
+            player_id: 9, handle: 'rival', role: 'Player', global_stars: 40,
+            profile_visibility: 'PUBLIC', created_at: '2026-06-01T00:00:00+00:00',
+            online_current: 1,
+            relationship: { is_friend: false, is_blocked: false, request_pending: false },
+            badges: [{ badge_type: 'season_first', season_id: 3, awarded_at: '2026-07-01T00:00:00+00:00' }],
+            season_history: [{ season_id: 3, effective_seasonal_stars: 120, payout_seasonal_stars: 120, lock_in_effect_tick: null }],
+            active_participation: null,
+            global_stars_progress: { percent: 25 },
+            equipped_cosmetics: {},
+        };
+
+        const other = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 9 }, screens: { profile: FULL_PROFILE },
+        }))).join(' ');
+        ok('profile renders identity, badges, history and Add friend for another player',
+            other.includes('rival') && other.includes('Season winner') && other.includes('Add friend'));
+
+        const restricted = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 9 },
+            screens: { profile: { player_id: 9, handle: 'rival', restricted: true, visibility: 'FRIENDS_ONLY' } },
+        }))).join(' ');
+        ok('a restricted profile gets an honest state, not a broken page',
+            restricted.includes('visible to friends only'));
+
+        const removed = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 9 },
+            screens: { profile: { player_id: 9, handle: '[Removed]', deleted: true } },
+        }))).join(' ');
+        ok('a deleted profile renders [Removed]', removed.includes('[Removed]'));
+
+        const own = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 7 },
+            screens: {
+                profile: { ...FULL_PROFILE, player_id: 7, handle: 'tester', relationship: null },
+                account: { bio: '', profile_status: '', profile_visibility: 'PUBLIC' },
+                friends: [], friendRequests: [], blocks: [],
+            },
+        }))).join(' ');
+        ok('own profile shows account controls instead of relationship actions',
+            own.includes('Profile visibility') && !own.includes('Add friend'));
     }
 
     // Staff screen: locked for everyone below Moderator; the server-mode

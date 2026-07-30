@@ -27,7 +27,10 @@ function row(ctx, entry, index, mePlayerId) {
     },
         h('td', { class: 'lb-rank tabular' }, String(rank)),
         h('td', { class: 'lb-player' },
-            h('span', { class: 'lb-handle' }, entry.handle || '—'),
+            h('button', {
+                class: 'link-handle',
+                onClick: () => ctx.openProfile(entry.player_id),
+            }, entry.handle || '—'),
             isMe ? h('span', { class: 'badge badge-you' }, 'you') : null,
         ),
         h('td', { class: 'lb-stars tabular' },

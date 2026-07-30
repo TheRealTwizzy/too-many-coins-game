@@ -555,6 +555,82 @@ const ctx = {
         });
     },
 
+    // ---- profile & social ----
+
+    openProfile(playerId) {
+        const id = Number(playerId);
+        if (!Number.isFinite(id) || id <= 0) return;
+        store.set('ui.profileId', id);
+        store.set('screens.profile', null);
+        // Draft fields reset so one player's unsaved edits never leak into
+        // another profile view.
+        store.set('ui.accountVisibility', null);
+        store.set('ui.accountStatus', null);
+        store.set('ui.accountBio', null);
+        store.set('screen', 'profile');
+        // Same reasoning as openSeason: enter() only fires on a *change* of
+        // screen id, and profiles link to other profiles.
+        ctx.loadProfile();
+    },
+
+    async loadProfile() {
+        const id = store.get('ui.profileId');
+        if (id === null || id === undefined) return;
+        const res = await api.request('profile', { player_id: id });
+        if (!res) return;
+        store.set('screens.profile', res);
+
+        const me = store.get('player');
+        if (me && Number(me.player_id) === Number(id)) await ctx.loadOwnSocial();
+    },
+
+    /** The owner-only side panels: account fields, friends, requests, blocks. */
+    async loadOwnSocial() {
+        const [account, friends, requests, blocks] = await Promise.all([
+            api.request('account_get', {}),
+            api.request('friends_list', {}),
+            api.request('friend_requests_list', {}),
+            api.request('blocks_list', {}),
+        ]);
+        if (account && account.success) store.set('screens.account', account.account);
+        if (friends && friends.success) store.set('screens.friends', friends.friends || []);
+        if (requests && requests.success) store.set('screens.friendRequests', requests.requests || []);
+        if (blocks && blocks.success) store.set('screens.blocks', blocks.blocks || []);
+    },
+
+    /** friend_request_send / friend_remove / block_add / block_remove. */
+    async socialAction(action, targetPlayerId) {
+        store.set('ui.profileBusy', true);
+        const res = await api.request(action, { target_player_id: Number(targetPlayerId) });
+        store.set('ui.profileBusy', false);
+        if (!res || res.error) return actionFailed(res, 'Action failed');
+        await ctx.loadProfile();
+    },
+
+    async respondFriendRequest(requestId, decision) {
+        const res = await api.request('friend_request_respond', {
+            request_id: Number(requestId),
+            decision,
+        });
+        if (!res || res.error) return actionFailed(res, 'Could not update the request');
+        await ctx.loadOwnSocial();
+    },
+
+    async saveAccount() {
+        const account = store.get('screens.account') || {};
+        store.set('ui.accountBusy', true);
+        const res = await api.request('account_update', {
+            bio: store.get('ui.accountBio') ?? account.bio ?? '',
+            profile_status: store.get('ui.accountStatus') ?? account.profile_status ?? '',
+            profile_visibility: store.get('ui.accountVisibility') ?? account.profile_visibility ?? 'PUBLIC',
+        });
+        store.set('ui.accountBusy', false);
+        if (!res || res.error) return actionFailed(res, 'Could not save the profile');
+        store.set('screens.account', res.account);
+        toast('Profile saved.', 'success');
+        await ctx.loadProfile();
+    },
+
     // ---- notifications ----
 
     toggleNotifications() {
@@ -1370,7 +1446,10 @@ function userArea() {
             assets.icon('bell'),
             unread ? h('span', { class: 'notif-badge tabular' }, unread > 99 ? '99+' : String(unread)) : null,
         ),
-        h('span', { class: 'user-handle' }, player.handle || 'Player'),
+        h('button', {
+            class: 'link-handle user-handle',
+            onClick: () => ctx.openProfile(player.player_id),
+        }, player.handle || 'Player'),
         h('button', { class: 'btn btn-ghost btn-sm', onClick: () => ctx.doLogout() }, 'Log out'),
         notificationsPanel(),
     );
