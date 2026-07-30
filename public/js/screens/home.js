@@ -89,6 +89,7 @@ function loggedIn(ctx) {
             h('p', { class: 'muted' },
                 'Global stars are the only thing a season leaves behind. Spending them ',
                 'on cosmetics does not lower your rank.'),
+            h('a', { class: 'btn btn-ghost btn-sm', href: '/wiki/' }, 'Read the wiki'),
         ),
     );
 }

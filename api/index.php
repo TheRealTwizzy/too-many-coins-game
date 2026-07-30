@@ -1347,6 +1347,10 @@ function getGameState($player) {
                 'participation_time' => (int)$participation['participation_time_total'],
                 'active_ticks' => (int)$participation['active_ticks_total'],
                 'lock_in_stars' => $participation['lock_in_snapshot_seasonal_stars'],
+                // The starter-hand offset deducted from the sigil refund at
+                // lock-in — published so the lock-in panel can disclose it at
+                // the moment it applies.
+                'starter_grant_stars' => (int)($participation['starter_grant_stars'] ?? 0),
                 'sigil_drops_total' => (int)($participation['sigil_drops_total'] ?? 0),
                 'eligible_ticks_since_last_drop' => (int)($participation['eligible_ticks_since_last_drop'] ?? 0),
                 'combine_recipes' => getCombineRecipesForParticipation($participation),
@@ -2029,6 +2033,14 @@ function getChatMessages($player, $input) {
     $db = Database::getInstance();
     $channelKind = strtoupper($input['channel'] ?? 'GLOBAL');
     $seasonId = $input['season_id'] ?? null;
+    // Reads bind to the participation season exactly as sends do: the send
+    // path derives the season from joined_season_id, but this read path
+    // required an explicit season_id no client ever sent — so the Season tab
+    // always rendered empty while sends landed fine. Deriving here also keeps
+    // a viewer browsing another season bound to their own season's chat.
+    if ($channelKind === 'SEASON' && !$seasonId && $player && !empty($player['joined_season_id'])) {
+        $seasonId = (int)$player['joined_season_id'];
+    }
     $canViewRemoved = $player && Permissions::isStaff($player);
     $removedSql = $canViewRemoved ? "1=1" : "is_removed = 0";
 

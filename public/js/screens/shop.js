@@ -38,9 +38,9 @@ function item(ctx, entry, owned, equippedIds, balance) {
         isOwned
             ? h('button', {
                 class: 'btn ' + (isEquipped ? 'btn-ghost' : 'btn-primary'),
-                disabled: busy || isEquipped,
-                onClick: () => ctx.equipCosmetic(id),
-            }, isEquipped ? 'Equipped' : busy ? 'Equipping…' : 'Equip')
+                disabled: busy,
+                onClick: () => ctx.equipCosmetic(id, !isEquipped),
+            }, busy ? 'Working…' : isEquipped ? 'Unequip' : 'Equip')
             : h('button', {
                 class: 'btn btn-primary',
                 disabled: busy || !affordable,

@@ -878,12 +878,13 @@ const ctx = {
         await Promise.all([ctx.loadShop(), poll()]);
     },
 
-    async equipCosmetic(cosmeticId) {
+    /** equip=false unequips — the server reads the flag, defaulting to true. */
+    async equipCosmetic(cosmeticId, equip = true) {
         store.set('ui.shopBusy', cosmeticId);
-        const res = await api.request('equip_cosmetic', { cosmetic_id: cosmeticId });
+        const res = await api.request('equip_cosmetic', { cosmetic_id: cosmeticId, equip });
         store.set('ui.shopBusy', null);
         if (res && res.error) return actionFailed(res);
-        await ctx.loadShop();
+        await Promise.all([ctx.loadShop(), poll()]);
     },
 };
 
