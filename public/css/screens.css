@@ -44,6 +44,12 @@
 .empty-title { font-size: var(--fs-lead); font-weight: var(--fw-medium); }
 .empty-body { color: var(--ink-3); max-width: 46ch; }
 
+/* A failed load is not an empty one, and must not look like it: solid border
+   in the warning colour, so "this broke" reads differently at a glance from
+   "there is nothing here yet". */
+.error-state { border-style: solid; border-color: var(--down); }
+.error-state .empty-title { color: var(--down); }
+
 .pending { padding: var(--s5); text-align: center; color: var(--ink-3); }
 
 .screen-error {

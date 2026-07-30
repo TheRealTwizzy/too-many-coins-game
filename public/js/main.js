@@ -564,7 +564,9 @@ const ctx = {
             api.request('family_state', {}),
             api.request('season_events', { limit: 25 }),
         ]);
-        if (state && !state.error) store.set('screens.family', state);
+        store.set('screens.family', (state && !state.error) ? state : { error: fetchError(state) });
+        // The chronicle is decoration beside the panel itself; a failure there
+        // leaves it absent rather than taking the whole screen to an error.
         if (events && !events.error) store.set('screens.familyEvents', events.events || []);
     },
 
@@ -858,7 +860,10 @@ const ctx = {
         // list; the old page/per_page params were ignored server-side and the
         // client pager just re-rendered the same list.
         const res = await api.request('global_leaderboard', {});
-        if (!res || res.error) return;
+        // A failed fetch must be recorded, not swallowed: leaving the slot
+        // null renders "Loading…" forever, and rendering an empty list would
+        // claim the board is empty when the request simply failed.
+        if (!res || res.error) return store.set('screens.ranks', { error: fetchError(res) });
         const entries = Array.isArray(res) ? res : (res.entries || res.leaderboard || []);
         store.set('screens.ranks', { entries });
     },
@@ -866,7 +871,11 @@ const ctx = {
     async loadChat() {
         const channel = store.get('ui.chatChannel') || 'GLOBAL';
         const res = await api.request('chat_messages', { channel }, { channel: 'chat', dedupe: true, respectBackoff: true });
-        if (!res || res.error || res.skipped) return;
+        // skipped is the dedupe/backoff path, not a failure — leave whatever
+        // is on screen alone. A real error is recorded so the room can say so
+        // instead of looking permanently empty.
+        if (res && res.skipped) return;
+        if (!res || res.error) return store.set('screens.chat', { error: fetchError(res), channel });
         const messages = Array.isArray(res) ? res : (res.messages || []);
         store.set('screens.chat', { messages, channel });
     },
@@ -910,7 +919,7 @@ const ctx = {
             api.request('cosmetic_catalog'),
             api.request('my_cosmetics'),
         ]);
-        if (!catalog || catalog.error) return;
+        if (!catalog || catalog.error) return store.set('screens.shop', { error: fetchError(catalog) });
         store.set('screens.shop', {
             catalog: Array.isArray(catalog) ? catalog : (catalog.items || []),
             owned: mine && !mine.error ? (Array.isArray(mine) ? mine : (mine.owned || [])) : [],
@@ -1004,6 +1013,16 @@ function toast(text, kind = 'info') {
     store.set('ui.toast', { text, kind });
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => store.set('ui.toast', null), 4000);
+}
+
+/**
+ * A human sentence for a failed fetch. The server's own message wins when it
+ * sent one; a dropped request has none, and "Could not reach the server" is
+ * the honest description of that rather than a raw exception or a bare null.
+ */
+function fetchError(res) {
+    if (res && res.error) return String(res.error);
+    return 'Could not reach the server.';
 }
 
 /**

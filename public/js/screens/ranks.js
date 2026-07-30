@@ -12,7 +12,7 @@
  * every "page" re-rendered the same list.
  */
 
-import { pending, emptyState, panel } from './ui.js';
+import { pending, emptyState, errorState, panel } from './ui.js';
 
 const fmt = new Intl.NumberFormat('en-US');
 
@@ -59,6 +59,13 @@ export default {
         const mePlayerId = player ? (player.player_id ?? null) : null;
 
         if (!data) return pending(h, 'Loading leaderboard…');
+        if (data.error) {
+            return errorState(h, {
+                title: 'Could not load the leaderboard',
+                message: data.error,
+                onRetry: () => ctx.loadLeaderboard(),
+            });
+        }
 
         const entries = data.entries || [];
 

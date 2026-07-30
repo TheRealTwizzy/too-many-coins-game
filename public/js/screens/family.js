@@ -14,7 +14,7 @@
  * hope-gated.
  */
 
-import { pending, emptyState, panel } from './ui.js';
+import { pending, emptyState, errorState, panel } from './ui.js';
 
 const fmt = new Intl.NumberFormat('en-US');
 const ROMAN = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
@@ -391,6 +391,13 @@ export default {
             });
         }
         if (!state) return pending(h, 'Consulting the families…');
+        if (state.error) {
+            return errorState(h, {
+                title: 'The families did not answer',
+                message: state.error,
+                onRetry: () => ctx.loadFamily(),
+            });
+        }
         if (!state.enabled) {
             return emptyState(h, { title: 'The families are quiet', body: 'Nothing answers yet.' });
         }

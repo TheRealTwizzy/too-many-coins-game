@@ -375,10 +375,43 @@ $me = $readMe();
 $price = max(1, (int)$me['price']);
 $target = $price * 4;
 
+echo "star price {$price}, need {$target} coins to make the race meaningful\n";
+
+// Seed the balance rather than waiting minutes for it.
+//
+// UBI is denominated per real minute, so reaching a spendable balance is
+// several minutes of pure waiting - long enough that this check stops being
+// one anybody runs, which is the failure mode that matters most for a race
+// detector. The seed writes coins straight into the row; the race itself,
+// the guard it is probing and the settlement all still run the real server
+// path. Falls back to waiting when the database is not reachable from here.
+$seeded = false;
+if ($me['coins'] < $target && is_file(__DIR__ . '/lib/test_accounts.php')) {
+    require_once __DIR__ . '/lib/test_accounts.php';
+    try {
+        $pdo = tmcOpenPdo();
+        $stmt = $pdo->prepare(
+            "UPDATE season_participation sp
+             JOIN players p ON p.player_id = sp.player_id
+             SET sp.coins = ?
+             WHERE p.handle = ? AND sp.season_id = ?"
+        );
+        $stmt->execute([$target * 2, $handle, $seasonId]);
+        $seeded = $stmt->rowCount() === 1;
+        if ($seeded) {
+            echo "seeded balance to " . ($target * 2) . " coins (skipping the UBI wait)\n";
+            $me = $readMe();
+        }
+    } catch (Throwable $e) {
+        echo "seed unavailable ({$e->getMessage()}); falling back to waiting\n";
+    }
+}
+
 $rateHint = 'base UBI is 30 coins/min, so this takes about '
-          . max(1, (int)ceil(($target - $me['coins']) / 30)) . ' min';
-echo "star price {$price}, need {$target} coins to make the race meaningful ({$rateHint})\n";
-echo "waiting for UBI to accrue";
+          . max(1, (int)ceil(max(0, $target - $me['coins']) / 30)) . ' min';
+if (!$seeded) {
+    echo "waiting for UBI to accrue ({$rateHint})";
+}
 
 // Generous ceiling: at 30 coins/min a 128-coin target is ~4 minutes, and a
 // player who starts Idle accrues at 30% of that.

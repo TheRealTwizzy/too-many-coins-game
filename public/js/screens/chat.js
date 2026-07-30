@@ -16,7 +16,7 @@
  *      rather than shifting every row's content down by one.
  */
 
-import { pending, emptyState } from './ui.js';
+import { pending, emptyState, errorState } from './ui.js';
 
 const CHANNELS = [
     { id: 'GLOBAL', label: 'Global', always: true },
@@ -152,11 +152,21 @@ export default {
 
             !data
                 ? pending(h, 'Loading messages…')
-                : h('ul', { id: 'chat-log', class: 'chat-log' },
-                    (data.messages || []).length
-                        ? (data.messages || []).map(m => message(ctx, m))
-                        : h('li', { class: 'msg muted' }, 'No messages yet. Say something.'),
-                ),
+                : data.error
+                    // A failed transcript fetch must not read as an empty room.
+                    // The compose box stays: the channel may well accept a send
+                    // even when a read failed, and removing it mid-conversation
+                    // would be worse than leaving it.
+                    ? errorState(h, {
+                        title: 'Could not load messages',
+                        message: data.error,
+                        onRetry: () => ctx.loadChat(),
+                    })
+                    : h('ul', { id: 'chat-log', class: 'chat-log' },
+                        (data.messages || []).length
+                            ? (data.messages || []).map(m => message(ctx, m))
+                            : h('li', { class: 'msg muted' }, 'No messages yet. Say something.'),
+                    ),
 
             h('form', {
                 class: 'chat-compose',

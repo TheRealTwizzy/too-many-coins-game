@@ -1077,6 +1077,42 @@ function checkScreens(screens, { h, render }) {
             seasonText.includes('Boosts') && seasonText.includes('No boost running'));
     }
 
+    // Every screen that fetches must distinguish three states: not loaded yet,
+    // loaded-and-empty, and failed. Collapsing the third into either of the
+    // others is how a dead request comes to read as "the leaderboard is
+    // empty" or as a spinner that never resolves.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const FETCHERS = [
+            ['ranks', 'ranks', 'Could not load the leaderboard'],
+            ['shop', 'shop', 'Could not load the shop'],
+            ['chat', 'chat', 'Could not load messages'],
+            ['family', 'family', 'The families did not answer'],
+        ];
+
+        for (const [name, slot, expected] of FETCHERS) {
+            const screen = screens[name].default;
+            const state = {
+                player: JOINED_PLAYER,
+                familiesEnabled: true,
+                screens: { [slot]: { error: 'Could not reach the server.' } },
+            };
+            const text = allText(screen.view(stubCtx(state))).join(' ');
+            ok(`${name} renders an error state rather than a false empty`,
+                text.includes(expected) && text.includes('Try again'), text.slice(0, 120));
+            // The failure must not be reported as emptiness.
+            ok(`${name} does not claim emptiness when the fetch failed`,
+                !/Nobody on the board yet|No messages yet|Nothing in this category/.test(text),
+                text.slice(0, 120));
+        }
+    }
+
     // The family panel renders the full family_state shape — roster, holdings,
     // affinity, ward/market state, forge switches, live event — and honest
     // states for signed-out / no-season / disabled.
