@@ -6,17 +6,19 @@
  * a positional render would rewrite both rows' contents in place and the
  * change would read as two players' names flickering. Keyed by player_id, the
  * two rows swap instead, and only the rank numbers change.
+ *
+ * No pager: global_leaderboard returns the full ranked list and takes no
+ * arguments. The old pager sent page/per_page params the server ignored, so
+ * every "page" re-rendered the same list.
  */
 
 import { pending, emptyState, panel } from './ui.js';
 
-const PAGE_SIZE = 25;
-
 const fmt = new Intl.NumberFormat('en-US');
 
-function row(ctx, entry, index, page, mePlayerId) {
+function row(ctx, entry, index, mePlayerId) {
     const { h } = ctx;
-    const rank = (page - 1) * PAGE_SIZE + index + 1;
+    const rank = index + 1;
     const isMe = mePlayerId !== null && Number(entry.player_id) === Number(mePlayerId);
 
     return h('tr', {
@@ -44,7 +46,7 @@ export default {
     id: 'ranks',
 
     async enter(ctx) {
-        await ctx.loadLeaderboard(1);
+        await ctx.loadLeaderboard();
     },
 
     view(ctx) {
@@ -56,10 +58,8 @@ export default {
         if (!data) return pending(h, 'Loading leaderboard…');
 
         const entries = data.entries || [];
-        const page = data.page || 1;
-        const hasMore = entries.length === PAGE_SIZE;
 
-        if (!entries.length && page === 1) {
+        if (!entries.length) {
             return emptyState(h, {
                 title: 'Nobody on the board yet',
                 body: 'Global stars are earned through season outcomes and lock-in.',
@@ -81,25 +81,9 @@ export default {
                         ),
                     ),
                     h('tbody', null,
-                        entries.map((e, i) => row(ctx, e, i, page, mePlayerId))),
+                        entries.map((e, i) => row(ctx, e, i, mePlayerId))),
                 ),
-            ),
-
-            h('div', { class: 'pager' },
-                h('button', {
-                    class: 'btn btn-ghost',
-                    disabled: page <= 1,
-                    onClick: () => ctx.loadLeaderboard(page - 1),
-                }, 'Previous'),
-                h('span', { class: 'pager-label tabular' }, `Page ${page}`),
-                h('button', {
-                    class: 'btn btn-ghost',
-                    disabled: !hasMore,
-                    onClick: () => ctx.loadLeaderboard(page + 1),
-                }, 'Next'),
             ),
         );
     },
 };
-
-export { PAGE_SIZE };

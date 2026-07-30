@@ -287,7 +287,9 @@ const ctx = {
         if (!confirmed) return;
 
         store.set('ui.buyingStars', true);
-        const res = await api.request('purchase_stars', { quantity });
+        // The server reads stars_requested; sending { quantity } silently
+        // requested zero stars on every purchase.
+        const res = await api.request('purchase_stars', { stars_requested: quantity });
         store.set('ui.buyingStars', false);
         if (res && res.error) return toast(res.error, 'error');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
@@ -405,11 +407,14 @@ const ctx = {
         if (dialog && dialog.resolve) dialog.resolve(result);
     },
 
-    async loadLeaderboard(page = 1) {
-        const res = await api.request('global_leaderboard', { page, per_page: 25 });
+    async loadLeaderboard() {
+        // global_leaderboard takes no arguments and returns the full ranked
+        // list; the old page/per_page params were ignored server-side and the
+        // client pager just re-rendered the same list.
+        const res = await api.request('global_leaderboard', {});
         if (!res || res.error) return;
         const entries = Array.isArray(res) ? res : (res.entries || res.leaderboard || []);
-        store.set('screens.ranks', { entries, page });
+        store.set('screens.ranks', { entries });
     },
 
     async loadChat() {

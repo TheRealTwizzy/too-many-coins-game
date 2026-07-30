@@ -107,9 +107,7 @@ if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
     // by URL from an import graph, so a stale cached module can be paired with
     // a fresh one and produce a mismatch no reload seems to fix.
     $isAppShellAsset = (
-        $path === '/js/app.js'
-        || $path === '/css/style.css'
-        || $path === '/js/main.js'
+        $path === '/js/main.js'
         || $path === '/js/patch-notes.js'
         || $path === '/css/tokens.css'
         || $path === '/css/next.css'
