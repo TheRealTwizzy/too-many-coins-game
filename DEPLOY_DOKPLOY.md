@@ -471,30 +471,42 @@ promoted, so check with `staff` rather than assuming.
 
 ### Email confirmation
 
-`staff` flags accounts with no confirmed email address as `unverified`. That
-does **not** block sign-in — nothing in `Auth::login` consults
-`email_verified_at`, and no registration path ever sets it, so every account
-created through the game reads `unverified` and works normally. (An earlier
-version of this document said those accounts could not sign in. That was
-wrong.)
+`staff` flags accounts with no confirmed email address as `unverified`, and
+that flag is **load-bearing**. The account signs in, then is refused every
+action except logout, confirming, asking for another link, and reading enough
+state to be told so — `403` with `reason_code: email_verification_required`.
+The gate sits in `api/index.php` ahead of the action switch rather than in
+`Auth::login`, and it exempts `login`, which is why sign-in itself still
+succeeds while everything after it does not.
 
-What it does mean is that nobody has proved control of the address, so it
-cannot be relied on for a password reset. That matters most for the Admin
-account, where losing the password means losing the only way into the staff
-screen.
+**Staff are not exempt.** An `unverified` Admin can sign in and reach nothing,
+including the staff screen. Resolve it before you need that screen in a hurry.
+
+There is a self-service flow: registration issues an `EMAIL_VERIFY` token and
+mails the link, `email_verify_confirm` consumes it, and `email_verify_resend`
+issues another. It is only as good as outbound mail — see section 4.6, and
+prove SMTP with `php /app/tools/mail_selftest.php` **before** opening
+registration. `TMC_MAIL_DEV_LOG` defaults to on, which sends nothing.
+
+Break-glass for an account whose mail never arrived:
 
 ```bash
 php /app/tools/admin.php verify <handle>
 ```
 
-This asserts control on the operator's word, and it is the only way an account
-gets a confirmed address today: **there is no self-service verification flow.**
-`account_verification_tokens` and `Mailer::send` exist, but they are wired to
-account-deletion confirmation only. Registration sends no verification mail and
-nothing consumes a verification link. Building that is a separate piece of
-work — a token issued at registration, a confirmation endpoint, a resend
-action, and a decision about what (if anything) stays locked until an address
-is confirmed.
+This asserts control on the operator's word — it bypasses the confirmation mail
+rather than proving anything — and writes an audit row. Use it when mail is
+broken, not instead of fixing mail.
+
+Accounts that predate the confirmation release were grandfathered to confirmed
+by `migration_20260731b_email_verification.sql`, so an established lane should
+not show `unverified` staff once it has deployed. If one still does, that
+migration has not applied — check `schema_migrations` for a `status='failed'`
+row rather than assuming the flag is cosmetic.
+
+> This section has now been wrong in both directions — it once said unverified
+> accounts could not sign in, then that the flag blocked nothing. Both were
+> true of some build; neither is true of this one.
 
 After the first Admin exists, promote everyone else in-game through the staff
 screen, which records a real actor. `Permissions::canActOnTarget` requires a
