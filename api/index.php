@@ -443,7 +443,16 @@ if ($serverMode === 'MAINTENANCE_LOCKDOWN') {
     ];
     if (!in_array($action, $maintenanceAllowed, true)) {
         $gatePlayer = Auth::getCurrentPlayer();
-        if (!$gatePlayer || !Permissions::isStaff($gatePlayer)) {
+        // Two separate questions, deliberately not collapsed into one: may you
+        // act on other players (staff), and may you play while the game is
+        // closed (maintenance_access). Staff cannot answer the second on their
+        // own behalf usefully - seasonJoin refuses any role but Player, so a
+        // moderator can pass this gate and still not join a season - which
+        // left a gated build with nobody able to test it. A tester account
+        // gets through here and stays an ordinary Player everywhere else.
+        $gateAllowed = $gatePlayer
+            && (Permissions::isStaff($gatePlayer) || !empty($gatePlayer['maintenance_access']));
+        if (!$gateAllowed) {
             http_response_code(503);
             echo json_encode([
                 'error' => 'The game is under maintenance.',

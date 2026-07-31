@@ -732,6 +732,21 @@
 
 .construction-shell { display: grid; place-items: start center; min-height: 100vh; padding: var(--s5) var(--s3); }
 
+/* Sign-in reached from the gate. Same centred, chrome-free frame as the
+   construction page, because it is the same page in a different state — the
+   full shell would put a rail and HUD around a player who cannot use them. */
+.gated-auth-shell {
+    display: grid;
+    place-items: start center;
+    align-content: start;
+    gap: var(--s3);
+    min-height: 100vh;
+    padding: var(--s5) var(--s3);
+}
+
+.gated-auth-shell > #deck { width: 100%; max-width: 28rem; }
+.gated-auth-foot { display: flex; justify-content: center; }
+
 .construction {
     max-width: 40rem;
     width: 100%;

@@ -1338,6 +1338,33 @@ async function checkShellSource() {
     // restricted network and fills the console with errors.
     ok('the shell pulls no external stylesheet or font',
         !/<link[^>]+href=["']https?:\/\//i.test(shell));
+    // The maintenance gate's one escape hatch has to escape, and has to stay
+    // an escape hatch rather than a way past the gate.
+    //
+    // Both halves shipped broken: "Staff sign-in" only set screen='auth', so a
+    // player already signed in on a non-staff account hit the auth screen's
+    // "Already signed in" branch instead of a login form, and screen='auth'
+    // fell through to the full shell - rail, HUD and every screen rendered to
+    // someone the gate was supposed to be showing a construction page.
+    ok('staff sign-in signs out an existing non-staff session first',
+        /onStaffSignIn[\s\S]{0,320}doLogout\(\)/.test(src));
+    ok('the gate short-circuit covers the auth screen too',
+        /const gated = store\.get\('serverMode'\) === 'MAINTENANCE_LOCKDOWN' && !isStaff/.test(src));
+    // Sliced rather than pattern-matched across the whole file: the ungated
+    // shell right below this block also contains rail() and hud(), so a
+    // windowed regex reads them as if they were inside it.
+    const gatedStart = src.indexOf('if (gated) {');
+    const gatedEnd = src.indexOf("return h('div', { id: 'shell' },", gatedStart);
+    const gatedBlock = gatedStart >= 0 && gatedEnd > gatedStart ? src.slice(gatedStart, gatedEnd) : '';
+    ok('gated sign-in renders without the rail, HUD or deck routing',
+        gatedBlock.includes('gated-auth-shell')
+        && gatedBlock.includes("deck('auth')")
+        && !gatedBlock.includes('rail(screen)')
+        && !gatedBlock.includes('hud(')
+        && !gatedBlock.includes('deck(screen)'));
+    ok('gated sign-in offers a way back to the construction page',
+        /gated-auth-foot[\s\S]{0,260}store\.set\('screen', 'home'\)/.test(src));
+
     ok('gated spends re-send with confirm_economic_impact after the preview',
         src.includes("res.error === 'confirmation_required'")
         && src.includes('confirm_economic_impact: true'));

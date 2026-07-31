@@ -476,6 +476,43 @@ php /app/tools/admin.php gate on --reason="pre-test lockdown"
 php /app/tools/admin.php gate off
 ```
 
+### Play-testing a gated build
+
+Staff pass the gate but cannot join a season — `seasonJoin` refuses any role
+other than `Player`, so competitive standings never contain a moderator. With
+the gate up and every ordinary account blocked, that leaves nobody able to
+play-test. `maintenance_access` is the way through: it allows an account past
+the gate without granting it any staff power, so a tester stays an ordinary
+Player everywhere else and never appears in standings as staff.
+
+```bash
+php /app/tools/admin.php tester create playtest1      # throwaway account
+php /app/tools/admin.php tester list
+php /app/tools/admin.php tester grant <handle>        # allow an existing account
+php /app/tools/admin.php tester revoke <handle>
+```
+
+`tester create` makes the account pre-verified, because a gated build is
+exactly the situation where SMTP may not be configured yet — requiring an email
+round trip would make the command useless when it is most needed. It prints a
+generated password once; nothing stores it in plaintext.
+
+Revoke access when the test is over. A `maintenance_access` account is
+otherwise indistinguishable from any other player, so one left behind is
+invisible until the next lockdown, when it can play and nobody else can.
+
+`tools/maintenance_gate_selfcheck.mjs` exercises all of this against a running
+server — that a gated player sees the construction page and cannot reach the
+app around it, that the staff sign-in escape reaches an actual login form, and
+that testers can act while ordinary accounts cannot:
+
+```bash
+node tools/maintenance_gate_selfcheck.mjs http://localhost:8080
+```
+
+It flips the real gate and restores it on the way out, so do not run it against
+a lane with players in it.
+
 Once an Admin exists the staff screen does the same thing via
 `staff_server_mode`, with that Admin recorded as the actor. Raw SQL, if you want
 it:
