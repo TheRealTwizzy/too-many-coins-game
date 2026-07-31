@@ -346,11 +346,13 @@ sudo apt-get install certbot python3-certbot-apache
 sudo certbot --apache -d yourdomain.com
 ```
 
-## Dokploy + Hostinger MySQL Deployment
+## Dokploy Deployment
 
-For Ubuntu 24.04 VPS deployments with Dokploy and a Hostinger-hosted MySQL database, follow:
+For Ubuntu 24.04 VPS deployments with Dokploy — using either a Dokploy-managed
+MySQL service or an external host — follow:
 
-- `DEPLOY_DOKPLOY_HOSTINGER.md`
+- `DEPLOY_DOKPLOY.md` (full environment-variable reference, first-admin
+  bootstrap, and the maintenance gate)
 
 ## API Endpoints
 
