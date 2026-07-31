@@ -412,47 +412,73 @@ Header: X-Tick-Secret: <TMC_TICK_SECRET>
 
 ## 9. Operations
 
+Two things cannot be done from inside the game — appointing the first Admin,
+and break-glass on the maintenance gate when no Admin can sign in. Both live in
+`tools/admin.php`, run from the **web service** terminal in Dokploy:
+
+```bash
+php /app/tools/admin.php                          # usage
+php /app/tools/admin.php staff                    # who has staff powers
+php /app/tools/admin.php show <handle>            # one account's role and state
+php /app/tools/admin.php promote <handle>         # grant Admin (or Moderator)
+php /app/tools/admin.php demote <handle>          # back to Player
+php /app/tools/admin.php gate status|on|off       # maintenance lockdown
+```
+
+Every command reports what actually changed, so a typo'd handle prints
+`no such handle` instead of looking like it worked, and writes an audit row with
+a NULL actor — the honest record of a change made from a shell rather than by a
+player. Add `--reason="..."` to say why.
+
+The app image has no `mysql` client (it installs only `pdo`/`pdo_mysql`), which
+is why these are PHP rather than SQL. With a Dokploy database service you can
+also open that service's terminal, where `mysql` does exist.
+
 ### First admin account
 
 Staff powers live in the `players.role` column (`Player` | `Moderator` | `Admin`).
 The in-game staff screen calls `admin_role_update`, which requires an existing
 Admin — so the *first* Admin has to be made outside the game. Register the
-account normally, then promote it once.
-
-From the **web service** terminal in Dokploy (works with either database
-arrangement — the container already holds the credentials and `pdo_mysql`):
+account normally, then promote it once:
 
 ```bash
-php -r '
-require "/app/includes/config.php"; require "/app/includes/database.php";
-$n = Database::getInstance()->query(
-  "UPDATE players SET role=? WHERE handle_lower=LOWER(?)", ["Admin","YourHandle"])->rowCount();
-echo $n === 1 ? "promoted\n" : "no such handle\n";'
+php /app/tools/admin.php promote YourHandle
 ```
 
-Or, with a Dokploy database service, from that service's terminal:
+Handles match case-insensitively. Registering an account does **not** grant a
+role no matter what it is called — a fresh account is always `Player` until
+promoted, so check with `staff` rather than assuming.
 
-```bash
-mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" \
-  -e "UPDATE players SET role='Admin' WHERE handle_lower=LOWER('YourHandle');"
-```
+`staff` also flags accounts whose email is unverified. Those cannot sign in,
+which matters most for an Admin created before SMTP was configured: the role is
+correct and the account is still unusable.
 
-`handle_lower` is the unique indexed column, so the match is case-insensitive.
+After the first Admin exists, promote everyone else in-game through the staff
+screen, which records a real actor. `Permissions::canActOnTarget` requires a
+strictly greater rank, so an Admin can act on Moderators and Players but not on
+other Admins. Keep the Admin count small and hand out `Moderator`.
 
-After that, promote everyone else in-game through the staff screen, which writes
-an audit entry. `Permissions::canActOnTarget` requires a strictly greater rank,
-so an Admin can act on Moderators and Players but not on other Admins. Keep the
-Admin count small and hand out `Moderator`.
+Demoting the last Admin is refused, because it leaves nobody able to use the
+staff screen — including to appoint a replacement. Promote someone else first,
+or pass `--force` if that really is the intent.
 
 ### Maintenance gate
 
-The gate is runtime database state, not a deploy-time setting. While it is on,
-non-staff get `503` with `reason_code: maintenance_lockdown` on every gameplay
-action; auth and read-only actions stay open so the construction page renders
-and staff can sign in and bypass it.
+The gate is runtime database state, not a deploy-time setting — a redeploy does
+not change it. While it is on, non-staff get `503` with
+`reason_code: maintenance_lockdown` on every gameplay action; auth and read-only
+actions stay open so the construction page renders and staff can sign in and
+bypass it.
 
-Normal path — an Admin calls `staff_server_mode` with `mode` of `NORMAL` or
-`MAINTENANCE_LOCKDOWN`. Break-glass path, if no Admin can sign in:
+```bash
+php /app/tools/admin.php gate status
+php /app/tools/admin.php gate on --reason="pre-test lockdown"
+php /app/tools/admin.php gate off
+```
+
+Once an Admin exists the staff screen does the same thing via
+`staff_server_mode`, with that Admin recorded as the actor. Raw SQL, if you want
+it:
 
 ```sql
 UPDATE server_state SET server_mode = 'MAINTENANCE_LOCKDOWN' WHERE id = 1;  -- gate on
