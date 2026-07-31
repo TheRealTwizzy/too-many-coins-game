@@ -68,8 +68,49 @@ function tmc_proxy_is_trusted(?string $remoteAddr): bool {
         }
     }
 
-    // Most reverse proxies sit on private/reserved addresses from the app's perspective.
-    return tmc_is_private_or_reserved_ip($remoteAddr);
+    // A private REMOTE_ADDR is NOT evidence that the peer is a trusted proxy.
+    //
+    // This used to return true for any private/reserved address, which is the
+    // address a containerised deploy always sees - so on the documented
+    // Dokploy/Traefik setup every caller was trusted to declare their own IP
+    // via CF-Connecting-IP, and could mint a fresh anonymous rate-limit bucket
+    // per request simply by changing the header.
+    //
+    // Trust now has to be configured (TMC_TRUST_PROXY_HEADERS, or the peer
+    // listed in TMC_TRUSTED_PROXIES). Behind an unconfigured proxy the
+    // anonymous tier collapses to one shared bucket keyed on the proxy's
+    // address, which is the safe direction to fail: the only traffic in that
+    // tier is unauthenticated (login, register), which warrants a tight global
+    // ceiling anyway, while every signed-in player already has their own
+    // validated session bucket.
+    if (tmc_is_private_or_reserved_ip($remoteAddr)) {
+        tmc_warn_untrusted_proxy_once($remoteAddr);
+    }
+    return false;
+}
+
+/**
+ * Say once, loudly, that proxy headers are being ignored.
+ *
+ * Silently sharing one bucket is safe but confusing to debug - it looks like
+ * the limiter is too aggressive rather than like missing configuration.
+ */
+function tmc_warn_untrusted_proxy_once(?string $remoteAddr): void {
+    static $warned = false;
+    if ($warned) return;
+    $warned = true;
+    if (!isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+        && !isset($_SERVER['HTTP_X_REAL_IP'])
+        && !isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        return; // No proxy headers present; nothing is being ignored.
+    }
+    error_log(
+        '[rate_limit] proxy headers present from ' . (string)$remoteAddr
+        . ' but that peer is not a configured trusted proxy, so they are ignored '
+        . 'and the anonymous tier is keyed on the peer address. Set '
+        . 'TMC_TRUSTED_PROXIES to this address (or TMC_TRUST_PROXY_HEADERS=1) '
+        . 'if it really is your reverse proxy.'
+    );
 }
 
 function tmc_resolve_client_ip(): string {
@@ -139,15 +180,76 @@ function tmc_rate_limit_diagnostics_authorized(array $input): bool {
     return hash_equals($initSecret, $provided);
 }
 
+// The limiter validates the caller's session token below, so the database and
+// Auth have to be available before it runs rather than only at dispatch time.
+// Both are require_once, so the dispatch block further down is unaffected.
+require_once __DIR__ . '/../includes/database.php';
+require_once __DIR__ . '/../includes/auth.php';
+
 // Rate limiting (file-based) keyed by session identity when available.
 $rateLimitDir = sys_get_temp_dir() . '/tmc_ratelimit';
 if (!is_dir($rateLimitDir)) {
     @mkdir($rateLimitDir, 0755, true);
 }
 
+/**
+ * Sweep expired buckets.
+ *
+ * One file is created per identity and nothing ever removed them, so the
+ * directory grew without bound - and since an identity could be minted per
+ * request, an attacker could fill the filesystem's inodes with a long enough
+ * loop. Buckets are worthless once their window has passed, so anything older
+ * than a few windows is deleted.
+ *
+ * Sampled rather than run every request: this is opportunistic housekeeping,
+ * not something worth a directory scan on a hot path. The cap keeps the worst
+ * case bounded when a sweep does happen.
+ */
+function tmc_rate_limit_sweep(string $dir, int $windowSeconds): void {
+    // ~1 request in 500 pays for the sweep.
+    if (random_int(1, 500) !== 1) return;
+
+    $staleBefore = time() - max(60, $windowSeconds * 5);
+    $handle = @opendir($dir);
+    if ($handle === false) return;
+
+    $examined = 0;
+    while (($entry = readdir($handle)) !== false) {
+        if ($entry === '.' || $entry === '..') continue;
+        if (++$examined > 5000) break;
+        if (substr($entry, -5) !== '.json') continue;
+        $path = $dir . '/' . $entry;
+        $mtime = @filemtime($path);
+        if ($mtime !== false && $mtime < $staleBefore) {
+            @unlink($path);
+        }
+    }
+    closedir($handle);
+}
+tmc_rate_limit_sweep($rateLimitDir, (int)TMC_RATE_LIMIT_WINDOW_SECONDS);
+
 $sessionToken = $_COOKIE['tmc_session'] ?? ($_SERVER['HTTP_X_SESSION_TOKEN'] ?? '');
 $sessionToken = is_string($sessionToken) ? trim($sessionToken) : '';
-$hasSessionIdentity = preg_match('/^[a-f0-9]{64}$/i', $sessionToken) === 1;
+
+// The session bucket requires a token that actually EXISTS, not one that
+// merely looks like a token.
+//
+// This used to accept any 64 hex characters, so the identity the limiter keyed
+// on was chosen by the caller: sending a fresh random X-Session-Token per
+// request minted a fresh 300/minute bucket every time and the limiter was a
+// no-op. Measured against this endpoint before the fix - 350 login attempts
+// with one token: 300 served, 50 rejected. The same 350 with a rotating token:
+// 350 served, 0 rejected. That is unmetered password guessing, and it also
+// spawned one bucket file per made-up token.
+//
+// Looking the token up costs one indexed query on requests that present one,
+// and an unknown token now falls through to the anonymous IP bucket - the
+// same place a caller with no token lands - so a forged header can only ever
+// give an attacker the smaller allowance, never a bigger one.
+$hasSessionIdentity = false;
+if (preg_match('/^[a-f0-9]{64}$/i', $sessionToken) === 1) {
+    $hasSessionIdentity = Auth::sessionTokenExists($sessionToken);
+}
 
 if ($hasSessionIdentity) {
     $rateIdentity = 'session:' . hash('sha256', $sessionToken);
@@ -209,6 +311,87 @@ if ($rateData['count'] > $rateLimit) {
 
 tmc_rate_limit_log('pass', $rateTier, $rateIdentity, (int)$rateData['count'], (int)$rateLimit, (int)$rateWindow, (string)$rateAction);
 
+/**
+ * Per-action ceilings, on top of the global allowance.
+ *
+ * The global limit is sized for ordinary play - a few hundred requests a
+ * minute is normal when the client polls every 3 seconds - which makes it far
+ * too loose for the handful of actions where a single request is expensive or
+ * carries real-world weight:
+ *
+ *   chat_send                a few hundred posts a minute scrolls the readable
+ *                            transcript away for everyone, and CHAT_MAX_ROWS
+ *                            means older messages are simply gone
+ *   register                 burns a bcrypt hash per call and permanently
+ *                            squats a handle in a global namespace
+ *   login                    the guessing surface; deliberately tighter than
+ *                            the global tier even for a valid session
+ *   account_delete_request   sends mail, synchronously, to an address supplied
+ *                            by the caller
+ *   friend_request_send      notification spam aimed at another player
+ *   sight_reveal / freeze_player_ubi / sigil_theft_attempt
+ *                            hostile verbs that notify the target
+ *
+ * Same file-and-lock mechanism as the global limiter, keyed per identity AND
+ * action so one noisy action cannot exhaust another's allowance.
+ */
+const TMC_ACTION_LIMITS = [
+    'login'                  => ['limit' => 10, 'window' => 300],
+    'register'               => ['limit' => 5,  'window' => 3600],
+    'account_delete_request' => ['limit' => 3,  'window' => 3600],
+    'account_change_password' => ['limit' => 10, 'window' => 3600],
+    'chat_send'              => ['limit' => 20, 'window' => 60],
+    'friend_request_send'    => ['limit' => 20, 'window' => 300],
+    'sigil_theft_attempt'    => ['limit' => 30, 'window' => 300],
+    'freeze_player_ubi'      => ['limit' => 30, 'window' => 300],
+    'sight_reveal'           => ['limit' => 30, 'window' => 300],
+];
+
+if (isset(TMC_ACTION_LIMITS[$rateAction])) {
+    $actionRule = TMC_ACTION_LIMITS[$rateAction];
+    $actionWindow = (int)$actionRule['window'];
+    $actionLimitMax = (int)$actionRule['limit'];
+    $actionFile = $rateLimitDir . '/a_' . md5($rateIdentity . '|' . $rateAction) . '.json';
+
+    $actionData = ['window_start' => $now, 'count' => 1];
+    $actionHandle = @fopen($actionFile, 'c+');
+    if ($actionHandle !== false) {
+        if (flock($actionHandle, LOCK_EX)) {
+            $existing = stream_get_contents($actionHandle);
+            $decoded = json_decode((string)$existing, true);
+            if (is_array($decoded)
+                && isset($decoded['window_start'], $decoded['count'])
+                && ($now - (int)$decoded['window_start']) < $actionWindow) {
+                $actionData = [
+                    'window_start' => (int)$decoded['window_start'],
+                    'count' => (int)$decoded['count'] + 1,
+                ];
+            }
+            ftruncate($actionHandle, 0);
+            rewind($actionHandle);
+            fwrite($actionHandle, json_encode($actionData));
+            fflush($actionHandle);
+            flock($actionHandle, LOCK_UN);
+        }
+        fclose($actionHandle);
+    }
+
+    if ((int)$actionData['count'] > $actionLimitMax) {
+        $retryAfter = max(1, $actionWindow - ($now - (int)$actionData['window_start']));
+        tmc_rate_limit_log('blocked', $rateTier . ':' . $rateAction, $rateIdentity,
+            (int)$actionData['count'], $actionLimitMax, $actionWindow, (string)$rateAction);
+        http_response_code(429);
+        header('Retry-After: ' . $retryAfter);
+        echo json_encode([
+            'error' => 'You are doing that too often. Try again shortly.',
+            'reason_code' => 'action_rate_limited',
+            'action' => $rateAction,
+            'retry_after_seconds' => $retryAfter,
+        ]);
+        exit;
+    }
+}
+
 require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../includes/game_time.php';
 require_once __DIR__ . '/../includes/boost_catalog.php';
@@ -252,6 +435,49 @@ if ($path === '/api/init_db') {
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $input = array_merge($_GET, $_POST, $input);
+
+/**
+ * Anything that changes state must arrive as POST.
+ *
+ * Every action was reachable by plain GET, with parameters taken from the
+ * query string - verified: a bare
+ *   GET /api/?action=chat_send&channel=GLOBAL&content=...
+ * stored a message. The session cookie is SameSite=Lax, which withholds it
+ * from cross-site subresources but SENDS it on top-level navigations, so a
+ * link or a redirect on any page was enough to act as whoever clicked it.
+ * Against an Admin that reaches admin_role_update.
+ *
+ * Requiring POST is what closes it, and it closes it completely here rather
+ * than only partly: Lax already withholds the cookie from cross-site POSTs,
+ * so an attacker page can neither navigate (wrong method) nor submit a form
+ * (no cookie). No token to mint, rotate or leak.
+ *
+ * The list below is the read-only surface, and it is an allowlist on purpose:
+ * an action added later is POST-only until someone deliberately decides it is
+ * safe to fetch, which is the correct default to fail to. The rebuilt client
+ * POSTs everything already, so nothing in the app changes.
+ */
+const TMC_GET_SAFE_ACTIONS = [
+    'game_state', 'season_detail', 'leaderboard', 'global_leaderboard',
+    'boost_catalog', 'active_boosts', 'sigil_drops', 'cosmetic_catalog',
+    'my_cosmetics', 'chat_messages', 'notifications_list', 'profile',
+    'my_badges', 'season_history', 'friends_list', 'friend_requests_list',
+    'blocks_list', 'family_state', 'season_events', 'account_get',
+    'star_purchase_preview', 'boost_activate_preview', 'sigil_theft_preview',
+    'rate_limit_diagnostics',
+];
+
+$requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+if ($action !== '' && $requestMethod !== 'POST' && $requestMethod !== 'OPTIONS'
+    && !in_array($action, TMC_GET_SAFE_ACTIONS, true)) {
+    http_response_code(405);
+    header('Allow: POST');
+    echo json_encode([
+        'error' => 'This action requires POST',
+        'reason_code' => 'method_not_allowed',
+    ]);
+    exit;
+}
 
 // Initialize server state if needed
 $db = Database::getInstance();
@@ -440,12 +666,28 @@ try {
             break;
             
         case 'leaderboard':
+            // Season standings are combat intelligence, not a public scoreboard.
+            //
+            // Anonymously this returned every participant's exact coin balance,
+            // income rate, freeze state, boost percentage and online flag - the
+            // whole season in one unauthenticated request. getProfile was
+            // hardened against precisely that ("so it cannot be scraped
+            // anonymously into a census of the whole season") and this was the
+            // way around it.
+            //
+            // Requiring a session also lets the payload be trimmed by viewer,
+            // which is what getLeaderboard now does.
+            $player = Auth::requireAuth();
             $seasonId = (int)($input['season_id'] ?? 0);
             $limit = isset($input['limit']) ? (int)$input['limit'] : 0;
-            echo json_encode(getLeaderboard($seasonId, $limit));
+            echo json_encode(getLeaderboard($seasonId, $limit, $player));
             break;
-            
+
         case 'global_leaderboard':
+            // Ranked global stars only, but it still enumerates every account
+            // with presence flags, and the Ranks screen behind it is
+            // login-only anyway.
+            Auth::requireAuth();
             echo json_encode(getGlobalLeaderboard());
             break;
             
@@ -716,39 +958,19 @@ try {
             ]);
             break;
 
-        case 'notifications_create':
-            $player = Auth::requireAuth();
-            $category = trim((string)($input['category'] ?? 'gameplay'));
-            if ($category === '') $category = 'gameplay';
-            $title = trim((string)($input['title'] ?? $input['message'] ?? 'Notification'));
-            if ($title === '') $title = 'Notification';
-            $bodyRaw = $input['body'] ?? null;
-            $body = is_string($bodyRaw) ? trim($bodyRaw) : null;
-            if ($body === '') $body = null;
-
-            $payload = null;
-            if (isset($input['payload']) && is_array($input['payload'])) {
-                $payload = $input['payload'];
-            }
-
-            $id = Notifications::create(
-                $player['player_id'],
-                $category,
-                $title,
-                $body,
-                [
-                    'is_read' => !empty($input['is_read']),
-                    'event_key' => isset($input['event_key']) ? (string)$input['event_key'] : null,
-                    'payload' => $payload
-                ]
-            );
-
-            echo json_encode([
-                'success' => true,
-                'notification' => Notifications::getByIdForPlayer($player['player_id'], $id),
-                'unread_count' => Notifications::unreadCount($player['player_id'])
-            ]);
-            break;
+        // notifications_create is deliberately gone.
+        //
+        // It let any authenticated player write an arbitrary notification into
+        // their own feed with a category, title and body of their choosing -
+        // so a player could manufacture a notice indistinguishable from one
+        // the server sends, in the same feed that carries real moderation
+        // warnings, theft alerts and staff broadcasts. Nothing legitimate ever
+        // called it: notifications are written by the tick engine and the game
+        // actions, and staff have staff_notifications_send_player /
+        // staff_notifications_send_all, which are permission-gated and audited.
+        //
+        // Removing it rather than staff-gating it, because a staff-gated
+        // duplicate of two actions that already exist is just a third way in.
 
         // ==================== SOCIAL ====================
         case 'friends_list':
@@ -992,7 +1214,14 @@ try {
             break;
             
         case 'chat_messages':
-            $player = Auth::getCurrentPlayer();
+            // Reading chat requires a session. It did not, so the entire
+            // global transcript - every handle, every message - was readable
+            // by anyone who could reach the endpoint, and the block list
+            // could not be applied because there was no viewer to apply it
+            // for. The client already presents chat as players-only ("Chat is
+            // for players / Log in to read and post"); this makes the server
+            // agree rather than relying on the client to keep the secret.
+            $player = Auth::requireAuth();
             echo json_encode(getChatMessages($player, $input));
             break;
             
@@ -1026,7 +1255,7 @@ try {
                 'account_delete_request', 'account_delete_confirm',
                 'staff_account_delete_request', 'staff_account_delete_confirm',
                 'chat_messages', 'notifications_list', 'notifications_mark_read',
-                'notifications_mark_all_read', 'notifications_remove', 'notifications_create',
+                'notifications_mark_all_read', 'notifications_remove',
                 'friends_list', 'friend_requests_list', 'friend_request_send',
                 'friend_request_respond', 'friend_remove', 'blocks_list',
                 'block_add', 'block_remove',
@@ -1611,6 +1840,10 @@ function getSeasonDetail($player, $seasonId) {
     
     // Top players
     if ($season['computed_status'] === 'Active' || $season['computed_status'] === 'Blackout') {
+        // Bounded like every other standings query. This branch had no LIMIT,
+        // so one request against a busy season returned every participant -
+        // the same unbounded enumeration LEADERBOARD_MAX_LIMIT was introduced
+        // to stop, just on a different code path.
         $season['leaderboard'] = $db->fetchAll(
             "SELECT sp.player_id, p.handle,
                     {$effectiveScoreSql} AS seasonal_stars,
@@ -1619,8 +1852,9 @@ function getSeasonDetail($player, $seasonId) {
              FROM season_participation sp
              JOIN players p ON p.player_id = sp.player_id
              WHERE sp.season_id = ?
-             ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC",
-            [$seasonId]
+             ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC
+             LIMIT ?",
+            [$seasonId, (int)LEADERBOARD_MAX_LIMIT]
         );
     } else {
         $season['leaderboard'] = $db->fetchAll(
@@ -1653,8 +1887,29 @@ function getSeasonDetail($player, $seasonId) {
     return $season;
 }
 
-function getLeaderboard($seasonId, int $limit = 0) {
+/**
+ * Strip another player's private state from a standings row.
+ *
+ * A leaderboard answers "who is ahead". It does not need to answer "how many
+ * coins does that player have right now, what is their income rate, are they
+ * frozen, and are they at the keyboard" - which is targeting information for
+ * theft and freezes, and was being served for the whole season at once.
+ *
+ * Your own row keeps everything, because none of it is a secret from you.
+ */
+function redactLeaderboardRowForViewer(array $row, ?int $viewerId): array {
+    if ($viewerId !== null && (int)($row['player_id'] ?? 0) === $viewerId) {
+        return $row;
+    }
+    foreach (['coins', 'rate_per_tick', 'boost_pct', 'is_frozen', 'participation_time_total'] as $private) {
+        unset($row[$private]);
+    }
+    return $row;
+}
+
+function getLeaderboard($seasonId, int $limit = 0, $viewer = null) {
     $db = Database::getInstance();
+    $viewerId = is_array($viewer) && isset($viewer['player_id']) ? (int)$viewer['player_id'] : null;
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     if (!$season) return [];
     $effectiveScoreSql = seasonEffectiveScoreSql('sp');
@@ -1773,6 +2028,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
             $row['rate_per_tick'] = (float)$metrics['rate_per_tick'];
             $row['boost_pct'] = (float)$metrics['boost_pct'];
             unset($row['boost_mod_fp']);
+            $row = redactLeaderboardRowForViewer($row, $viewerId);
         }
         unset($row);
         return $rows;
@@ -1795,6 +2051,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
     $rows = normalizeParticipationScorePayloads($rows);
     foreach ($rows as &$row) {
         $row['rate_per_tick'] = 0;
+        $row = redactLeaderboardRowForViewer($row, $viewerId);
     }
     unset($row);
     return $rows;
@@ -1996,8 +2253,18 @@ function sendChat($player, $input) {
     
     if (empty($content)) return ['error' => 'Message cannot be empty'];
     if (strlen($content) > CHAT_MAX_LENGTH) return ['error' => 'Message too long'];
-    
+
     // Channel validation
+    //
+    // The kind is checked against the set that has a read path BEFORE the
+    // insert. Previously any string reached the INSERT: channel_kind is an
+    // ENUM, so an unknown kind either raised a driver error or, on a
+    // permissive server, stored as '' - a message accepted from the player,
+    // charged against their mute state, and then readable by nobody. Failing
+    // it by name is the honest answer.
+    if ($channelKind !== 'GLOBAL' && $channelKind !== 'SEASON' && $channelKind !== 'DM') {
+        return ['error' => 'Unknown chat channel', 'reason_code' => 'unknown_channel'];
+    }
     if ($channelKind === 'SEASON') {
         if (!$player['joined_season_id']) return ['error' => 'Not in a season'];
         $seasonId = $player['joined_season_id'];
@@ -2035,16 +2302,36 @@ function sendChat($player, $input) {
 function getChatMessages($player, $input) {
     $db = Database::getInstance();
     $channelKind = strtoupper($input['channel'] ?? 'GLOBAL');
-    $seasonId = $input['season_id'] ?? null;
-    // Reads bind to the participation season exactly as sends do: the send
-    // path derives the season from joined_season_id, but this read path
-    // required an explicit season_id no client ever sent — so the Season tab
-    // always rendered empty while sends landed fine. Deriving here also keeps
-    // a viewer browsing another season bound to their own season's chat.
-    if ($channelKind === 'SEASON' && !$seasonId && $player && !empty($player['joined_season_id'])) {
-        $seasonId = (int)$player['joined_season_id'];
+
+    // Only the two channels with a read path exist. Anything else - a typo, a
+    // probe, or the DM kind that is deliberately closed - is refused by name
+    // rather than falling through to an empty list that looks like an outage.
+    if ($channelKind !== 'GLOBAL' && $channelKind !== 'SEASON') {
+        return ['error' => 'Unknown chat channel', 'reason_code' => 'unknown_channel'];
     }
-    $canViewRemoved = $player && Permissions::isStaff($player);
+
+    // The season transcript is bound to the viewer's own participation, and a
+    // client-supplied season_id is ignored outright.
+    //
+    // It used to be honoured, which made every season's chat world-readable:
+    // passing season_id=N returned that season's full transcript to anyone,
+    // including callers with no session at all. Deriving it from the player
+    // is also what the send path does, so read and write now agree on which
+    // season "SEASON" means.
+    //
+    // Staff are the one exception, because moderating a transcript requires
+    // reading it, and they may not be in the season they are moderating.
+    $isStaff = $player && Permissions::isStaff($player);
+    $seasonId = null;
+    if ($channelKind === 'SEASON') {
+        if ($isStaff && !empty($input['season_id'])) {
+            $seasonId = (int)$input['season_id'];
+        } elseif ($player && !empty($player['joined_season_id'])) {
+            $seasonId = (int)$player['joined_season_id'];
+        }
+    }
+
+    $canViewRemoved = $isStaff;
     $removedSql = $canViewRemoved ? "1=1" : "is_removed = 0";
 
     // Blocking now hides the blocked player's messages.
@@ -2788,12 +3075,20 @@ function previewSigilTheft(
         }
     }
 
-    foreach (SIGIL_THEFT_TARGET_TIERS as $tier) {
-        $amount = max(0, (int)($requestedSigils[$tier - 1] ?? 0));
-        if ($amount > (int)($targetParticipation['sigils_t' . $tier] ?? 0)) {
-            return ['error' => 'Requested sigils exceed target inventory'];
-        }
-    }
+    // The preview deliberately does NOT check the request against the target's
+    // holdings.
+    //
+    // It used to, and answered "Requested sigils exceed target inventory" -
+    // which is a yes/no on "does this player hold at least N of tier T",
+    // available for free, instantly, unlimited, with no cooldown and no notice
+    // to the target. Walking N per tier reads their exact inventory, which is
+    // the information theft is supposed to be a gamble about.
+    //
+    // Nothing is lost by omitting it: attemptSigilTheft re-validates the same
+    // condition inside its transaction under SELECT ... FOR UPDATE, so an
+    // over-large request still cannot take what is not there. The odds below
+    // are computed from the requested value, which is what the attacker is
+    // choosing to stake.
 
     $spendValue = calculateSigilCountsValue($spentSigils, SIGIL_UTILITY_VALUE_BY_TIER);
     $requestedValue = calculateSigilCountsValue($requestedSigils, SIGIL_UTILITY_VALUE_BY_TIER);

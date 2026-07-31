@@ -81,8 +81,24 @@ if ($path === '/wiki' || strpos($path, '/wiki/') === 0) {
 }
 
 // Static files
+//
+// Containment is enforced here rather than assumed. Both servers that front
+// this app already normalise the path before it arrives - the PHP built-in
+// server strips `..` segments, and production runs Apache with DocumentRoot
+// pinned to /app/public - so no traversal is reachable today, and probing
+// with ../, %2e%2e and encoded separators returns the SPA shell rather than
+// source. But the wiki branch above resolves and containment-checks its
+// candidate, and this branch concatenated and read. That difference is only
+// safe for as long as something upstream keeps normalising, which is not a
+// property this file should depend on.
 $staticFile = $publicRoot . $path;
-if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
+$resolvedStatic = realpath($staticFile);
+$resolvedRoot = realpath($publicRoot);
+$withinRoot = $resolvedStatic !== false
+    && $resolvedRoot !== false
+    && strpos($resolvedStatic, $resolvedRoot . DIRECTORY_SEPARATOR) === 0;
+
+if ($path !== '/' && $withinRoot && file_exists($staticFile) && is_file($staticFile)) {
     $ext = pathinfo($staticFile, PATHINFO_EXTENSION);
     $mimeTypes = [
         'html' => 'text/html; charset=UTF-8',
@@ -130,7 +146,10 @@ if ($path !== '/' && file_exists($staticFile) && is_file($staticFile)) {
 
 // Default: serve index.html with CSP
 header('Content-Type: text/html; charset=UTF-8');
-header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'");
+// The Google Fonts allowances are gone with the webfont they existed for:
+// the app now uses the platform UI stack and loads nothing off-origin, so
+// leaving them would keep a hole open for a dependency that no longer exists.
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'");
 header('Cache-Control: no-cache, no-store, must-revalidate');
 readfile(__DIR__ . '/public/index.html');
 return true;

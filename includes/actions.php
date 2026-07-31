@@ -501,6 +501,39 @@ class Actions {
 
         $db->beginTransaction();
         try {
+            // Claim the Market discount BEFORE charging, and treat the clear as
+            // the claim.
+            //
+            // $pendingVp was read outside this transaction and the clear used to
+            // be unconditional, so N concurrent purchases all saw the same primed
+            // discount, all charged the reduced price, and all zeroed the same
+            // flag - one priming bought N discounted batches, up to 50% off each.
+            //
+            // `AND market_pending_vp = ?` is evaluated under this UPDATE's row
+            // lock, so exactly one racer claims it. Whoever loses recomputes at
+            // the undiscounted price rather than failing: they asked to buy
+            // stars, and the discount not being theirs is not a reason to refuse
+            // the purchase.
+            if ($pendingVp > 0 && $marketSaved > 0 && SigilFamilies::schemaReady($db)) {
+                $claimedDiscount = $db->query(
+                    "UPDATE season_participation SET market_pending_vp = 0
+                     WHERE player_id = ? AND season_id = ? AND market_pending_vp = ?",
+                    [$playerId, $seasonId, $pendingVp]
+                )->rowCount();
+                if ($claimedDiscount !== 1) {
+                    $marketSaved = 0;
+                    $coinsCharged = $coinsNeeded;
+                }
+            } elseif ($pendingVp > 0 && SigilFamilies::schemaReady($db)) {
+                // Primed but worth nothing on this purchase - still consume it,
+                // guarded, so it cannot be re-read by a concurrent call.
+                $db->query(
+                    "UPDATE season_participation SET market_pending_vp = 0
+                     WHERE player_id = ? AND season_id = ? AND market_pending_vp = ?",
+                    [$playerId, $seasonId, $pendingVp]
+                );
+            }
+
             // Burn coins, credit stars.
             // The affordability check above reads outside this transaction, so it
             // cannot be trusted alone: concurrent purchases would all pass it and
@@ -517,13 +550,6 @@ class Actions {
             if ($charged !== 1) {
                 $db->rollback();
                 return ['error' => 'Insufficient coins'];
-            }
-            if ($pendingVp > 0 && $marketSaved >= 0 && SigilFamilies::schemaReady($db)) {
-                $db->query(
-                    "UPDATE season_participation SET market_pending_vp = 0
-                     WHERE player_id = ? AND season_id = ?",
-                    [$playerId, $seasonId]
-                );
             }
 
             // Update season supply
@@ -1907,6 +1933,63 @@ class Actions {
 
         $db->beginTransaction();
         try {
+            // Re-check the three gates under a row lock on the TARGET.
+            //
+            // The cooldown, already-frozen and protection reads above all
+            // happen outside this transaction, so two casts fired together
+            // both passed them, both legitimately spent a sigil (that guard is
+            // sound), and both inserted - stacking freezes on one victim and
+            // bypassing the attacker's own cooldown. Locking the target's
+            // participation row serialises concurrent casts against the same
+            // player, which is exactly the scope of the invariant: at most one
+            // active freeze per target.
+            $db->fetch(
+                "SELECT player_id FROM season_participation
+                 WHERE player_id = ? AND season_id = ? FOR UPDATE",
+                [(int)$target['player_id'], $seasonId]
+            );
+
+            $raceCast = $db->fetch(
+                "SELECT MAX(activated_tick) AS last_tick FROM active_freezes
+                 WHERE season_id = ? AND source_player_id = ?",
+                [$seasonId, $playerId]
+            );
+            $raceCastTick = (int)($raceCast['last_tick'] ?? 0);
+            if ($raceCastTick > 0 && $nowTick < $raceCastTick + $freezeCooldownTicks) {
+                $db->rollback();
+                return [
+                    'error' => 'Freeze is on cooldown.',
+                    'reason_code' => 'freeze_cooldown',
+                ];
+            }
+
+            $raceExisting = $db->fetch(
+                "SELECT freeze_id FROM active_freezes
+                 WHERE season_id = ? AND target_player_id = ? AND is_active = 1 AND expires_tick >= ?",
+                [$seasonId, (int)$target['player_id'], $nowTick]
+            );
+            if ($raceExisting) {
+                $db->rollback();
+                return [
+                    'error' => $target['handle'] . ' is already frozen.',
+                    'reason_code' => 'target_already_frozen',
+                ];
+            }
+
+            $raceRecent = $db->fetch(
+                "SELECT MAX(expires_tick) AS last_expiry FROM active_freezes
+                 WHERE season_id = ? AND target_player_id = ?",
+                [$seasonId, (int)$target['player_id']]
+            );
+            $raceExpiry = (int)($raceRecent['last_expiry'] ?? 0);
+            if ($raceExpiry > 0 && $nowTick < $raceExpiry + $freezeProtectionTicks) {
+                $db->rollback();
+                return [
+                    'error' => $target['handle'] . ' is protected from freezing.',
+                    'reason_code' => 'target_protected',
+                ];
+            }
+
             $spent = $db->query(
                 "UPDATE season_participation SET {$sigilCol} = {$sigilCol} - 1
                  WHERE player_id = ? AND season_id = ? AND {$sigilCol} >= 1",

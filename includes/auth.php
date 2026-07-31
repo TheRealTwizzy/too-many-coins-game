@@ -7,6 +7,25 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/economy.php';
 
 class Auth {
+    /**
+     * A throwaway hash used to spend the same time on a failed login as on a
+     * successful one.
+     *
+     * Computed at the CURRENT default cost rather than hardcoded, because a
+     * hardcoded one drifts: a literal cost-10 hash measured 59ms here against
+     * 232ms for a real password at PHP 8.4's default cost of 12, which is a
+     * four-fold difference and just as usable an oracle as no dummy at all.
+     * Deriving it costs one bcrypt per process, on the failed-login path only.
+     */
+    private static ?string $dummyHash = null;
+
+    private static function dummyPasswordHash(): string {
+        if (self::$dummyHash === null) {
+            self::$dummyHash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
+        }
+        return self::$dummyHash;
+    }
+
 
     private static $presenceTouchedInRequest = [];
 
@@ -66,6 +85,35 @@ class Auth {
         }
         
         return $player;
+    }
+
+    /**
+     * Does this session token belong to a real account?
+     *
+     * Existence only - no presence touch, no player row returned, and it is
+     * deliberately callable before the request is dispatched. The rate limiter
+     * needs to know whether a caller-supplied token is genuine before it
+     * decides which bucket to charge, and using getCurrentPlayer() for that
+     * would mark a forged token's "session" as online on every probe.
+     */
+    public static function sessionTokenExists($token): bool {
+        if (!is_string($token) || $token === '') return false;
+        try {
+            $row = Database::getInstance()->fetch(
+                "SELECT 1 AS ok FROM players WHERE session_token = ? AND profile_deleted_at IS NULL LIMIT 1",
+                [$token]
+            );
+            return !empty($row);
+        } catch (Throwable $e) {
+            // A database problem must not decide the rate limit, in either
+            // direction. Throwing here would take down every request including
+            // the ones that need no database at all, and it would skip the
+            // limiter entirely - so an attacker who can make the database
+            // wobble would get unmetered access at the same moment the server
+            // is least able to absorb it. Unknown token -> the smaller
+            // anonymous allowance, and the endpoint reports the real fault.
+            return false;
+        }
     }
 
     /**
@@ -201,7 +249,12 @@ class Auth {
             ];
         } catch (Exception $e) {
             $db->rollback();
-            return ['error' => 'Registration failed: ' . $e->getMessage()];
+            // The driver's message goes to the log, not to the caller. It
+            // carries table and column names, and on a constraint violation it
+            // quotes the offending value straight back - which on this path is
+            // an email address, to an unauthenticated caller.
+            error_log('[auth] registration failed: ' . $e->getMessage());
+            return ['error' => 'Registration failed. Please try again.'];
         }
     }
     
@@ -216,7 +269,20 @@ class Auth {
             [$email]
         );
         
-        if (!$player || !password_verify($password, $player['password_hash'])) {
+        // The message is already uniform for "no such account" and "wrong
+        // password", but the TIME was not: password_verify only ran when the
+        // account existed, so a missing account answered in a fraction of the
+        // time a real one took. Bcrypt is deliberately slow, which makes that
+        // difference large and easy to measure - a usable oracle for whether
+        // an address has an account here.
+        //
+        // Verifying against a fixed dummy hash costs the same work on the
+        // miss path, so both answers take comparable time.
+        if (!$player) {
+            password_verify($password, self::dummyPasswordHash());
+            return ['error' => 'Invalid email or password'];
+        }
+        if (!password_verify($password, $player['password_hash'])) {
             return ['error' => 'Invalid email or password'];
         }
         
