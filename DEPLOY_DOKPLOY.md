@@ -392,7 +392,16 @@ Validation checks:
 3. Worker service logs show `time_scale=1` in `[tick-worker] timing (...)`.
 4. `server_state.last_tick_processed_at` advances every few seconds.
 5. `php /app/tools/runtime_readiness_check.php --observe-seconds=15 --pretty` returns neither `blocked` nor `degraded`.
-6. If using remote diagnostics, `/api/index.php?action=runtime_readiness&secret=<TMC_INIT_SECRET>&observe_seconds=15` shows season advancement or explicitly reports expected blackout/zero-participant state. This endpoint shares the diagnostics gate: it returns `403` unless **both** `TMC_RATE_LIMIT_DIAGNOSTICS=true` and `TMC_INIT_SECRET` are set. The CLI check in step 5 has no such requirement.
+6. If using remote diagnostics, `runtime_readiness` shows season advancement or explicitly reports expected blackout/zero-participant state. Unlike `rate_limit_diagnostics` it is **not** on the GET-safe allowlist, so it must be POSTed — a GET returns `405 method_not_allowed`:
+
+   ```bash
+   curl -X POST "https://your-domain/api/index.php?action=runtime_readiness" \
+     -H "X-Init-Secret: $TMC_INIT_SECRET" \
+     -H 'Content-Type: application/json' \
+     -d '{"observe_seconds":15}'
+   ```
+
+   It shares the diagnostics gate: `403` unless **both** `TMC_RATE_LIMIT_DIAGNOSTICS=true` and `TMC_INIT_SECRET` are set. The CLI check in step 5 has neither requirement.
 
 Fallback only if worker service cannot be used:
 
@@ -487,18 +496,47 @@ UPDATE server_state SET server_mode = 'NORMAL' WHERE id = 1;                -- g
 
 ## 11. Rate-Limit Diagnostics and Rollout Checklist
 
-Protected diagnostics endpoint (requires `TMC_RATE_LIMIT_DIAGNOSTICS=true`):
+Protected diagnostics endpoint. Send the secret as a header — this form has no
+quoting or encoding traps:
+
+```bash
+curl -s "https://your-domain/api/index.php?action=rate_limit_diagnostics" \
+  -H "X-Init-Secret: $TMC_INIT_SECRET"
+```
+
+The query-string form also works, but only if the secret is URL-encoded:
 
 ```text
 GET https://your-domain/api/index.php?action=rate_limit_diagnostics&secret=YOUR_TMC_INIT_SECRET
 ```
 
-Or with header:
+A secret containing `&`, `+`, `#` or `%` silently arrives as something else —
+`&` starts a new parameter, `+` decodes to a space — and the endpoint answers
+`{"error":"Forbidden"}`, which looks exactly like a configuration problem. Pass
+it as a header, or `curl --get --data-urlencode "secret=$TMC_INIT_SECRET"`.
+
+### When diagnostics returns `{"error":"Forbidden"}`
+
+Four different causes produce that one response, deliberately — the endpoint
+does not say which check failed, because that would let an unauthenticated
+caller learn whether a secret is configured. So do not guess from the outside.
+Ask the container what it actually has, from the web service terminal:
 
 ```bash
-curl "https://your-domain/api/index.php?action=rate_limit_diagnostics" \
-  -H "X-Init-Secret: $TMC_INIT_SECRET"
+php -r 'require "/app/includes/config.php"; printf(
+  "diagnostics_enabled=%s  init_secret_set=%s  len=%d\n",
+  TMC_RATE_LIMIT_DIAGNOSTICS ? "true" : "false",
+  getenv("TMC_INIT_SECRET") ? "yes" : "no",
+  strlen((string)getenv("TMC_INIT_SECRET")));'
 ```
+
+It prints no secret material, only whether one is present and how long it is.
+
+| Reading | Cause | Fix |
+|---|---|---|
+| `diagnostics_enabled=false` | flag unset, or set but not redeployed | Set `TMC_RATE_LIMIT_DIAGNOSTICS=true` and **redeploy** — Dokploy applies env changes at container start |
+| `init_secret_set=no` | `TMC_INIT_SECRET` missing from this service | Set it on the web service specifically |
+| Both correct, still `403` | the secret sent ≠ the secret set | Compare `len` against your secret's length; if they match, it is a transport problem — use the header form above |
 
 Staged rollout checklist:
 
