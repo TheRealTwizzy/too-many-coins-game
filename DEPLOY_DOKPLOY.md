@@ -161,7 +161,7 @@ Web service only:
 |---|---|---|---|
 | `TMC_AUTO_SQL_MIGRATIONS` | `false` | `true` | See section 4.7 — auto-apply is convenient in test, risky in production. |
 | `TMC_TRUST_PROXY_HEADERS` | `false` | `false` | Leave off unless `TMC_TRUSTED_PROXIES` is set. |
-| `TMC_TRUSTED_PROXIES` | your proxy IPs | empty | Required for correct client IPs behind Dokploy's reverse proxy. |
+| `TMC_TRUSTED_PROXIES` | your proxy's address or range | empty | Required for correct client IPs behind Dokploy's reverse proxy. |
 
 **Client IP correctness matters for the rate limiter.** With no trusted proxies
 configured, every request appears to come from the proxy, so anonymous requests
@@ -171,6 +171,32 @@ which lets a client forge its own identity and bypass the limit entirely. If you
 do not yet know your proxy IPs, `TMC_TRUST_PROXY_HEADERS=true` is a deliberate
 short-term trade during a private test; replace it with the explicit allowlist
 before the game is public.
+
+**`TMC_TRUSTED_PROXIES` accepts addresses and CIDR ranges**, comma-separated,
+IPv4 and IPv6:
+
+```
+TMC_TRUSTED_PROXIES=172.16.0.0/12
+TMC_TRUSTED_PROXIES=10.0.5.7, 192.168.0.0/16, 2001:db8::/32
+```
+
+Prefer a range on Dokploy. Container addresses are assigned by Docker and are
+not stable across a redeploy or a host restart, so a single pinned address
+eventually stops matching — which fails safe (back to one shared anonymous
+bucket) but silently stops applying the protection you configured. A range
+covering the project's Docker network survives that.
+
+Entries that cannot be parsed are dropped rather than honoured, and each one is
+named once in the log. A `/0` prefix is refused outright: `0.0.0.0/0` means
+"trust every peer", which is `TMC_TRUST_PROXY_HEADERS=true` written to look
+like a restriction. Use the flag if that is genuinely what you want.
+
+`tools/proxy_trust_selfcheck.php` covers the matcher — ranges, boundaries,
+family mismatches, and every malformed form — and needs no server or database:
+
+```bash
+php tools/proxy_trust_selfcheck.php
+```
 
 ### 4.3 Timing safety
 

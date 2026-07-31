@@ -21,122 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../includes/config.php';
-
-function tmc_is_valid_ip(?string $value): bool {
-    if (!is_string($value) || $value === '') {
-        return false;
-    }
-    return filter_var($value, FILTER_VALIDATE_IP) !== false;
-}
-
-function tmc_is_private_or_reserved_ip(?string $value): bool {
-    if (!tmc_is_valid_ip($value)) {
-        return false;
-    }
-    return filter_var(
-        $value,
-        FILTER_VALIDATE_IP,
-        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-    ) === false;
-}
-
-function tmc_extract_first_valid_ip(?string $headerValue): ?string {
-    if (!is_string($headerValue) || trim($headerValue) === '') {
-        return null;
-    }
-    $parts = explode(',', $headerValue);
-    foreach ($parts as $part) {
-        $candidate = trim($part);
-        if (tmc_is_valid_ip($candidate)) {
-            return $candidate;
-        }
-    }
-    return null;
-}
-
-function tmc_proxy_is_trusted(?string $remoteAddr): bool {
-    if (TMC_TRUST_PROXY_HEADERS) {
-        return true;
-    }
-
-    $trusted = array_filter(array_map('trim', explode(',', (string)TMC_TRUSTED_PROXIES)));
-    if (!empty($trusted) && is_string($remoteAddr) && $remoteAddr !== '') {
-        foreach ($trusted as $trustedIp) {
-            if ($trustedIp === $remoteAddr) {
-                return true;
-            }
-        }
-    }
-
-    // A private REMOTE_ADDR is NOT evidence that the peer is a trusted proxy.
-    //
-    // This used to return true for any private/reserved address, which is the
-    // address a containerised deploy always sees - so on the documented
-    // Dokploy/Traefik setup every caller was trusted to declare their own IP
-    // via CF-Connecting-IP, and could mint a fresh anonymous rate-limit bucket
-    // per request simply by changing the header.
-    //
-    // Trust now has to be configured (TMC_TRUST_PROXY_HEADERS, or the peer
-    // listed in TMC_TRUSTED_PROXIES). Behind an unconfigured proxy the
-    // anonymous tier collapses to one shared bucket keyed on the proxy's
-    // address, which is the safe direction to fail: the only traffic in that
-    // tier is unauthenticated (login, register), which warrants a tight global
-    // ceiling anyway, while every signed-in player already has their own
-    // validated session bucket.
-    if (tmc_is_private_or_reserved_ip($remoteAddr)) {
-        tmc_warn_untrusted_proxy_once($remoteAddr);
-    }
-    return false;
-}
-
-/**
- * Say once, loudly, that proxy headers are being ignored.
- *
- * Silently sharing one bucket is safe but confusing to debug - it looks like
- * the limiter is too aggressive rather than like missing configuration.
- */
-function tmc_warn_untrusted_proxy_once(?string $remoteAddr): void {
-    static $warned = false;
-    if ($warned) return;
-    $warned = true;
-    if (!isset($_SERVER['HTTP_X_FORWARDED_FOR'])
-        && !isset($_SERVER['HTTP_X_REAL_IP'])
-        && !isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        return; // No proxy headers present; nothing is being ignored.
-    }
-    error_log(
-        '[rate_limit] proxy headers present from ' . (string)$remoteAddr
-        . ' but that peer is not a configured trusted proxy, so they are ignored '
-        . 'and the anonymous tier is keyed on the peer address. Set '
-        . 'TMC_TRUSTED_PROXIES to this address (or TMC_TRUST_PROXY_HEADERS=1) '
-        . 'if it really is your reverse proxy.'
-    );
-}
-
-function tmc_resolve_client_ip(): string {
-    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
-    if (!tmc_proxy_is_trusted($remoteAddr)) {
-        return tmc_is_valid_ip($remoteAddr) ? $remoteAddr : 'unknown';
-    }
-
-    $cfIp = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? null;
-    if (tmc_is_valid_ip($cfIp)) {
-        return $cfIp;
-    }
-
-    $realIp = $_SERVER['HTTP_X_REAL_IP'] ?? null;
-    if (tmc_is_valid_ip($realIp)) {
-        return $realIp;
-    }
-
-    $forwardedFor = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null;
-    $xffIp = tmc_extract_first_valid_ip($forwardedFor);
-    if ($xffIp !== null) {
-        return $xffIp;
-    }
-
-    return tmc_is_valid_ip($remoteAddr) ? $remoteAddr : 'unknown';
-}
+// Client-address resolution and proxy trust. Lives in includes/net.php so
+// tools/proxy_trust_selfcheck.php can exercise the matcher directly instead of
+// inferring it from HTTP behaviour.
+require_once __DIR__ . '/../includes/net.php';
 
 function tmc_rate_limit_log(string $phase, string $tier, string $identity, int $count, int $limit, int $window, string $action): void {
     if (!TMC_RATE_LIMIT_TRACE) {
@@ -633,6 +521,11 @@ try {
                     'diagnostics_enabled' => (bool)TMC_RATE_LIMIT_DIAGNOSTICS,
                     'trust_proxy_headers' => (bool)TMC_TRUST_PROXY_HEADERS,
                     'trusted_proxies' => TMC_TRUSTED_PROXIES,
+                    // What the allowlist actually parsed to. A typo'd or
+                    // /0 entry is dropped rather than honoured, and without
+                    // this an operator comparing the raw string against their
+                    // intent sees nothing wrong.
+                    'trusted_proxies_parsed' => tmc_trusted_proxy_entries(),
                     'anon_limit_per_window' => (int)TMC_RATE_LIMIT_ANON_PER_WINDOW,
                     'auth_limit_per_window' => (int)TMC_RATE_LIMIT_AUTH_PER_WINDOW,
                 ],
