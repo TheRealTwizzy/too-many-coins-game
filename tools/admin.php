@@ -126,15 +126,21 @@ function requireMaintenanceAccessColumn(Database $db): bool {
 /**
  * One word for the account's state.
  *
- * "unverified" means no confirmed email address on file. It does NOT mean the
- * account is blocked: nothing in Auth::login consults email_verified_at, and
- * no registration path ever sets it, so today every account made through the
- * game reads unverified and signs in perfectly well.
+ * "unverified" means no confirmed email address on file, and that flag is now
+ * load-bearing: the account signs in, then is refused every action except
+ * logout, confirming, asking for another link, and reading enough state to be
+ * told so. The gate lives in api/index.php ahead of the action switch, not in
+ * Auth::login, which is why sign-in itself still succeeds.
  *
- * It is still worth showing, because an address nobody has proved control of
- * is an address that cannot receive a password reset - which matters most for
- * the one Admin account. Earlier wording here claimed these accounts "cannot
- * sign in yet", which was simply wrong.
+ * So "unverified" reads as a stuck account, not a cosmetic note. Staff are not
+ * exempt - an unverified Admin can sign in and reach nothing. If the
+ * confirmation mail never arrived, cmdVerify below is the way out; if a whole
+ * lane reads unverified, that is a mail misconfiguration, and the web service
+ * log will have a [mail-dev] WARNING: line for every send.
+ *
+ * This docstring has been wrong in both directions now: it first claimed these
+ * accounts could not sign in, was corrected to say the flag blocked nothing,
+ * and then the email confirmation release made it block almost everything.
  */
 function accountState(array $player): string {
     if (!empty($player['profile_deleted_at'])) return 'deleted';
@@ -172,9 +178,9 @@ function cmdStaff(Database $db): int {
     }
     printf("\n%d staff account(s), %d Admin.\n", count($rows), adminCount($db));
     if ($unverified > 0) {
-        printf("%d with no confirmed email address. Sign-in still works - nothing\n", $unverified);
-        echo "checks the flag - but an unconfirmed address cannot receive a\n";
-        echo "password reset. Mark one confirmed with:  admin.php verify <handle>\n";
+        printf("%d with no confirmed email address. Those accounts sign in but are\n", $unverified);
+        echo "refused every action except logout, confirming and resending - staff\n";
+        echo "powers included. If the mail never arrived:  admin.php verify <handle>\n";
     }
     return 0;
 }
@@ -377,8 +383,9 @@ function cmdVerify(Database $db, ?string $handle, ?string $reason): int {
     );
 
     echo "{$player['handle']}: email marked confirmed\n";
-    echo "This asserts control of the address on the operator's word. It is the\n";
-    echo "only way to confirm one today - there is no self-service flow.\n";
+    echo "This asserts control of the address on the operator's word - it bypasses\n";
+    echo "the confirmation mail rather than proving anything. Use it when mail is\n";
+    echo "broken, not instead of fixing mail.\n";
     return 0;
 }
 
