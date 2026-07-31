@@ -238,14 +238,32 @@ class Auth {
             );
             
             $db->commit();
-            
+
             self::setSessionCookie($token, time() + SESSION_LIFETIME);
-            
+
+            // Outside the transaction, and outside anything that can fail the
+            // registration. An account that exists but never got its mail is
+            // recoverable - the player asks for another - while a registration
+            // rolled back because SMTP timed out is just lost.
+            $verificationSent = false;
+            try {
+                require_once __DIR__ . '/account.php';
+                $verification = AccountService::sendEmailVerification([
+                    'player_id' => $playerId,
+                    'email' => $email,
+                    'email_verified_at' => null,
+                ]);
+                $verificationSent = !empty($verification['sent']);
+            } catch (Throwable $e) {
+                error_log('[auth] verification mail failed for player ' . $playerId . ': ' . $e->getMessage());
+            }
+
             return [
                 'success' => true,
                 'player_id' => $playerId,
                 'handle' => $handle,
-                'token' => $token
+                'token' => $token,
+                'verification_sent' => $verificationSent
             ];
         } catch (Exception $e) {
             $db->rollback();

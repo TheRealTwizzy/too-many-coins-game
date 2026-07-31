@@ -158,6 +158,83 @@ class AccountService {
         return $stmt->rowCount() === 1;
     }
 
+    /**
+     * Send (or re-send) an email confirmation link.
+     *
+     * Never throws and never reports a mail failure to the caller as an error,
+     * because both callers are wrong places to fail: registration must not be
+     * lost because SMTP was down, and a resend that says "failed" invites the
+     * player to hammer it. The boolean comes back so registration can decide
+     * what to tell them, and the transport failure is already in the log.
+     */
+    public static function sendEmailVerification(array $player): array {
+        if (!empty($player['email_verified_at'])) {
+            return ['success' => true, 'already_verified' => true];
+        }
+
+        // Dev-log mode writes the link to the error log and sends nothing. That
+        // is correct for a test lane and catastrophic in a live one now that an
+        // unconfirmed account can do nothing at all: every new player would be
+        // permanently locked out, with the only evidence a line in a log nobody
+        // is reading. Say so distinctly, on every attempt, so it is greppable.
+        if (TMC_MAIL_DEV_LOG) {
+            error_log(
+                '[mail-dev] WARNING: TMC_MAIL_DEV_LOG is on, so this confirmation '
+                . 'link was logged and NOT sent. Accounts cannot be used until '
+                . 'confirmed - set TMC_MAIL_DEV_LOG=false and configure SMTP '
+                . 'before opening registration.'
+            );
+        }
+
+        $token = self::createVerificationToken(
+            (int)$player['player_id'], (int)$player['player_id'], 'EMAIL_VERIFY'
+        );
+        $url = self::verificationUrl('EMAIL_VERIFY', $token['raw']);
+        $sent = Mailer::send(
+            (string)$player['email'],
+            'Confirm your Too Many Coins email',
+            "Confirm your email address to join a season:\n\n{$url}\n\n"
+            . "This link expires at {$token['expires_at']} UTC. If it does, ask for a new one from the game."
+        );
+
+        return ['success' => true, 'sent' => $sent, 'expires_at' => $token['expires_at']];
+    }
+
+    /**
+     * Consume a confirmation link.
+     *
+     * The stamp is guarded on the column still being NULL so two clicks on the
+     * same link - a mail client prefetching it, then the player - cannot
+     * rewrite the confirmation time. The token itself is already single-use;
+     * this is the second lock on the same door, because the cost is one WHERE
+     * clause and the failure is silent otherwise.
+     */
+    public static function confirmEmailVerification(string $token): array {
+        $row = self::consumeVerificationToken($token, 'EMAIL_VERIFY');
+        if (!$row) {
+            return [
+                'error' => 'That confirmation link is invalid or has expired.',
+                'reason_code' => 'verification_token_invalid',
+            ];
+        }
+
+        $db = Database::getInstance();
+        $playerId = (int)$row['target_player_id'];
+        $db->query(
+            "UPDATE players SET email_verified_at = NOW()
+             WHERE player_id = ? AND email_verified_at IS NULL",
+            [$playerId]
+        );
+
+        $player = $db->fetch("SELECT handle, email_verified_at FROM players WHERE player_id = ?", [$playerId]);
+        if (!$player || empty($player['email_verified_at'])) {
+            return ['error' => 'Could not confirm that address.', 'reason_code' => 'verification_failed'];
+        }
+
+        Audit::record($playerId, $playerId, 'email_verified', 'Confirmed via emailed link');
+        return ['success' => true, 'handle' => $player['handle'], 'email_verified_at' => $player['email_verified_at']];
+    }
+
     public static function requestSelfDeletion(array $player, string $reason): array {
         $token = self::createVerificationToken((int)$player['player_id'], (int)$player['player_id'], 'SELF_DELETE', ['reason' => $reason]);
         $url = self::verificationUrl('SELF_DELETE', $token['raw']);

@@ -246,9 +246,29 @@ have real traffic.
 
 ### 4.6 Email (registration verification)
 
-Verification email is only actually sent when SMTP is configured. Without it,
-`TMC_MAIL_DEV_LOG` (default on) writes the message to the error log instead —
-fine for a closed test, not for public signup.
+> **Working outbound mail is now a hard requirement.** An account with no
+> confirmed address is refused every action except logout, confirming, asking
+> for another link, and reading enough state to be told so. If the confirmation
+> mail never arrives, the account is permanently unusable.
+>
+> `TMC_MAIL_DEV_LOG` defaults to **on**, which logs the link and sends nothing.
+> Leaving that default in a lane with real players locks out every new signup.
+> Set `TMC_MAIL_DEV_LOG=false`, configure SMTP, and prove it before opening
+> registration:
+>
+> ```bash
+> php /app/tools/mail_selftest.php you@example.com
+> ```
+>
+> Every send under dev-log also writes a `[mail-dev] WARNING:` line naming the
+> problem, so `grep 'mail-dev.*WARNING'` over the web service log answers
+> "is this misconfigured" in one command.
+>
+> `TMC_PUBLIC_BASE_URL` must be set too, or the confirmation link in the mail
+> points nowhere.
+>
+> Break-glass for an account whose mail never arrived:
+> `php /app/tools/admin.php verify <handle>`.
 
 | Variable | Default |
 |---|---|

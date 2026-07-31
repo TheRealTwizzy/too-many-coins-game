@@ -197,6 +197,17 @@ async function register(browser, handle) {
         password: 'testpassword123',
     });
     if (res.error) throw new Error(`register ${handle} failed: ${res.error}`);
+
+    // Registration no longer grants access: an account with no confirmed
+    // address is refused every action but logout, confirm, resend and reading
+    // state. Confirming here is removing the clock, exactly as the coin-balance
+    // seeding below does - the confirmation flow itself has its own harness in
+    // tools/email_verification_selfcheck.php, and repeating it per account
+    // would only slow this one down.
+    if (dbAvailable) {
+        sql(`UPDATE players SET email_verified_at = NOW() WHERE handle_lower = LOWER('${handle}')`);
+    }
+
     if (!res.token) {
         const login = await api(page, 'login', { email: `${handle}@example.test`, password: 'testpassword123' });
         if (login.error) throw new Error(`login ${handle} failed: ${login.error}`);

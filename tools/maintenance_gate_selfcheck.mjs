@@ -85,6 +85,10 @@ try {
         handle: playerHandle, email: `${playerHandle}@example.test`, password: 'testpassword123',
     });
     ok('a plain account registers', !reg.body.error, JSON.stringify(reg.body));
+    // Registration alone no longer grants access. This file is about the
+    // maintenance gate, so the confirmation gate is cleared out of the way -
+    // otherwise every check below would pass against the wrong refusal.
+    admin('verify', playerHandle);
     await uiPage.reload({ waitUntil: 'networkidle' });
     await uiPage.waitForTimeout(1500);
 
@@ -126,12 +130,14 @@ try {
     await api(plainPage, 'register', {
         handle: plainHandle, email: `${plainHandle}@example.test`, password: 'testpassword123',
     });
+    admin('verify', plainHandle);
 
     const staffHandle = `gatestf${STAMP}`.slice(0, 16);
     const staffPage = await session(browser);
     await api(staffPage, 'register', {
         handle: staffHandle, email: `${staffHandle}@example.test`, password: 'testpassword123',
     });
+    admin('verify', staffHandle);
     admin('promote', staffHandle, 'Moderator');
 
     const testerPage = await session(browser);

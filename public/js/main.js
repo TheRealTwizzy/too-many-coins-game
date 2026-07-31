@@ -18,6 +18,7 @@ import { h, render } from './core/render.js';
 import { getScreen, RAIL_PARENT } from './screens/index.js';
 import { HANDLE_RE, PASSWORD_MIN } from './screens/auth.js';
 import { constructionShell } from './screens/construction.js';
+import { verifyEmailShell } from './screens/verify_email.js';
 
 const POLL_MS = 3000;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
@@ -377,8 +378,49 @@ const ctx = {
         // in the store would show it to whoever signs in next.
         store.patch({ player: null, seasons: [], screens: {}, notifications: [], notificationsUnread: 0 });
         store.set('ui.seasonId', null);
+        store.set('ui.verifyStatus', null);
         store.set('screen', 'home');
         toast('Signed out.', 'info');
+    },
+
+    /**
+     * Ask for another confirmation link.
+     *
+     * Reports "sent" on success without saying whether the transport actually
+     * delivered, because the server deliberately does not treat a mail failure
+     * as an error - a player told "failed" will click again, which is the one
+     * thing the throttle exists to prevent. A real delivery problem shows up in
+     * the server log, not here.
+     */
+    async resendVerification() {
+        if (store.get('ui.verifyBusy')) return;
+        store.set('ui.verifyBusy', true);
+        store.set('ui.verifyStatus', null);
+        try {
+            const res = await api.request('email_verify_resend', {});
+            if (!res) {
+                store.set('ui.verifyStatus', {
+                    tone: 'error',
+                    message: 'Could not reach the server. Try again in a moment.',
+                });
+                return;
+            }
+            if (res.error) {
+                store.set('ui.verifyStatus', { tone: 'error', message: res.error });
+                return;
+            }
+            if (res.already_verified) {
+                store.set('ui.verifyStatus', { tone: 'ok', message: 'Already confirmed — reloading.' });
+                await poll();
+                return;
+            }
+            store.set('ui.verifyStatus', {
+                tone: 'ok',
+                message: 'Sent. Check your inbox, and the spam folder if it is not there.',
+            });
+        } finally {
+            store.set('ui.verifyBusy', false);
+        }
     },
 
     openSeason(seasonId) {
@@ -1572,6 +1614,21 @@ function shell() {
     // still where they were. The auth escape lets staff reach sign-in; once
     // signed in as staff the gate no longer applies to them.
     const player = store.get('player');
+
+    // Email confirmation outranks the maintenance gate. An unconfirmed account
+    // is refused every action by the server, so showing it a construction page
+    // - or anything else with buttons - would be showing it a wall of 403s.
+    // Nothing is inferred client-side: email_verified comes from the poll.
+    if (player && player.email_verified === false) {
+        return verifyEmailShell(h, {
+            email: player.email || '',
+            busy: Boolean(store.get('ui.verifyBusy')),
+            status: store.get('ui.verifyStatus') || null,
+            onResend: () => ctx.resendVerification(),
+            onLogout: () => ctx.doLogout(),
+        });
+    }
+
     const isStaff = Boolean(player && (player.role === 'Admin' || player.role === 'Moderator'));
     const gated = store.get('serverMode') === 'MAINTENANCE_LOCKDOWN' && !isStaff;
 
@@ -1823,6 +1880,45 @@ function resolveLastTick(timing) {
  * boot
  * ------------------------------------------------------------------ */
 
+/**
+ * Consume a confirmation link if this page load is one.
+ *
+ * The URL is cleaned before the request rather than after, so a reload cannot
+ * replay a token that is already spent and show a stale "invalid link" to
+ * someone whose address is confirmed. The token is single-use server-side
+ * regardless; this is about what the player sees.
+ */
+async function consumeVerificationLink() {
+    let params;
+    try {
+        params = new URLSearchParams(window.location.search);
+    } catch {
+        return;
+    }
+    if (params.get('verify_action') !== 'EMAIL_VERIFY') return;
+
+    const token = params.get('token') || '';
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('verify_action');
+        url.searchParams.delete('token');
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch { /* a browser without history rewriting still gets the request */ }
+
+    if (!token) return;
+
+    const res = await api.request('email_verify_confirm', { token });
+    if (res && res.success) {
+        toast('Email confirmed. Welcome in.', 'success');
+        store.set('ui.verifyStatus', null);
+        await poll();
+        return;
+    }
+    const message = (res && res.error) || 'That confirmation link did not work.';
+    store.set('ui.verifyStatus', { tone: 'error', message });
+    toast(message, 'error');
+}
+
 function boot() {
     document.documentElement.setAttribute('data-theme', view.theme);
 
@@ -1893,6 +1989,11 @@ function boot() {
     writeHash(true);
 
     scheduleRender();
+    // A confirmation link is the only entry point that arrives as a query
+    // string rather than a hash route, and it has to be consumed before the
+    // first poll so the shell does not flash the gate at someone who has just
+    // confirmed. It runs its own poll on success.
+    consumeVerificationLink();
     poll();
 
     // Run the initial screen's enter() — the subscription above only fires on
