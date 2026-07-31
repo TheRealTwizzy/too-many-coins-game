@@ -227,6 +227,11 @@ const TMC_ACTION_LIMITS = [
     'login'                  => ['limit' => 10, 'window' => 300],
     'register'               => ['limit' => 5,  'window' => 3600],
     'account_delete_request' => ['limit' => 3,  'window' => 3600],
+    // Every resend sends mail on the caller's say-so, which makes it the one
+    // action here that can be turned into an amplifier aimed at somebody
+    // else's inbox. Tight on purpose; a real person needs one or two.
+    'email_verify_resend'    => ['limit' => 5,  'window' => 3600],
+    'email_verify_confirm'   => ['limit' => 20, 'window' => 3600],
     'account_change_password' => ['limit' => 10, 'window' => 3600],
     'chat_send'              => ['limit' => 20, 'window' => 60],
     'friend_request_send'    => ['limit' => 20, 'window' => 300],
@@ -461,6 +466,38 @@ if ($serverMode === 'MAINTENANCE_LOCKDOWN') {
             ]);
             exit;
         }
+    }
+}
+
+// Email confirmation gate. Same shape as the maintenance gate above and for
+// the same reason: enforcing it before the switch covers every action at once,
+// including any added later, rather than depending on each case remembering.
+//
+// An unconfirmed account may do exactly four things - leave, confirm, ask for
+// another link, and read enough state for the client to say so. Everything
+// else is refused. That is stricter than gating participation alone, and it is
+// the point: an address nobody has proved control of should not be able to
+// chat, be seen in a profile, or hold anything the game later needs to confirm
+// with its owner.
+//
+// Unauthenticated actions are not listed because they never reach the check -
+// register and login have no player yet, and email_verify_confirm carries the
+// token as its own credential.
+$emailGateExempt = [
+    'register', 'login', 'logout',
+    'email_verify_confirm', 'email_verify_resend',
+    'game_state', 'account_get',
+    'rate_limit_diagnostics', 'runtime_readiness', 'tick', 'init_db',
+];
+if (!in_array($action, $emailGateExempt, true)) {
+    $emailGatePlayer = Auth::getCurrentPlayer();
+    if ($emailGatePlayer && empty($emailGatePlayer['email_verified_at'])) {
+        http_response_code(403);
+        echo json_encode([
+            'error' => 'Confirm your email address to use your account.',
+            'reason_code' => 'email_verification_required',
+        ]);
+        exit;
     }
 }
 
@@ -813,6 +850,19 @@ try {
 
         case 'account_delete_confirm':
             echo json_encode(AccountService::confirmSelfDeletion((string)($input['token'] ?? '')));
+            break;
+
+        // Unauthenticated on purpose. The link lands in a mail client that may
+        // not share a session with the browser that registered, and the token
+        // is the credential - single-use, hashed at rest, and expiring - so
+        // requiring a session as well would only break the common case.
+        case 'email_verify_confirm':
+            echo json_encode(AccountService::confirmEmailVerification((string)($input['token'] ?? '')));
+            break;
+
+        case 'email_verify_resend':
+            $player = Auth::requireAuth();
+            echo json_encode(AccountService::sendEmailVerification($player));
             break;
 
         case 'staff_account_delete_request':
@@ -1460,6 +1510,11 @@ function getGameState($player) {
             'player_id' => $player['player_id'],
             'handle' => $player['handle'],
             'role' => $player['role'],
+            // The client renders a full-page confirmation prompt from this, so
+            // it ships on every poll rather than only from account_get - which
+            // the gate above would let through but the shell does not call.
+            'email_verified' => !empty($player['email_verified_at']),
+            'email' => $player['email'],
             'global_stars' => (int)$player['global_stars'],
             'global_stars_progress' => getGlobalStarsProgressPayload($player['global_stars_fractional_fp'] ?? 0),
             'joined_season_id' => $player['joined_season_id'],

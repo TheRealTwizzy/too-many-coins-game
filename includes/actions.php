@@ -312,6 +312,18 @@ class Actions {
         if ($player['role'] !== 'Player') {
             return ['error' => 'Staff accounts cannot participate in seasons', 'reason_code' => 'staff_participation_forbidden'];
         }
+
+        // A season is the only thing gated on a confirmed address. Everything
+        // before it - signing up, signing in, reading, chatting - stays open,
+        // so an unconfirmed account is a visitor rather than a locked door,
+        // and the one thing that produces permanent competitive records is the
+        // thing that needs an address someone can actually be reached at.
+        if (empty($player['email_verified_at'])) {
+            return [
+                'error' => 'Confirm your email address before joining a season.',
+                'reason_code' => 'email_verification_required',
+            ];
+        }
         
         // Already in a season check
         if ($player['joined_season_id'] !== null) {

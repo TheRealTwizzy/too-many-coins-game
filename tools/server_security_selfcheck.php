@@ -21,6 +21,7 @@
  */
 
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/database.php';
 
 $opts = getopt('', ['base::', 'verbose']);
 $base = rtrim($opts['base'] ?? 'http://127.0.0.1:8000', '/');
@@ -66,7 +67,16 @@ function req(string $action, array $body = [], ?string $token = null): array {
     return ['status' => $status, 'body' => is_array($decoded) ? $decoded : [], 'raw' => (string)$raw];
 }
 
-/** Register a throwaway account and return its bearer token. */
+/**
+ * Register a throwaway account and return its bearer token.
+ *
+ * The address is confirmed directly afterwards. Registration alone no longer
+ * grants access - an unconfirmed account is refused every action but logout,
+ * confirm, resend and reading state - and every check in this file is about a
+ * *different* boundary. Leaving accounts unconfirmed would make all of them
+ * pass for the wrong reason, which is worse than failing. The confirmation gate
+ * has its own harness: tools/email_verification_selfcheck.php.
+ */
 function newAccount(string $tag): array {
     $handle = 'sec_' . $tag . '_' . substr(bin2hex(random_bytes(3)), 0, 5);
     $res = req('register', [
@@ -83,6 +93,11 @@ function newAccount(string $tag): array {
         fwrite(STDERR, "could not create test account {$handle}: " . $res['raw'] . "\n");
         exit(1);
     }
+
+    Database::getInstance()->query(
+        "UPDATE players SET email_verified_at = NOW() WHERE handle_lower = LOWER(?)",
+        [$handle]
+    );
     $gs = req('game_state', [], $token);
     return [
         'handle' => $handle,

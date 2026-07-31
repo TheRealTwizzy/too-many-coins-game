@@ -1338,6 +1338,22 @@ async function checkShellSource() {
     // restricted network and fills the console with errors.
     ok('the shell pulls no external stylesheet or font',
         !/<link[^>]+href=["']https?:\/\//i.test(shell));
+    // Email confirmation gates the whole account server-side, so the client
+    // must show a prompt rather than an app full of buttons that 403.
+    ok('the confirmation prompt renders from the server flag, not a guess',
+        /player\.email_verified === false/.test(src));
+    ok('confirmation outranks the maintenance gate',
+        src.indexOf('player.email_verified === false') < src.indexOf("=== 'MAINTENANCE_LOCKDOWN'"));
+    ok('the confirmation link is consumed on boot',
+        /verify_action'\) !== 'EMAIL_VERIFY'/.test(src)
+        && src.includes("api.request('email_verify_confirm'"));
+    // A spent token in the address bar would re-fire on every reload and tell
+    // a confirmed player their link is invalid.
+    ok('the token is stripped from the URL before it is spent',
+        /searchParams\.delete\('token'\)[\s\S]{0,400}email_verify_confirm/.test(src));
+    ok('a resend is available and goes through the real action',
+        src.includes("api.request('email_verify_resend'"));
+
     // The maintenance gate's one escape hatch has to escape, and has to stay
     // an escape hatch rather than a way past the gate.
     //

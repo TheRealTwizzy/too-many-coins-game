@@ -732,6 +732,24 @@
 
 .construction-shell { display: grid; place-items: start center; min-height: 100vh; padding: var(--s5) var(--s3); }
 
+/* Email confirmation gate. Shares the construction frame deliberately — both
+   are "you are signed in and the game is closed to you", and looking the same
+   makes that read as one state rather than two unrelated errors. */
+.verify-foot { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+
+.verify-status {
+    margin: 0;
+    padding: var(--s2) var(--s3);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--surface-2, rgba(127, 127, 127, 0.12));
+    border-left: 3px solid var(--accent, #5b8def);
+}
+
+.verify-status.is-error {
+    border-left-color: var(--danger, #d9534f);
+    color: var(--danger, #d9534f);
+}
+
 /* Sign-in reached from the gate. Same centred, chrome-free frame as the
    construction page, because it is the same page in a different state — the
    full shell would put a rail and HUD around a player who cannot use them. */
