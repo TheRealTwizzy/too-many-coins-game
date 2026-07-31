@@ -1573,8 +1573,44 @@ function shell() {
     // signed in as staff the gate no longer applies to them.
     const player = store.get('player');
     const isStaff = Boolean(player && (player.role === 'Admin' || player.role === 'Moderator'));
-    if (store.get('serverMode') === 'MAINTENANCE_LOCKDOWN' && !isStaff && screen !== 'auth') {
-        return constructionShell(h, { onStaffSignIn: () => store.set('screen', 'auth') });
+    const gated = store.get('serverMode') === 'MAINTENANCE_LOCKDOWN' && !isStaff;
+
+    if (gated && screen !== 'auth') {
+        return constructionShell(h, {
+            // "Staff sign-in" has to actually reach a sign-in form. A player
+            // already signed in on a non-staff account would otherwise land on
+            // the auth screen's "Already signed in" branch, so the button
+            // promised sign-in and delivered a dead end that needed a second,
+            // unmarked step to escape. Sign them out first; doLogout() sends
+            // the screen to home, so the navigation follows it.
+            onStaffSignIn: () => {
+                if (store.get('player')) {
+                    Promise.resolve(ctx.doLogout()).then(() => store.set('screen', 'auth'));
+                    return;
+                }
+                store.set('screen', 'auth');
+            },
+        });
+    }
+
+    // The auth escape must not become a hole in the gate. Routing to 'auth'
+    // used to fall through to the full shell below, which rendered rail, HUD
+    // and every screen to a gated non-staff player - the server still refused
+    // gameplay, so nothing was exploitable, but the construction page is what
+    // non-staff are supposed to see and anything setting screen='auth' walked
+    // past it. Sign-in gets a bare shell instead: no rail, no HUD, no deck.
+    if (gated) {
+        return h('div', { id: 'shell', class: 'gated-auth-shell' },
+            h('main', { id: 'deck', 'data-screen': 'auth' }, deck('auth')),
+            h('div', { class: 'gated-auth-foot' },
+                h('button', {
+                    class: 'btn btn-ghost btn-sm',
+                    onClick: () => store.set('screen', 'home'),
+                }, 'Back to the construction page'),
+            ),
+            toastView(),
+            h('div', { id: 'dialog-host' }, dialogView()),
+        );
     }
 
     return h('div', { id: 'shell' },

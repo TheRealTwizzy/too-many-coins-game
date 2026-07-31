@@ -523,9 +523,10 @@ node tools/client_security_selfcheck.js   # escapeHtml is attribute-safe; no cli
 node tools/ui_smoke.mjs                   # real Chromium: console errors, overflow, NaN in output
 
 # Needs a running server + database:
-php  tools/concurrency_selfcheck.php    --base=http://localhost:8080
+php  tools/concurrency_selfcheck.php     --base=http://localhost:8080
 php  tools/server_security_selfcheck.php --base=http://localhost:8080
 node tools/e2e_season_loop.mjs           http://localhost:8080
+node tools/maintenance_gate_selfcheck.mjs http://localhost:8080  # flips the real gate
 ```
 
 ## License
