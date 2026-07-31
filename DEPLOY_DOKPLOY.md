@@ -449,9 +449,32 @@ Handles match case-insensitively. Registering an account does **not** grant a
 role no matter what it is called — a fresh account is always `Player` until
 promoted, so check with `staff` rather than assuming.
 
-`staff` also flags accounts whose email is unverified. Those cannot sign in,
-which matters most for an Admin created before SMTP was configured: the role is
-correct and the account is still unusable.
+### Email confirmation
+
+`staff` flags accounts with no confirmed email address as `unverified`. That
+does **not** block sign-in — nothing in `Auth::login` consults
+`email_verified_at`, and no registration path ever sets it, so every account
+created through the game reads `unverified` and works normally. (An earlier
+version of this document said those accounts could not sign in. That was
+wrong.)
+
+What it does mean is that nobody has proved control of the address, so it
+cannot be relied on for a password reset. That matters most for the Admin
+account, where losing the password means losing the only way into the staff
+screen.
+
+```bash
+php /app/tools/admin.php verify <handle>
+```
+
+This asserts control on the operator's word, and it is the only way an account
+gets a confirmed address today: **there is no self-service verification flow.**
+`account_verification_tokens` and `Mailer::send` exist, but they are wired to
+account-deletion confirmation only. Registration sends no verification mail and
+nothing consumes a verification link. Building that is a separate piece of
+work — a token issued at registration, a confirmation endpoint, a resend
+action, and a decision about what (if anything) stays locked until an address
+is confirmed.
 
 After the first Admin exists, promote everyone else in-game through the staff
 screen, which records a real actor. `Permissions::canActOnTarget` requires a
