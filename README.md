@@ -518,11 +518,14 @@ need a database except the concurrency harness.
 php  tools/integrity_selfcheck.php        # every balance/sigil decrement is guarded + rowCount-checked
 php  tools/star_price_selfcheck.php       # price tracks supply; legacy v1 seasons still behave
 php  tools/hoarding_sink_selfcheck.php    # sink ramps, ceiling holds, idle not punished harder
+php  tools/proxy_trust_selfcheck.php      # who may name the client IP: ranges, boundaries, malformed entries
 node tools/client_security_selfcheck.js   # escapeHtml is attribute-safe; no client cookie writes
 node tools/ui_smoke.mjs                   # real Chromium: console errors, overflow, NaN in output
 
 # Needs a running server + database:
-php tools/concurrency_selfcheck.php --base=http://localhost:8080
+php  tools/concurrency_selfcheck.php    --base=http://localhost:8080
+php  tools/server_security_selfcheck.php --base=http://localhost:8080
+node tools/e2e_season_loop.mjs           http://localhost:8080
 ```
 
 ## License
