@@ -94,6 +94,19 @@ function ok(name, condition, detail) {
     }
 }
 
+/**
+ * A check that could not run here, with the reason stated.
+ *
+ * Counted separately from a pass on purpose. A check that quietly passes when
+ * its precondition is missing is worse than one that fails: it reports
+ * coverage that does not exist.
+ */
+let skipped = 0;
+function skip(name, why) {
+    skipped++;
+    console.log(`  skip  ${name} — ${why}`);
+}
+
 const nextMicrotask = () => new Promise(resolve => setTimeout(resolve, 0));
 
 /* ------------------------------------------------------------------ *
@@ -1287,6 +1300,89 @@ async function checkShippedArt({ registry }) {
  * load), so its contracts are guarded at source level. Weaker than executing
  * them, but these are the invariants that soft-locked players when absent.
  */
+/**
+ * The changelog is the only thing anyone can read while the gate is up, and it
+ * went a week stale without anything noticing — describing the client cutover
+ * as in-progress after it shipped, and missing the two largest releases
+ * entirely. Nothing in the codebase could tell, because nothing was looking.
+ *
+ * The staleness half compares CURRENT_VERSION against the newest commit that
+ * touched something a player can see. Ops, docs and tooling changes are
+ * excluded deliberately: requiring a version bump for a README edit trains
+ * people to bump meaninglessly, which is the same failure wearing a different
+ * hat.
+ *
+ * The rest are structural, and the duplicate-version check exists because I
+ * shipped that exact bug in the release this file is about: three same-day
+ * entries all read "2026.07.30", which collide as reconciler keys and read as
+ * one release repeated.
+ */
+async function checkPatchNotes() {
+    section('patch notes — the only changelog players see');
+
+    const notesUrl = pathToFileURL(join(HERE, '..', 'public', 'js', 'patch-notes.js')).href;
+    const notes = await import(notesUrl);
+    const { CURRENT_VERSION, CURRENT_WORK, PROJECTED, PATCH_NOTES } = notes;
+
+    const DATE_RE = /^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/;
+    ok('CURRENT_VERSION is a dated version string', DATE_RE.test(String(CURRENT_VERSION)), CURRENT_VERSION);
+    ok('the newest entry is the current version',
+        PATCH_NOTES[0] && PATCH_NOTES[0].version === CURRENT_VERSION,
+        { current: CURRENT_VERSION, newest: PATCH_NOTES[0] && PATCH_NOTES[0].version });
+
+    const versions = PATCH_NOTES.map(e => e.version);
+    const dupes = versions.filter((v, i) => versions.indexOf(v) !== i);
+    ok('every entry has a distinct version — they are reconciler keys',
+        dupes.length === 0, dupes);
+
+    ok('entries are newest first',
+        versions.every((v, i) => i === 0 || versions[i - 1] >= v), versions);
+
+    ok('every entry has a title and at least one note',
+        PATCH_NOTES.every(e => typeof e.title === 'string' && e.title.trim() !== ''
+            && Array.isArray(e.notes) && e.notes.length > 0
+            && e.notes.every(n => typeof n === 'string' && n.trim() !== '')));
+
+    ok('every entry date parses', PATCH_NOTES.every(e => !Number.isNaN(Date.parse(e.date))));
+
+    ok('the gate says what is being built now', Array.isArray(CURRENT_WORK) && CURRENT_WORK.length > 0);
+    ok('the gate says what is coming', Array.isArray(PROJECTED) && PROJECTED.length > 0
+        && PROJECTED.every(r => r && r.when && r.what));
+
+    // Staleness. Needs git; without it the check cannot run and says so rather
+    // than passing on an absence.
+    const PLAYER_FACING = ['public/', 'includes/', 'api/'];
+    let lastTouched = null;
+    try {
+        const { execFileSync } = await import('node:child_process');
+        const out = execFileSync(
+            'git',
+            ['log', '-1', '--format=%cd', '--date=format:%Y.%m.%d', '--', ...PLAYER_FACING],
+            { cwd: join(HERE, '..'), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+        ).trim();
+        lastTouched = DATE_RE.test(out) ? out : null;
+    } catch {
+        lastTouched = null;
+    }
+
+    if (lastTouched === null) {
+        skip('CURRENT_VERSION keeps up with player-facing changes',
+            'no git history available here');
+        return;
+    }
+
+    // Compare on the date prefix: a same-day release may carry a .1/.2 suffix,
+    // and a build number should not read as newer than the day it shipped on.
+    const currentDay = String(CURRENT_VERSION).slice(0, 10);
+    ok('CURRENT_VERSION keeps up with player-facing changes',
+        currentDay >= lastTouched,
+        {
+            current_version: CURRENT_VERSION,
+            newest_player_facing_change: lastTouched,
+            fix: 'bump CURRENT_VERSION and prepend a PATCH_NOTES entry in public/js/patch-notes.js',
+        });
+}
+
 async function checkShellSource() {
     section('main.js — shell contracts (source-level)');
     const src = await readFile(join(HERE, '..', 'public', 'js', 'main.js'), 'utf8');
@@ -1419,9 +1515,10 @@ try {
     await checkShippedArt(modules.assets);
     checkScreens(screens, modules.render);
     await checkShellSource();
+    await checkPatchNotes();
 } finally {
     await cleanup();
 }
 
-console.log(`\n${pass} passed, ${fail} failed`);
+console.log(`\n${pass} passed, ${fail} failed${skipped ? `, ${skipped} skipped` : ''}`);
 process.exit(fail ? 1 : 0);
