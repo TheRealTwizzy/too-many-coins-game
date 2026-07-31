@@ -288,6 +288,45 @@ function tmc_warn_untrusted_proxy_once(?string $remoteAddr): void {
     );
 }
 
+/**
+ * Which input tmc_resolve_client_ip() actually used, for diagnostics.
+ *
+ * Mirrors the order below deliberately rather than being folded into it: the
+ * resolution path is on every request and should not grow a second return
+ * value for the benefit of an endpoint that is off by default.
+ */
+function tmc_resolve_client_ip_source(): string {
+    $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+    if (!tmc_proxy_is_trusted($remoteAddr)) {
+        return tmc_is_valid_ip($remoteAddr) ? 'remote_addr (proxy not trusted)' : 'none';
+    }
+    if (tmc_is_valid_ip($_SERVER['HTTP_CF_CONNECTING_IP'] ?? null)) {
+        return 'cf-connecting-ip';
+    }
+    if (tmc_is_valid_ip($_SERVER['HTTP_X_REAL_IP'] ?? null)) {
+        return 'x-real-ip';
+    }
+    if (tmc_extract_first_valid_ip($_SERVER['HTTP_X_FORWARDED_FOR'] ?? null) !== null) {
+        return 'x-forwarded-for';
+    }
+    return tmc_is_valid_ip($remoteAddr) ? 'remote_addr (no usable header)' : 'none';
+}
+
+/**
+ * A caller-supplied header value, safe to echo into the diagnostics payload.
+ *
+ * Truncated so a deliberately enormous header cannot bloat the response, and
+ * returned as null rather than an empty string when absent so the shape stays
+ * distinguishable from a header that arrived empty.
+ */
+function tmc_diagnostic_header_value(string $serverKey): ?string {
+    if (!isset($_SERVER[$serverKey])) {
+        return null;
+    }
+    $value = (string)$_SERVER[$serverKey];
+    return strlen($value) > 200 ? substr($value, 0, 200) . '...(truncated)' : $value;
+}
+
 function tmc_resolve_client_ip(): string {
     $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
     if (!tmc_proxy_is_trusted($remoteAddr)) {

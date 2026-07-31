@@ -510,9 +510,21 @@ try {
                 'client' => [
                     'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? null,
                     'resolved_ip' => tmc_resolve_client_ip(),
+                    'resolved_from' => tmc_resolve_client_ip_source(),
                     'xff_present' => isset($_SERVER['HTTP_X_FORWARDED_FOR']),
                     'xri_present' => isset($_SERVER['HTTP_X_REAL_IP']),
                     'cfci_present' => isset($_SERVER['HTTP_CF_CONNECTING_IP']),
+                    // The values, not just their presence. Knowing a header
+                    // arrived says nothing about whether the proxy in front
+                    // actually knew the client: a chain that terminates in a
+                    // Docker gateway address looks identical from the outside
+                    // to one carrying a real address, and the difference
+                    // decides whether every anonymous caller shares one bucket.
+                    // Truncated because these are caller-supplied strings.
+                    'xff_value' => tmc_diagnostic_header_value('HTTP_X_FORWARDED_FOR'),
+                    'xri_value' => tmc_diagnostic_header_value('HTTP_X_REAL_IP'),
+                    'cfci_value' => tmc_diagnostic_header_value('HTTP_CF_CONNECTING_IP'),
+                    'resolved_ip_is_private' => tmc_is_private_or_reserved_ip(tmc_resolve_client_ip()),
                     'proxy_trusted' => tmc_proxy_is_trusted($_SERVER['REMOTE_ADDR'] ?? ''),
                 ],
                 'config' => [

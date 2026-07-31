@@ -494,6 +494,24 @@ UPDATE server_state SET server_mode = 'NORMAL' WHERE id = 1;                -- g
 - Everything returns 503 with `maintenance_lockdown`:
   - The maintenance gate is on. See section 9.
 
+- **Client IPs resolve to a private address** (`resolved_ip_is_private: true` with `proxy_trusted: true`):
+  - The allowlist is right and the proxy is trusted, but the address it handed
+    over is not a player's. Every anonymous request then keys on that one
+    constant, so they share a bucket — no better than not trusting the proxy.
+  - `client.resolved_from` names the header that was used, and `xff_value` /
+    `xri_value` / `cfci_value` show what actually arrived. That distinguishes
+    the two causes:
+  - **`xff_value` contains a public address but `xri_value` does not.** The
+    chain is intact; resolution took `X-Real-IP` first and that header is the
+    wrong one for this topology. Fixable in this codebase — open an issue
+    rather than reordering blind, since the right order depends on which proxy
+    is authoritative in your setup.
+  - **Neither header contains a public address.** The proxy never learned the
+    client's address, so nothing downstream can recover it. This is upstream
+    infrastructure: the connection is reaching Traefik through Docker's
+    userland proxy, which rewrites the source. Fix it at the entrypoint —
+    publish the port in host mode, or enable PROXY protocol — then re-check.
+
 ## 11. Rate-Limit Diagnostics and Rollout Checklist
 
 Protected diagnostics endpoint. Send the secret as a header — this form has no
@@ -545,6 +563,8 @@ Staged rollout checklist:
 1. Confirm response headers exist on API calls: `X-RateLimit-Tier`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Window`.
 
 1. Verify diagnostics output includes expected values for `client.proxy_trusted`, `client.resolved_ip`, and `rate_limit.identity_kind` (`session` for authenticated requests).
+
+1. **Check `client.resolved_ip_is_private`.** `proxy_trusted: true` is only half the job — it says the app is willing to believe the proxy, not that the proxy knew who the client was. If `resolved_ip` is a private address (`10.x`, `172.16–31.x`, `192.168.x`) then every anonymous caller resolves to that same constant and they all share one bucket, which is the state trusting the proxy was supposed to fix. See "Client IPs resolve to a private address" in section 10.
 
 1. Check logs for `[rate_limit]` JSON entries and confirm 429 events are isolated rather than synchronized across all users.
 
