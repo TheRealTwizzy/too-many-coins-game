@@ -12,15 +12,22 @@
     <link rel="manifest" href="/manifest.json">
     <!--
       The rebuilt client is THE client. The old ?ui=next / ?ui=legacy selector
-      is gone: js/app.js and css/style.css remain on disk, parked and
-      unreferenced, until a later cleanup deletes them.
+      is gone, and js/app.js and css/style.css have been deleted — there is
+      no fallback path left to drift out of sync with this one.
     -->
     <link rel="stylesheet" href="css/tokens.css?v=next1">
     <link rel="stylesheet" href="css/next.css?v=next1">
     <link rel="stylesheet" href="css/assets.css?v=next1">
     <link rel="stylesheet" href="css/screens.css?v=next1">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!--
+      No webfont link. Inter used to be pulled from fonts.googleapis.com, which
+      made first paint depend on a third party: in any network-restricted
+      environment the request fails and the console fills with errors, and
+      everywhere else it leaks a request per visitor to Google before the app
+      has drawn anything. The token stack in tokens.css already leads with the
+      platform UI face, which is what the overwhelming majority of players were
+      being served anyway once the webfont was blocked or slow.
+    -->
 </head>
 <body>
     <div id="app"></div>

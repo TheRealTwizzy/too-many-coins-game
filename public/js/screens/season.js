@@ -52,9 +52,13 @@ function header(ctx, season) {
             h('span', { class: 'season-status', 'data-status': status }, status),
         ),
         h('div', { class: 'season-header-facts' },
-            headFact(h, 'Ends in', formatRemaining(season.seconds_remaining ?? season.end_remaining)),
-            headFact(h, 'Star price', fmt.format(num(season.current_star_price))),
-            headFact(h, 'Players', fmt.format(num(season.participant_count ?? (season.leaderboard || []).length))),
+            // countdown_label distinguishes "Begins in" from "Time Left" — the
+            // server decides which countdown this is, not the client.
+            headFact(h, season.countdown_label || 'Ends in', formatRemaining(season.time_remaining_real_seconds)),
+            // published_star_price is the acceptance-time quote (blackout-
+            // snapshot aware); current_star_price is the raw column.
+            headFact(h, 'Star price', fmt.format(num(season.published_star_price ?? season.current_star_price))),
+            headFact(h, 'Players', fmt.format(num(season.player_count ?? (season.leaderboard || []).length))),
         ),
     );
 }
@@ -70,17 +74,22 @@ function headFact(h, label, value) {
  * income
  * ------------------------------------------------------------------ */
 
-function income(ctx, player) {
+function income(ctx, part) {
     const { h } = ctx;
-    const gross = Number(player.gross_rate_per_tick ?? player.rate_per_tick) || 0;
-    const net = Number(player.net_rate_per_tick ?? player.rate_per_tick) || 0;
-    const sinkActive = Boolean(player.hoarding_sink_active);
-    const sink = Number(player.hoarding_sink_per_tick) || 0;
+    const gross = Number(part.gross_rate_per_tick ?? part.rate_per_tick) || 0;
+    const net = Number(part.net_rate_per_tick ?? part.rate_per_tick) || 0;
+    const sinkActive = Boolean(part.hoarding_sink_active);
+    const sink = Number(part.hoarding_sink_per_tick) || 0;
+
+    // Same reasoning as formatRate() in main.js: a rate that rounds to 0.0
+    // tells an earning player they earn nothing, and this panel is where they
+    // look to check exactly that.
+    const showRate = (n) => (n === 0 ? '0' : Math.abs(n) >= 0.1 ? n.toFixed(1) : n.toFixed(3));
 
     return panel(h, 'Income',
         h('div', { class: 'rate-row' },
             h('div', { class: 'rate-primary' },
-                h('span', { class: 'rate-value tabular' }, net.toFixed(1)),
+                h('span', { class: 'rate-value tabular' }, showRate(net)),
                 h('span', { class: 'rate-unit' }, 'coins / tick'),
             ),
             // The sink is the one deduction a player can act on, so it is shown
@@ -93,7 +102,7 @@ function income(ctx, player) {
                         'You are holding a large coin balance. The sink scales with it — spending reduces it.'),
                 )
                 : h('p', { class: 'muted small' },
-                    `Gross ${gross.toFixed(1)} / tick. No hoarding sink at your balance.`),
+                    `Gross ${showRate(gross)} / tick. No hoarding sink at your balance.`),
         ),
     );
 }
@@ -102,10 +111,10 @@ function income(ctx, player) {
  * stars
  * ------------------------------------------------------------------ */
 
-function stars(ctx, season, player) {
+function stars(ctx, season, player, part) {
     const { h, store } = ctx;
-    const price = num(season.current_star_price);
-    const coins = num(player.coins);
+    const price = num(season.published_star_price ?? season.current_star_price);
+    const coins = num(part.coins);
     const affordable = price > 0 ? Math.floor(coins / price) : 0;
     const qty = Math.max(1, num(store.get('ui.starQty') || 1));
     const cost = qty * price;
@@ -120,7 +129,7 @@ function stars(ctx, season, player) {
             h('div', { class: 'stat' },
                 h('span', { class: 'stat-label' }, 'Seasonal stars'),
                 h('span', { class: 'stat-value tabular' },
-                    fmt.format(num(player.effective_seasonal_stars ?? player.seasonal_stars)))),
+                    fmt.format(num(part.effective_seasonal_stars ?? part.seasonal_stars)))),
             h('div', { class: 'stat' },
                 h('span', { class: 'stat-label' }, 'Price each'),
                 h('span', { class: 'stat-value tabular' }, fmt.format(price))),
@@ -158,25 +167,26 @@ function stars(ctx, season, player) {
  * sigil forge
  * ------------------------------------------------------------------ */
 
-function forge(ctx, season, player) {
+function forge(ctx, season, player, part) {
     const { h, store } = ctx;
 
     // Progression gate: sigils are invisible until the first one is seen.
     // No placeholder, no teaser - an undiscovered feature simply is not there.
     if (!ctx.unlocked('sigils.ui')) return null;
 
-    const participation = player.participation || {};
-    const tier6Visible = Boolean(player.tier6_visible ?? season.player_tier6_visible);
+    const tier6Visible = Boolean(part.tier6_visible ?? season.player_tier6_visible);
     const maxTier = tier6Visible ? 6 : 5;
-    const allRecipes = player.combine_recipes || season.player_combine_recipes || [];
+    const allRecipes = part.combine_recipes || season.player_combine_recipes || [];
     const busy = store.get('ui.forgeBusy');
 
+    // game_state publishes tier counts as an array, [t1..t6].
+    const sigils = Array.isArray(part.sigils) ? part.sigils : [];
     const counts = [];
     for (let t = 1; t <= maxTier; t++) {
         // Undiscovered tiers are absent, not zeroed - you cannot see a tier
         // you have never held or forged.
         if (!ctx.unlocked(`sigils.tier.${t}`)) continue;
-        counts.push({ tier: t, count: num(participation[`sigils_t${t}`]) });
+        counts.push({ tier: t, count: num(sigils[t - 1]) });
     }
     // A recipe is visible once its INPUT tier is discovered; its output tier
     // being unknown is the point - forging is how you discover it.
@@ -223,26 +233,96 @@ function forge(ctx, season, player) {
 }
 
 /* ------------------------------------------------------------------ *
+ * boosts
+ * ------------------------------------------------------------------ */
+
+function boosts(ctx, player, part) {
+    const { h, store } = ctx;
+
+    // Boosts are a sigil spend, so they surface with the sigil UI — a player
+    // who has never seen a sigil has nothing to spend.
+    if (!ctx.unlocked('sigils.ui')) return null;
+
+    const activeBoosts = player.active_boosts || {};
+    const running = (activeBoosts.self || [])[0] || null;
+    const totalPct = Number(activeBoosts.total_modifier_percent) || 0;
+    const sigils = Array.isArray(part.sigils) ? part.sigils : [];
+    const busy = store.get('ui.boostBusy');
+
+    const rows = [1, 2, 3, 4, 5]
+        .filter(t => ctx.unlocked(`sigils.tier.${t}`))
+        .map(t => {
+            const owned = num(sigils[t - 1]);
+            return h('li', { key: t, class: 'boost-row' },
+                h('span', { class: 'boost-tier' },
+                    ROMAN[t], ' ',
+                    h('span', { class: 'muted small tabular' }, `${fmt.format(owned)} held`)),
+                h('div', { class: 'boost-actions' },
+                    h('button', {
+                        class: 'btn btn-ghost btn-sm',
+                        disabled: owned <= 0 || busy === `${t}:power`,
+                        title: 'Raise the income multiplier',
+                        onClick: () => ctx.buyBoost(t, 'power'),
+                    }, busy === `${t}:power` ? '…' : 'Power'),
+                    h('button', {
+                        class: 'btn btn-ghost btn-sm',
+                        disabled: owned <= 0 || busy === `${t}:time`,
+                        title: 'Extend the running boost',
+                        onClick: () => ctx.buyBoost(t, 'time'),
+                    }, busy === `${t}:time` ? '…' : 'Time'),
+                ),
+            );
+        });
+
+    return panel(h, 'Boosts',
+        h('p', { class: 'panel-sub' },
+            'Spend a sigil for more income now: power raises the rate, time stretches the clock.'),
+
+        running
+            ? h('div', { class: 'notice notice-boost' },
+                h('strong', null, `+${totalPct}% income`),
+                running.remaining_real_seconds
+                    ? h('span', null, ` — ${formatRemaining(running.remaining_real_seconds)} remaining.`)
+                    : null,
+            )
+            : h('p', { class: 'muted small' }, 'No boost running. Spending any tier starts one.'),
+
+        h('ul', { class: 'boost-list' }, rows),
+    );
+}
+
+/* ------------------------------------------------------------------ *
  * hostile verbs
  * ------------------------------------------------------------------ */
 
-function verbs(ctx, season, player) {
-    const { h } = ctx;
-    const freeze = player.freeze || season.player_freeze || {};
-    const theft = player.theft || season.player_theft || {};
+function verbs(ctx, season, part) {
+    const { h, store } = ctx;
+    const freeze = part.freeze || season.player_freeze || {};
+    const theft = part.theft || season.player_theft || {};
     const frozen = Boolean(freeze.is_frozen);
+    const familiesLive = Boolean(store.get('familiesEnabled'));
 
-    const canFreeze = Boolean(player.can_freeze ?? season.player_can_freeze);
-    const canMelt = Boolean(player.can_melt ?? season.player_can_melt);
-    const canSteal = Boolean(player.can_steal ?? season.player_can_steal);
+    const canFreeze = Boolean(part.can_freeze ?? season.player_can_freeze);
+    const canMelt = Boolean(part.can_melt ?? season.player_can_melt);
+    const canSteal = Boolean(part.can_steal ?? season.player_can_steal);
 
     return panel(h, 'Actions',
         frozen
             ? h('div', { class: 'notice notice-frozen' },
                 h('strong', null, 'Your income is frozen.'),
-                freeze.remaining_seconds
-                    ? h('span', null, ` ${formatRemaining(freeze.remaining_seconds)} remaining.`)
+                freeze.remaining_real_seconds
+                    ? h('span', null, ` ${formatRemaining(freeze.remaining_real_seconds)} remaining.`)
                     : null,
+            )
+            : null,
+
+        // The advertised protection window (a windowed ward or post-theft
+        // protection). The one-shot deflect is deliberately absent — it is a
+        // hidden trap, not a visible shield.
+        theft.is_protected && theft.protection_remaining_real_seconds
+            ? h('div', { class: 'notice notice-ward' },
+                h('strong', null, '🛡 Protected.'),
+                h('span', null, ` Theft attempts against you fail for ${formatRemaining(theft.protection_remaining_real_seconds)}.`),
             )
             : null,
 
@@ -251,7 +331,7 @@ function verbs(ctx, season, player) {
                 class: 'btn',
                 disabled: !canSteal,
                 title: canSteal ? null : 'Needs a spendable sigil, and no active cooldown',
-                onClick: () => ctx.navigate('seasons'),
+                onClick: () => ctx.startTheft(),
             }, 'Steal'),
             h('button', {
                 class: 'btn',
@@ -265,11 +345,18 @@ function verbs(ctx, season, player) {
                 title: canMelt ? null : 'Only while frozen, and needs a T5+ sigil',
                 onClick: () => ctx.selfMelt(),
             }, 'Melt'),
+            familiesLive
+                ? h('button', {
+                    class: 'btn',
+                    title: 'Raise a ward from the family panel',
+                    onClick: () => ctx.navigate('family'),
+                }, 'Ward')
+                : null,
         ),
 
-        theft.is_on_cooldown && theft.cooldown_remaining_seconds
+        theft.is_on_cooldown && theft.cooldown_remaining_real_seconds
             ? h('p', { class: 'muted small' },
-                `Theft cooldown: ${formatRemaining(theft.cooldown_remaining_seconds)}`)
+                `Theft cooldown: ${formatRemaining(theft.cooldown_remaining_real_seconds)}`)
             : null,
     );
 }
@@ -278,12 +365,15 @@ function verbs(ctx, season, player) {
  * lock-in
  * ------------------------------------------------------------------ */
 
-function lockIn(ctx, season, player) {
+function lockIn(ctx, season, player, part) {
     const { h, store } = ctx;
     const canLock = Boolean(player.can_lock_in);
-    const payout = num(player.lock_in_stars);
+    // What the client can truthfully show is the stake: current seasonal
+    // stars. The payout adds a sigil refund and applies the lock-in rate —
+    // server math, reported exactly in the success message.
+    const stake = num(part.effective_seasonal_stars ?? part.seasonal_stars);
     const busy = Boolean(store.get('ui.lockingIn'));
-    const starterOffset = num((player.participation || {}).starter_grant_stars);
+    const starterOffset = num(part.starter_grant_stars);
 
     return panel(h, 'Lock in',
         h('p', { class: 'panel-sub' },
@@ -300,12 +390,12 @@ function lockIn(ctx, season, player) {
 
         h('div', { class: 'lockin-row' },
             h('div', { class: 'stat' },
-                h('span', { class: 'stat-label' }, 'Would pay out'),
-                h('span', { class: 'stat-value tabular' }, `${fmt.format(payout)} ★`)),
+                h('span', { class: 'stat-label' }, 'Stars at stake'),
+                h('span', { class: 'stat-value tabular' }, `${fmt.format(stake)} ★`)),
             h('button', {
                 class: 'btn btn-danger',
                 disabled: !canLock || busy,
-                onClick: () => ctx.lockIn(payout),
+                onClick: () => ctx.lockIn(stake),
             }, busy ? 'Locking in…' : 'Lock in'),
         ),
 
@@ -343,7 +433,10 @@ function standings(ctx, season, player) {
                     },
                         h('td', { class: 'lb-rank tabular' }, String(i + 1)),
                         h('td', null,
-                            h('span', { class: 'lb-handle' }, r.handle || '—'),
+                            h('button', {
+                                class: 'link-handle',
+                                onClick: () => ctx.openProfile(r.player_id),
+                            }, r.handle || '—'),
                             r.lock_in_effect_tick ? h('span', { class: 'badge' }, 'locked in') : null,
                         ),
                         h('td', { class: 'lb-stars tabular' },
@@ -397,16 +490,22 @@ export default {
             && Number(player.joined_season_id) === Number(seasonId)
             && Boolean(player.participation_enabled);
 
+        // Season-bound state lives under player.participation in game_state;
+        // season_detail's player_* fields remain the fallbacks inside each
+        // panel for anything the poll has not caught up on yet.
+        const part = (player && player.participation) || {};
+
         return h('div', { class: 'season-detail' },
             header(ctx, detail),
 
             joined
                 ? [
-                    income(ctx, player),
-                    stars(ctx, detail, player),
-                    forge(ctx, detail, player),
-                    verbs(ctx, detail, player),
-                    lockIn(ctx, detail, player),
+                    income(ctx, part),
+                    stars(ctx, detail, player, part),
+                    forge(ctx, detail, player, part),
+                    boosts(ctx, player, part),
+                    verbs(ctx, detail, part),
+                    lockIn(ctx, detail, player, part),
                 ]
                 : h('div', { class: 'spectating' },
                     emptyState(h, {

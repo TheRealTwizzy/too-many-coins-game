@@ -31,8 +31,10 @@ import chat from './chat.js';
 import shop from './shop.js';
 import auth from './auth.js';
 import staff from './staff.js';
+import profile from './profile.js';
+import family from './family.js';
 
-const SCREENS = [home, seasons, season, ranks, chat, shop, auth, staff];
+const SCREENS = [home, seasons, season, ranks, chat, shop, auth, staff, profile, family];
 
 /**
  * Screens reachable from the rail, in rail order.
@@ -48,7 +50,8 @@ export const RAIL_IDS = ['home', 'seasons', 'ranks', 'chat', 'shop'];
 /**
  * Which rail entry should look active for a screen that is not itself on the
  * rail. 'auth' is absent on purpose — signing in is not part of any section,
- * and highlighting one would be a lie about where you are.
+ * and highlighting one would be a lie about where you are. 'profile' is
+ * reached from many places and belongs to none of them, so it lights nothing.
  */
 export const RAIL_PARENT = { season: 'seasons' };
 

@@ -508,12 +508,17 @@ define('TMC_PROGRESSION_GATES_ENABLED', filter_var(env_first(['TMC_PROGRESSION_G
 
 // ============================================================
 // Sigil families (P0 config keys — see Sigil Systems Spec §10)
-// The entire family system is flag-gated: with TMC_SIGIL_FAMILIES_ENABLED
-// off (default) every constant below is inert and behavior is identical
-// to the pre-family build. Enabling is a per-phase operator decision that
-// per AGENTS.md requires an effective-config + simulation run first.
+// The entire family system is flag-gated. It now defaults ON: the family
+// panel, wards, affinity, the market discount and the Sight reveals are all
+// part of the playable build, and shipping them dark meant a tester saw a
+// game missing a whole verb set unless an operator happened to set the env.
+//
+// Turning it back off is still a one-line env change, and it degrades
+// safely rather than erroring: SigilFamilies::active() also requires the
+// family schema to be present, so a database without the family migrations
+// behaves exactly like the pre-family build.
 // ============================================================
-define('TMC_SIGIL_FAMILIES_ENABLED', filter_var(env_first(['TMC_SIGIL_FAMILIES_ENABLED'], '0'), FILTER_VALIDATE_BOOLEAN));
+define('TMC_SIGIL_FAMILIES_ENABLED', filter_var(env_first(['TMC_SIGIL_FAMILIES_ENABLED'], '1'), FILTER_VALIDATE_BOOLEAN));
 
 // Material family weights for the post-tier family roll (fp, sum 1,000,000).
 // Sight is not in this table: it rolls separately and displaces nothing.

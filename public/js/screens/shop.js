@@ -6,7 +6,7 @@
  * itself because it is the first thing anyone assumes otherwise.
  */
 
-import { pending, emptyState, panel } from './ui.js';
+import { pending, emptyState, errorState, panel } from './ui.js';
 
 const CATEGORIES = [
     { id: 'all', label: 'All' },
@@ -38,9 +38,9 @@ function item(ctx, entry, owned, equippedIds, balance) {
         isOwned
             ? h('button', {
                 class: 'btn ' + (isEquipped ? 'btn-ghost' : 'btn-primary'),
-                disabled: busy || isEquipped,
-                onClick: () => ctx.equipCosmetic(id),
-            }, isEquipped ? 'Equipped' : busy ? 'Equipping…' : 'Equip')
+                disabled: busy,
+                onClick: () => ctx.equipCosmetic(id, !isEquipped),
+            }, busy ? 'Working…' : isEquipped ? 'Unequip' : 'Equip')
             : h('button', {
                 class: 'btn btn-primary',
                 disabled: busy || !affordable,
@@ -64,6 +64,13 @@ export default {
         const filter = store.get('ui.shopFilter') || 'all';
 
         if (!data) return pending(h, 'Loading cosmetics…');
+        if (data.error) {
+            return errorState(h, {
+                title: 'Could not load the shop',
+                message: data.error,
+                onRetry: () => ctx.loadShop(),
+            });
+        }
 
         const catalog = data.catalog || [];
         const owned = new Set((data.owned || []).map(c => Number(c.cosmetic_id ?? c.id)));

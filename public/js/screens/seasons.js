@@ -50,9 +50,11 @@ function seasonCard(ctx, season, joinedId) {
         ),
 
         h('dl', { class: 'season-facts' },
-            fact(h, 'Ends in', formatRemaining(season.seconds_remaining ?? season.end_remaining)),
-            fact(h, 'Star price', Math.round(Number(season.current_star_price) || 0)),
-            fact(h, 'Players', Number(season.participant_count) || 0),
+            // countdown_label distinguishes "Begins in" from "Time Left";
+            // the server decides which countdown this is.
+            fact(h, season.countdown_label || 'Ends in', formatRemaining(season.time_remaining_real_seconds)),
+            fact(h, 'Star price', Math.round(Number(season.published_star_price ?? season.current_star_price) || 0)),
+            fact(h, 'Players', Number(season.player_count) || 0),
         ),
 
         isJoined

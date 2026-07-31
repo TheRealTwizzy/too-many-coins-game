@@ -471,11 +471,73 @@ class TickEngine {
             return;
         }
 
+        $db = Database::getInstance();
+
+        // Pity state. The counter lives on season_participation — the same
+        // field the Sight 'pity' reveal reads — and counts genuine attempt
+        // ticks since the last landed drop.
+        $counterRow = $db->fetch(
+            "SELECT eligible_ticks_since_last_drop FROM season_participation
+             WHERE player_id = ? AND season_id = ?",
+            [(int)$playerId, (int)$seasonId]
+        );
+        $eligibleSinceDrop = max(0, (int)($counterRow['eligible_ticks_since_last_drop'] ?? 0));
+        $counterAtStart = $eligibleSinceDrop;
+        $anyDropLanded = false;
+
+        // Throttle state: the drop ticks still inside the rolling window at
+        // the START of this batch, oldest first. Kept in memory and advanced
+        // per tick so the window is exact at every tick regardless of how
+        // ticks are batched — a catch-up replay walks the same sequence.
+        $firstTick = $startTime + $lastSeasonTick;
+        $recentDropTicks = array_map(
+            static fn($r) => (int)$r['drop_tick'],
+            $db->fetchAll(
+                "SELECT drop_tick FROM sigil_drop_log
+                 WHERE player_id = ? AND season_id = ? AND drop_tick > ?
+                 ORDER BY drop_tick ASC",
+                [(int)$playerId, (int)$seasonId, $firstTick - (int)SIGIL_DROP_WINDOW_TICKS]
+            )
+        );
+
         for ($t = 0; $t < $ticksToProcess; $t++) {
             $tickIndex = $lastSeasonTick + $t;
             $absoluteTick = $startTime + $tickIndex;
 
-            $drop = Economy::evaluateSigilDropForTick($season, $player, $absoluteTick, $player, $boostModFp);
+            // Slide the throttle window up to this tick.
+            $cutoff = $absoluteTick - (int)SIGIL_DROP_WINDOW_TICKS;
+            while (!empty($recentDropTicks) && $recentDropTicks[0] <= $cutoff) {
+                array_shift($recentDropTicks);
+            }
+
+            // Throttled ticks are not attempts: no roll, and no pity accrual —
+            // otherwise pity would simply defeat the throttle.
+            if (count($recentDropTicks) >= (int)SIGIL_MAX_DROPS_WINDOW) {
+                continue;
+            }
+
+            // Pity: after SIGIL_PITY_TICKS attempt-ticks without a drop, the
+            // next attempt is a guaranteed Tier 1. No RNG stream is consumed,
+            // so history replays identically around it.
+            if ($eligibleSinceDrop >= (int)SIGIL_PITY_TICKS) {
+                $landed = self::awardSigilDrop($playerId, $seasonId, 1, $absoluteTick, 'PITY', [
+                    'algorithm_version' => (string)SIGIL_DROP_ALGORITHM_VERSION,
+                    'pity_after_eligible_ticks' => $eligibleSinceDrop,
+                    'activity_state' => $activityState,
+                ], $season);
+                if ($landed) {
+                    $eligibleSinceDrop = 0;
+                    $anyDropLanded = true;
+                    $recentDropTicks[] = $absoluteTick;
+                } else {
+                    // Inventory-capped: the debt stands until it can be paid.
+                    $eligibleSinceDrop++;
+                }
+                continue;
+            }
+
+            $wasEligible = false;
+            $drop = Economy::evaluateSigilDropForTick($season, $player, $absoluteTick, $player, $boostModFp, $wasEligible);
             if ($drop !== null) {
                 $dropMetadata = (array)($drop['metadata'] ?? []);
                 $dropMetadata['activity_state'] = (string)($drop['activity_state'] ?? 'Unknown');
@@ -485,13 +547,35 @@ class TickEngine {
                 if (isset($drop['season_progress'])) {
                     $dropMetadata['season_progress'] = (float)$drop['season_progress'];
                 }
-                self::awardSigilDrop($playerId, $seasonId, (int)$drop['tier'], $absoluteTick, 'RNG', $dropMetadata, $season);
+                $landed = self::awardSigilDrop($playerId, $seasonId, (int)$drop['tier'], $absoluteTick, 'RNG', $dropMetadata, $season);
+                if ($landed) {
+                    $eligibleSinceDrop = 0;
+                    $anyDropLanded = true;
+                    $recentDropTicks[] = $absoluteTick;
+                } else {
+                    $eligibleSinceDrop++;
+                }
+            } elseif ($wasEligible) {
+                $eligibleSinceDrop++;
             }
+        }
+
+        // One write per batch. Absolute value, derived entirely from the
+        // processed tick sequence, so live and catch-up runs agree.
+        if ($anyDropLanded || $eligibleSinceDrop !== $counterAtStart) {
+            $db->query(
+                "UPDATE season_participation SET eligible_ticks_since_last_drop = ?
+                 WHERE player_id = ? AND season_id = ?",
+                [$eligibleSinceDrop, (int)$playerId, (int)$seasonId]
+            );
         }
     }
 
     /**
-     * Award a Sigil drop to a player
+     * Award a Sigil drop to a player.
+     *
+     * Returns true when the drop actually landed — the caller's pity counter
+     * and throttle window must only move for drops that exist in the log.
      */
     private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = [], $season = null) {
         $db = Database::getInstance();
@@ -503,12 +587,14 @@ class TickEngine {
         );
         if (!$participation || !Economy::canReceiveSigilTier($participation, (int)$tier, 1)) {
             // Hard-cap behavior: discard blocked drops instead of queueing.
-            return;
+            return false;
         }
 
-        // Add sigil to inventory
+        // Add sigil to inventory; a landed drop also zeroes the pity counter
+        // at the source of truth.
         $db->query(
-            "UPDATE season_participation SET {$sigilCol} = {$sigilCol} + 1, sigil_drops_total = sigil_drops_total + 1
+            "UPDATE season_participation SET {$sigilCol} = {$sigilCol} + 1, sigil_drops_total = sigil_drops_total + 1,
+                    eligible_ticks_since_last_drop = 0
              WHERE player_id = ? AND season_id = ?",
             [$playerId, $seasonId]
         );
@@ -594,6 +680,8 @@ class TickEngine {
              ON DUPLICATE KEY UPDATE eligible_ticks_since_last_drop = 0, total_drops = total_drops + 1, last_drop_tick = ?",
             [$playerId, $seasonId, $dropTick, $dropTick]
         );
+
+        return true;
     }
     
     /**

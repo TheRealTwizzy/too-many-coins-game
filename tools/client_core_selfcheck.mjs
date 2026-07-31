@@ -21,7 +21,7 @@
  * merely "ended up correct".
  */
 
-import { mkdtemp, copyFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, copyFile, rm, writeFile, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -62,7 +62,7 @@ async function loadCore() {
     }
 
     await mkdir(join(dir, 'screens'), { recursive: true });
-    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'index'];
+    const screenNames = ['ui', 'home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile', 'family', 'index'];
     const screens = {};
     for (const name of screenNames) {
         await copyFile(join(SCREENS, `${name}.js`), join(dir, 'screens', `${name}.js`));
@@ -817,10 +817,14 @@ function checkScreens(screens, { h, render }) {
         };
         return {
             h,
+            // A minimal assets facade: screens ask for icons by slot name and
+            // must tolerate whatever comes back, including nothing.
+            assets: { icon: () => null, hasArt: () => false, playSprite: () => Promise.resolve() },
             navigate() {},
             joinSeason() {}, loadLeaderboard() {}, loadChat() {},
             switchChat() {}, sendChat() {}, loadShop() {},
             buyCosmetic() {}, equipCosmetic() {},
+            loadFamily() {}, loadSeasonDetail() {}, loadProfile() {},
             // Mirrors main.js: null/undefined = server not gating.
             unlocked(key) {
                 const u = state.unlocks;
@@ -841,20 +845,65 @@ function checkScreens(screens, { h, render }) {
         };
     };
 
+    // These fixtures mirror what api/index.php getGameState() ACTUALLY
+    // publishes — season-bound figures nested under player.participation,
+    // sigils as a [t1..t6] array, countdowns in *_real_seconds. The first
+    // version of this harness used the client's imagined flat shape
+    // (player.coins, season.seconds_remaining), so every screen passed while
+    // rendering zeroes against the real API. Fixture realism is the guard:
+    // if a screen reads a field the server does not publish, these cases
+    // must make it visible.
+    const PARTICIPATION = {
+        coins: 1234, seasonal_stars: 12, effective_seasonal_stars: 12,
+        sigils: [3, 0, 0, 0, 0, 0], sigils_total: 3,
+        rate_per_tick: 4.5, gross_rate_per_tick: 4.5, net_rate_per_tick: 4.5,
+        hoarding_sink_per_tick: 0, hoarding_sink_active: false,
+        lock_in_stars: null, sigil_drops_total: 1,
+        combine_recipes: [{ from_tier: 1, to_tier: 2, required: 5, owned: 3, can_combine: false }],
+        tier6_visible: false,
+        can_freeze: false, can_melt: false, can_steal: true,
+        freeze: { is_frozen: false, remaining_real_seconds: 0 },
+        theft: { is_on_cooldown: false, cooldown_remaining_real_seconds: 0 },
+    };
+
     const PLAYER = {
-        player_id: 7, handle: 'tester', coins: 1234, seasonal_stars: 12,
-        sigils: 3, global_stars: 99, ubi_rate: 4.5, joined_season_id: null, role: 'player',
+        player_id: 7, handle: 'tester', role: 'Player', global_stars: 99,
+        joined_season_id: null, participation_enabled: false,
+        idle_modal_active: false, activity_state: 'Active',
+        participation: null, unlocks: null,
+        can_lock_in: false, can_purchase_stars: false,
+    };
+
+    const JOINED_PLAYER = {
+        ...PLAYER, joined_season_id: 1, participation_enabled: true,
+        can_lock_in: true, can_purchase_stars: true,
+        participation: PARTICIPATION,
+        active_boosts: { self: [], global: [], total_modifier_fp: 0, total_modifier_percent: 0 },
     };
 
     const SEASON = {
-        season_id: 1, name: 'Season 1', computed_status: 'Active',
-        seconds_remaining: 90000, current_star_price: 213, participant_count: 12,
+        season_id: 1, name: 'Season 1', status: 'Active', computed_status: 'Active',
+        time_remaining: 90000, time_remaining_real_seconds: 90000,
+        countdown_mode: 'running', countdown_label: 'Time Left',
+        current_star_price: 213, published_star_price: 213,
+        player_count: 12, is_blackout: false,
     };
 
     const cases = [
         ['logged out', {}],
         ['logged in, no season', { player: PLAYER }],
-        ['logged in, in a season', { player: { ...PLAYER, joined_season_id: 1 }, seasons: [SEASON] }],
+        ['logged in, in a season', { player: JOINED_PLAYER, seasons: [SEASON] }],
+        ['in-season detail loaded', {
+            player: JOINED_PLAYER,
+            seasons: [SEASON],
+            ui: { seasonId: 1 },
+            screens: {
+                season: {
+                    ...SEASON,
+                    leaderboard: [{ player_id: 7, handle: 'tester', seasonal_stars: 12, effective_seasonal_stars: 12, lock_in_effect_tick: null }],
+                },
+            },
+        }],
         ['data loaded', {
             player: PLAYER,
             seasons: [SEASON],
@@ -870,7 +919,7 @@ function checkScreens(screens, { h, render }) {
         }],
     ];
 
-    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff']) {
+    for (const name of ['home', 'seasons', 'season', 'ranks', 'chat', 'shop', 'auth', 'staff', 'profile', 'family']) {
         const screen = screens[name].default;
         let failedAt = null;
         for (const [label, overrides] of cases) {
@@ -983,7 +1032,7 @@ function checkScreens(screens, { h, render }) {
             (node.children || []).forEach(c => allText(c, out));
             return out;
         };
-        const inSeason = { player: { ...PLAYER, joined_season_id: 1 }, seasons: [SEASON] };
+        const inSeason = { player: JOINED_PLAYER, seasons: [SEASON] };
 
         const ungated = allText(screens.home.default.view(stubCtx({ ...inSeason }))).join(' ');
         ok('home shows sigils when the server is not gating', ungated.includes('Sigils'));
@@ -993,6 +1042,180 @@ function checkScreens(screens, { h, render }) {
 
         const discovered = allText(screens.home.default.view(stubCtx({ ...inSeason, unlocks: ['sigils.ui'] }))).join(' ');
         ok('home shows sigils once discovered', discovered.includes('Sigils'));
+    }
+
+    // Field-truth: a joined player's figures come from player.participation,
+    // and season countdowns from time_remaining_real_seconds — the shapes
+    // game_state actually publishes. If any of these render as zero, a client
+    // read has drifted off the real contract again.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+
+        const homeText = allText(screens.home.default.view(stubCtx({ player: JOINED_PLAYER, seasons: [SEASON] }))).join(' ');
+        ok('home renders real coins from participation.*', homeText.includes('1,234'));
+
+        const detailCtx = stubCtx({
+            player: JOINED_PLAYER,
+            seasons: [SEASON],
+            ui: { seasonId: 1 },
+            screens: { season: { ...SEASON, leaderboard: [] } },
+        });
+        const seasonText = allText(screens.season.default.view(detailCtx)).join(' ');
+        ok('season header renders a real countdown, not zero',
+            seasonText.includes('1d 1h'), seasonText.slice(0, 160));
+        ok('season header uses the server countdown label', seasonText.includes('Time Left'));
+        ok('season stars panel prices from the published surface', seasonText.includes('213'));
+        ok('season forge reads tier counts from the sigils array',
+            seasonText.includes('5× I → 1× II'));
+        ok('season shows the boosts panel for a joined player',
+            seasonText.includes('Boosts') && seasonText.includes('No boost running'));
+    }
+
+    // Every screen that fetches must distinguish three states: not loaded yet,
+    // loaded-and-empty, and failed. Collapsing the third into either of the
+    // others is how a dead request comes to read as "the leaderboard is
+    // empty" or as a spinner that never resolves.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const FETCHERS = [
+            ['ranks', 'ranks', 'Could not load the leaderboard'],
+            ['shop', 'shop', 'Could not load the shop'],
+            ['chat', 'chat', 'Could not load messages'],
+            ['family', 'family', 'The families did not answer'],
+        ];
+
+        for (const [name, slot, expected] of FETCHERS) {
+            const screen = screens[name].default;
+            const state = {
+                player: JOINED_PLAYER,
+                familiesEnabled: true,
+                screens: { [slot]: { error: 'Could not reach the server.' } },
+            };
+            const text = allText(screen.view(stubCtx(state))).join(' ');
+            ok(`${name} renders an error state rather than a false empty`,
+                text.includes(expected) && text.includes('Try again'), text.slice(0, 120));
+            // The failure must not be reported as emptiness.
+            ok(`${name} does not claim emptiness when the fetch failed`,
+                !/Nobody on the board yet|No messages yet|Nothing in this category/.test(text),
+                text.slice(0, 120));
+        }
+    }
+
+    // The family panel renders the full family_state shape — roster, holdings,
+    // affinity, ward/market state, forge switches, live event — and honest
+    // states for signed-out / no-season / disabled.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const familyScreen = screens.family.default;
+        const FAMILY_STATE = {
+            enabled: true,
+            families: [
+                { family_id: 1, code: 'yield', name: 'Goliath', min_tier: 1, enabled: true },
+                { family_id: 2, code: 'time', name: 'Anak', min_tier: 1, enabled: true },
+                { family_id: 3, code: 'ward', name: 'Michael', min_tier: 1, enabled: true },
+                { family_id: 4, code: 'larceny', name: 'Valefor', min_tier: 1, enabled: true },
+                { family_id: 5, code: 'market', name: 'Mammon', min_tier: 1, enabled: true },
+                { family_id: 6, code: 'sight', name: 'Azazel', min_tier: 1, enabled: true },
+                { family_id: 7, code: 'wild', name: 'Legion', min_tier: 1, enabled: true },
+            ],
+            holdings: [
+                { family_id: 3, code: 'ward', name: 'Michael', tiers: { 1: 2, 3: 1 } },
+                { family_id: 6, code: 'sight', name: 'Azazel', tiers: { 1: 1 } },
+            ],
+            affinity_family_id: null,
+            affinity_repicked: false,
+            forge: { transmute_enabled: true, distil_enabled: true },
+            caps: { per_family_holding: 12 },
+            season_event: { kind: 'swarm', source_tier: 2, started_tick: 10, ends_tick: 5000 },
+            ward: { active: false, expires_tick: 0, one_shot: false },
+            market: { pending_vp: 0, last_used_tick: 0, window_ticks: 86400 },
+        };
+
+        const full = allText(familyScreen.view(stubCtx({
+            player: JOINED_PLAYER, familiesEnabled: true,
+            screens: { family: FAMILY_STATE, familyEvents: [{ event_id: 1, event_tick: 42, public_text: 'tester used a Market sigil' }] },
+        }))).join(' ');
+        ok('family panel renders all seven families',
+            ['Goliath', 'Anak', 'Michael', 'Valefor', 'Mammon', 'Azazel', 'Legion'].every(n => full.includes(n)));
+        ok('family panel offers a ward raise from ward holdings', full.includes('Raise ward'));
+        ok('family panel announces the live season event', full.includes('The Legion swarms'));
+        ok('family panel shows the season chronicle', full.includes('used a Market sigil'));
+
+        const noSeason = allText(familyScreen.view(stubCtx({ player: PLAYER }))).join(' ');
+        ok('family panel asks for a season before showing verbs', noSeason.includes('Join one first'));
+    }
+
+    // The profile screen renders every payload variant the server can return:
+    // full, restricted, deleted, error — plus the owner view with account
+    // controls and the other-player view with relationship actions.
+    {
+        const allText = (node, out = []) => {
+            if (!node || typeof node !== 'object') return out;
+            if (Array.isArray(node)) { node.forEach(n => allText(n, out)); return out; }
+            if (node.text !== null && node.text !== undefined) out.push(String(node.text));
+            (node.children || []).forEach(c => allText(c, out));
+            return out;
+        };
+        const profileScreen = screens.profile.default;
+        const FULL_PROFILE = {
+            player_id: 9, handle: 'rival', role: 'Player', global_stars: 40,
+            profile_visibility: 'PUBLIC', created_at: '2026-06-01T00:00:00+00:00',
+            online_current: 1,
+            relationship: { is_friend: false, is_blocked: false, request_pending: false },
+            badges: [{ badge_type: 'season_first', season_id: 3, awarded_at: '2026-07-01T00:00:00+00:00' }],
+            season_history: [{ season_id: 3, effective_seasonal_stars: 120, payout_seasonal_stars: 120, lock_in_effect_tick: null }],
+            active_participation: null,
+            global_stars_progress: { percent: 25 },
+            equipped_cosmetics: {},
+        };
+
+        const other = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 9 }, screens: { profile: FULL_PROFILE },
+        }))).join(' ');
+        ok('profile renders identity, badges, history and Add friend for another player',
+            other.includes('rival') && other.includes('Season winner') && other.includes('Add friend'));
+
+        const restricted = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 9 },
+            screens: { profile: { player_id: 9, handle: 'rival', restricted: true, visibility: 'FRIENDS_ONLY' } },
+        }))).join(' ');
+        ok('a restricted profile gets an honest state, not a broken page',
+            restricted.includes('visible to friends only'));
+
+        const removed = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 9 },
+            screens: { profile: { player_id: 9, handle: '[Removed]', deleted: true } },
+        }))).join(' ');
+        ok('a deleted profile renders [Removed]', removed.includes('[Removed]'));
+
+        const own = allText(profileScreen.view(stubCtx({
+            player: PLAYER, ui: { profileId: 7 },
+            screens: {
+                profile: { ...FULL_PROFILE, player_id: 7, handle: 'tester', relationship: null },
+                account: { bio: '', profile_status: '', profile_visibility: 'PUBLIC' },
+                friends: [], friendRequests: [], blocks: [],
+            },
+        }))).join(' ');
+        ok('own profile shows account controls instead of relationship actions',
+            own.includes('Profile visibility') && !own.includes('Add friend'));
     }
 
     // Staff screen: locked for everyone below Moderator; the server-mode
@@ -1019,6 +1242,126 @@ function checkScreens(screens, { h, render }) {
     }
 }
 
+/**
+ * The shipped art registry, as opposed to the stub slots the behaviour tests
+ * above use. The AAA bar is "no placeholder art reachable by a normal
+ * player", which is only true if every slot is filled AND every file it
+ * points at is actually committed.
+ */
+async function checkShippedArt({ registry }) {
+    section('core/assets.js — every slot ships real art');
+
+    const names = Object.keys(registry);
+    const unfilled = names.filter(n => !registry[n].art);
+    ok('every registry slot has art (no reachable placeholder)', unfilled.length === 0, unfilled);
+
+    const missing = [];
+    const badSprite = [];
+    for (const [name, slot] of Object.entries(registry)) {
+        const art = slot.art;
+        if (!art) continue;
+        // src is an absolute web path ('/assets/x.svg'); map it back to disk.
+        const onDisk = join(HERE, '..', 'public', art.src.replace(/^\//, ''));
+        try {
+            await readFile(onDisk);
+        } catch {
+            missing.push(`${name} -> ${art.src}`);
+        }
+        if (art.kind === 'sprite' && (!art.frames || !art.fps || art.loop !== false)) {
+            badSprite.push(name);
+        }
+    }
+    ok('every art file referenced by the registry exists on disk', missing.length === 0, missing);
+    ok('every sprite declares frames, fps and plays once', badSprite.length === 0, badSprite);
+
+    // Families must be masked, not drawn: that is what lets one silhouette
+    // carry the family's colour token across all four themes.
+    const families = names.filter(n => n.startsWith('family-'));
+    const undrawn = families.filter(n => !registry[n].art.tintable || !registry[n].tint);
+    ok('all seven families ship tintable silhouettes with a colour token',
+        families.length === 7 && undrawn.length === 0, undrawn);
+}
+
+/**
+ * main.js is the shell, not a module the harness can import (it boots on
+ * load), so its contracts are guarded at source level. Weaker than executing
+ * them, but these are the invariants that soft-locked players when absent.
+ */
+async function checkShellSource() {
+    section('main.js — shell contracts (source-level)');
+    const src = await readFile(join(HERE, '..', 'public', 'js', 'main.js'), 'utf8');
+
+    ok('the idle gate renders from the server flag, not local guesses',
+        src.includes('player.idle_modal_active'));
+    ok('the idle gate acknowledges via the idle_ack action',
+        src.includes("api.request('idle_ack'"));
+    ok('the chat screen is exempt from the idle overlay',
+        /screen === 'chat'/.test(src));
+    ok('the countdown yields while a modal is up',
+        /ui\.dialog.*idle_modal_active.*return null/s.test(src));
+    ok('rejected actions surface the server reason_code',
+        src.includes('reason_code'));
+    ok('the HUD reads season figures from player.participation',
+        src.includes('player.participation') && !/player\.ubi_rate/.test(src));
+    // All five moment sprites must actually fire. Authoring the art and then
+    // never playing it is the same as not having it.
+    for (const moment of ['payout-burst', 'sigil-drop', 'theft-strike', 'freeze-lock', 'lockin-seal']) {
+        ok(`the ${moment} moment is played somewhere`, src.includes(`'${moment}'`));
+    }
+    // A drop is an increase; spending sigils must not fire the reward beat.
+    ok('the sigil-drop moment only plays on an increase',
+        /sigils_total[\s\S]{0,400}to > \(Number\(prev\)/.test(src));
+
+    // A rate that rounds to "0.0" tells an earning player they earn nothing.
+    ok('small rates keep enough precision to not read as zero',
+        /toFixed\(3\)/.test(src) && /n === 0/.test(src));
+    // The idle gate must be pinned to the viewport, not centred in the
+    // document — otherwise a long page hides it off-screen.
+    ok('the idle gate is viewport-pinned',
+        /#idle-host\s*\{[^}]*position:\s*fixed/.test(
+            await readFile(join(HERE, '..', 'public', 'css', 'next.css'), 'utf8')));
+
+    // The legacy client is deleted, not parked. Two clients drifting apart is
+    // the problem the rebuild exists to end, so a reintroduced reference —
+    // or a restored file — should fail here rather than ship.
+    const shell = await readFile(join(HERE, '..', 'public', 'index.html'), 'utf8');
+    ok('index.html loads exactly one client and no legacy assets',
+        /js\/main\.js/.test(shell)
+        && !/src=["'][^"']*js\/app\.js/.test(shell)
+        && !/href=["'][^"']*css\/style\.css/.test(shell));
+    for (const gone of ['public/js/app.js', 'public/css/style.css']) {
+        let exists = true;
+        try { await readFile(join(HERE, '..', gone)); } catch { exists = false; }
+        ok(`${gone} stays deleted`, !exists);
+    }
+    // No third-party asset may gate first paint: it fails closed in a
+    // restricted network and fills the console with errors.
+    ok('the shell pulls no external stylesheet or font',
+        !/<link[^>]+href=["']https?:\/\//i.test(shell));
+    ok('gated spends re-send with confirm_economic_impact after the preview',
+        src.includes("res.error === 'confirmation_required'")
+        && src.includes('confirm_economic_impact: true'));
+    ok('star purchases go through the impact-confirm handler',
+        /requestWithImpactConfirm\(\s*'purchase_stars'/.test(src));
+    ok('theft attempts only fire after a fetched server preview',
+        src.includes("if (!t || !t.preview) return;")
+        && src.includes("api.request('sigil_theft_preview'"));
+    ok('editing the theft form invalidates the preview',
+        /theftAdjust[\s\S]{0,600}ui\.theft\.preview',\s*null\)/.test(src));
+    ok('locked-in players are never offered as targets',
+        src.includes('!r.lock_in_effect_tick'));
+    ok('boost spends preview server-side before the confirm',
+        src.includes("api.request('boost_activate_preview'")
+        && /purchase_boost[\s\S]{0,200}confirm_economic_impact: true/.test(src));
+    ok('the poll keeps notifications instead of discarding them',
+        src.includes('notifications_unread_count')
+        && /store\.patch\(\{[\s\S]{0,600}notifications:/.test(src));
+    ok('the bell renders an unread badge and a feed',
+        src.includes('notif-badge') && src.includes("api.request('notifications_mark_read'"));
+    ok('logout clears the notification feed',
+        /doLogout[\s\S]{0,600}notifications: \[\]/.test(src));
+}
+
 /* ------------------------------------------------------------------ *
  * run
  * ------------------------------------------------------------------ */
@@ -1030,7 +1373,9 @@ try {
     checkClock(modules.clock);
     checkMotion(modules.motion);
     checkAssets(modules.assets, modules.render);
+    await checkShippedArt(modules.assets);
     checkScreens(screens, modules.render);
+    await checkShellSource();
 } finally {
     await cleanup();
 }

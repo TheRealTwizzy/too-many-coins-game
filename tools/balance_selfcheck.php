@@ -289,6 +289,72 @@ check('legion: foresight multiplier sane',
 check('legion: frenzy divisor shortens timings',
     (int)LEGION_FRENZY_TIMING_DIVISOR >= 2, ['divisor' => LEGION_FRENZY_TIMING_DIVISOR]);
 
+// ---------------------------------------------------------------------------
+// Drop pity + throttle. These were configured-but-unenforced for months; now
+// that the tick engine reads them, their relationships have to stay coherent.
+// ---------------------------------------------------------------------------
+
+// The mean gate interval at the base drop chance, in ticks. Pity is a
+// backstop against outlier droughts, not a second faucet: it must sit far
+// beyond the expected wait, or 'guaranteed' quietly becomes 'usual'.
+$meanGateIntervalTicks = intdiv(FP_SCALE, max(1, (int)SIGIL_DROP_CHANCE_FP));
+check('pity: threshold positive', (int)SIGIL_PITY_TICKS > 0, ['ticks' => SIGIL_PITY_TICKS]);
+check('pity: a backstop, not a faucet (threshold >> mean drop interval)',
+    (int)SIGIL_PITY_TICKS >= 3 * $meanGateIntervalTicks,
+    ['pity' => SIGIL_PITY_TICKS, 'mean_interval' => $meanGateIntervalTicks]);
+
+check('throttle: window and cap positive',
+    (int)SIGIL_DROP_WINDOW_TICKS > 0 && (int)SIGIL_MAX_DROPS_WINDOW >= 1,
+    ['window' => SIGIL_DROP_WINDOW_TICKS, 'max' => SIGIL_MAX_DROPS_WINDOW]);
+
+// The throttle is an anti-burst guard, not a baseline tax: ordinary luck at
+// the base rate must clear under the cap, while a swarm event (drop chance
+// ×LEGION multiplier) must be able to hit it. Both directions matter — a cap
+// below the base expectation starves normal play; a cap above the swarm
+// expectation is decoration.
+//
+// Drop chance is per TICK while the window is defined in real time, so how
+// many drops a real day holds depends on the tick cadence: a compressed test
+// clock (TMC_TICK_REAL_SECONDS=1, TMC_TIME_SCALE=60) deliberately runs a much
+// denser economy and would fail these bounds by design. So this pair is
+// scoped to the shipped cadence, where the tuning is actually defined.
+$atShippedCadence = ((int)TICK_REAL_SECONDS === 60 && (int)TIME_SCALE === 1);
+if ($atShippedCadence) {
+    $expectedDropsPerWindow = ((int)SIGIL_DROP_WINDOW_TICKS * (int)SIGIL_DROP_CHANCE_FP) / FP_SCALE;
+    $expectedUnderSwarm = $expectedDropsPerWindow * ((int)LEGION_SWARM_DROP_MULTIPLIER_FP / FP_SCALE);
+    check('throttle: cap clears ordinary base-rate luck',
+        (float)SIGIL_MAX_DROPS_WINDOW > $expectedDropsPerWindow,
+        ['cap' => SIGIL_MAX_DROPS_WINDOW, 'expected_base' => round($expectedDropsPerWindow, 2)]);
+    check('throttle: cap binds under a swarm event',
+        (float)SIGIL_MAX_DROPS_WINDOW < $expectedUnderSwarm,
+        ['cap' => SIGIL_MAX_DROPS_WINDOW, 'expected_swarm' => round($expectedUnderSwarm, 2)]);
+} else {
+    echo "  note  drop-rate bounds skipped: not at the shipped tick cadence"
+       . " (TICK_REAL_SECONDS=" . TICK_REAL_SECONDS . ", TIME_SCALE=" . TIME_SCALE . ")\n";
+}
+
+// The throttle can never mask the pity guarantee: a fully-throttled window
+// contributes no attempt ticks, so pity time only accrues when drops are
+// actually possible. That holds structurally; what must hold numerically is
+// that the pity threshold cannot be reached INSIDE one throttle window with
+// the throttle already binding (window ticks < pity ticks).
+check('pity/throttle: one window cannot span the whole pity clock',
+    (int)SIGIL_DROP_WINDOW_TICKS < (int)SIGIL_PITY_TICKS,
+    ['window' => SIGIL_DROP_WINDOW_TICKS, 'pity' => SIGIL_PITY_TICKS]);
+
+// Wiring guards: the tick engine must consume both mechanisms. Config-level
+// checks can't see code, so read the source the same way the client harness
+// does — if these greps fail, the constants have gone decorative again.
+$tickEngineSrc = (string)file_get_contents(__DIR__ . '/../includes/tick_engine.php');
+check('pity: tick engine consumes SIGIL_PITY_TICKS',
+    strpos($tickEngineSrc, 'SIGIL_PITY_TICKS') !== false
+    && strpos($tickEngineSrc, "'PITY'") !== false);
+check('throttle: tick engine consumes the drop window',
+    strpos($tickEngineSrc, 'SIGIL_MAX_DROPS_WINDOW') !== false
+    && strpos($tickEngineSrc, 'SIGIL_DROP_WINDOW_TICKS') !== false);
+check('pity: counter accrues from the eligibility out-param',
+    strpos($tickEngineSrc, 'wasEligible') !== false);
+
 echo str_repeat('-', 68) . "\n";
 echo "{$pass} passed, {$fail} failed\n";
 echo $fail === 0

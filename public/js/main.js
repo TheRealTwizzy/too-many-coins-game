@@ -37,6 +37,11 @@ const store = createStore({
     serverMode: 'NORMAL',
     // Progression gates: null = ungated (server flag off or logged out).
     unlocks: null,
+    // The last 50 notifications and the unread count, straight off the poll.
+    notifications: [],
+    notificationsUnread: 0,
+    // Whether the sigil-family layer is live server-side.
+    familiesEnabled: false,
 });
 
 const clock = createClock();
@@ -88,9 +93,22 @@ function formatCount(value) {
     return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + 'B';
 }
 
+/**
+ * A rate, at a precision that never reports flowing income as nothing.
+ *
+ * toFixed(1) alone renders any rate below 0.05 as "0.0/tick", which tells a
+ * player who IS earning that they are not — and the smaller the rate, the
+ * more they care about the difference. Small values keep significant digits;
+ * genuine zero is the only thing allowed to print as zero.
+ */
 function formatRate(value) {
     const n = Number(value) || 0;
-    return (n >= 100 ? Math.round(n) : n.toFixed(1)) + '/tick';
+    if (n === 0) return '0/tick';
+    const abs = Math.abs(n);
+    if (abs >= 100) return Math.round(n) + '/tick';
+    if (abs >= 0.1) return n.toFixed(1) + '/tick';
+    if (abs >= 0.001) return n.toFixed(3) + '/tick';
+    return n.toExponential(1) + '/tick';
 }
 
 /* ------------------------------------------------------------------ *
@@ -233,11 +251,31 @@ const ctx = {
         return unlocks.includes(key);
     },
 
+    /**
+     * Acknowledge the idle gate. idle_ack is the only action that can bring a
+     * stale-offline idle player back — every season verb is refused until it
+     * runs — so it never goes through the season screens: the modal calls it
+     * directly. A "Not idle" rejection just means the server already cleared
+     * the flag; either way the next poll is the truth.
+     */
+    async idleAck() {
+        store.set('ui.idleAcking', true);
+        const res = await api.request('idle_ack', {});
+        store.set('ui.idleAcking', false);
+        if (res && res.error) {
+            await poll();
+            if (res.error !== 'Not idle') toast(res.error, 'error');
+            return;
+        }
+        toast(res && res.message ? res.message : 'Welcome back.', 'success');
+        await poll();
+    },
+
     async joinSeason(seasonId) {
         store.set('ui.joining', seasonId);
         const res = await api.request('season_join', { season_id: seasonId });
         store.set('ui.joining', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
 
         // Refresh immediately rather than waiting up to 3s for the next poll —
         // joining is the one action where the whole screen changes meaning.
@@ -335,9 +373,9 @@ const ctx = {
         clearToken();
 
         // Drop every trace of the session, not just the player: leaving the
-        // previous account's chat transcript or shop inventory in the store
-        // would show it to whoever signs in next.
-        store.patch({ player: null, seasons: [], screens: {} });
+        // previous account's chat transcript, notifications or shop inventory
+        // in the store would show it to whoever signs in next.
+        store.patch({ player: null, seasons: [], screens: {}, notifications: [], notificationsUnread: 0 });
         store.set('ui.seasonId', null);
         store.set('screen', 'home');
         toast('Signed out.', 'info');
@@ -361,6 +399,40 @@ const ctx = {
         store.set('screens.season', res);
     },
 
+    /**
+     * Run a gated economy action. The server refuses a medium- or high-impact
+     * spend until the request carries confirm_economic_impact — on that
+     * refusal it returns a preview, which is shown in a confirm dialog and
+     * the action re-sent with the flag. One handler for every action behind
+     * the gate (stars, theft, boosts), so a new gated verb costs nothing.
+     *
+     * Resolves to the final response, or null if the player declined.
+     */
+    async requestWithImpactConfirm(action, payload, { title = 'Confirm this action?' } = {}) {
+        let res = await api.request(action, payload);
+        if (res && res.error === 'confirmation_required' && res.preview) {
+            const fmt = new Intl.NumberFormat('en-US');
+            const p = res.preview;
+            const risk = p.risk || {};
+            const lines = [risk.explain || 'This action has a large economic impact.'];
+            if (Number(p.estimated_total_cost) > 0) {
+                lines.push(`Estimated cost: ${fmt.format(p.estimated_total_cost)} ${p.balance_type || 'coins'}.`);
+            }
+            if (p.post_balance_estimate !== null && p.post_balance_estimate !== undefined) {
+                lines.push(`Balance after: about ${fmt.format(p.post_balance_estimate)}.`);
+            }
+            const confirmed = await ctx.confirm({
+                title,
+                body: lines.join(' '),
+                confirmLabel: 'Proceed',
+                danger: risk.severity === 'high',
+            });
+            if (!confirmed) return null;
+            res = await api.request(action, { ...payload, confirm_economic_impact: true });
+        }
+        return res;
+    },
+
     async buyStars(quantity, cost) {
         const confirmed = await ctx.confirm({
             title: `Buy ${quantity} star${quantity === 1 ? '' : 's'}?`,
@@ -372,10 +444,17 @@ const ctx = {
 
         store.set('ui.buyingStars', true);
         // The server reads stars_requested; sending { quantity } silently
-        // requested zero stars on every purchase.
-        const res = await api.request('purchase_stars', { stars_requested: quantity });
+        // requested zero stars on every purchase. Purchases at ≥50% of the
+        // coin balance come back confirmation_required — the impact handler
+        // shows the server's preview and re-sends with the flag.
+        const res = await ctx.requestWithImpactConfirm(
+            'purchase_stars',
+            { stars_requested: quantity },
+            { title: 'Large purchase — proceed?' },
+        );
         store.set('ui.buyingStars', false);
-        if (res && res.error) return toast(res.error, 'error');
+        if (!res) return;
+        if (res.error) return actionFailed(res);
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
 
@@ -383,7 +462,7 @@ const ctx = {
         store.set('ui.forgeBusy', fromTier);
         const res = await api.request('combine_sigil', { from_tier: fromTier });
         store.set('ui.forgeBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await poll();
     },
 
@@ -391,19 +470,22 @@ const ctx = {
         store.set('ui.forgeBusy', 'all');
         const res = await api.request('combine_all_sigils', {});
         store.set('ui.forgeBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await poll();
     },
 
     /**
      * Lock in. The one action in the game with no undo, so the confirmation
-     * states the payout in figures and requires an explicit acknowledgement
-     * rather than a single click.
+     * states the stake in figures and requires an explicit acknowledgement
+     * rather than a single click. The exact global-star payout (conversion
+     * rate, sigil refund, fractional carry) is server math — the dialog names
+     * the stake and the server's success message reports the real figures.
      */
-    async lockIn(payout) {
+    async lockIn(stake) {
         const confirmed = await ctx.confirm({
             title: 'Lock in and end your season?',
-            body: `You will receive ${new Intl.NumberFormat('en-US').format(payout)} global stars. `
+            body: `Your ${new Intl.NumberFormat('en-US').format(stake)} seasonal stars, plus a refund for `
+                + 'unspent sigils, convert to global stars at the lock-in rate. '
                 + 'Your seasonal position, coins and sigils are gone. This cannot be undone.',
             confirmLabel: 'Lock in',
             danger: true,
@@ -414,9 +496,11 @@ const ctx = {
         store.set('ui.lockingIn', true);
         const res = await api.request('lock_in', {});
         store.set('ui.lockingIn', false);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
 
-        toast('Locked in.', 'info');
+        // The one irreversible act in the game gets the longest moment.
+        playMoment('lockin-seal');
+        toast(res && res.message ? res.message : 'Locked in.', 'info');
         await poll();
         store.set('screen', 'home');
     },
@@ -434,7 +518,7 @@ const ctx = {
         if (!confirmed) return;
 
         const res = await api.request('freeze_player_ubi', { target_player_id: target.player_id });
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         toast(`Froze ${target.handle}.`, 'info');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
@@ -448,7 +532,7 @@ const ctx = {
         if (!confirmed) return;
 
         const res = await api.request('self_melt_freeze', {});
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         toast('Freeze melted.', 'info');
         await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
@@ -473,7 +557,10 @@ const ctx = {
         const detail = store.get('screens.season');
         const me = store.get('player');
         const candidates = ((detail && detail.leaderboard) || [])
-            .filter(r => !me || Number(r.player_id) !== Number(me.player_id));
+            .filter(r => !me || Number(r.player_id) !== Number(me.player_id))
+            // A locked-in player has left the live economy — the server would
+            // reject them as a target, so don't offer them.
+            .filter(r => !r.lock_in_effect_tick);
 
         if (!candidates.length) {
             toast('Nobody else in this season yet.', 'error');
@@ -483,6 +570,301 @@ const ctx = {
         return new Promise(resolve => {
             store.set('ui.dialog', { kind: 'target', ...options, candidates, resolve });
         });
+    },
+
+    // ---- sigil families ----
+
+    async loadFamily() {
+        const [state, events] = await Promise.all([
+            api.request('family_state', {}),
+            api.request('season_events', { limit: 25 }),
+        ]);
+        store.set('screens.family', (state && !state.error) ? state : { error: fetchError(state) });
+        // The chronicle is decoration beside the panel itself; a failure there
+        // leaves it absent rather than taking the whole screen to an error.
+        if (events && !events.error) store.set('screens.familyEvents', events.events || []);
+    },
+
+    /**
+     * Shared runner for the family verbs: ward_activate, market_prime,
+     * affinity_pick, transmute_sigils, distil_sigils. Success surfaces the
+     * server's message and refreshes both the family state and the poll.
+     */
+    async familyVerb(action, payload, busyKey) {
+        store.set('ui.familyBusy', busyKey);
+        const res = await api.request(action, payload);
+        store.set('ui.familyBusy', null);
+        if (!res || res.error) return actionFailed(res, 'Action failed');
+        toast(res.message || 'Done.', 'success');
+        await Promise.all([ctx.loadFamily(), poll()]);
+    },
+
+    /**
+     * Sight reveals return information rather than state, so the result is
+     * kept for the screen to render instead of being toasted away.
+     */
+    async sightReveal(kind) {
+        let targetId = 0;
+        if (kind === 'target_rate' || kind === 'ward_status') {
+            const target = await ctx.pickTarget({
+                title: kind === 'target_rate' ? 'Read whose income?' : 'Scout whose ward?',
+            });
+            if (!target) return;
+            targetId = Number(target.player_id);
+        }
+        store.set('ui.familyBusy', `sight:${kind}`);
+        const res = await api.request('sight_reveal', { kind, target_player_id: targetId });
+        store.set('ui.familyBusy', null);
+        if (!res || res.error) return actionFailed(res, 'The Sight fails');
+        store.set('screens.familyReveal', { kind, ...res });
+        await Promise.all([ctx.loadFamily(), poll()]);
+    },
+
+    // ---- profile & social ----
+
+    openProfile(playerId) {
+        const id = Number(playerId);
+        if (!Number.isFinite(id) || id <= 0) return;
+        store.set('ui.profileId', id);
+        store.set('screens.profile', null);
+        // Draft fields reset so one player's unsaved edits never leak into
+        // another profile view.
+        store.set('ui.accountVisibility', null);
+        store.set('ui.accountStatus', null);
+        store.set('ui.accountBio', null);
+        store.set('screen', 'profile');
+        // Same reasoning as openSeason: enter() only fires on a *change* of
+        // screen id, and profiles link to other profiles.
+        ctx.loadProfile();
+    },
+
+    async loadProfile() {
+        const id = store.get('ui.profileId');
+        if (id === null || id === undefined) return;
+        const res = await api.request('profile', { player_id: id });
+        if (!res) return;
+        store.set('screens.profile', res);
+
+        const me = store.get('player');
+        if (me && Number(me.player_id) === Number(id)) await ctx.loadOwnSocial();
+    },
+
+    /** The owner-only side panels: account fields, friends, requests, blocks. */
+    async loadOwnSocial() {
+        const [account, friends, requests, blocks] = await Promise.all([
+            api.request('account_get', {}),
+            api.request('friends_list', {}),
+            api.request('friend_requests_list', {}),
+            api.request('blocks_list', {}),
+        ]);
+        if (account && account.success) store.set('screens.account', account.account);
+        if (friends && friends.success) store.set('screens.friends', friends.friends || []);
+        if (requests && requests.success) store.set('screens.friendRequests', requests.requests || []);
+        if (blocks && blocks.success) store.set('screens.blocks', blocks.blocks || []);
+    },
+
+    /** friend_request_send / friend_remove / block_add / block_remove. */
+    async socialAction(action, targetPlayerId) {
+        store.set('ui.profileBusy', true);
+        const res = await api.request(action, { target_player_id: Number(targetPlayerId) });
+        store.set('ui.profileBusy', false);
+        if (!res || res.error) return actionFailed(res, 'Action failed');
+        await ctx.loadProfile();
+    },
+
+    async respondFriendRequest(requestId, decision) {
+        const res = await api.request('friend_request_respond', {
+            request_id: Number(requestId),
+            decision,
+        });
+        if (!res || res.error) return actionFailed(res, 'Could not update the request');
+        await ctx.loadOwnSocial();
+    },
+
+    async saveAccount() {
+        const account = store.get('screens.account') || {};
+        store.set('ui.accountBusy', true);
+        const res = await api.request('account_update', {
+            bio: store.get('ui.accountBio') ?? account.bio ?? '',
+            profile_status: store.get('ui.accountStatus') ?? account.profile_status ?? '',
+            profile_visibility: store.get('ui.accountVisibility') ?? account.profile_visibility ?? 'PUBLIC',
+        });
+        store.set('ui.accountBusy', false);
+        if (!res || res.error) return actionFailed(res, 'Could not save the profile');
+        store.set('screens.account', res.account);
+        toast('Profile saved.', 'success');
+        await ctx.loadProfile();
+    },
+
+    // ---- notifications ----
+
+    toggleNotifications() {
+        store.set('ui.notifOpen', !store.get('ui.notifOpen'));
+    },
+
+    async markNotifRead(id) {
+        const res = await api.request('notifications_mark_read', { notification_id: id });
+        if (!res || res.error) return;
+        // Patch locally so the row greys out now rather than on the next poll.
+        store.set('notificationsUnread', Number(res.unread_count) || 0);
+        store.set('notifications',
+            (store.get('notifications') || []).map(n =>
+                n.notification_id === id ? { ...n, is_read: true } : n));
+    },
+
+    async markAllNotifsRead() {
+        const res = await api.request('notifications_mark_all_read', {});
+        if (!res || res.error) return;
+        store.set('notificationsUnread', 0);
+        store.set('notifications',
+            (store.get('notifications') || []).map(n => ({ ...n, is_read: true })));
+    },
+
+    async removeNotif(id) {
+        const res = await api.request('notifications_remove', { notification_id: id });
+        if (!res || res.error) return;
+        store.set('notificationsUnread', Number(res.unread_count) || 0);
+        store.set('notifications',
+            (store.get('notifications') || []).filter(n => n.notification_id !== id));
+    },
+
+    // ---- boosts ----
+
+    /**
+     * Spend one sigil of a tier on the running boost (or start one). Always
+     * previews first: the effect of a spend depends on server state — initial
+     * activation vs power stack vs time extension — so the confirm dialog
+     * quotes the server's numbers, then the purchase carries the confirm flag.
+     */
+    async buyBoost(sigilTier, purchaseKind) {
+        const busyKey = `${sigilTier}:${purchaseKind}`;
+        store.set('ui.boostBusy', busyKey);
+        const preview = await api.request('boost_activate_preview', {
+            sigil_tier: sigilTier,
+            purchase_kind: purchaseKind,
+        });
+        if (!preview || preview.error) {
+            store.set('ui.boostBusy', null);
+            return actionFailed(preview, 'Boost unavailable');
+        }
+
+        const spanOf = (s) => (s >= 3600 ? `${Math.round((s / 3600) * 10) / 10}h` : `${Math.round(s / 60)}m`);
+        const effect = preview.initialized_from_inactive
+            ? `Starts a +${preview.modifier_percent}% income boost running for ${spanOf(preview.time_extension_real_seconds)}. `
+            : purchaseKind === 'power'
+                ? `Adds power to your running boost (currently +${preview.modifier_percent}%). `
+                : `Extends your running boost by ${spanOf(preview.time_extension_real_seconds)}. `;
+
+        const confirmed = await ctx.confirm({
+            title: `Spend a Tier ${sigilTier} sigil?`,
+            body: effect
+                + `Consumes 1 of your ${preview.sigils_owned} Tier ${sigilTier} sigils. `
+                + String((preview.risk && preview.risk.explain) || ''),
+            confirmLabel: 'Spend sigil',
+            danger: Boolean(preview.risk && preview.risk.severity === 'high'),
+        });
+        if (!confirmed) {
+            store.set('ui.boostBusy', null);
+            return;
+        }
+
+        const res = await api.request('purchase_boost', {
+            sigil_tier: sigilTier,
+            purchase_kind: purchaseKind,
+            confirm_economic_impact: true,
+        });
+        store.set('ui.boostBusy', null);
+        if (!res || res.error) return actionFailed(res, 'Boost failed');
+        toast(res.message || 'Boost active.', 'success');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
+    },
+
+    // ---- theft ----
+
+    /**
+     * The theft flow: pick a target from the standings, then compose the
+     * attempt in a dialog — which tiers to spend (consumed win or lose) and
+     * which to request. The dialog always fetches the server preview before
+     * the attempt is possible, so the odds shown are the server's, never a
+     * client guess.
+     */
+    async startTheft() {
+        const target = await ctx.pickTarget({ title: 'Steal from whom?' });
+        if (!target) return;
+        store.set('ui.theft', {
+            target: { player_id: Number(target.player_id), handle: target.handle || '—' },
+            spend: [0, 0, 0, 0, 0, 0],
+            request: [0, 0, 0, 0, 0, 0],
+            preview: null,
+            busy: false,
+        });
+        store.set('ui.dialog', { kind: 'theft', title: 'Sigil theft' });
+    },
+
+    /** Step a tier count in the theft form. Any edit invalidates the preview. */
+    theftAdjust(kind, tier, delta) {
+        const t = store.get('ui.theft');
+        if (!t) return;
+        const list = (t[kind] || [0, 0, 0, 0, 0, 0]).slice();
+        const idx = tier - 1;
+        let ceiling = 99;
+        if (kind === 'spend') {
+            const player = store.get('player');
+            const owned = ((player && player.participation) || {}).sigils || [];
+            ceiling = Number(owned[idx]) || 0;
+        }
+        list[idx] = Math.max(0, Math.min(ceiling, (Number(list[idx]) || 0) + delta));
+        store.set(`ui.theft.${kind}`, list);
+        store.set('ui.theft.preview', null);
+    },
+
+    async theftPreview() {
+        const t = store.get('ui.theft');
+        if (!t) return;
+        store.set('ui.theft.busy', true);
+        const res = await api.request('sigil_theft_preview', {
+            target_player_id: t.target.player_id,
+            spent_sigils: t.spend,
+            requested_sigils: t.request,
+        });
+        store.set('ui.theft.busy', false);
+        if (!res || res.error) {
+            store.set('ui.theft.preview', null);
+            return toast((res && res.error) || 'Preview failed', 'error');
+        }
+        store.set('ui.theft.preview', res);
+    },
+
+    async theftAttempt() {
+        const t = store.get('ui.theft');
+        if (!t || !t.preview) return;
+        store.set('ui.theft.busy', true);
+        // The fetched preview on screen IS the informed consent, so the
+        // attempt carries the confirm flag; if state moved underneath it the
+        // server answers balance_changed with a fresh preview instead of
+        // executing on stale numbers.
+        const res = await api.request('sigil_theft_attempt', {
+            target_player_id: t.target.player_id,
+            spent_sigils: t.spend,
+            requested_sigils: t.request,
+            confirm_economic_impact: true,
+        });
+        store.set('ui.theft.busy', false);
+
+        if (res && res.error === 'balance_changed' && res.preview) {
+            store.set('ui.theft.preview', res.preview);
+            return toast(res.message || 'State changed — review the new odds.', 'error');
+        }
+        if (!res || res.error) return actionFailed(res, 'Theft failed');
+
+        ctx.closeDialog(null);
+        store.set('ui.theft', null);
+        // The strike plays on both outcomes: the attempt happened either way,
+        // and the toast carries which way it went.
+        playMoment('theft-strike');
+        toast(res.message || (res.theft_success ? 'Theft succeeded.' : 'Theft failed.'),
+            res.theft_success ? 'success' : 'info');
+        await Promise.all([poll(), ctx.loadSeasonDetail()]);
     },
 
     closeDialog(result) {
@@ -496,7 +878,10 @@ const ctx = {
         // list; the old page/per_page params were ignored server-side and the
         // client pager just re-rendered the same list.
         const res = await api.request('global_leaderboard', {});
-        if (!res || res.error) return;
+        // A failed fetch must be recorded, not swallowed: leaving the slot
+        // null renders "Loading…" forever, and rendering an empty list would
+        // claim the board is empty when the request simply failed.
+        if (!res || res.error) return store.set('screens.ranks', { error: fetchError(res) });
         const entries = Array.isArray(res) ? res : (res.entries || res.leaderboard || []);
         store.set('screens.ranks', { entries });
     },
@@ -504,7 +889,11 @@ const ctx = {
     async loadChat() {
         const channel = store.get('ui.chatChannel') || 'GLOBAL';
         const res = await api.request('chat_messages', { channel }, { channel: 'chat', dedupe: true, respectBackoff: true });
-        if (!res || res.error || res.skipped) return;
+        // skipped is the dedupe/backoff path, not a failure — leave whatever
+        // is on screen alone. A real error is recorded so the room can say so
+        // instead of looking permanently empty.
+        if (res && res.skipped) return;
+        if (!res || res.error) return store.set('screens.chat', { error: fetchError(res), channel });
         const messages = Array.isArray(res) ? res : (res.messages || []);
         store.set('screens.chat', { messages, channel });
     },
@@ -527,7 +916,7 @@ const ctx = {
         });
         store.set('ui.chatSending', false);
 
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
 
         store.set('ui.chatDraft', '');
 
@@ -548,7 +937,7 @@ const ctx = {
             api.request('cosmetic_catalog'),
             api.request('my_cosmetics'),
         ]);
-        if (!catalog || catalog.error) return;
+        if (!catalog || catalog.error) return store.set('screens.shop', { error: fetchError(catalog) });
         store.set('screens.shop', {
             catalog: Array.isArray(catalog) ? catalog : (catalog.items || []),
             owned: mine && !mine.error ? (Array.isArray(mine) ? mine : (mine.owned || [])) : [],
@@ -560,16 +949,17 @@ const ctx = {
         store.set('ui.shopBusy', cosmeticId);
         const res = await api.request('purchase_cosmetic', { cosmetic_id: cosmeticId });
         store.set('ui.shopBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
+        if (res && res.error) return actionFailed(res);
         await Promise.all([ctx.loadShop(), poll()]);
     },
 
-    async equipCosmetic(cosmeticId) {
+    /** equip=false unequips — the server reads the flag, defaulting to true. */
+    async equipCosmetic(cosmeticId, equip = true) {
         store.set('ui.shopBusy', cosmeticId);
-        const res = await api.request('equip_cosmetic', { cosmetic_id: cosmeticId });
+        const res = await api.request('equip_cosmetic', { cosmetic_id: cosmeticId, equip });
         store.set('ui.shopBusy', null);
-        if (res && res.error) return toast(res.error, 'error');
-        await ctx.loadShop();
+        if (res && res.error) return actionFailed(res);
+        await Promise.all([ctx.loadShop(), poll()]);
     },
 };
 
@@ -643,6 +1033,30 @@ function toast(text, kind = 'info') {
     toastTimer = setTimeout(() => store.set('ui.toast', null), 4000);
 }
 
+/**
+ * A human sentence for a failed fetch. The server's own message wins when it
+ * sent one; a dropped request has none, and "Could not reach the server" is
+ * the honest description of that rather than a raw exception or a bare null.
+ */
+function fetchError(res) {
+    if (res && res.error) return String(res.error);
+    return 'Could not reach the server.';
+}
+
+/**
+ * Standard surface for a rejected action: the server's message, the machine
+ * reason_code when one exists, and a snapshot refresh. The refresh is the
+ * important half — a rejection means the client's picture of legality was
+ * stale, so keep rendering from that picture and the next click fails the
+ * same way.
+ */
+function actionFailed(res, fallback = 'Action failed') {
+    const msg = (res && res.error) || fallback;
+    const code = res && res.reason_code;
+    toast(code ? `${msg} [${code}]` : msg, 'error');
+    poll();
+}
+
 /* ------------------------------------------------------------------ *
  * screen lifecycle
  * ------------------------------------------------------------------ */
@@ -676,11 +1090,19 @@ const NAV = [
 ];
 
 const STAFF_NAV = { id: 'staff', label: 'Staff', icon: 'nav-staff' };
+const FAMILY_NAV = { id: 'family', label: 'Family', icon: 'nav-family' };
 
 function navItems() {
     const player = store.get('player');
     const staff = player && (player.role === 'Admin' || player.role === 'Moderator');
-    return staff ? [...NAV, STAFF_NAV] : NAV;
+    // The Family entry appears when the server says the family layer is live
+    // and the player has a season to use it in.
+    const families = Boolean(store.get('familiesEnabled')) && player && player.joined_season_id;
+
+    const items = [...NAV];
+    if (families) items.push(FAMILY_NAV);
+    if (staff) items.push(STAFF_NAV);
+    return items;
 }
 
 function rail(screen) {
@@ -713,11 +1135,16 @@ function hudFigure(field, label, value, format, iconName) {
 function hud(player) {
     if (!player) return null;
 
+    // Season-bound figures live under player.participation in game_state —
+    // null when the player is not in a season, in which case the HUD shows
+    // zeroes, which is the truth.
+    const part = player.participation || {};
+
     return h('div', { id: 'hud', role: 'status', 'aria-live': 'off' },
-        hudFigure('coins', 'Coins', displayedOr('coins', player.coins || 0), formatCount, 'coin'),
-        hudFigure('stars', 'Stars', displayedOr('stars', player.seasonal_stars || 0), formatCount, 'star-season'),
-        hudFigure('sigils', 'Sigils', displayedOr('sigils', player.sigils || 0), formatCount, 'sigil'),
-        hudFigure('rate', 'Rate', displayedOr('rate', player.ubi_rate || 0), formatRate, null),
+        hudFigure('coins', 'Coins', displayedOr('coins', part.coins || 0), formatCount, 'coin'),
+        hudFigure('stars', 'Stars', displayedOr('stars', part.effective_seasonal_stars ?? part.seasonal_stars ?? 0), formatCount, 'star-season'),
+        hudFigure('sigils', 'Sigils', displayedOr('sigils', part.sigils_total || 0), formatCount, 'sigil'),
+        hudFigure('rate', 'Rate', displayedOr('rate', part.net_rate_per_tick ?? part.rate_per_tick ?? 0), formatRate, null),
         tickIndicator(),
         // Moments play over the HUD rather than beside it. Empty and inert
         // until a sprite is registered for 'payout-burst'.
@@ -735,6 +1162,12 @@ function hud(player) {
  * everyone; nothing here needs to change when it does.
  */
 function tickIndicator() {
+    // A countdown must not run behind a modal: the moment it reaches zero is
+    // exactly when the player cannot act on it, and a timer ticking behind a
+    // scrim reads as pressure to dismiss the dialog.
+    const player = store.get('player');
+    if (store.get('ui.dialog') || (player && player.idle_modal_active)) return null;
+
     const seconds = clock.secondsToNextTick();
     const timing = store.get('timing');
     const period = timing && Number(timing.tick_real_seconds);
@@ -759,6 +1192,88 @@ function connectionNote(state) {
 }
 
 /**
+ * Play a one-shot moment over the stage.
+ *
+ * The moments are the game's punctuation: a sigil landing, a theft resolving,
+ * a freeze biting, a season ending. They are deliberately fire-and-forget and
+ * never block an action — the state change they announce has already
+ * happened, and under reduced motion assets.playSprite holds the rest frame
+ * instead, so nothing is conveyed by animation alone.
+ */
+function playMoment(name) {
+    const host = document.getElementById('moment-host');
+    if (host) assets.playSprite(host, name);
+}
+
+/**
+ * Header chips: at most two — participation mode, then the single most
+ * relevant constraint, with Disconnected taking precedence over Idle. The
+ * idle chip renders from the server's idle_modal_active flag, never from
+ * local inactivity guesses.
+ */
+function chipStrip() {
+    const player = store.get('player');
+    if (!player) return null;
+
+    const chips = [
+        h('span', { key: 'mode', class: 'chip chip-mode' },
+            player.joined_season_id ? 'In season' : 'Spectating'),
+    ];
+
+    if (store.get('connection') === 'retrying') {
+        chips.push(h('span', { key: 'constraint', class: 'chip chip-constraint is-disconnected' }, 'Disconnected'));
+    } else if (player.idle_modal_active) {
+        chips.push(h('span', { key: 'constraint', class: 'chip chip-constraint is-idle' },
+            assets.icon('state-idle', { class: 'chip-icon' }),
+            'Idle (activity required)'));
+    }
+
+    return h('div', { class: 'chip-strip' }, chips);
+}
+
+/**
+ * The idle gate. The server sets idle_modal_active after 15 quiet minutes and
+ * refuses every season economy action until idle_ack runs — without this
+ * surface an idle player is soft-locked behind opaque rejections.
+ *
+ * It deliberately does NOT cover the rail, and on the chat screen it
+ * collapses to a banner: idle gates the season economy only, never chat.
+ */
+function idleModalView() {
+    const player = store.get('player');
+    if (!player || !player.idle_modal_active) return null;
+
+    const acking = Boolean(store.get('ui.idleAcking'));
+    const ackBtn = h('button', {
+        class: 'btn btn-primary',
+        disabled: acking,
+        onClick: () => ctx.idleAck(),
+    }, acking ? 'Waking…' : "I'm here");
+
+    const screen = store.get('screen');
+    if (screen === 'chat' || screen === 'auth') {
+        return h('div', { class: 'idle-banner', role: 'status' },
+            h('span', null, 'You are idle — season actions are paused. Chat still works.'),
+            ackBtn,
+        );
+    }
+
+    return h('div', { class: 'dialog-backdrop idle-backdrop' },
+        h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'You are idle' },
+            h('h2', { class: 'dialog-title' }, 'Still there?'),
+            h('p', { class: 'dialog-body' },
+                'After 15 quiet minutes you are marked idle: income slows and season '
+                + 'actions are paused until you check back in. Chat and the rail stay '
+                + 'open — this only pauses the economy.'),
+            h('div', { class: 'dialog-actions' },
+                h('button', { class: 'btn btn-ghost', onClick: () => ctx.doLogout() }, 'Log out'),
+                ackBtn,
+            ),
+        ),
+    );
+}
+
+/**
  * Modal host.
  *
  * Rendered through the reconciler like everything else rather than being
@@ -769,7 +1284,9 @@ function dialogView() {
     const dialog = store.get('ui.dialog');
     if (!dialog) return null;
 
-    const body = dialog.kind === 'target' ? targetDialog(dialog) : confirmDialog(dialog);
+    const body = dialog.kind === 'target' ? targetDialog(dialog)
+        : dialog.kind === 'theft' ? theftDialog(dialog)
+            : confirmDialog(dialog);
 
     return h('div', {
         class: 'dialog-backdrop',
@@ -843,6 +1360,93 @@ function targetDialog(dialog) {
     ];
 }
 
+// Which tiers theft can spend and request. Mirrors the server's
+// SIGIL_THEFT_SPEND_TIERS / SIGIL_THEFT_TARGET_TIERS — the server validates,
+// this only shapes the form.
+const THEFT_SPEND_TIERS = [1, 2, 3, 4, 5];
+const THEFT_REQUEST_TIERS = [1, 2, 3, 4, 5, 6];
+const ROMAN_TIER = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
+
+function theftStepperRow(label, kind, tiers, owned) {
+    const t = store.get('ui.theft') || {};
+    const counts = t[kind] || [];
+
+    return h('div', { class: 'theft-block' },
+        h('p', { class: 'theft-block-label' }, label),
+        h('div', { class: 'theft-tiers' },
+            tiers.map(tier => {
+                const count = Number(counts[tier - 1]) || 0;
+                const cap = owned ? (Number(owned[tier - 1]) || 0) : null;
+                return h('div', { key: tier, class: 'theft-tier' + (count > 0 ? ' has-some' : '') },
+                    h('span', { class: 'theft-tier-label' },
+                        ROMAN_TIER[tier], owned ? h('span', { class: 'muted small' }, ` /${cap}`) : null),
+                    h('div', { class: 'stepper' },
+                        h('button', {
+                            class: 'stepper-btn', 'aria-label': `Fewer tier ${tier}`,
+                            disabled: count <= 0,
+                            onClick: () => ctx.theftAdjust(kind, tier, -1),
+                        }, '−'),
+                        h('span', { class: 'stepper-count tabular' }, String(count)),
+                        h('button', {
+                            class: 'stepper-btn', 'aria-label': `More tier ${tier}`,
+                            disabled: cap !== null && count >= cap,
+                            onClick: () => ctx.theftAdjust(kind, tier, +1),
+                        }, '+'),
+                    ),
+                );
+            }),
+        ),
+    );
+}
+
+function theftDialog() {
+    const t = store.get('ui.theft');
+    if (!t) return [h('p', null, 'No theft in progress.')];
+
+    const player = store.get('player');
+    const owned = ((player && player.participation) || {}).sigils || [];
+    const preview = t.preview;
+    const busy = Boolean(t.busy);
+    const anySpend = (t.spend || []).some(n => Number(n) > 0);
+    const anyRequest = (t.request || []).some(n => Number(n) > 0);
+
+    return [
+        h('h2', { class: 'dialog-title' }, `Steal from ${t.target.handle}`),
+        h('p', { class: 'dialog-body' },
+            'Spent sigils are consumed whether the theft lands or not. '
+            + 'Asking for more loot lowers the odds.'),
+
+        theftStepperRow('Spend (yours, consumed either way)', 'spend', THEFT_SPEND_TIERS, owned),
+        theftStepperRow(`Request from ${t.target.handle}`, 'request', THEFT_REQUEST_TIERS, null),
+
+        // The odds shown are always the server's. Editing any count clears
+        // them, so the Attempt button can never fire on stale numbers.
+        preview
+            ? h('div', { class: 'theft-preview' },
+                h('p', { class: 'theft-odds' },
+                    h('strong', null, `${preview.success_chance_pct}% `), 'success chance'),
+                h('p', { class: 'muted small' },
+                    `Spend value ${preview.spend_value} vs loot value ${preview.requested_value}. `
+                    + String((preview.risk && preview.risk.explain) || '')),
+            )
+            : h('p', { class: 'muted small' }, 'Preview to see the server\'s odds before you commit.'),
+
+        h('div', { class: 'dialog-actions' },
+            h('button', { class: 'btn btn-ghost', onClick: () => { store.set('ui.theft', null); ctx.closeDialog(null); } }, 'Cancel'),
+            h('button', {
+                class: 'btn',
+                disabled: busy || !anySpend || !anyRequest,
+                onClick: () => ctx.theftPreview(),
+            }, busy ? 'Working…' : 'Preview odds'),
+            h('button', {
+                class: 'btn btn-danger',
+                disabled: busy || !preview,
+                onClick: () => ctx.theftAttempt(),
+            }, busy ? 'Working…' : 'Attempt theft'),
+        ),
+    ];
+}
+
 function toastView() {
     const t = store.get('ui.toast');
     if (!t) return null;
@@ -883,6 +1487,53 @@ function deck(screenId) {
     }
 }
 
+function timeAgo(iso) {
+    const t = Date.parse(iso || '');
+    if (!Number.isFinite(t)) return '';
+    const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (s < 60) return 'now';
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
+}
+
+function notificationsPanel() {
+    if (!store.get('ui.notifOpen')) return null;
+
+    const list = store.get('notifications') || [];
+    const anyUnread = list.some(n => !n.is_read);
+
+    return h('div', { class: 'notif-panel', role: 'region', 'aria-label': 'Notifications' },
+        h('div', { class: 'notif-head' },
+            h('strong', null, 'Notifications'),
+            anyUnread
+                ? h('button', { class: 'btn btn-ghost btn-sm', onClick: () => ctx.markAllNotifsRead() }, 'Mark all read')
+                : null,
+        ),
+        list.length
+            ? h('ul', { class: 'notif-list' },
+                list.map(n => h('li', {
+                    key: n.notification_id,
+                    class: `notif notif-${n.severity || 'info'}` + (n.is_read ? '' : ' is-unread'),
+                },
+                    h('button', {
+                        class: 'notif-main',
+                        onClick: () => { if (!n.is_read) ctx.markNotifRead(n.notification_id); },
+                    },
+                        h('span', { class: 'notif-title' }, n.title || ''),
+                        n.body ? h('span', { class: 'notif-body' }, n.body) : null,
+                        h('span', { class: 'notif-time' }, timeAgo(n.created_at)),
+                    ),
+                    h('button', {
+                        class: 'notif-x',
+                        'aria-label': 'Dismiss notification',
+                        onClick: () => ctx.removeNotif(n.notification_id),
+                    }, '×'),
+                )))
+            : h('p', { class: 'notif-empty' }, 'Nothing yet.'),
+    );
+}
+
 function userArea() {
     const player = store.get('player');
 
@@ -892,9 +1543,23 @@ function userArea() {
         );
     }
 
+    const unread = Number(store.get('notificationsUnread')) || 0;
+
     return h('div', { class: 'user-area' },
-        h('span', { class: 'user-handle' }, player.handle || 'Player'),
+        h('button', {
+            class: 'btn btn-ghost btn-sm notif-bell',
+            'aria-label': unread ? `Notifications, ${unread} unread` : 'Notifications',
+            onClick: () => ctx.toggleNotifications(),
+        },
+            assets.icon('bell'),
+            unread ? h('span', { class: 'notif-badge tabular' }, unread > 99 ? '99+' : String(unread)) : null,
+        ),
+        h('button', {
+            class: 'link-handle user-handle',
+            onClick: () => ctx.openProfile(player.player_id),
+        }, player.handle || 'Player'),
         h('button', { class: 'btn btn-ghost btn-sm', onClick: () => ctx.doLogout() }, 'Log out'),
+        notificationsPanel(),
     );
 }
 
@@ -916,10 +1581,16 @@ function shell() {
         rail(screen),
         h('div', { id: 'stage' },
             userArea(),
+            chipStrip(),
             hud(store.get('player')),
             connectionNote(store.get('connection')),
             h('main', { id: 'deck', 'data-screen': screen }, deck(screen)),
             themeSwitch(),
+            // One host for every one-shot moment. Inert and empty until a
+            // sprite is played into it.
+            h('div', { key: 'moment', id: 'moment-host', class: 'sprite-host' }),
+            // Scoped to the stage so the rail stays reachable underneath it.
+            h('div', { id: 'idle-host' }, idleModalView()),
         ),
         toastView(),
         h('div', { id: 'dialog-host' }, dialogView()),
@@ -1074,6 +1745,11 @@ async function poll() {
         connection: 'live',
         serverMode: gs.server_mode || 'NORMAL',
         unlocks: gs.player ? (gs.player.unlocks ?? null) : null,
+        // The poll already carries these on every response — the bell renders
+        // them instead of throwing them away.
+        notifications: gs.player ? (gs.player.notifications || []) : [],
+        notificationsUnread: gs.player ? (Number(gs.player.notifications_unread_count) || 0) : 0,
+        familiesEnabled: Boolean(gs.families_enabled),
     });
 
     if (gs.timing) {
@@ -1132,11 +1808,27 @@ function boot() {
     // action, a 401 bouncing us to auth — goes through the same path.
     store.subscribe('screen', (next) => { activateScreen(next); });
 
-    // Figures animate toward their new values rather than jumping.
-    store.subscribe('player.coins', (next) => animateField('coins', Number(next) || 0));
-    store.subscribe('player.seasonal_stars', (next) => animateField('stars', Number(next) || 0));
-    store.subscribe('player.sigils', (next) => animateField('sigils', Number(next) || 0));
-    store.subscribe('player.ubi_rate', (next) => animateField('rate', Number(next) || 0));
+    // Figures animate toward their new values rather than jumping. The paths
+    // match where game_state actually puts them: under player.participation.
+    store.subscribe('player.participation.coins', (next) => animateField('coins', Number(next) || 0));
+    store.subscribe('player.participation.effective_seasonal_stars', (next) => animateField('stars', Number(next) || 0));
+    store.subscribe('player.participation.net_rate_per_tick', (next) => animateField('rate', Number(next) || 0));
+
+    // A sigil landing is the game's reward beat, and the poll is the only
+    // place the client learns about one — drops are awarded by the tick
+    // engine, never by an action the client took. Only an increase plays:
+    // spending sigils moves this number down and is not a drop.
+    store.subscribe('player.participation.sigils_total', (next, prev) => {
+        const to = Number(next) || 0;
+        animateField('sigils', to);
+        if (prev !== undefined && prev !== null && to > (Number(prev) || 0)) playMoment('sigil-drop');
+    });
+
+    // Likewise a freeze: it is something done TO the player, so the first
+    // they can know of it is a poll reporting it.
+    store.subscribe('player.participation.freeze.is_frozen', (next, prev) => {
+        if (next && !prev) playMoment('freeze-lock');
+    });
 
     // One clock: the poll, the countdown repaint, and the payout pulse.
     clock.every(POLL_MS, poll);
