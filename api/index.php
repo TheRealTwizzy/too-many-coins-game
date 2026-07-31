@@ -68,8 +68,49 @@ function tmc_proxy_is_trusted(?string $remoteAddr): bool {
         }
     }
 
-    // Most reverse proxies sit on private/reserved addresses from the app's perspective.
-    return tmc_is_private_or_reserved_ip($remoteAddr);
+    // A private REMOTE_ADDR is NOT evidence that the peer is a trusted proxy.
+    //
+    // This used to return true for any private/reserved address, which is the
+    // address a containerised deploy always sees - so on the documented
+    // Dokploy/Traefik setup every caller was trusted to declare their own IP
+    // via CF-Connecting-IP, and could mint a fresh anonymous rate-limit bucket
+    // per request simply by changing the header.
+    //
+    // Trust now has to be configured (TMC_TRUST_PROXY_HEADERS, or the peer
+    // listed in TMC_TRUSTED_PROXIES). Behind an unconfigured proxy the
+    // anonymous tier collapses to one shared bucket keyed on the proxy's
+    // address, which is the safe direction to fail: the only traffic in that
+    // tier is unauthenticated (login, register), which warrants a tight global
+    // ceiling anyway, while every signed-in player already has their own
+    // validated session bucket.
+    if (tmc_is_private_or_reserved_ip($remoteAddr)) {
+        tmc_warn_untrusted_proxy_once($remoteAddr);
+    }
+    return false;
+}
+
+/**
+ * Say once, loudly, that proxy headers are being ignored.
+ *
+ * Silently sharing one bucket is safe but confusing to debug - it looks like
+ * the limiter is too aggressive rather than like missing configuration.
+ */
+function tmc_warn_untrusted_proxy_once(?string $remoteAddr): void {
+    static $warned = false;
+    if ($warned) return;
+    $warned = true;
+    if (!isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+        && !isset($_SERVER['HTTP_X_REAL_IP'])
+        && !isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        return; // No proxy headers present; nothing is being ignored.
+    }
+    error_log(
+        '[rate_limit] proxy headers present from ' . (string)$remoteAddr
+        . ' but that peer is not a configured trusted proxy, so they are ignored '
+        . 'and the anonymous tier is keyed on the peer address. Set '
+        . 'TMC_TRUSTED_PROXIES to this address (or TMC_TRUST_PROXY_HEADERS=1) '
+        . 'if it really is your reverse proxy.'
+    );
 }
 
 function tmc_resolve_client_ip(): string {
@@ -150,6 +191,42 @@ $rateLimitDir = sys_get_temp_dir() . '/tmc_ratelimit';
 if (!is_dir($rateLimitDir)) {
     @mkdir($rateLimitDir, 0755, true);
 }
+
+/**
+ * Sweep expired buckets.
+ *
+ * One file is created per identity and nothing ever removed them, so the
+ * directory grew without bound - and since an identity could be minted per
+ * request, an attacker could fill the filesystem's inodes with a long enough
+ * loop. Buckets are worthless once their window has passed, so anything older
+ * than a few windows is deleted.
+ *
+ * Sampled rather than run every request: this is opportunistic housekeeping,
+ * not something worth a directory scan on a hot path. The cap keeps the worst
+ * case bounded when a sweep does happen.
+ */
+function tmc_rate_limit_sweep(string $dir, int $windowSeconds): void {
+    // ~1 request in 500 pays for the sweep.
+    if (random_int(1, 500) !== 1) return;
+
+    $staleBefore = time() - max(60, $windowSeconds * 5);
+    $handle = @opendir($dir);
+    if ($handle === false) return;
+
+    $examined = 0;
+    while (($entry = readdir($handle)) !== false) {
+        if ($entry === '.' || $entry === '..') continue;
+        if (++$examined > 5000) break;
+        if (substr($entry, -5) !== '.json') continue;
+        $path = $dir . '/' . $entry;
+        $mtime = @filemtime($path);
+        if ($mtime !== false && $mtime < $staleBefore) {
+            @unlink($path);
+        }
+    }
+    closedir($handle);
+}
+tmc_rate_limit_sweep($rateLimitDir, (int)TMC_RATE_LIMIT_WINDOW_SECONDS);
 
 $sessionToken = $_COOKIE['tmc_session'] ?? ($_SERVER['HTTP_X_SESSION_TOKEN'] ?? '');
 $sessionToken = is_string($sessionToken) ? trim($sessionToken) : '';
@@ -233,6 +310,87 @@ if ($rateData['count'] > $rateLimit) {
 }
 
 tmc_rate_limit_log('pass', $rateTier, $rateIdentity, (int)$rateData['count'], (int)$rateLimit, (int)$rateWindow, (string)$rateAction);
+
+/**
+ * Per-action ceilings, on top of the global allowance.
+ *
+ * The global limit is sized for ordinary play - a few hundred requests a
+ * minute is normal when the client polls every 3 seconds - which makes it far
+ * too loose for the handful of actions where a single request is expensive or
+ * carries real-world weight:
+ *
+ *   chat_send                a few hundred posts a minute scrolls the readable
+ *                            transcript away for everyone, and CHAT_MAX_ROWS
+ *                            means older messages are simply gone
+ *   register                 burns a bcrypt hash per call and permanently
+ *                            squats a handle in a global namespace
+ *   login                    the guessing surface; deliberately tighter than
+ *                            the global tier even for a valid session
+ *   account_delete_request   sends mail, synchronously, to an address supplied
+ *                            by the caller
+ *   friend_request_send      notification spam aimed at another player
+ *   sight_reveal / freeze_player_ubi / sigil_theft_attempt
+ *                            hostile verbs that notify the target
+ *
+ * Same file-and-lock mechanism as the global limiter, keyed per identity AND
+ * action so one noisy action cannot exhaust another's allowance.
+ */
+const TMC_ACTION_LIMITS = [
+    'login'                  => ['limit' => 10, 'window' => 300],
+    'register'               => ['limit' => 5,  'window' => 3600],
+    'account_delete_request' => ['limit' => 3,  'window' => 3600],
+    'account_change_password' => ['limit' => 10, 'window' => 3600],
+    'chat_send'              => ['limit' => 20, 'window' => 60],
+    'friend_request_send'    => ['limit' => 20, 'window' => 300],
+    'sigil_theft_attempt'    => ['limit' => 30, 'window' => 300],
+    'freeze_player_ubi'      => ['limit' => 30, 'window' => 300],
+    'sight_reveal'           => ['limit' => 30, 'window' => 300],
+];
+
+if (isset(TMC_ACTION_LIMITS[$rateAction])) {
+    $actionRule = TMC_ACTION_LIMITS[$rateAction];
+    $actionWindow = (int)$actionRule['window'];
+    $actionLimitMax = (int)$actionRule['limit'];
+    $actionFile = $rateLimitDir . '/a_' . md5($rateIdentity . '|' . $rateAction) . '.json';
+
+    $actionData = ['window_start' => $now, 'count' => 1];
+    $actionHandle = @fopen($actionFile, 'c+');
+    if ($actionHandle !== false) {
+        if (flock($actionHandle, LOCK_EX)) {
+            $existing = stream_get_contents($actionHandle);
+            $decoded = json_decode((string)$existing, true);
+            if (is_array($decoded)
+                && isset($decoded['window_start'], $decoded['count'])
+                && ($now - (int)$decoded['window_start']) < $actionWindow) {
+                $actionData = [
+                    'window_start' => (int)$decoded['window_start'],
+                    'count' => (int)$decoded['count'] + 1,
+                ];
+            }
+            ftruncate($actionHandle, 0);
+            rewind($actionHandle);
+            fwrite($actionHandle, json_encode($actionData));
+            fflush($actionHandle);
+            flock($actionHandle, LOCK_UN);
+        }
+        fclose($actionHandle);
+    }
+
+    if ((int)$actionData['count'] > $actionLimitMax) {
+        $retryAfter = max(1, $actionWindow - ($now - (int)$actionData['window_start']));
+        tmc_rate_limit_log('blocked', $rateTier . ':' . $rateAction, $rateIdentity,
+            (int)$actionData['count'], $actionLimitMax, $actionWindow, (string)$rateAction);
+        http_response_code(429);
+        header('Retry-After: ' . $retryAfter);
+        echo json_encode([
+            'error' => 'You are doing that too often. Try again shortly.',
+            'reason_code' => 'action_rate_limited',
+            'action' => $rateAction,
+            'retry_after_seconds' => $retryAfter,
+        ]);
+        exit;
+    }
+}
 
 require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../includes/game_time.php';
@@ -508,12 +666,28 @@ try {
             break;
             
         case 'leaderboard':
+            // Season standings are combat intelligence, not a public scoreboard.
+            //
+            // Anonymously this returned every participant's exact coin balance,
+            // income rate, freeze state, boost percentage and online flag - the
+            // whole season in one unauthenticated request. getProfile was
+            // hardened against precisely that ("so it cannot be scraped
+            // anonymously into a census of the whole season") and this was the
+            // way around it.
+            //
+            // Requiring a session also lets the payload be trimmed by viewer,
+            // which is what getLeaderboard now does.
+            $player = Auth::requireAuth();
             $seasonId = (int)($input['season_id'] ?? 0);
             $limit = isset($input['limit']) ? (int)$input['limit'] : 0;
-            echo json_encode(getLeaderboard($seasonId, $limit));
+            echo json_encode(getLeaderboard($seasonId, $limit, $player));
             break;
-            
+
         case 'global_leaderboard':
+            // Ranked global stars only, but it still enumerates every account
+            // with presence flags, and the Ranks screen behind it is
+            // login-only anyway.
+            Auth::requireAuth();
             echo json_encode(getGlobalLeaderboard());
             break;
             
@@ -1666,6 +1840,10 @@ function getSeasonDetail($player, $seasonId) {
     
     // Top players
     if ($season['computed_status'] === 'Active' || $season['computed_status'] === 'Blackout') {
+        // Bounded like every other standings query. This branch had no LIMIT,
+        // so one request against a busy season returned every participant -
+        // the same unbounded enumeration LEADERBOARD_MAX_LIMIT was introduced
+        // to stop, just on a different code path.
         $season['leaderboard'] = $db->fetchAll(
             "SELECT sp.player_id, p.handle,
                     {$effectiveScoreSql} AS seasonal_stars,
@@ -1674,8 +1852,9 @@ function getSeasonDetail($player, $seasonId) {
              FROM season_participation sp
              JOIN players p ON p.player_id = sp.player_id
              WHERE sp.season_id = ?
-             ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC",
-            [$seasonId]
+             ORDER BY {$effectiveScoreSql} DESC, sp.player_id ASC
+             LIMIT ?",
+            [$seasonId, (int)LEADERBOARD_MAX_LIMIT]
         );
     } else {
         $season['leaderboard'] = $db->fetchAll(
@@ -1708,8 +1887,29 @@ function getSeasonDetail($player, $seasonId) {
     return $season;
 }
 
-function getLeaderboard($seasonId, int $limit = 0) {
+/**
+ * Strip another player's private state from a standings row.
+ *
+ * A leaderboard answers "who is ahead". It does not need to answer "how many
+ * coins does that player have right now, what is their income rate, are they
+ * frozen, and are they at the keyboard" - which is targeting information for
+ * theft and freezes, and was being served for the whole season at once.
+ *
+ * Your own row keeps everything, because none of it is a secret from you.
+ */
+function redactLeaderboardRowForViewer(array $row, ?int $viewerId): array {
+    if ($viewerId !== null && (int)($row['player_id'] ?? 0) === $viewerId) {
+        return $row;
+    }
+    foreach (['coins', 'rate_per_tick', 'boost_pct', 'is_frozen', 'participation_time_total'] as $private) {
+        unset($row[$private]);
+    }
+    return $row;
+}
+
+function getLeaderboard($seasonId, int $limit = 0, $viewer = null) {
     $db = Database::getInstance();
+    $viewerId = is_array($viewer) && isset($viewer['player_id']) ? (int)$viewer['player_id'] : null;
     $season = $db->fetch("SELECT * FROM seasons WHERE season_id = ?", [$seasonId]);
     if (!$season) return [];
     $effectiveScoreSql = seasonEffectiveScoreSql('sp');
@@ -1828,6 +2028,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
             $row['rate_per_tick'] = (float)$metrics['rate_per_tick'];
             $row['boost_pct'] = (float)$metrics['boost_pct'];
             unset($row['boost_mod_fp']);
+            $row = redactLeaderboardRowForViewer($row, $viewerId);
         }
         unset($row);
         return $rows;
@@ -1850,6 +2051,7 @@ function getLeaderboard($seasonId, int $limit = 0) {
     $rows = normalizeParticipationScorePayloads($rows);
     foreach ($rows as &$row) {
         $row['rate_per_tick'] = 0;
+        $row = redactLeaderboardRowForViewer($row, $viewerId);
     }
     unset($row);
     return $rows;
@@ -2873,12 +3075,20 @@ function previewSigilTheft(
         }
     }
 
-    foreach (SIGIL_THEFT_TARGET_TIERS as $tier) {
-        $amount = max(0, (int)($requestedSigils[$tier - 1] ?? 0));
-        if ($amount > (int)($targetParticipation['sigils_t' . $tier] ?? 0)) {
-            return ['error' => 'Requested sigils exceed target inventory'];
-        }
-    }
+    // The preview deliberately does NOT check the request against the target's
+    // holdings.
+    //
+    // It used to, and answered "Requested sigils exceed target inventory" -
+    // which is a yes/no on "does this player hold at least N of tier T",
+    // available for free, instantly, unlimited, with no cooldown and no notice
+    // to the target. Walking N per tier reads their exact inventory, which is
+    // the information theft is supposed to be a gamble about.
+    //
+    // Nothing is lost by omitting it: attemptSigilTheft re-validates the same
+    // condition inside its transaction under SELECT ... FOR UPDATE, so an
+    // over-large request still cannot take what is not there. The odds below
+    // are computed from the requested value, which is what the attacker is
+    // choosing to stake.
 
     $spendValue = calculateSigilCountsValue($spentSigils, SIGIL_UTILITY_VALUE_BY_TIER);
     $requestedValue = calculateSigilCountsValue($requestedSigils, SIGIL_UTILITY_VALUE_BY_TIER);

@@ -365,6 +365,95 @@ check('audit redaction marks the field rather than dropping it', (function () {
 })());
 
 // ---------------------------------------------------------------------------
+// Season standings are not an anonymous census
+// ---------------------------------------------------------------------------
+//
+// The leaderboard returned every participant's coin balance, income rate,
+// freeze state, boost percentage and online flag - to a caller with no
+// session. getProfile was hardened against exactly that; this was the way
+// around it.
+
+check('the season leaderboard requires a session',
+    refused(req('leaderboard', ['season_id' => $activeSeasonId ?: 1])),
+    req('leaderboard', ['season_id' => $activeSeasonId ?: 1])['body']);
+
+check('the global leaderboard requires a session',
+    refused(req('global_leaderboard')));
+
+check('another player\'s private state is stripped from the standings', (function () use ($alice, $activeSeasonId) {
+    $res = req('leaderboard', ['season_id' => $activeSeasonId ?: 1], $alice['token']);
+    $rows = isset($res['body'][0]) ? $res['body'] : ($res['body']['leaderboard'] ?? []);
+    $mine = (int)$alice['player_id'];
+    foreach ($rows as $row) {
+        if ((int)($row['player_id'] ?? 0) === $mine) continue; // your own row is yours
+        foreach (['coins', 'rate_per_tick', 'boost_pct', 'is_frozen'] as $secret) {
+            if (array_key_exists($secret, $row)) return false;
+        }
+    }
+    return count($rows) > 0;
+})(), 'a rival row still carried combat state');
+
+check('your own standings row keeps your own figures', (function () use ($alice, $activeSeasonId) {
+    $res = req('leaderboard', ['season_id' => $activeSeasonId ?: 1], $alice['token']);
+    $rows = isset($res['body'][0]) ? $res['body'] : ($res['body']['leaderboard'] ?? []);
+    foreach ($rows as $row) {
+        if ((int)($row['player_id'] ?? 0) === (int)$alice['player_id']) {
+            return array_key_exists('coins', $row);
+        }
+    }
+    return true; // not in this season; nothing to assert
+})());
+
+check('standings are bounded', (function () use ($alice, $activeSeasonId) {
+    // LEADERBOARD_MAX_LIMIT is defined inside api/index.php rather than
+    // config.php, so it is not visible from a CLI harness. Mirrored here; the
+    // point of the check is that SOME cap applies, not its exact value.
+    $cap = 200;
+    $res = req('season_detail', ['season_id' => $activeSeasonId ?: 1], $alice['token']);
+    $rows = $res['body']['leaderboard'] ?? [];
+    return count($rows) <= $cap;
+})());
+
+// ---------------------------------------------------------------------------
+// The theft preview is not a free inventory oracle
+// ---------------------------------------------------------------------------
+//
+// It used to answer "Requested sigils exceed target inventory", which is a
+// yes/no on "does this player hold at least N of tier T" - free, instant,
+// unlimited, and silent to the target. Walking N per tier read their exact
+// inventory.
+
+check('the theft preview does not confirm a target\'s holdings', (function () use ($alice, $bob) {
+    $res = req('sigil_theft_preview', [
+        'target_player_id' => $bob['player_id'],
+        'spent_sigils' => [1, 0, 0, 0, 0, 0],
+        // Deliberately absurd: nobody holds 999 of a tier.
+        'requested_sigils' => [999, 0, 0, 0, 0, 0],
+    ], $alice['token']);
+    return stripos((string)($res['body']['error'] ?? ''), 'target inventory') === false;
+})(), 'the preview still reports whether the target holds the requested sigils');
+
+// ---------------------------------------------------------------------------
+// Per-action throttles
+// ---------------------------------------------------------------------------
+//
+// The global allowance is sized for a client that polls every 3 seconds, which
+// is far too loose for actions where one request is expensive or carries
+// real-world weight (mail, bcrypt, notifications aimed at another player).
+
+check('chat flooding is throttled well below the global allowance', (function () use ($alice) {
+    // Mirrors TMC_ACTION_LIMITS in api/index.php, which is not visible from a
+    // CLI harness. The assertion is that a throttle bites at all, not where.
+    $limit = 20;
+    $refusedCount = 0;
+    for ($i = 0; $i < $limit + 6; $i++) {
+        $res = req('chat_send', ['channel' => 'GLOBAL', 'content' => 'flood probe ' . $i], $alice['token']);
+        if (($res['body']['reason_code'] ?? '') === 'action_rate_limited') $refusedCount++;
+    }
+    return $refusedCount > 0;
+})(), 'chat_send was never throttled');
+
+// ---------------------------------------------------------------------------
 // LAST: the rate limiter cannot be steered by the caller
 // ---------------------------------------------------------------------------
 //

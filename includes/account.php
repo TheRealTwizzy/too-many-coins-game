@@ -60,14 +60,52 @@ class AccountService {
             return ['error' => 'Password is too long'];
         }
 
+        // Changing the password must invalidate the old session.
+        //
+        // It did not, and sessions never expire server-side, so a token stolen
+        // before the change kept working forever afterwards. That inverts the
+        // meaning of the action: the one thing a player does when they think
+        // they have been compromised did not evict the intruder, and told them
+        // "Your password was changed successfully" while the attacker stayed
+        // signed in.
+        //
+        // The new token is returned so the caller who just authenticated with
+        // their current password is not logged out by their own remediation.
+        // Every other holder of the old token is.
         $hash = password_hash($new, PASSWORD_BCRYPT);
+        $newToken = bin2hex(random_bytes(32));
         Database::getInstance()->query(
-            "UPDATE players SET password_hash = ? WHERE player_id = ?",
-            [$hash, (int)$player['player_id']]
+            "UPDATE players SET password_hash = ?, session_token = ? WHERE player_id = ?",
+            [$hash, $newToken, (int)$player['player_id']]
         );
+        self::issueSessionCookie($newToken);
+
         Audit::record($player['player_id'], $player['player_id'], 'password_change');
-        Notifications::create($player['player_id'], 'account_security', 'Password changed', 'Your password was changed successfully.', ['severity' => 'success']);
-        return ['success' => true];
+        Notifications::create(
+            $player['player_id'],
+            'account_security',
+            'Password changed',
+            'Your password was changed, and every other signed-in device was signed out.',
+            ['severity' => 'success']
+        );
+        return ['success' => true, 'token' => $newToken];
+    }
+
+    /**
+     * Re-issue the session cookie with the same flags Auth::login sets.
+     *
+     * HttpOnly and SameSite matter as much here as at login - a rotation that
+     * downgraded the cookie would trade one weakness for another.
+     */
+    private static function issueSessionCookie(string $token): void {
+        if (headers_sent()) return;
+        setcookie('tmc_session', $token, [
+            'expires' => time() + (86400 * 30),
+            'path' => '/',
+            'secure' => !empty($_SERVER['HTTPS']),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
     }
 
     private static function createVerificationToken(int $actorId, int $targetId, string $actionType, ?array $payload = null): array {
