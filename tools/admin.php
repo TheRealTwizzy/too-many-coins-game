@@ -56,6 +56,11 @@ Too Many Coins operator CLI
       Return an account to Player. Refuses to remove the last Admin
       unless --force is given.
 
+  php tools/admin.php verify <handle> [--reason="..."]
+      Mark an account's email address as confirmed. There is no
+      self-service verification flow yet, so this is the only way
+      an account gets a confirmed address.
+
   php tools/admin.php gate status|on|off [--reason="..."]
       Read or set the maintenance lockdown gate.
 
@@ -119,11 +124,17 @@ function requireMaintenanceAccessColumn(Database $db): bool {
 }
 
 /**
- * One word for the account's usable state.
+ * One word for the account's state.
  *
- * "unverified" is the one worth surfacing: a promoted account that never
- * confirmed its email cannot sign in, so an Admin created before SMTP worked
- * looks correct in the role column and is still unusable.
+ * "unverified" means no confirmed email address on file. It does NOT mean the
+ * account is blocked: nothing in Auth::login consults email_verified_at, and
+ * no registration path ever sets it, so today every account made through the
+ * game reads unverified and signs in perfectly well.
+ *
+ * It is still worth showing, because an address nobody has proved control of
+ * is an address that cannot receive a password reset - which matters most for
+ * the one Admin account. Earlier wording here claimed these accounts "cannot
+ * sign in yet", which was simply wrong.
  */
 function accountState(array $player): string {
     if (!empty($player['profile_deleted_at'])) return 'deleted';
@@ -161,7 +172,9 @@ function cmdStaff(Database $db): int {
     }
     printf("\n%d staff account(s), %d Admin.\n", count($rows), adminCount($db));
     if ($unverified > 0) {
-        printf("%d cannot sign in yet: email unverified.\n", $unverified);
+        printf("%d with no confirmed email address. Sign-in still works - nothing\n", $unverified);
+        echo "checks the flag - but an unconfirmed address cannot receive a\n";
+        echo "password reset. Mark one confirmed with:  admin.php verify <handle>\n";
     }
     return 0;
 }
@@ -324,6 +337,48 @@ function cmdGate(Database $db, ?string $mode, ?string $reason): int {
     echo $target === 'MAINTENANCE_LOCKDOWN'
         ? "Players are now blocked. Undo with: php tools/admin.php gate off\n"
         : "The game is open. Undo with: php tools/admin.php gate on\n";
+    return 0;
+}
+
+function cmdVerify(Database $db, ?string $handle, ?string $reason): int {
+    if ($handle === null || $handle === '') {
+        fwrite(STDERR, "verify needs a handle.\n");
+        return 1;
+    }
+
+    $player = findPlayer($db, $handle);
+    if (!$player) {
+        fwrite(STDERR, "No account with handle \"{$handle}\". Nothing changed.\n");
+        return 1;
+    }
+
+    if (!empty($player['email_verified_at'])) {
+        echo "{$player['handle']} was already confirmed at {$player['email_verified_at']}. Nothing to do.\n";
+        return 0;
+    }
+
+    // Guarded on the NULL rather than blind, so a concurrent confirmation
+    // cannot be silently overwritten with a later timestamp.
+    $changed = $db->query(
+        "UPDATE players SET email_verified_at = NOW()
+         WHERE player_id = ? AND email_verified_at IS NULL",
+        [(int)$player['player_id']]
+    )->rowCount();
+
+    if ($changed !== 1) {
+        fwrite(STDERR, "Update matched {$changed} rows; expected 1. Check the account by hand.\n");
+        return 1;
+    }
+
+    Audit::record(
+        null, (int)$player['player_id'], 'cli_email_verified',
+        $reason ?? 'Email marked confirmed via tools/admin.php',
+        ['email_verified_at' => null], ['email_verified_at' => 'now']
+    );
+
+    echo "{$player['handle']}: email marked confirmed\n";
+    echo "This asserts control of the address on the operator's word. It is the\n";
+    echo "only way to confirm one today - there is no self-service flow.\n";
     return 0;
 }
 
@@ -493,6 +548,8 @@ switch ($command) {
         exit(cmdPromote($db, $args[1] ?? null, $args[2] ?? null, $reason));
     case 'demote':
         exit(cmdDemote($db, $args[1] ?? null, $reason, isset($flags['force'])));
+    case 'verify':
+        exit(cmdVerify($db, $args[1] ?? null, $reason));
     case 'gate':
         exit(cmdGate($db, $args[1] ?? null, $reason));
     case 'tester':
