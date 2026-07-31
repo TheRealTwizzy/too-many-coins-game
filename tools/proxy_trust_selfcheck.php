@@ -146,6 +146,39 @@ check('untrusted peer resolves to its own address, not the header it sent',
     $resolvedUnderRealConfig);
 unset($_SERVER['HTTP_CF_CONNECTING_IP'], $_SERVER['REMOTE_ADDR']);
 
+echo "\nDiagnostic reporting helpers\n";
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.9, 172.18.0.1';
+check('a present header is reported verbatim',
+    tmc_diagnostic_header_value('HTTP_X_FORWARDED_FOR') === '203.0.113.9, 172.18.0.1');
+check('an absent header reports null, not empty string',
+    tmc_diagnostic_header_value('HTTP_X_NOT_SENT') === null);
+$_SERVER['HTTP_X_FORWARDED_FOR'] = str_repeat('a', 500);
+$truncated = tmc_diagnostic_header_value('HTTP_X_FORWARDED_FOR');
+check('an oversized header is truncated', strlen((string)$truncated) < 250, strlen((string)$truncated));
+check('truncation is marked, not silent', str_ends_with((string)$truncated, '...(truncated)'));
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '';
+check('an empty header is reported as empty, not absent',
+    tmc_diagnostic_header_value('HTTP_X_FORWARDED_FOR') === '');
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+
+echo "\nResolution source reporting mirrors the resolution order\n";
+$_SERVER['REMOTE_ADDR'] = '10.0.1.4';
+$_SERVER['HTTP_X_REAL_IP'] = '172.18.0.1';
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.9';
+// Only meaningful when the live config trusts 10.0.1.4; otherwise the untrusted
+// branch is what gets exercised, and that is asserted instead.
+$source = tmc_resolve_client_ip_source();
+check('source names the header it used, or says the proxy was untrusted',
+    in_array($source, ['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'], true)
+        || str_starts_with($source, 'remote_addr'),
+    $source);
+check('source and resolved address agree',
+    $source === 'x-real-ip'
+        ? tmc_resolve_client_ip() === '172.18.0.1'
+        : (str_starts_with($source, 'remote_addr') ? tmc_resolve_client_ip() === '10.0.1.4' : true),
+    [$source, tmc_resolve_client_ip()]);
+unset($_SERVER['HTTP_X_REAL_IP'], $_SERVER['HTTP_X_FORWARDED_FOR'], $_SERVER['REMOTE_ADDR']);
+
 echo "\n";
 echo "pass: {$pass}  fail: {$fail}\n";
 exit($fail === 0 ? 0 : 1);
