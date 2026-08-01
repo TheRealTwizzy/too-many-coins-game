@@ -17,8 +17,18 @@
  * sink's "50,000" cap looks a lot like a drop rate if you are grepping) and,
  * worse, false confidence. Instead each documented fact is one entry in
  * DOCUMENTED_FACTS: the authoritative value, the file that quotes it, and the
- * exact string that file must contain. Change a constant and the check names the
+ * exact strings that file must contain. Change a constant and the check names the
  * page that now lies and the string to look for.
+ *
+ * Every fact lists ALL of its occurrences, each anchored in enough surrounding
+ * text to be unambiguous, and every one of them must be present. A bare
+ * substring search over a whole page is not good enough: the wiki says
+ * "15 minutes" six times and only one of them is the idle timeout - the rest are
+ * ability, freeze and theft timings that have nothing to do with that constant.
+ * A file-wide search would let those five unrelated copies vouch for a value
+ * nobody had updated. Same trap with "12 hours", where the fourth occurrence is
+ * the hoarding sink's safe period, an operator-configurable per-season column.
+ * Anchoring each occurrence is what makes a partially-updated page fail.
  *
  * What this check deliberately does NOT do:
  *
@@ -85,6 +95,12 @@ $README = 'README.md';
 // across files with no constant binding them is the textbook shape of a value
 // that drifts, so this reads the rate out of the source rather than trusting a
 // number typed into this file.
+//
+// The default is load-bearing too. The natural-expiry path calls the method with
+// two arguments and inherits 100/100, and that inherited default IS the "100% at
+// natural expiry" the wiki documents in three places. Nothing bound the two
+// together, so changing the signature default silently made every one of those
+// pages wrong. It is extracted and checked here rather than assumed.
 // ---------------------------------------------------------------------------
 function extract_lock_in_rates(string $root): array {
     $sources = ['includes/actions.php', 'includes/economy.php'];
@@ -93,8 +109,8 @@ function extract_lock_in_rates(string $root): array {
         $path = $root . '/' . $rel;
         if (!is_file($path)) continue;
         $src = file_get_contents($path);
-        // Only 4-argument calls carry an explicit rate; 2-argument calls are the
-        // 100% natural-expiry path and are checked separately.
+        // Only 4-argument calls carry an explicit rate. Two-argument calls take
+        // the signature default instead; extract_default_rate() covers those.
         if (preg_match_all(
                 '/applyGlobalStarsGrantWithCarry\s*\([^();]*?,\s*(\d+)\s*,\s*(\d+)\s*\)/',
                 $src, $m, PREG_SET_ORDER)) {
@@ -107,6 +123,39 @@ function extract_lock_in_rates(string $root): array {
         }
     }
     return $rates;
+}
+
+/**
+ * The natural-expiry rate is the signature's default - not a constant, and not
+ * anything a call site states out loud. Read it off the signature itself.
+ */
+function extract_default_rate(string $root): ?int {
+    $path = $root . '/includes/economy.php';
+    if (!is_file($path)) return null;
+    if (!preg_match(
+            '/function\s+applyGlobalStarsGrantWithCarry\s*\([^)]*?\$numerator\s*=\s*(\d+)\s*,'
+            . '\s*int\s+\$denominator\s*=\s*(\d+)/',
+            file_get_contents($path), $m)) {
+        return null;
+    }
+    return (int)round(((int)$m[1] / max(1, (int)$m[2])) * 100);
+}
+
+/**
+ * That default only governs anything while some call site still inherits it. If
+ * every caller starts passing an explicit rate, the documented 100% stops coming
+ * from the signature and this check has to be re-pointed.
+ */
+function default_rate_is_load_bearing(string $root): bool {
+    foreach (['includes/actions.php', 'includes/economy.php'] as $rel) {
+        $path = $root . '/' . $rel;
+        if (!is_file($path)) continue;
+        if (preg_match('/applyGlobalStarsGrantWithCarry\s*\(\s*[^();,]+\s*,\s*[^();,]+\s*\)/',
+                       file_get_contents($path))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 echo "Documentation self-check\n";
@@ -130,68 +179,108 @@ if ($lockInRates) {
     $lockInPercent = $distinct[0];
 }
 
+$defaultRate = extract_default_rate($ROOT);
+
+check('the natural-expiry rate is readable from the method signature',
+    $defaultRate !== null,
+    'could not read the $numerator/$denominator defaults from '
+    . 'Economy::applyGlobalStarsGrantWithCarry(); if the signature changed, point '
+    . 'this check at wherever the natural-expiry rate now lives');
+
+check('a call site still inherits the natural-expiry default',
+    default_rate_is_load_bearing($ROOT),
+    'no 2-argument applyGlobalStarsGrantWithCarry call remains, so the signature '
+    . 'default no longer decides the natural-expiry rate; re-point this check at '
+    . 'the explicit rate the expiry path now passes');
+
 // ---------------------------------------------------------------------------
 // Documented facts. Each entry says: this value lives in code, this file quotes
-// it, and this is the string that must appear.
+// it, and these are the strings that must ALL appear - one per place the page
+// states the fact, anchored in surrounding text so that an unrelated line
+// carrying the same number cannot vouch for a copy nobody updated.
 // ---------------------------------------------------------------------------
+$seasonDays   = real_days((int)SEASON_DURATION);
+$cadenceDays  = real_days((int)SEASON_CADENCE);
+$blackoutHrs  = real_hours((int)BLACKOUT_DURATION);
+$lockInHrs    = real_hours((int)MIN_SEASONAL_LOCK_IN_TICKS);
+$idleMins     = real_minutes((int)IDLE_TIMEOUT_TICKS);
+$tierWord     = number_word((int)SIGIL_MAX_TIER);
+
+$priceList = (function () {
+    $t = array_map(fn($v) => number_format((int)$v), COSMETIC_PRICE_TIERS);
+    $last = array_pop($t);
+    return implode(', ', $t) . ' and ' . $last;
+})();
+
 $DOCUMENTED_FACTS = [
     [
         'label'  => 'season duration (wiki)',
         'doc'    => $WIKI,
-        'expect' => '**' . real_days((int)SEASON_DURATION) . ' days**',
+        'expect' => ['A season runs **' . $seasonDays . ' days**'],
         'source' => 'SEASON_DURATION',
         'why'    => 'the headline number a player plans around',
     ],
     [
         'label'  => 'season duration (README)',
         'doc'    => $README,
-        'expect' => real_days((int)SEASON_DURATION) . '-day competitive seasons',
+        'expect' => [$seasonDays . '-day competitive seasons'],
         'source' => 'SEASON_DURATION',
         'why'    => 'first paragraph anyone reads about the game',
     ],
     [
         'label'  => 'season cadence',
         'doc'    => $WIKI,
-        'expect' => '**' . real_days((int)SEASON_CADENCE) . ' days**',
+        'expect' => ['a new one starts every **' . $cadenceDays . ' days**'],
         'source' => 'SEASON_CADENCE',
         'why'    => 'determines how many seasons overlap at once',
     ],
     [
         'label'  => 'blackout duration',
         'doc'    => $WIKI,
-        'expect' => real_hours((int)BLACKOUT_DURATION) . ' hours',
+        'expect' => [
+            'The last **' . $blackoutHrs . ' hours** of every season',
+            'The final **' . $blackoutHrs . ' hours** of a season',
+            '| Blackout | ' . $blackoutHrs . ' hours |',
+            '| Blackout duration | ' . $blackoutHrs . ' hours |',
+        ],
         'source' => 'BLACKOUT_DURATION',
         'why'    => 'a player who mistimes this cannot lock in at all',
     ],
     [
         'label'  => 'minimum participation before lock-in',
         'doc'    => $WIKI,
-        'expect' => real_hours((int)MIN_SEASONAL_LOCK_IN_TICKS) . ' hours',
+        'expect' => [
+            'cumulative **' . $lockInHrs . ' hours** in a season',
+            'cumulative **' . $lockInHrs . ' hours** in the season',
+            '| Minimum participation for lock-in | ' . $lockInHrs . ' hours |',
+        ],
         'source' => 'MIN_SEASONAL_LOCK_IN_TICKS',
-        'why'    => 'quoted in three places; a late joiner plans around it',
+        'why'    => 'quoted in three places, and the hoarding sink quotes the same '
+                  . 'number for an unrelated per-season setting',
     ],
     [
         'label'  => 'idle timeout',
         'doc'    => $WIKI,
-        'expect' => real_minutes((int)IDLE_TIMEOUT_TICKS) . ' minutes',
+        'expect' => ['| Idle timeout | ' . $idleMins . ' minutes |'],
         'source' => 'IDLE_TIMEOUT_TICKS',
-        'why'    => 'the boundary between full and 30% UBI',
+        'why'    => 'the boundary between full and 30% UBI; five unrelated ability '
+                  . 'timings quote the same number, so this must be anchored',
     ],
     [
         'label'  => 'sigil tier count',
         'doc'    => $WIKI,
-        'expect' => number_word((int)SIGIL_MAX_TIER) . ' tiers',
+        'expect' => [
+            'There are **' . $tierWord . ' tiers**',
+            'the ' . $tierWord . ' tiers, combining',
+        ],
         'source' => 'SIGIL_MAX_TIER',
         'why'    => 'a whole tier going undocumented is how canon got to five',
     ],
     [
         'label'  => 'cosmetic price tiers',
         'doc'    => $WIKI,
-        'expect' => (function () {
-            $t = array_map(fn($v) => number_format((int)$v), COSMETIC_PRICE_TIERS);
-            $last = array_pop($t);
-            return implode(', ', $t) . ' and ' . $last;
-        })(),
+        'expect' => ['priced in ' . number_word(count(COSMETIC_PRICE_TIERS))
+                     . ' tiers: **' . $priceList . '**'],
         'source' => 'COSMETIC_PRICE_TIERS',
         'why'    => 'the one price list a player spends permanent currency against',
     ],
@@ -201,9 +290,30 @@ if ($lockInPercent !== null) {
     $DOCUMENTED_FACTS[] = [
         'label'  => 'early lock-in conversion rate',
         'doc'    => $WIKI,
-        'expect' => '**' . $lockInPercent . '%**',
+        'expect' => ['into permanent Global Stars at **' . $lockInPercent . '%**'],
         'source' => 'applyGlobalStarsGrantWithCarry call sites',
         'why'    => 'a magic literal in two files with no constant binding them',
+    ];
+}
+
+if ($defaultRate !== null) {
+    $expiry = [
+        '| Let it expire | ' . $defaultRate . '% |',
+        '| Natural expiry conversion | ' . $defaultRate . '% |',
+    ];
+    // The page states both rates in one breath. Deriving the sentence from both
+    // ties them together, so moving either one alone fails here.
+    if ($lockInPercent !== null) {
+        $expiry[] = 'converts at **' . $defaultRate . '%** instead of '
+                  . $lockInPercent . '%';
+    }
+    $DOCUMENTED_FACTS[] = [
+        'label'  => 'natural-expiry conversion rate',
+        'doc'    => $WIKI,
+        'expect' => $expiry,
+        'source' => 'applyGlobalStarsGrantWithCarry() signature default',
+        'why'    => 'inherited from a default nothing else pins; the wiki calls it '
+                  . 'the most consequential arithmetic in the game',
     ];
 }
 
@@ -219,16 +329,25 @@ foreach (array_unique(array_column($DOCUMENTED_FACTS, 'doc')) as $rel) {
 foreach ($DOCUMENTED_FACTS as $fact) {
     $body = $contents[$fact['doc']] ?? null;
     if ($body === null) continue;  // already reported as a missing file
+
+    $missing = array_values(array_filter(
+        $fact['expect'],
+        fn(string $needle) => !str_contains($body, $needle)
+    ));
+
     check(
         $fact['label'],
-        str_contains($body, $fact['expect']),
+        $missing === [],
         [
             'doc'      => $fact['doc'],
-            'expected' => $fact['expect'],
+            'missing'  => $missing,
+            'of'       => count($fact['expect']) . ' documented occurrence(s)',
             'source'   => $fact['source'],
             'why'      => $fact['why'],
-            'fix'      => 'the code changed and this page did not - update the page, '
-                        . 'or update this check if the wording moved',
+            'fix'      => 'the code changed and this page did not - update every '
+                        . 'occurrence listed above, or update this check if the '
+                        . 'wording moved. Updating only some of them is the exact '
+                        . 'failure this check exists to catch',
         ]
     );
 }
