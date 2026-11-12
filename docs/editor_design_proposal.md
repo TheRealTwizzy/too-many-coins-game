@@ -139,8 +139,11 @@ as the season row already is.
 
 Zero use sites outside `config.php`:
 
+(`COSMETIC_PRICE_TIERS` was on this list too, but is kept: `tools/docs_selfcheck.php`
+reads it to verify the wiki's price list. The remaining 26 were removed.)
+
 ```
-COSMETIC_PRICE_TIERS                       SIGIL_INVENTORY_ADJ_MAX_STEPS
+                                           SIGIL_INVENTORY_ADJ_MAX_STEPS
 EVENTS_PUBLISH_AMOUNTS                     SIGIL_INVENTORY_ADJ_STEP_FP
 FREEZE_BLACKOUT_BASE_DURATION_TICKS        SIGIL_INVENTORY_ADJ_THRESHOLD
 FREEZE_BLACKOUT_STACK_EXTENSION_TICKS      SIGIL_INVENTORY_UPLIFT_MAX_STEPS
