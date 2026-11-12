@@ -10,6 +10,11 @@ This guide deploys the app on a Dokploy-managed Ubuntu 24.04 VPS, using:
 > Hostinger — a VPS provider hosting the machine and the domain does not imply
 > anything about where MySQL runs. Section 2 covers both arrangements.
 
+> Starting from nothing? `deploy/dokploy/SETUP_CHECKLIST.md` walks the whole
+> thing in order (VPS, DNS, Dokploy, GitHub App, services, first boot), and
+> `deploy/dokploy/web.env.example` / `worker.env.example` are paste-ready
+> environment sets with only the secrets left blank.
+
 ## 1. Prerequisites
 
 - Dokploy installed and reachable on your VPS
