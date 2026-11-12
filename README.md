@@ -50,7 +50,7 @@ Spending into an already-active boost adds power, or adds time:
 Note the inversion: a Tier I sigil buys the **longest** opening window, so
 opening with a low tier and topping up is not a mistake. All boosts are `SELF`
 scope — season-wide boosts were removed by
-`migration_20260403c_disable_global_boosts_single_self.sql`. Only one boost row
+`migrations/migration_20260403c_disable_global_boosts_single_self.sql`. Only one boost row
 is active per player, so the +500% combined cap is unreachable; the real
 maximum is +100%.
 
@@ -121,27 +121,53 @@ too-many-coins/
 │   └── auth.php                # Authentication helpers
 ├── schema.sql                  # Database schema
 ├── seed_data.sql               # Initial data (cosmetics)
-├── migration_boosts_drops.sql  # Boost and drop tables
-├── migration_boost_duration_hotfix.sql # One-time live DB boost duration/description fixes
+├── migrations/                 # Ordered migration_*.sql files (see "DB Migrations")
+│   ├── migration_boosts_drops.sql          # Boost and drop tables (bootstrap only)
+│   └── migration_YYYYMMDD_*.sql            # Auto-applied schema and tuning changes
 ├── router.php                  # PHP dev server router
 ├── setup.sh                    # Production deployment script
-├── tools/                      # Runtime readiness, reset, and cutover utilities
+├── tools/                      # Runtime readiness, migration, reset, and cutover utilities
+│   ├── migrate.php             # Apply pending migrations and record them
+│   └── migration_status.php    # Read-only applied / pending / failed report
 └── README.md                   # This file
 ```
 
-## Automatic DB Migrations
+## DB Migrations
 
-Runtime migration application is enabled by default and runs on redeploy/startup:
+All migration files live in `migrations/`. The selection rule, the order, and
+the `schema_migrations` bookkeeping are defined once in
+`includes/migrations.php` and shared by the three ways a migration can run:
 
-- Any repo-root file matching `migration_*.sql` is auto-applied once.
-- Applied files are tracked in `schema_migrations` with filename + checksum.
+| Path | When |
+|---|---|
+| Runtime auto-apply (`includes/database.php`) | On the first DB connection after startup/redeploy, when `TMC_AUTO_SQL_MIGRATIONS=true` (the default) |
+| `php tools/migrate.php` | Controlled deployment step; the production recommendation |
+| `mysql < migrations/<file>.sql` | Manual, for `_optional.sql` files or one-off repair |
+
+Rules that apply to every path:
+
+- Any `migrations/migration_*.sql` file is applied once, in natural filename order (date-prefixed names sort chronologically).
+- Applied files are tracked in `schema_migrations` by bare filename + checksum. Files are recorded by filename only, so moving them into `migrations/` did not change what an existing database considers applied.
 - Files ending with `_optional.sql` remain manual-only.
-- `migration_boosts_drops.sql` remains init/setup-only bootstrap and is excluded from runtime auto-apply.
+- `migrations/migration_boosts_drops.sql` remains init/setup-only bootstrap and is excluded from runtime auto-apply.
 - `migration_20260413b_tick_runtime_compat.sql` backfills bootstrap-only tick tables for environments that skipped the original boost/drop bootstrap.
+
+Migration runner:
+
+```bash
+php tools/migrate.php             # apply every pending migration, in order, and record it
+php tools/migrate.php --dry-run   # show what would run, change nothing
+php tools/migration_status.php    # read-only: applied / pending / failed / checksum drift
+```
+
+The runner takes the same `tmc_migrations` advisory lock as the runtime, so it is
+safe to run while a redeploy is starting. Exit code 0 means nothing failed, 1
+means a migration failed (or, with `--dry-run`, something is pending), 2 means
+it could not run at all.
 
 Guidelines:
 
-- Add new DB changes as new `migration_*.sql` files (do not edit already-applied files).
+- Add new DB changes as new `migrations/migration_YYYYMMDD_name.sql` files (do not edit already-applied files).
 - Keep auto-applied migrations idempotent where possible.
 - Write migrations using MySQL 5.7+ compatible syntax. Avoid `ADD COLUMN IF NOT EXISTS` (supported only on some MySQL 8.x variants). Use `PREPARE/EXECUTE` with `INFORMATION_SCHEMA` guards instead (see existing `migration_20260329b_*_compat.sql` files for the pattern). This approach works with both runtime PDO execution and manual `mysql < file.sql` application.
 
@@ -159,13 +185,23 @@ Subsequent requests skip that migration entry, preventing repeated log-spam and 
 TMC_AUTO_SQL_MIGRATIONS=false
 ```
 
-Then apply pending migrations manually:
+Then apply pending migrations as a deployment step:
 
 ```bash
-mysql -u USER -p DB_NAME < migration_YYYYMMDD_name.sql
+php tools/migrate.php
 ```
 
-Or use the init script for a full re-run:
+Or apply a single file by hand (the only option for `_optional.sql` files):
+
+```bash
+mysql -u USER -p DB_NAME < migrations/migration_YYYYMMDD_name.sql
+```
+
+A file applied by hand is not recorded in `schema_migrations`, so the runner
+will still consider it pending; prefer the runner for anything it covers.
+
+For a fresh database, the init script loads the base schema and bootstrap
+migration:
 
 ```bash
 php init_db.php
@@ -183,7 +219,7 @@ Backward-compatibility alias still works:
 
 ## Account, Social, and Moderation Operations
 
-Account verification emails, staff deletion confirmation, staff chat, user social controls, and staff/admin moderation use the schema in `migration_20260428_social_account_moderation.sql`.
+Account verification emails, staff deletion confirmation, staff chat, user social controls, and staff/admin moderation use the schema in `migrations/migration_20260428_social_account_moderation.sql`.
 
 Email verification uses these environment variables:
 
@@ -318,7 +354,7 @@ sudo mysql -e "CREATE DATABASE too_many_coins;"
 # 3. Load schema and data
 sudo mysql -e "USE too_many_coins; SOURCE schema.sql;"
 sudo mysql -e "USE too_many_coins; SOURCE seed_data.sql;"
-sudo mysql -e "USE too_many_coins; SOURCE migration_boosts_drops.sql;"
+sudo mysql -e "USE too_many_coins; SOURCE migrations/migration_boosts_drops.sql;"
 sudo mysql too_many_coins -e "ALTER TABLE season_participation ADD COLUMN sigil_drops_total INT NOT NULL DEFAULT 0, ADD COLUMN eligible_ticks_since_last_drop BIGINT NOT NULL DEFAULT 0;"
 
 # 4. Start the development server

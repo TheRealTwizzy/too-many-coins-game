@@ -3,6 +3,7 @@
  * Too Many Coins - Database Connection
  */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/migrations.php';
 
 class Database {
     private static $instance = null;
@@ -56,18 +57,18 @@ class Database {
             return;
         }
 
-        $this->ensureMigrationTable();
+        tmc_ensure_schema_migrations_table($this->pdo);
 
         // Serialize the runner across processes and replicas.
         //
-        // The per-migration check below is a check-then-act: two processes that
-        // both miss the schema_migrations row both reach $this->pdo->exec($sql).
-        // INSERT IGNORE de-duplicates the *bookkeeping*, not the *execution*, so a
-        // rolling deploy (web + worker starting together) could apply the same
-        // non-idempotent migration twice - silently double-applying tuning UPDATEs.
-        // Same advisory-lock pattern the tick worker already uses.
-        $lockRow = $this->fetch("SELECT GET_LOCK('tmc_migrations', 30) AS got_lock");
-        if ((int)($lockRow['got_lock'] ?? 0) !== 1) {
+        // The per-migration check is a check-then-act: two processes that both
+        // miss the schema_migrations row both reach exec($sql). INSERT IGNORE
+        // de-duplicates the *bookkeeping*, not the *execution*, so a rolling
+        // deploy (web + worker starting together) could apply the same
+        // non-idempotent migration twice - silently double-applying tuning
+        // UPDATEs. Same advisory-lock pattern the tick worker already uses, and
+        // tools/migrate.php takes the same lock.
+        if (!tmc_acquire_migration_lock($this->pdo, 30)) {
             // Another process is migrating. Do not mark as checked: the next
             // connection retries and will find the work already done.
             error_log('[migrations] could not acquire tmc_migrations lock; deferring');
@@ -75,72 +76,14 @@ class Database {
         }
 
         try {
-            $this->applyMigrationFiles();
+            // Selection, order and bookkeeping live in includes/migrations.php,
+            // shared with tools/migrate.php and tools/migration_status.php.
+            tmc_apply_migration_files($this->pdo, tmc_auto_migration_files(), 'error_log');
         } finally {
-            $this->query("SELECT RELEASE_LOCK('tmc_migrations')");
+            tmc_release_migration_lock($this->pdo);
         }
 
         self::$migrationsChecked = true;
-    }
-
-    /**
-     * Applies each pending migration file. Callers must hold the
-     * 'tmc_migrations' advisory lock.
-     */
-    private function applyMigrationFiles() {
-        $files = $this->getAutoMigrationFiles();
-        foreach ($files as $filePath) {
-            $migrationName = basename($filePath);
-            $checksum = hash_file('sha256', $filePath);
-            if ($checksum === false) {
-                throw new RuntimeException('Unable to hash migration file: ' . $migrationName);
-            }
-
-            $existing = $this->fetch(
-                'SELECT checksum, status FROM schema_migrations WHERE migration_name = ?',
-                [$migrationName]
-            );
-
-            if ($existing) {
-                // Already recorded (applied or previously failed) – do not retry.
-                // A previously-failed migration must be replaced by a new migration file;
-                // editing the same file will trigger a checksum warning instead of a retry.
-                if (($existing['checksum'] ?? '') !== $checksum) {
-                    error_log('Migration checksum changed for ' . $migrationName . '. Create a new migration filename for new patches.');
-                }
-                continue;
-            }
-
-            $sql = file_get_contents($filePath);
-            if ($sql === false) {
-                throw new RuntimeException('Unable to read migration file: ' . $migrationName);
-            }
-
-            try {
-                $this->pdo->exec($sql);
-                // INSERT IGNORE: if a concurrent worker already recorded this migration
-                // (race on multi-worker startup), silently skip the duplicate insert.
-                $this->query(
-                    'INSERT IGNORE INTO schema_migrations (migration_name, checksum, status) VALUES (?, ?, ?)',
-                    [$migrationName, $checksum, 'applied']
-                );
-            } catch (Throwable $e) {
-                error_log('Failed applying migration ' . $migrationName . ': ' . $e->getMessage());
-                // Record the failure so this migration is not retried on every subsequent
-                // request/worker-spawn, preventing log-spam and gameplay-path interference.
-                // To fix: create a new migration file with corrected SQL.
-                try {
-                    $this->query(
-                        'INSERT IGNORE INTO schema_migrations (migration_name, checksum, status) VALUES (?, ?, ?)',
-                        [$migrationName, $checksum, 'failed']
-                    );
-                } catch (Throwable $recordErr) {
-                    // If we cannot record the failure (e.g. table not ready), log and move on.
-                    error_log('Could not record migration failure for ' . $migrationName . ': ' . $recordErr->getMessage());
-                }
-                continue;
-            }
-        }
     }
 
     private function isSchemaReadyForMigrations() {
@@ -155,74 +98,6 @@ class Database {
         } catch (Throwable $e) {
             return false;
         }
-    }
-
-    private function ensureMigrationTable() {
-        $this->pdo->exec(
-            "CREATE TABLE IF NOT EXISTS schema_migrations (
-                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                migration_name VARCHAR(255) NOT NULL UNIQUE,
-                checksum CHAR(64) NOT NULL,
-                status VARCHAR(16) NOT NULL DEFAULT 'applied',
-                applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB"
-        );
-
-        // Backfill the status column on pre-existing deployments that created this
-        // table before the column was added.
-        $col = $this->fetch(
-            "SELECT 1 AS found FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'schema_migrations' AND COLUMN_NAME = 'status'",
-            [DB_NAME]
-        );
-        if (!$col) {
-            try {
-                $this->pdo->exec(
-                    "ALTER TABLE schema_migrations ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'applied'"
-                );
-            } catch (PDOException $e) {
-                // In multi-worker startup, another worker may have added the column
-                // between the information_schema probe and this ALTER TABLE.
-                // MySQL reports this as SQLSTATE '42S21' / error code 1060
-                // ("Duplicate column name"). Ignore that specific case; rethrow anything else.
-                $code = $e->getCode();
-                if ($code !== '42S21' && $code !== 1060 && $code !== '1060') {
-                    throw $e;
-                }
-            }
-        }
-    }
-
-    private function getAutoMigrationFiles() {
-        $repoRoot = realpath(__DIR__ . '/..');
-        if ($repoRoot === false) {
-            return [];
-        }
-
-        $files = glob($repoRoot . DIRECTORY_SEPARATOR . 'migration_*.sql');
-        if (!is_array($files)) {
-            return [];
-        }
-
-        $autoFiles = [];
-        foreach ($files as $filePath) {
-            $fileName = basename($filePath);
-
-            // Keep explicitly optional scripts manual-only.
-            if (preg_match('/_optional\.sql$/i', $fileName)) {
-                continue;
-            }
-
-            // Initial bootstrap migration is handled by init/setup paths.
-            if (strcasecmp($fileName, 'migration_boosts_drops.sql') === 0) {
-                continue;
-            }
-
-            $autoFiles[] = $filePath;
-        }
-
-        sort($autoFiles, SORT_NATURAL | SORT_FLAG_CASE);
-        return $autoFiles;
     }
 
     public static function getInstance() {

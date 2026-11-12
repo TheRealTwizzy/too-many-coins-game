@@ -63,7 +63,7 @@ try {
     $results[] = 'Seed data loaded';
 
     // Execute boost/drop migration
-    $migration = file_get_contents(__DIR__ . '/migration_boosts_drops.sql');
+    $migration = file_get_contents(__DIR__ . '/migrations/migration_boosts_drops.sql');
     $pdo->exec($migration);
     $results[] = 'Boost/drop migration loaded';
 

@@ -52,7 +52,7 @@ echo -e "${GREEN}[3/8] Loading database schema...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mysql -e "USE ${DB_NAME}; SOURCE ${SCRIPT_DIR}/schema.sql;"
 mysql -e "USE ${DB_NAME}; SOURCE ${SCRIPT_DIR}/seed_data.sql;"
-mysql -e "USE ${DB_NAME}; SOURCE ${SCRIPT_DIR}/migration_boosts_drops.sql;"
+mysql -e "USE ${DB_NAME}; SOURCE ${SCRIPT_DIR}/migrations/migration_boosts_drops.sql;"
 
 # Ensure runtime-required sigil drop columns exist on older databases
 mysql ${DB_NAME} -e "ALTER TABLE season_participation ADD COLUMN sigil_drops_total INT NOT NULL DEFAULT 0, ADD COLUMN eligible_ticks_since_last_drop BIGINT NOT NULL DEFAULT 0;" 2>/dev/null || true
