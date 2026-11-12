@@ -118,8 +118,8 @@ function requireMaintenanceAccessColumn(Database $db): bool {
         return true;
     }
     fwrite(STDERR, "This database has no players.maintenance_access column yet.\n");
-    fwrite(STDERR, "Apply migration_20260731_maintenance_access.sql (a redeploy does it\n");
-    fwrite(STDERR, "automatically when TMC_AUTO_SQL_MIGRATIONS is on) and try again.\n");
+    fwrite(STDERR, "Apply migrations/migration_20260731_maintenance_access.sql (php tools/migrate.php,\n");
+    fwrite(STDERR, "or a redeploy does it when TMC_AUTO_SQL_MIGRATIONS is on) and try again.\n");
     return false;
 }
 

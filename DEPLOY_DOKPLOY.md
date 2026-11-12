@@ -287,18 +287,29 @@ have real traffic.
 
 ### 4.7 Migrations
 
-Automatic SQL migrations on redeploy are enabled by default:
+Migration files live in `migrations/` in the repo and are copied into the image
+at `/app/migrations/`. Automatic SQL migrations on redeploy are enabled by default:
 
-- New `migration_*.sql` files are auto-applied once at runtime startup.
+- New `migrations/migration_*.sql` files are auto-applied once at runtime startup,
+  in filename order, and recorded in `schema_migrations` by bare filename.
 - `_optional.sql` files are excluded from auto-apply (manual only).
 - To disable: `TMC_AUTO_SQL_MIGRATIONS=false` (alias: `TMC_AUTO_SQL_HOTFIX`).
 
 **Production recommendation:** set `TMC_AUTO_SQL_MIGRATIONS=false` and apply
 migrations as a controlled deployment step, so a syntax-incompatibility failure
-does not spam the log on every API request. If a migration fails while
-auto-apply is on, it is recorded in `schema_migrations` with `status='failed'`
-and not retried — operators must check for failed rows and apply a corrected
-replacement migration manually:
+does not spam the log on every API request. The runner uses the same rules,
+order and bookkeeping as auto-apply and needs no mysql client, so it works
+inside the container:
+
+```bash
+php /app/tools/migrate.php --dry-run   # what would run
+php /app/tools/migrate.php             # apply and record
+php /app/tools/migration_status.php    # read-only report afterwards
+```
+
+If a migration fails, whether under auto-apply or the runner, it is recorded in
+`schema_migrations` with `status='failed'` and not retried — operators must
+check for failed rows and ship a corrected replacement migration file:
 
 ```sql
 SELECT * FROM schema_migrations WHERE status = 'failed';
@@ -306,8 +317,8 @@ SELECT * FROM schema_migrations WHERE status = 'failed';
 
 Migration SQL must be compatible with MySQL 5.7+. Avoid `ADD COLUMN IF NOT EXISTS`;
 use `PREPARE`/`EXECUTE` with `INFORMATION_SCHEMA` guards instead (see
-`migration_20260329b_*_compat.sql` for the pattern). That form also works with
-manual `mysql < file.sql` application.
+`migrations/migration_20260329b_*_compat.sql` for the pattern). That form also
+works with manual `mysql < migrations/file.sql` application.
 
 ### 4.8 Diagnostics and fallbacks
 
@@ -498,7 +509,7 @@ rather than proving anything — and writes an audit row. Use it when mail is
 broken, not instead of fixing mail.
 
 Accounts that predate the confirmation release were grandfathered to confirmed
-by `migration_20260731b_email_verification.sql`, so an established lane should
+by `migrations/migration_20260731b_email_verification.sql`, so an established lane should
 not show `unverified` staff once it has deployed. If one still does, that
 migration has not applied — check `schema_migrations` for a `status='failed'`
 row rather than assuming the flag is cosmetic.
