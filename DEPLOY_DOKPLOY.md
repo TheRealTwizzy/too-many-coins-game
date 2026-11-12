@@ -241,7 +241,6 @@ have real traffic.
 | `TMC_FORGE_TRANSMUTE_ENABLED` | `false` | Forge transmute. While both forge flags are off, the Forge panel is hidden. |
 | `TMC_FORGE_DISTIL_ENABLED` | `false` | Forge distil. |
 | `TMC_EVENTS_PUBLIC_TICKER_ENABLED` | `true` | Public event ticker. |
-| `TMC_EVENTS_PUBLISH_AMOUNTS` | `false` | Publishes exact amounts in public events. Leaving this off keeps the ticker from becoming a scouting tool. |
 | `TMC_STARPRICE_MODEL_VERSION_DEFAULT` | `2` | Star-price model for new seasons. Do not lower it on a running season. |
 
 ### 4.6 Email (registration verification)
