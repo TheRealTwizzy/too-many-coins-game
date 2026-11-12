@@ -709,7 +709,7 @@ natural extensions in the forbidden list.
 | | Why |
 |---|---|
 | **Mid-season parameter override** — even tick-aligned, even audited | Canon `§5.5.1`. Technically safe for replay (F1), which is exactly why it is tempting; it would still break a promise to players mid-season. The mechanism's existence is the risk. |
-| **`season create` / `advance` / `extend` from the console or CLI** | Canon `§12` constraint 2 and `§12.4.1` both forbid staff control of season timing. Seasons are derived from `SEASON_ANCHOR`/`SEASON_CADENCE` (`game_time.php:132`) by design. Scheduling a season is a deployment act; forcing a phase is a canon violation. A *read-only* `season list` is fine; `create`/`advance` are not, outside a `TMC_SIMULATION_MODE` test lane. |
+| **`season create` / `advance` / `extend` from the console or CLI** | Canon `§12` constraint 2 and `§12.4.1` both forbid staff control of season timing. Seasons are derived from `SEASON_CADENCE` (`GameTime::seasonStartTime`, `game_time.php:132`) by design. Scheduling a season is a deployment act; forcing a phase is a canon violation. A *read-only* `season list` is fine; `create`/`advance` are not, outside a `TMC_SIMULATION_MODE` test lane. |
 | **Per-player economy edits, in any form** | Canon `§12.4.2`. `AdminService::playerEconomyReset` already exists behind a confirmation phrase and is the furthest this should ever go. Not extended, not softened, not given a UI. |
 | **A general `config.php` editor** | The point of a curated set with validated ranges is the boundary. A generic key/value editor is the same product with the boundary deleted. |
 | **Editing `TICK_REAL_SECONDS`/`TIME_SCALE` from anywhere but env** | Two 130-line migrations exist because this was changed once. |

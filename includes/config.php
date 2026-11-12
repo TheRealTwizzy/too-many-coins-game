@@ -228,7 +228,8 @@ define('SIGIL_PITY_TICKS', ticks_from_real_seconds(120000));
 define('SIGIL_MAX_DROPS_WINDOW', 8);
 define('SIGIL_DROP_WINDOW_TICKS', ticks_from_real_seconds(86400));
 
-// Boost pressure on the drop gate (Economy::evaluateSigilDropForTick):
+// Boost pressure on the drop gate (Economy::sigilBoostDropPressureFp, applied
+// by Economy::evaluateSigilDropForTick):
 //   every SIGIL_BOOST_DROP_PRESSURE_STEP_FP of active boost modifier removes
 //   SIGIL_BOOST_DROP_PRESSURE_STEP_PENALTY_FP of the gate chance, and the gate
 //   never falls below SIGIL_BOOST_DROP_PRESSURE_MIN_FP of its pre-boost value.
