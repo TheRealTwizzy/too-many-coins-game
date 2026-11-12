@@ -389,6 +389,9 @@ MySQL service or an external host — follow:
 
 - `DEPLOY_DOKPLOY.md` (full environment-variable reference, first-admin
   bootstrap, and the maintenance gate)
+- `deploy/dokploy/SETUP_CHECKLIST.md` (from-zero order of operations: VPS, DNS,
+  Dokploy, GitHub App, services, first boot) with paste-ready
+  `web.env.example` and `worker.env.example` beside it
 
 ## API Endpoints
 
