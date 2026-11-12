@@ -159,12 +159,12 @@ Set these on **both** services unless noted:
 | `TMC_WORKER_INTERVAL_SECONDS` | `5` | `TMC_TICK_REAL_SECONDS`, else `60` | Worker only. Keep aligned with tick length. |
 | `TMC_WORKER_START_DELAY_SECONDS` | `2` | `0` | Worker only. Lets the DB finish coming up on a cold start. |
 | `TZ` | `UTC` | container default | Keeps logs and timestamps comparable across services. |
+| `TMC_AUTO_SQL_MIGRATIONS` | `false` | `true` | See section 4.7 — auto-apply is convenient in test, risky in production. The worker connects through the same `Database` class, so leaving it unset there auto-applies migrations on worker start. |
 
 Web service only:
 
 | Variable | Set to | Default if unset | Why |
 |---|---|---|---|
-| `TMC_AUTO_SQL_MIGRATIONS` | `false` | `true` | See section 4.7 — auto-apply is convenient in test, risky in production. |
 | `TMC_TRUST_PROXY_HEADERS` | `false` | `false` | Leave off unless `TMC_TRUSTED_PROXIES` is set. |
 | `TMC_TRUSTED_PROXIES` | your proxy's address or range | empty | Required for correct client IPs behind Dokploy's reverse proxy. |
 
@@ -419,6 +419,7 @@ Recommended production values:
 - `TMC_TICK_REAL_SECONDS=5`
 - `TMC_WORKER_INTERVAL_SECONDS=5`
 - `TMC_TICK_ON_REQUEST=false`
+- `TMC_AUTO_SQL_MIGRATIONS=false` (otherwise the worker auto-applies pending migrations on start; see section 4.7)
 
 Validation checks:
 
