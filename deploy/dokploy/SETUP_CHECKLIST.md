@@ -98,7 +98,8 @@ Nothing else is needed on GitHub. There are no Actions or secrets to configure.
 In the web app → Terminal:
 
 - [ ] `php /app/init_db.php` — base schema and seed data. Expect
-      "Boost/drop migration loaded" in the output.
+      "Boost/drop migration loaded" in the output. Safe to rerun: once the
+      schema exists it reports `already_initialized` and changes nothing.
 - [ ] `php /app/tools/migrate.php --dry-run` — lists what will run.
 - [ ] `php /app/tools/migrate.php` — applies and records them.
 - [ ] `php /app/tools/migration_status.php` — expect `pending: 0` and no
