@@ -509,6 +509,10 @@ define('PARTICIPATION_BONUS_CAP', 56);
 // Placement bonus
 define('PLACEMENT_BONUS', [1 => 100, 2 => 60, 3 => 40]);
 
+// Cosmetic price tiers. Read by tools/docs_selfcheck.php, which checks that the
+// wiki's quoted price list still matches.
+define('COSMETIC_PRICE_TIERS', [25, 80, 250, 800, 2400]);
+
 // Handle rules
 define('HANDLE_MIN_LENGTH', 3);
 define('HANDLE_MAX_LENGTH', 16);
