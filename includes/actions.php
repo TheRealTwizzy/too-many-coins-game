@@ -1936,8 +1936,7 @@ class Actions {
 
         // Duration is now always the single-cast value for the tier spent. The
         // stack-extension path is gone: an already-frozen target is rejected
-        // above, so SIGIL_FREEZE_*_STACK_EXTENSION_TICKS_BY_TIER is no longer
-        // consulted (left defined for now rather than removed in this change).
+        // above, so a freeze never extends an existing one.
         $durationMap = (array)($status === 'Blackout' ? SIGIL_FREEZE_BLACKOUT_DURATION_TICKS_BY_TIER : SIGIL_FREEZE_DURATION_TICKS_BY_TIER);
         $freezeBaseTicks = (int)($durationMap[(int)$requestedTier] ?? FREEZE_BASE_DURATION_TICKS);
         $newRemaining = $freezeBaseTicks;
