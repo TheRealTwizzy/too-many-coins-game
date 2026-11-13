@@ -186,7 +186,9 @@ class GameTime {
         $db = Database::getInstance();
         self::maybeMigrateLegacyTickScale($db);
         self::maybeMigrateMinuteTickScaleToSecond($db);
-        self::rebalanceExistingSeasons($db);
+        // No economy rewrite here. A season's economy config is fixed when the
+        // INSERT below creates it; tools/season_config_immutability_selfcheck.php
+        // fails if any runtime UPDATE assigns one of those columns again.
         $gameTime = self::now();
         
         // Find which season sequence we're in
@@ -688,75 +690,5 @@ class GameTime {
             $db->rollback();
             error_log('Legacy tick migration failed: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Rebalance existing seasons created with legacy defaults.
-     */
-    private static function rebalanceExistingSeasons($db) {
-        $inflationTable = json_encode([
-            ['x' => 0, 'factor_fp' => 1000000],
-            ['x' => 50000, 'factor_fp' => 700000],
-            ['x' => 200000, 'factor_fp' => 350000],
-            ['x' => 800000, 'factor_fp' => 150000],
-            ['x' => 3000000, 'factor_fp' => 70000]
-        ]);
-
-        $starpriceTable = json_encode([
-            ['m' => 0, 'price' => 100],
-            ['m' => 25000, 'price' => 220],
-            ['m' => 100000, 'price' => 520],
-            ['m' => 500000, 'price' => 1600],
-            ['m' => 2000000, 'price' => 4200]
-        ]);
-
-        $db->query(
-            "UPDATE seasons
-             SET base_ubi_active_per_tick = 30,
-                 base_ubi_idle_factor_fp = 300000,
-                 target_spend_rate_per_tick = 15,
-                 hoarding_min_factor_fp = 100000,
-                 hoarding_sink_enabled = 1,
-                 hoarding_safe_hours = 12,
-                 hoarding_safe_min_coins = 20000,
-                 hoarding_tier1_excess_cap = 50000,
-                 hoarding_tier2_excess_cap = 200000,
-                 hoarding_tier1_rate_hourly_fp = 10000,
-                 hoarding_tier2_rate_hourly_fp = 30000,
-                 hoarding_tier3_rate_hourly_fp = 60000,
-                 hoarding_sink_cap_ratio_fp = 300000,
-                 hoarding_idle_multiplier_fp = 1000000,
-                 hoarding_window_ticks = ?,
-                 inflation_table = ?,
-                 starprice_table = ?,
-                 starprice_model_version = COALESCE(NULLIF(starprice_model_version, 0), ?),
-                 starprice_reactivation_window_ticks = GREATEST(1, COALESCE(starprice_reactivation_window_ticks, ?)),
-                 starprice_demand_table = COALESCE(starprice_demand_table, ?),
-                 market_affordability_bias_fp = COALESCE(NULLIF(market_affordability_bias_fp, 0), 970000),
-                 market_anchor_price = GREATEST(100, LEAST(COALESCE(NULLIF(market_anchor_price, 0), current_star_price), 6000)),
-                 pending_star_burn_coins = COALESCE(pending_star_burn_coins, 0),
-                 star_burn_ema_fp = COALESCE(star_burn_ema_fp, 0),
-                 net_mint_ema_fp = COALESCE(net_mint_ema_fp, 0),
-                 market_pressure_fp = COALESCE(NULLIF(market_pressure_fp, 0), 1000000),
-                 coins_offline_total = COALESCE(coins_offline_total, 0),
-                 starprice_max_downstep_fp = 12960,
-                                 star_price_cap = 6000,
-                                 current_star_price = LEAST(6000, GREATEST(current_star_price, 100))
-             WHERE base_ubi_active_per_tick = 100
-               AND target_spend_rate_per_tick = 50",
-            [
-                HOARDING_WINDOW_TICKS,
-                $inflationTable,
-                $starpriceTable,
-                STARPRICE_MODEL_VERSION_DEFAULT,
-                STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT,
-                json_encode([
-                    ['ratio_fp' => 850000, 'multiplier_fp' => 900000],
-                    ['ratio_fp' => 1000000, 'multiplier_fp' => 1000000],
-                    ['ratio_fp' => 1150000, 'multiplier_fp' => 1080000],
-                    ['ratio_fp' => 1300000, 'multiplier_fp' => 1120000]
-                ])
-            ]
-        );
     }
 }
