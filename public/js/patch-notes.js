@@ -12,7 +12,7 @@
  * unless a player would notice it.
  */
 
-export const CURRENT_VERSION = '2026.07.31';
+export const CURRENT_VERSION = '2026.11.13';
 
 /** What is being worked on right now, shown while the gate is up. */
 export const CURRENT_WORK = [
@@ -32,6 +32,14 @@ export const PROJECTED = [
 
 /** Newest first. */
 export const PATCH_NOTES = [
+    {
+        version: '2026.11.13',
+        date: '2026-11-13',
+        title: 'Housekeeping',
+        notes: [
+            'Behind-the-scenes cleanup of the game settings and of how the server applies its own updates. Nothing changes in play: coins, stars and sigils behave exactly as before.',
+        ],
+    },
     {
         version: '2026.07.31',
         date: '2026-07-31',

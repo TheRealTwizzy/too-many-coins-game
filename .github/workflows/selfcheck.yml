@@ -1,0 +1,67 @@
+name: selfcheck
+
+# Runs every selfcheck that needs no database, no running server and no browser.
+#
+# Skipped on purpose (they need infrastructure CI does not stand up):
+#   tools/concurrency_selfcheck.php        - needs a running server (php -S / docker compose)
+#   tools/server_security_selfcheck.php    - needs a running server
+#   tools/email_verification_selfcheck.php - needs MySQL
+#   tools/maintenance_gate_selfcheck.mjs   - needs Playwright and a running server
+#   tools/ui_smoke.mjs, tools/e2e_season_loop.mjs - browser / full stack
+#   tools/mail_selftest.php                - sends real mail, takes a recipient
+
+on:
+  pull_request:
+  push:
+    branches: [main, source/dev]
+
+permissions:
+  contents: read
+
+jobs:
+  selfcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # client_core_selfcheck dates the newest player-facing commit with
+          # git log; a shallow clone makes every run look like it was "today".
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'   # matches Dockerfile (php:8.3-apache)
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run selfchecks
+        shell: bash
+        run: |
+          checks=(
+            "php tools/docs_selfcheck.php"
+            "php tools/balance_selfcheck.php"
+            "php tools/star_price_selfcheck.php"
+            "php tools/hoarding_sink_selfcheck.php"
+            "php tools/integrity_selfcheck.php"
+            "php tools/proxy_trust_selfcheck.php"
+            "php tools/sigil_mirror_selfcheck.php"
+            "php tools/starter_grant_selfcheck.php"
+            "php tools/social_account_moderation_selftest.php"
+            "node tools/client_core_selfcheck.mjs"
+            "node tools/client_security_selfcheck.js"
+          )
+          failed=()
+          for c in "${checks[@]}"; do
+            echo "::group::$c"
+            if $c; then echo "OK: $c"; else failed+=("$c"); fi
+            echo "::endgroup::"
+          done
+          if [ ${#failed[@]} -gt 0 ]; then
+            printf '::error::selfcheck failed: %s\n' "${failed[@]}"
+            exit 1
+          fi
+          echo "All ${#checks[@]} selfchecks passed."
