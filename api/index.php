@@ -1260,60 +1260,42 @@ function tableExists(Database $db, string $tableName): bool {
     return $cache[$tableName];
 }
 
-function getSigilDropRateMetadata($sigilPower = 0) {
-    $sigilPower = max(0, (int)$sigilPower);
-    $dropRate = Economy::sigilDropRateForPower($sigilPower);
-    $basePercent = 100 / max(1, (int)$dropRate);
-    $tierOdds = Economy::adjustedSigilTierOdds($sigilPower);
-    $tiers = [];
-    foreach ($tierOdds as $tier => $oddsFp) {
-        $conditionalPercent = ((int)$oddsFp / 1000000) * 100;
-        $effectivePercent = $basePercent * ((int)$oddsFp / 1000000);
-        $tiers[] = [
-            'tier' => (int)$tier,
-            'odds_fp' => (int)$oddsFp,
-            'chance_percent' => round($effectivePercent, 6),
-            'conditional_percent' => round($conditionalPercent, 2)
-        ];
-    }
-
-    return [
-        'sigil_power' => $sigilPower,
-        'base_one_in' => (int)$dropRate,
-        'base_percent' => round($basePercent, 6),
-        'tiers' => $tiers
-    ];
-}
-
 /**
- * Build the sigil_drop_rates payload from a pre-computed per-player drop config.
- * Uses the full dynamic model (inventory-aware scaling + boost-pressure) rather
- * than the simpler sigil-power scalar used by getSigilDropRateMetadata().
+ * season.sigil_drop_rates: the odds the tick engine rolls against right now.
  *
- * @param array $dropConfig Return value of Economy::computePerPlayerSigilDropConfig().
- * @return array
+ * Built from Economy::sigilDropOddsForTick(), the same function
+ * evaluateSigilDropForTick() uses, so the published odds cannot drift from
+ * the engine. (They did: this used to publish a 1-in-8 sigil-power model the
+ * engine no longer ran - roughly 36x the real per-tick chance.)
+ *
+ * With a player and their participation row, the odds are theirs: presence
+ * state, inventory pressure and active boost, resolved the way the tick engine
+ * resolves them. Without, they are an Active player's with an empty inventory
+ * and no boost. Either way a live Legion swarm on the season is included.
  */
-function getSigilDropRateMetadataFromConfig(array $dropConfig) {
-    $dropRate = max(1, (int)$dropConfig['drop_rate']);
-    $tierOdds = $dropConfig['tier_odds'];
-    $basePercent = 100.0 / $dropRate;
-    $tiers = [];
-    foreach ($tierOdds as $tier => $oddsFp) {
-        $oddsFp = (int)$oddsFp;
-        $conditionalPercent = ($oddsFp / 1000000) * 100;
-        $effectivePercent = $basePercent * ($oddsFp / 1000000);
-        $tiers[] = [
-            'tier' => (int)$tier,
-            'odds_fp' => $oddsFp,
-            'chance_percent' => round($effectivePercent, 6),
-            'conditional_percent' => round($conditionalPercent, 6),
-        ];
+function getSigilDropRates(array $season, int $gameTime, ?array $player = null, ?array $participation = null): array {
+    $boostModFp = 0;
+    if ($player !== null && $participation !== null) {
+        // The tick engine's participant row is "SELECT p.*, sp.*", with the
+        // presence state resolved on top - mirror it exactly.
+        $subject = array_merge($player, $participation);
+        $subject['economic_presence_state'] = Economy::resolveEconomicPresenceState($subject, $season, $gameTime);
+        $boostModFp = (int)(getActiveBoosts($player, $participation)['total_modifier_fp'] ?? 0);
+        $perspective = 'player';
+    } else {
+        $subject = ['economic_presence_state' => 'Active'];
+        $participation = null;
+        $perspective = 'active_player_no_boost';
     }
-    return [
-        'base_one_in' => $dropRate,
-        'base_percent' => round($basePercent, 6),
-        'tiers' => $tiers,
-    ];
+
+    $seasonForOdds = $season;
+    $seasonForOdds['_modifier_event'] = SigilFamilies::modifierEventForWindow(
+        Database::getInstance(), (int)$season['season_id'], $gameTime, $gameTime + 1
+    );
+
+    $odds = Economy::sigilDropOddsForTick($seasonForOdds, $subject, $gameTime, $participation, $boostModFp);
+    // Shape lives in includes/sigil_drops_api.php so it is testable without a database.
+    return sigilDropRatesPayload($odds, $perspective);
 }
 
 function calculatePlayerRatePerTick($season, $player, $participation, $activeBoosts) {
@@ -1466,7 +1448,7 @@ function getGameState($player) {
         $s['blackout_remaining'] = max(0, $blackoutTime - $gameTime);
         $s['is_blackout'] = ($gameTime >= $blackoutTime && $gameTime < $endTime);
 
-        $s['sigil_drop_rates'] = getSigilDropRateMetadata();
+        $s['sigil_drop_rates'] = getSigilDropRates($s, (int)$gameTime);
         
         // Remove binary seed from response
         unset($s['season_seed']);
@@ -1779,7 +1761,7 @@ function getSeasonDetail($player, $seasonId) {
     applySeasonCountdownFields($season, $gameTime);
     applyPublishedStarPrice($season);
 
-    $season['sigil_drop_rates'] = getSigilDropRateMetadata();
+    $season['sigil_drop_rates'] = getSigilDropRates($season, (int)$gameTime);
 
     if ($player && (int)$player['joined_season_id'] === (int)$seasonId && (int)$player['participation_enabled'] === 1) {
         $participation = $db->fetch(
@@ -1787,8 +1769,7 @@ function getSeasonDetail($player, $seasonId) {
             [(int)$player['player_id'], (int)$seasonId]
         );
         if ($participation) {
-            $dropConfig = Economy::computePerPlayerSigilDropConfig($participation, 0);
-            $season['sigil_drop_rates'] = getSigilDropRateMetadataFromConfig($dropConfig);
+            $season['sigil_drop_rates'] = getSigilDropRates($season, (int)$gameTime, $player, $participation);
             $season['player_combine_recipes'] = getCombineRecipesForParticipation($participation);
             $season['player_tier6_visible'] = shouldRevealTier6($participation);
             $playerFreeze = getFreezeStatusForPlayer((int)$player['player_id'], (int)$seasonId, $participation);

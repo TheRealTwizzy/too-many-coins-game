@@ -1184,45 +1184,23 @@ class Economy {
      */
     public static function evaluateSigilDropForTick($season, $player, $tickIndex, $participation = null, $boostModFp = 0, &$wasEligible = false) {
         $wasEligible = false;
-        $activityState = self::resolveSigilDropActivityState($player);
-        $activityMultiplierFp = self::sigilActivityMultiplierFp($activityState);
-        $inventoryPressureFp = self::sigilInventoryDropPressureFp($participation);
-        $boostPressureFp = self::sigilBoostDropPressureFp($boostModFp);
+        $odds = self::sigilDropOddsForTick($season, $player, $tickIndex, $participation, $boostModFp);
 
-        // Offline short-circuit: no RNG draws and no drop.
-        if ($activityMultiplierFp <= 0) {
+        // Offline, zero chance, or blackout: no RNG draws and no drop.
+        if (!$odds['eligible']) {
             return null;
         }
 
-        $effectiveDropChanceFp = self::sigilEffectiveDropChanceFp($activityState, $participation, $boostModFp);
-        if ($effectiveDropChanceFp <= 0) {
-            return null;
-        }
-
-        $seasonPhase = self::sigilSeasonPhase($season, $tickIndex);
-        if ($seasonPhase === (string)SIGIL_SEASON_PHASE_BLACKOUT) {
-            return null;
-        }
-
-        // Every branch above is "not an attempt"; from here on the tick is a
-        // genuine attempt whether or not the gate roll pays out.
+        // From here on the tick is a genuine attempt whether or not the gate
+        // roll pays out.
         $wasEligible = true;
 
-        // Legion 'swarm' event: scales the gate THRESHOLD only, for the exact
-        // ticks the event covers. The deterministic roll inputs below are
-        // never touched, so history replays identically; and because events
-        // are only ever inserted at the current tick, a catch-up batch sees
-        // exactly the events that were live when each tick occurred.
-        $modifierEvent = $season['_modifier_event'] ?? null;
-        if ($modifierEvent !== null
-            && (string)$modifierEvent['event_kind'] === 'swarm'
-            && (int)$tickIndex >= (int)$modifierEvent['started_tick']
-            && (int)$tickIndex < (int)$modifierEvent['ends_tick']) {
-            $effectiveDropChanceFp = min(
-                FP_SCALE,
-                intdiv($effectiveDropChanceFp * (int)LEGION_SWARM_DROP_MULTIPLIER_FP, FP_SCALE)
-            );
-        }
+        $activityState = $odds['activity_state'];
+        $activityMultiplierFp = $odds['activity_multiplier_fp'];
+        $inventoryPressureFp = $odds['inventory_pressure_fp'];
+        $boostPressureFp = $odds['boost_pressure_fp'];
+        $seasonPhase = $odds['season_phase'];
+        $effectiveDropChanceFp = $odds['effective_drop_chance_fp'];
 
         $seasonId = (int)$season['season_id'];
         $playerId = (int)$player['player_id'];
@@ -1236,7 +1214,7 @@ class Economy {
         }
 
         $seasonProgressFp = self::sigilSeasonProgressFp($season, $tickIndex);
-        $tierWeights = self::sigilTierWeightsForPhase($seasonPhase);
+        $tierWeights = $odds['tier_weights'];
         $tierRoll = self::deterministicSigilRollU32($seasonId, $playerId, $tickIndex, 'sigil_tier', $season['season_seed']);
         $tier = self::pickWeightedTier($tierWeights, $tierRoll);
 
@@ -1258,9 +1236,78 @@ class Economy {
                 'gate_roll_u32' => $gateRoll,
                 'tier_roll_u32' => $tierRoll,
                 'tier_weights' => $tierWeights,
-                'available_tiers' => self::sigilAvailableTiersForPhase($seasonPhase),
+                'available_tiers' => $odds['available_tiers'],
             ],
         ];
+    }
+
+    /**
+     * The odds of one player's drop attempt at one tick.
+     *
+     * evaluateSigilDropForTick() rolls against exactly these numbers, and the
+     * API publishes them as season.sigil_drop_rates. One function for both is
+     * the point: the published odds used to come from a separate 1-in-8
+     * sigil-power model the engine had stopped running, and showed players a
+     * per-tick chance about 36 times the real one.
+     *
+     * Pure: no RNG draw, no database. 'eligible' is false - and the chance 0 -
+     * when the tick would not be an attempt at all (offline, zero chance after
+     * inventory and boost pressure, or blackout).
+     *
+     * Not covered here, because they live in the tick engine's batch loop:
+     * the pity drop after SIGIL_PITY_TICKS dry attempts, and the
+     * SIGIL_MAX_DROPS_WINDOW throttle.
+     */
+    public static function sigilDropOddsForTick($season, $player, $tickIndex, $participation = null, $boostModFp = 0) {
+        $activityState = self::resolveSigilDropActivityState($player);
+        $seasonPhase = self::sigilSeasonPhase($season, $tickIndex);
+
+        $odds = [
+            'eligible' => false,
+            'activity_state' => $activityState,
+            'activity_multiplier_fp' => self::sigilActivityMultiplierFp($activityState),
+            'inventory_pressure_fp' => self::sigilInventoryDropPressureFp($participation),
+            'boost_pressure_fp' => self::sigilBoostDropPressureFp($boostModFp),
+            'season_phase' => $seasonPhase,
+            'swarm_active' => false,
+            'effective_drop_chance_fp' => 0,
+            'tier_weights' => self::sigilTierWeightsForPhase($seasonPhase),
+            'available_tiers' => self::sigilAvailableTiersForPhase($seasonPhase),
+        ];
+
+        if ($odds['activity_multiplier_fp'] <= 0) {
+            return $odds;
+        }
+
+        $effectiveDropChanceFp = self::sigilEffectiveDropChanceFp($activityState, $participation, $boostModFp);
+        if ($effectiveDropChanceFp <= 0) {
+            return $odds;
+        }
+
+        if ($seasonPhase === (string)SIGIL_SEASON_PHASE_BLACKOUT) {
+            return $odds;
+        }
+
+        // Legion 'swarm' event: scales the gate THRESHOLD only, for the exact
+        // ticks the event covers. The deterministic roll inputs are never
+        // touched, so history replays identically; and because events are
+        // only ever inserted at the current tick, a catch-up batch sees
+        // exactly the events that were live when each tick occurred.
+        $modifierEvent = $season['_modifier_event'] ?? null;
+        if ($modifierEvent !== null
+            && (string)$modifierEvent['event_kind'] === 'swarm'
+            && (int)$tickIndex >= (int)$modifierEvent['started_tick']
+            && (int)$tickIndex < (int)$modifierEvent['ends_tick']) {
+            $effectiveDropChanceFp = min(
+                FP_SCALE,
+                intdiv($effectiveDropChanceFp * (int)LEGION_SWARM_DROP_MULTIPLIER_FP, FP_SCALE)
+            );
+            $odds['swarm_active'] = true;
+        }
+
+        $odds['eligible'] = true;
+        $odds['effective_drop_chance_fp'] = $effectiveDropChanceFp;
+        return $odds;
     }
 
     public static function sigilActivityMultiplierFp($activityState) {
