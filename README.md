@@ -556,6 +556,7 @@ need a database except the concurrency harness.
 ```bash
 php  tools/integrity_selfcheck.php        # every balance/sigil decrement is guarded + rowCount-checked
 php  tools/star_price_selfcheck.php       # price tracks supply; legacy v1 seasons still behave
+php  tools/sigil_odds_selfcheck.php       # published drop odds are the ones the engine rolls against
 php  tools/hoarding_sink_selfcheck.php    # sink ramps, ceiling holds, idle not punished harder
 php  tools/proxy_trust_selfcheck.php      # who may name the client IP: ranges, boundaries, malformed entries
 php  tools/docs_selfcheck.php             # the wiki and this file quote the constants the code actually uses
