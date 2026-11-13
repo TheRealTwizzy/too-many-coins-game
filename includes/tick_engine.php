@@ -22,6 +22,7 @@ require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/runtime_readiness.php';
 require_once __DIR__ . '/sigil_families.php';
 require_once __DIR__ . '/progression.php';
+require_once __DIR__ . '/participation_pacing.php';
 
 class TickEngine {
 
@@ -284,6 +285,9 @@ class TickEngine {
                 // Phase 3: Sigil drop evaluation (active window only; blackout is settlement-only)
                 if (!$isBlackout && !$isLastValid && !$isExpiration) {
                     self::processSigilDrops($season, $p, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp);
+                    if ($presenceState === 'Active') {
+                        ParticipationPacing::grantActivePulseForPlayer($db, (int)$playerId, (int)$seasonId, (int)$gameTime, $presenceState);
+                    }
                 }
                 
                 // Phase 5: UBI accrual (net) + explicit hoarding sink accounting.
@@ -576,10 +580,17 @@ class TickEngine {
      *
      * Returns true when the drop actually landed — the caller's pity counter
      * and throttle window must only move for drops that exist in the log.
+     *
+     * Public because ParticipationPacing hands its return/dry-spell pulses
+     * through here: one path for every sigil that enters an inventory.
      */
-    private static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = [], $season = null) {
+    public static function awardSigilDrop($playerId, $seasonId, $tier, $dropTick, $source, array $metadata = [], $season = null) {
         $db = Database::getInstance();
         $sigilCol = "sigils_t{$tier}";
+        $sourceNormalized = strtolower(trim((string)$source));
+        if ($sourceNormalized === '') {
+            $sourceNormalized = 'rng';
+        }
 
         $participation = $db->fetch(
             "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
@@ -608,7 +619,7 @@ class TickEngine {
         // Log the drop
         $db->query(
             "INSERT INTO sigil_drop_log (player_id, season_id, drop_tick, tier, source) VALUES (?, ?, ?, ?, ?)",
-            [$playerId, $seasonId, $dropTick, $tier, $source]
+            [$playerId, $seasonId, $dropTick, $tier, $sourceNormalized]
         );
 
         // Family roll (spec §6): strictly after the tier roll, changes which
@@ -645,11 +656,17 @@ class TickEngine {
             5 => 'Legendary',
             6 => 'Mythic',
         ];
-        $sourceNormalized = strtoupper((string)$source) === 'PITY' ? 'pity' : 'rng';
         $tierName = $tierNames[(int)$tier] ?? ('Tier ' . (int)$tier);
+        $sourceLabels = [
+            'rng' => 'RNG',
+            'pity' => 'PITY',
+            'return_pulse' => 'welcome back',
+            'active_dry_spell_pulse' => 'dry spell',
+        ];
+        $sourceLabel = $sourceLabels[$sourceNormalized] ?? strtoupper($sourceNormalized);
         $foundLabel = $familyId !== null
-            ? sprintf('You found a %s %s sigil (%s).', SigilFamilies::familyName($familyId), self::romanTier((int)$tier), strtoupper($sourceNormalized))
-            : sprintf('You found a %s sigil (%s).', $tierName, strtoupper($sourceNormalized));
+            ? sprintf('You found a %s %s sigil (%s).', SigilFamilies::familyName($familyId), self::romanTier((int)$tier), $sourceLabel)
+            : sprintf('You found a %s sigil (%s).', $tierName, $sourceLabel);
         Notifications::create(
             $playerId,
             'sigil_drop',
@@ -680,6 +697,8 @@ class TickEngine {
              ON DUPLICATE KEY UPDATE eligible_ticks_since_last_drop = 0, total_drops = total_drops + 1, last_drop_tick = ?",
             [$playerId, $seasonId, $dropTick, $dropTick]
         );
+
+        ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$dropTick);
 
         return true;
     }

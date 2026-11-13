@@ -12,6 +12,7 @@ require_once __DIR__ . '/boost_catalog.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/sigil_families.php';
 require_once __DIR__ . '/progression.php';
+require_once __DIR__ . '/participation_pacing.php';
 
 class Actions {
 
@@ -82,6 +83,7 @@ class Actions {
              total_season_participation_ticks = total_season_participation_ticks + participation_ticks_since_join,
              first_joined_at = ?, last_exit_at = NULL,
              spend_window_total = 0, hoarding_sink_total = 0,
+             last_meaningful_economy_tick = ?, last_active_pulse_tick = 0,
              reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
              lock_in_effect_tick = NULL, lock_in_snapshot_seasonal_stars = NULL,
              lock_in_snapshot_participation_time = NULL,
@@ -90,7 +92,7 @@ class Actions {
              badge_awarded = NULL,
              active_boosts = NULL
              WHERE player_id = ? AND season_id = ?",
-            [(int)$gameTime, (int)$playerId, (int)$seasonId]
+            [(int)$gameTime, (int)$gameTime, (int)$playerId, (int)$seasonId]
         );
 
         if (SigilFamilies::schemaReady($db)) {
@@ -345,6 +347,8 @@ class Actions {
         if ($gameTime >= $season['end_time'] - 1) {
             return ['error' => 'Too late to join this season'];
         }
+
+        $returnPulseSnapshot = $player;
         
         $db->beginTransaction();
         try {
@@ -377,6 +381,15 @@ class Actions {
                  WHERE player_id = ?",
                 [$seasonId, $gameTime, $playerId]
             );
+
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
+            $participationPulse = ParticipationPacing::grantReturnPulseForPlayer(
+                $db,
+                (int)$playerId,
+                (int)$seasonId,
+                (int)$gameTime,
+                $returnPulseSnapshot
+            );
             
             $starterGranted = self::grantStarterSigils($db, $playerId, $seasonId);
 
@@ -385,6 +398,7 @@ class Actions {
                 'success' => true,
                 'message' => 'Joined season successfully',
                 'starter_grant' => $starterGranted,
+                'participation_pulse' => $participationPulse,
             ];
         } catch (Exception $e) {
             $db->rollback();
@@ -511,6 +525,7 @@ class Actions {
             return ['error' => 'Insufficient coins'];
         }
 
+        $gameTime = GameTime::now();
         $db->beginTransaction();
         try {
             // Claim the Market discount BEFORE charging, and treat the clear as
@@ -579,8 +594,10 @@ class Actions {
                  SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0,
                      online_current = 1, last_seen_at = NOW()
                  WHERE player_id = ?",
-                [GameTime::now(), $playerId]
+                [$gameTime, $playerId]
             );
+
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
             
             $db->commit();
             return [
@@ -757,6 +774,8 @@ class Actions {
                     [$coinsDestroyed, $seasonId]
                 );
             }
+
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
             
             $db->commit();
 
@@ -1048,6 +1067,8 @@ class Actions {
                 [$nowTick, $playerId]
             );
 
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$nowTick);
+
             $spentSummary = self::summarizeSigilVector($spentSigils);
             $lootSummary = self::summarizeSigilVector($requestedSigils);
             $transferredSummary = self::summarizeSigilVector($transferredSigils);
@@ -1143,6 +1164,8 @@ class Actions {
         $gameTime = GameTime::now();
         $joinedSeasonId = isset($player['joined_season_id']) ? (int)$player['joined_season_id'] : 0;
 
+        $participationPulse = ['granted' => false, 'reason_code' => 'not_participating', 'tier' => 1];
+
         if ($joinedSeasonId > 0) {
             $participation = $db->fetch(
                 "SELECT coins FROM season_participation WHERE player_id = ? AND season_id = ?",
@@ -1166,6 +1189,16 @@ class Actions {
             [$gameTime, $playerId]
         );
 
+        if ($joinedSeasonId > 0) {
+            $participationPulse = ParticipationPacing::grantReturnPulseForPlayer(
+                $db,
+                (int)$playerId,
+                (int)$joinedSeasonId,
+                (int)$gameTime,
+                $player
+            );
+        }
+
         Notifications::create(
             $playerId,
             'active',
@@ -1178,7 +1211,11 @@ class Actions {
             ]
         );
         
-        return ['success' => true, 'message' => 'Welcome back! You are now Active.'];
+        return [
+            'success' => true,
+            'message' => 'Welcome back! You are now Active.',
+            'participation_pulse' => $participationPulse,
+        ];
     }
     
     /**
@@ -1511,6 +1548,8 @@ class Actions {
                 "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
                 [$gameTime, $playerId]
             );
+
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
             
             $db->commit();
             
@@ -1617,6 +1656,8 @@ class Actions {
             return ['error' => "Tier {$toTier} sigil inventory cap reached"];
         }
 
+        $gameTime = GameTime::now();
+
         // With families on, Ascend is family-constrained: the inputs come from
         // one family (wildcards substitute) and the output stays in it.
         $familiesActive = SigilFamilies::active($db);
@@ -1677,8 +1718,10 @@ class Actions {
 
             $db->query(
                 "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
-                [GameTime::now(), $playerId]
+                [$gameTime, $playerId]
             );
+
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
 
             if ($ownsTransaction) {
                 $db->commit();
@@ -2033,6 +2076,8 @@ class Actions {
                 [$nowTick, $playerId]
             );
 
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$nowTick);
+
             $db->commit();
 
             // Tell the victim, and name the attacker.
@@ -2202,6 +2247,8 @@ class Actions {
                 "UPDATE players SET last_activity_tick = ?, activity_state = 'Active', idle_modal_active = 0 WHERE player_id = ?",
                 [$nowTick, $playerId]
             );
+
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$nowTick);
 
             $db->commit();
 
