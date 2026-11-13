@@ -12,7 +12,7 @@
  * unless a player would notice it.
  */
 
-export const CURRENT_VERSION = '2026.07.31';
+export const CURRENT_VERSION = '2026.11.13';
 
 /** What is being worked on right now, shown while the gate is up. */
 export const CURRENT_WORK = [
@@ -32,6 +32,17 @@ export const PROJECTED = [
 
 /** Newest first. */
 export const PATCH_NOTES = [
+    {
+        version: '2026.11.13',
+        date: '2026-11-13',
+        title: 'Quiet season: the engine room got tidied',
+        notes: [
+            'No new play yet — this wave was housekeeping. The game rules you know are unchanged.',
+            'Dozens of unused settings were removed from the server config, so what is left is what actually runs.',
+            'Database upgrades now go through one runner, so a future release cannot half-apply.',
+            'The checks that guard releases grew stricter, including one that catches these notes going stale.',
+        ],
+    },
     {
         version: '2026.07.31',
         date: '2026-07-31',
