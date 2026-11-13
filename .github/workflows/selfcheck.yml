@@ -24,6 +24,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # client_core_selfcheck dates the newest player-facing commit with
+          # git log; a shallow clone makes every run look like it was "today".
+          fetch-depth: 0
 
       - uses: shivammathur/setup-php@v2
         with:
