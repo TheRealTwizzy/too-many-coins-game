@@ -109,6 +109,10 @@ while (true) {
             // B, so this lands on B + interval; an unaligned first cycle
             // snaps to the very next boundary instead of skipping one.
             $earliest = $cycleStarted + $intervalSeconds - (int)TICK_REAL_SECONDS + $alignSettleSeconds + 0.05;
+            // Never pick a boundary that has already passed. When the interval
+            // is shorter than a tick this means one cycle per tick, not a
+            // zero-sleep spin until the next boundary.
+            $earliest = max($earliest, microtime(true));
             // realTickSchedule(x) returns the first boundary strictly after x.
             $schedule = GameTime::realTickSchedule((int)ceil($earliest) - 1);
             if ($schedule['next_tick_at'] !== null) {
