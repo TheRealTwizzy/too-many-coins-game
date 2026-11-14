@@ -44,7 +44,9 @@ function tmc_tick_health(?array $season, int $gameTime): array {
     }
 
     return [
-        'season_last_processed_tick' => $lastProcessed,
+        // Capped at end_time: finalizing expiration stamps the game time it
+        // ran at, and that jump is bookkeeping, not a payout.
+        'season_last_processed_tick' => min($lastProcessed, $endTime),
         'lag_ticks' => $lag,
         'degraded' => $lag > TMC_TICK_HEALTH_MAX_LAG_TICKS,
     ];

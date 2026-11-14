@@ -76,6 +76,11 @@ check('before the season starts there is no lag', $h['lag_ticks'] === 0 && $h['d
 $h = tmc_tick_health(season(['last_processed_tick' => 2000]), 2600);
 check('lag is measured against end_time, not game time, after the season ends', $h['lag_ticks'] === 0 && $h['degraded'] === false, $h);
 
+// Finalizing expiration sets last_processed_tick to the game time it ran at,
+// past end_time. Reporting that jump would read as one more payout (E6 review).
+$h = tmc_tick_health(season(['last_processed_tick' => 2600, 'expiration_finalized' => 1]), 2600);
+check('the reported tick never passes end_time, so finalizing is not a payout', $h['season_last_processed_tick'] === 2000, $h);
+
 $h = tmc_tick_health(season(['last_processed_tick' => 1990, 'expiration_finalized' => 1]), 2600);
 check('a finalized season is never degraded', $h['degraded'] === false && $h['lag_ticks'] === 0, $h);
 
