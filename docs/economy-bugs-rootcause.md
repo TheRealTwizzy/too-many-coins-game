@@ -33,6 +33,8 @@ throws `SQLSTATE[42S22] Unknown column`:
 
 | Symptom | Path that throws |
 | --- | --- |
+| All three, globally | `TickEngine::processTicks` calls `GameTime::ensureSeasons()` first (`includes/tick_engine.php:40`). When a new season slot is due, its `INSERT INTO seasons` (`includes/game_time.php:274-306`) names `return_pulse_min_gap_ticks`, `return_pulse_cooldown_ticks`, `active_dry_spell_ticks`, `participation_pulse_reward_tier` and throws. That aborts the whole cycle before any season is processed (the worker logs `[tick-worker] error: SQLSTATE[42S22]...`), and no new season is ever created, so once the current one ends there is nothing to join. |
+| Rejoin | `Actions::resetSeasonParticipationForFreshStart` (`includes/actions.php:86`) resets `last_meaningful_economy_tick` / `last_active_pulse_tick`, so a player rejoining a season they were in before fails too. (Spotted by `@mokemuzik617.claude` in review.) |
 | 3. Cannot join season | `Actions::seasonJoin` (`includes/actions.php:385`) calls `ParticipationPacing::markMeaningfulEconomyEvent` inside its transaction; the catch rolls back and returns `Failed to join season: SQLSTATE[42S22]...`. Any season-join then also blocks star purchase, which needs a participation row. |
 | 1. No coins / progress | `TickEngine::processSeasonTick` (`includes/tick_engine.php:251-446`) runs all participants in ONE transaction. For an Active player it calls `ParticipationPacing::grantActivePulseForPlayer` (line 289). On an unmigrated row the dry-spell decision sees `last_meaningful_economy_tick` as 0, so the pulse is eligible, and the grant path throws (pulse insert into `sigil_drop_log` with an unwidened ENUM, then the `last_meaningful_economy_tick` write). The catch (line 446) rolls back the whole season batch: UBI, participation ticks, supply, star price and `last_processed_tick` for every player. The next cycle retries the same batch and fails again. |
 | 2. No sigils | Same rollback discards any RNG/pity drop in the batch. Independently, `TickEngine::awardSigilDrop` ends with `markMeaningfulEconomyEvent` (line 701), so any drop throws on its own. |
@@ -54,8 +56,9 @@ Evidence:
   with, in the test web or worker container:
   - `php tools/migration_status.php` - expect
     `migration_20260429_active_return_gameplay_flow.sql` PENDING (or failed)
-  - worker logs - expect `Tick processing error for season N: SQLSTATE[42S22]`
-    and `[tick] cycle_degraded` every cycle.
+  - worker logs - expect `[tick-worker] error: SQLSTATE[42S22]` (season
+    INSERT) and/or `Tick processing error for season N: SQLSTATE[42S22]` with
+    `[tick] cycle_degraded`, every cycle.
 
 ### Other suspects, ruled out or secondary
 
@@ -81,7 +84,7 @@ this class of outage from recurring.
 | Task | Owns (only these files) | Done when |
 | --- | --- | --- |
 | E2 ops: apply migration on test (owner) | none (ops) | `migration_status.php` shows nothing pending; a test account joins the active season and gains coins over two ticks. |
-| E3 pacing: degrade when schema pending | `includes/participation_pacing.php`, `tools/schema_pending_selfcheck.php`, `.github/workflows/selfcheck.yml` | Every pacing read/write checks `columnExists`; missing columns make `markMeaningfulEconomyEvent` a no-op and pulses return `granted=false, reason_code=schema_pending` before any write. `schema_pending_selfcheck` passes and is in CI. `participation_pacing_selfcheck` still passes. |
+| E3 pacing: degrade when schema pending | `includes/participation_pacing.php`, `includes/game_time.php` (season INSERT only), `includes/actions.php` (`resetSeasonParticipationForFreshStart` only), `tools/schema_pending_selfcheck.php`, `.github/workflows/selfcheck.yml` | Every pacing read/write checks `columnExists`; missing columns make `markMeaningfulEconomyEvent` a no-op and pulses return `granted=false, reason_code=schema_pending` before any write. The season INSERT and the participation reset include the pacing columns only when they exist. `schema_pending_selfcheck` passes (extended to cover the INSERT and reset) and is in CI. `participation_pacing_selfcheck` still passes. |
 | E4 tick: one bad player must not roll back the season | `includes/tick_engine.php` | Optional side effects (pulse grant) in the tick loop run under a SAVEPOINT or a per-call try/catch so their failure is logged and skipped, not a whole-season rollback; core UBI/participation writes unchanged. `awardSigilDrop` tolerates a pending `sigil_drop_log.source` ENUM for pulse sources (falls back or skips the pulse). DB-free selfcheck using `tools/lib/fake_db.php` covers it. |
 | E5 api: publish tick health | `api/index.php` (game_state only) | `game_state.timing.tick_health = { season_last_processed_tick, lag_ticks, degraded }` for the player's season, `degraded=true` when the season's `last_processed_tick` is more than 2 ticks behind game time. Field contract fixed here so E6 can build in parallel. |
 | E6 client: payout effect only on real payout | `public/js/main.js`, `public/js/core/clock.js`, `public/js/patch-notes.js` | Payout pulse plays only when the polled balance or `tick_health.season_last_processed_tick` actually advanced; when `tick_health.degraded` is true the HUD shows a "payouts delayed" state instead of the pulse. `client_core_selfcheck` covers both. |
