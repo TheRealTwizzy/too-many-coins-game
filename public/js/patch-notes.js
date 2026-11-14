@@ -12,7 +12,7 @@
  * unless a player would notice it.
  */
 
-export const CURRENT_VERSION = '2026.11.13';
+export const CURRENT_VERSION = '2026.11.14';
 
 /** What is being worked on right now, shown while the gate is up. */
 export const CURRENT_WORK = [
@@ -32,6 +32,15 @@ export const PROJECTED = [
 
 /** Newest first. */
 export const PATCH_NOTES = [
+    {
+        version: '2026.11.14',
+        date: '2026-11-14',
+        title: 'Timers you can trust',
+        notes: [
+            'The next-payout countdown no longer jumps back mid-count. It reaches zero when your coins land, and the coins show up right then.',
+            'Season, boost, freeze and theft timers count down smoothly instead of pausing and skipping.',
+        ],
+    },
     {
         version: '2026.11.13',
         date: '2026-11-13',

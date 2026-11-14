@@ -332,6 +332,7 @@ works with manual `mysql < migrations/file.sql` application.
 | `TMC_TICK_SECRET` (alias `TICK_SECRET`) | empty | Only for the fallback HTTP tick endpoint (section 8). |
 | `TMC_WORKER_ERROR_BACKOFF_SECONDS` | `2` | Worker only. |
 | `TMC_WORKER_RUN_ONCE` | `false` | Worker runs a single cycle and exits. Debugging only. |
+| `TMC_WORKER_ALIGN_TO_TICKS` | `true` | Worker only. Wakes ~150ms after each tick boundary so payouts land when the client countdown reaches zero. `false` restores the fixed-interval loop. |
 | `TMC_TICK_TRACE` | `false` | Verbose tick logging. |
 | `TMC_TICK_SLOW_MS` | `500` (min `50`) | Threshold for slow-tick warnings. |
 | `TMC_TICK_LOCK_MISS_LOG_EVERY` | `12` | Log one in N advisory-lock misses. |
@@ -440,6 +441,13 @@ Validation checks:
    It shares the diagnostics gate: `403` unless **both** `TMC_RATE_LIMIT_DIAGNOSTICS=true` and `TMC_INIT_SECRET` are set. The CLI check in step 5 has neither requirement.
 
 Fallback only if worker service cannot be used:
+
+- `TMC_TICK_ON_REQUEST=true` on the web service processes due ticks on API
+  requests. Game time follows the wall clock, so this does not speed the game
+  up; it only means a payout lands on the first request after its boundary
+  (the client polls just after each boundary to make that prompt). With no
+  players online nothing ticks, and season creation waits for the next request.
+- Or an external scheduler calling the tick endpoint:
 
 ```text
 POST https://your-domain/api/index.php?action=tick

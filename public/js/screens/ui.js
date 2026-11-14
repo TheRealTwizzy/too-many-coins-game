@@ -54,3 +54,18 @@ export function errorState(h, { title = 'Could not load this', message = null, o
             : null,
     );
 }
+
+/**
+ * Seconds left until an absolute server deadline, live every render.
+ *
+ * Polled "remaining seconds" are a snapshot: rendered as-is they freeze
+ * between polls and then jump. When the server published the deadline itself
+ * (epoch ms, or epoch seconds via `atSeconds`), count down from that against
+ * the clock's server offset. Falls back to the snapshot until the first poll
+ * has taught the clock the server's time.
+ */
+export function liveSeconds(ctx, { atMs = null, atSeconds = null, fallback = 0 } = {}) {
+    const target = atMs ?? (atSeconds !== null && atSeconds !== undefined ? Number(atSeconds) * 1000 : null);
+    const live = ctx && ctx.clock && typeof ctx.clock.secondsUntil === 'function' && target ? ctx.clock.secondsUntil(target) : null;
+    return live === null ? (Number(fallback) || 0) : live;
+}

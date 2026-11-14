@@ -644,6 +644,58 @@ function checkClock({ createClock }) {
         ok('onTick stays silent while phase is unknown', ticks === 0, { ticks });
     }
 
+    // Server-scheduled phase: the regression behind "ticks 5,4,3 then resets
+    // to 5". A poll that re-teaches the same rhythm must not move the
+    // countdown or swallow the payout pulse.
+    {
+        const { clock, at } = makeClockHarness(createClock);
+        // Device clock runs 90s behind the server; the round trip is 200ms, so
+        // the server stamped its time at the midpoint (100ms ago).
+        const skew = 90_000;
+        clock.syncServerTime(at() + skew, at() - 200, at());
+        ok('server offset is learned from a sample',
+            Math.abs(clock.serverNow() - (at() + 100 + skew)) < 1, { serverNow: clock.serverNow() });
+        clock.setTickPhase({ periodSeconds: 5, nextTickAt: at() + skew + 2000 });
+        ok('nextTickAt counts down in server time despite a skewed device clock',
+            Math.abs(clock.secondsToNextTick() - 1.9) < 0.001, { seconds: clock.secondsToNextTick() });
+        ok('secondsUntil reads a server deadline',
+            Math.abs(clock.secondsUntil(at() + skew + 10_000) - 9.9) < 0.001
+            && clock.secondsUntil(null) === null);
+    }
+
+    {
+        const { clock, advance, at } = makeClockHarness(createClock);
+        clock.syncServerTime(at(), at(), at());
+        const firstNext = at() + 5000;
+        clock.setTickPhase({ periodSeconds: 5, nextTickAt: firstNext });
+        let ticks = 0;
+        clock.onTick(() => ticks++);
+        advance(2000);
+        const before = clock.secondsToNextTick();
+        // A poll arrives: same schedule, next boundary unchanged.
+        clock.setTickPhase({ periodSeconds: 5, nextTickAt: firstNext });
+        ok('re-teaching the same schedule does not reset the countdown',
+            Math.abs(clock.secondsToNextTick() - before) < 0.001 && Math.abs(before - 3) < 0.02,
+            { before, after: clock.secondsToNextTick() });
+        // Poll lands right on the boundary, already reporting the NEXT one.
+        advance(3000);
+        clock.setTickPhase({ periodSeconds: 5, nextTickAt: firstNext + 5000 });
+        advance(100);
+        ok('a poll at the boundary does not swallow the payout pulse', ticks === 1, { ticks });
+    }
+
+    {
+        const { clock, at } = makeClockHarness(createClock);
+        clock.syncServerTime(at(), at() - 2000, at());   // slow sample: 2s RTT
+        const coarse = clock.serverNow();
+        clock.syncServerTime(at() + 500, at() - 20, at()); // fast sample wins
+        ok('the lowest-RTT sample sets the offset',
+            Math.abs(clock.serverNow() - (at() + 510)) < 1 && coarse !== clock.serverNow());
+        clock.syncServerTime(at() + 9999, at() - 1500, at()); // slower again: ignored
+        ok('a slower sample does not replace a better one',
+            Math.abs(clock.serverNow() - (at() + 510)) < 1);
+    }
+
     {
         const { clock, advance } = makeClockHarness(createClock);
         let good = 0;

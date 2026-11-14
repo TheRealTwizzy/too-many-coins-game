@@ -16,6 +16,12 @@ $intervalSeconds = max(1, (int)(getenv('TMC_WORKER_INTERVAL_SECONDS') ?: getenv(
 $startDelaySeconds = max(0, (int)(getenv('TMC_WORKER_START_DELAY_SECONDS') ?: 0));
 $runOnce = filter_var(getenv('TMC_WORKER_RUN_ONCE') ?: '0', FILTER_VALIDATE_BOOLEAN);
 $errorBackoffSeconds = max(1, (int)(getenv('TMC_WORKER_ERROR_BACKOFF_SECONDS') ?: 2));
+// Align cycles to tick boundaries (default on). Set to false to restore the
+// old fixed-interval loop.
+$alignToTicks = filter_var(getenv('TMC_WORKER_ALIGN_TO_TICKS') ?: '1', FILTER_VALIDATE_BOOLEAN);
+// How long after a boundary to run, so the boundary's second has fully passed
+// on this host before GameTime::now() is read.
+$alignSettleSeconds = 0.15;
 $timing = get_timing_diagnostics($intervalSeconds);
 $lockMissCount = 0;
 
@@ -24,7 +30,7 @@ if ($startDelaySeconds > 0) {
     sleep($startDelaySeconds);
 }
 
-error_log("[tick-worker] starting (interval={$intervalSeconds}s, run_once=" . ($runOnce ? 'true' : 'false') . ")");
+error_log("[tick-worker] starting (interval={$intervalSeconds}s, align_to_ticks=" . ($alignToTicks ? 'true' : 'false') . ", run_once=" . ($runOnce ? 'true' : 'false') . ")");
 error_log("[tick-worker] timing (time_scale=" . $timing['time_scale']
     . ", tick_real_seconds=" . $timing['tick_real_seconds']
     . ", idle_timeout_ticks=" . $timing['idle_timeout_ticks']
@@ -93,6 +99,29 @@ while (true) {
 
     $elapsed = microtime(true) - $cycleStarted;
     $targetSleep = $intervalSeconds - $elapsed;
+    if (!$hadError && $alignToTicks) {
+        // Wake just after a tick boundary rather than at an arbitrary offset
+        // from when this worker happened to start. Coins then land when the
+        // client's countdown reaches zero instead of up to one interval later.
+        try {
+            // First boundary after (cycle start + interval - one tick +
+            // settle). In steady state the cycle started just after boundary
+            // B, so this lands on B + interval; an unaligned first cycle
+            // snaps to the very next boundary instead of skipping one.
+            $earliest = $cycleStarted + $intervalSeconds - (int)TICK_REAL_SECONDS + $alignSettleSeconds + 0.05;
+            // Never pick a boundary that has already passed. When the interval
+            // is shorter than a tick this means one cycle per tick, not a
+            // zero-sleep spin until the next boundary.
+            $earliest = max($earliest, microtime(true));
+            // realTickSchedule(x) returns the first boundary strictly after x.
+            $schedule = GameTime::realTickSchedule((int)ceil($earliest) - 1);
+            if ($schedule['next_tick_at'] !== null) {
+                $targetSleep = ($schedule['next_tick_at'] + $alignSettleSeconds) - microtime(true);
+            }
+        } catch (Throwable $alignError) {
+            error_log('[tick-worker] tick alignment skipped: ' . $alignError->getMessage());
+        }
+    }
     $sleepSeconds = $hadError ? max($errorBackoffSeconds, $targetSleep) : max(0.0, $targetSleep);
 
     if ($sleepSeconds > 0) {
