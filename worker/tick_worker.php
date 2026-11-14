@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/database.php';
 require_once __DIR__ . '/../includes/game_time.php';
 require_once __DIR__ . '/../includes/economy.php';
 require_once __DIR__ . '/../includes/tick_engine.php';
+require_once __DIR__ . '/../includes/runtime_readiness.php';
 
 $intervalSeconds = max(1, (int)(getenv('TMC_WORKER_INTERVAL_SECONDS') ?: getenv('TMC_TICK_REAL_SECONDS') ?: 60));
 $startDelaySeconds = max(0, (int)(getenv('TMC_WORKER_START_DELAY_SECONDS') ?: 0));
@@ -37,6 +38,20 @@ error_log("[tick-worker] timing (time_scale=" . $timing['time_scale']
     . ", idle_timeout_real_seconds=" . $timing['idle_timeout_real_seconds'] . ")");
 if (!empty($timing['warnings'])) {
     error_log('[tick-worker] timing warnings: ' . implode(',', $timing['warnings']));
+}
+
+// Say loudly at start when the schema is behind the code. With
+// TMC_AUTO_SQL_MIGRATIONS=false nothing applies a new migration on its own,
+// and ticks that touch its columns roll back every cycle. Log only: the loop
+// still runs so the worker recovers by itself once migrate.php has run and
+// the worker restarts.
+try {
+    foreach (tmc_runtime_migration_log_lines(tmc_runtime_load_migration_state(Database::getInstance()->getConnection())) as $line) {
+        error_log($line);
+    }
+} catch (Throwable $migrationCheckError) {
+    Database::resetInstance();
+    error_log('[tick-worker] migration check skipped: ' . $migrationCheckError->getMessage());
 }
 
 while (true) {
