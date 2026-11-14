@@ -71,15 +71,21 @@ echo "Tick isolation self-check\n\n";
 
 echo "A throwing pulse inside the season transaction\n";
 // Mirrors processSeasonTick: begin, optional pulse for an Active player, then
-// the core UBI write, then commit. The pulse is the real pacing code hitting
-// a column the pending migration has not added.
+// the core UBI write, then commit. The pulse is the grant's counter write
+// hitting a column the pending migration has not added. Raw SQL on purpose:
+// the pacing helpers learn to stand down on a pending schema (E3), and this
+// check is about what happens when a side effect throws anyway.
 $db = new FakeDb();
-$db->missingColumns = ['last_meaningful_economy_tick'];
+$db->missingColumns = ['last_active_pulse_tick'];
 [$threw, $out] = attempt(function () use ($db) {
     $db->beginTransaction();
     try {
         TickEngine::runOptionalSideEffect($db, 'active_pulse test', function () use ($db) {
-            ParticipationPacing::markMeaningfulEconomyEvent($db, 7, 1, 50);
+            $db->query(
+                "UPDATE season_participation SET last_active_pulse_tick = ?, active_pulses_total = active_pulses_total + 1
+                 WHERE player_id = ? AND season_id = ?",
+                [50, 7, 1]
+            );
         });
         $db->query(UBI_SQL, [5, 0, 0, 7, 1]);
         $db->commit();
