@@ -83,7 +83,6 @@ class Actions {
              total_season_participation_ticks = total_season_participation_ticks + participation_ticks_since_join,
              first_joined_at = ?, last_exit_at = NULL,
              spend_window_total = 0, hoarding_sink_total = 0,
-             last_meaningful_economy_tick = ?, last_active_pulse_tick = 0,
              reactivation_balance_snapshot = 0, reactivation_start_tick = NULL,
              lock_in_effect_tick = NULL, lock_in_snapshot_seasonal_stars = NULL,
              lock_in_snapshot_participation_time = NULL,
@@ -92,8 +91,21 @@ class Actions {
              badge_awarded = NULL,
              active_boosts = NULL
              WHERE player_id = ? AND season_id = ?",
-            [(int)$gameTime, (int)$gameTime, (int)$playerId, (int)$seasonId]
+            [(int)$gameTime, (int)$playerId, (int)$seasonId]
         );
+
+        // Active-return pacing counters exist only once their migration has
+        // run; deploys do not auto-migrate (docs/economy-bugs-rootcause.md).
+        if (ParticipationPacing::pulseSchemaReady($db)) {
+            $db->query(
+                "UPDATE season_participation SET
+                 last_meaningful_economy_tick = ?, last_active_pulse_tick = 0
+                 WHERE player_id = ? AND season_id = ?",
+                [(int)$gameTime, (int)$playerId, (int)$seasonId]
+            );
+        } else {
+            ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$gameTime);
+        }
 
         if (SigilFamilies::schemaReady($db)) {
             $db->query(

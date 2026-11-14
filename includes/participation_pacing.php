@@ -9,6 +9,71 @@ class ParticipationPacing
     public const SOURCE_RETURN = 'return_pulse';
     public const SOURCE_ACTIVE = 'active_dry_spell_pulse';
 
+    /**
+     * season_participation columns added by
+     * migrations/migration_20260429_active_return_gameplay_flow.sql.
+     *
+     * Deploys run with TMC_AUTO_SQL_MIGRATIONS=false, so this code can be live
+     * before that migration. Writing an absent column throws inside the
+     * caller's transaction: season join fails and the tick rolls back every
+     * participant's UBI (docs/economy-bugs-rootcause.md). Pacing is optional,
+     * so it stands down until the schema is there.
+     */
+    private const PULSE_PARTICIPATION_COLUMNS = [
+        'last_meaningful_economy_tick',
+        'last_return_pulse_tick',
+        'last_active_pulse_tick',
+        'return_pulses_total',
+        'active_pulses_total',
+    ];
+
+    /** @var WeakMap<object, bool>|null pulse readiness per DB handle */
+    private static $pulseReadyCache = null;
+
+    /** Can last_meaningful_economy_tick be written? */
+    public static function trackingSchemaReady($db): bool
+    {
+        return (bool)$db->columnExists('season_participation', 'last_meaningful_economy_tick');
+    }
+
+    /**
+     * Can a pulse be granted? Needs every pulse counter column and the
+     * widened sigil_drop_log.source ENUM, which the migration changes last -
+     * columnExists alone would pass a half-applied migration whose pulse
+     * insert still fails.
+     */
+    public static function pulseSchemaReady($db): bool
+    {
+        self::$pulseReadyCache ??= new WeakMap();
+        if (isset(self::$pulseReadyCache[$db])) {
+            return self::$pulseReadyCache[$db];
+        }
+
+        $ready = true;
+        foreach (self::PULSE_PARTICIPATION_COLUMNS as $column) {
+            if (!$db->columnExists('season_participation', $column)) {
+                $ready = false;
+                break;
+            }
+        }
+        if ($ready) {
+            try {
+                $row = $db->fetch(
+                    "SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sigil_drop_log' AND COLUMN_NAME = 'source'"
+                );
+                $type = is_array($row) ? (string)($row['COLUMN_TYPE'] ?? '') : '';
+                $ready = strpos($type, "'RETURN_PULSE'") !== false
+                    && strpos($type, "'ACTIVE_DRY_SPELL_PULSE'") !== false;
+            } catch (Throwable $e) {
+                $ready = false;
+            }
+        }
+
+        self::$pulseReadyCache[$db] = $ready;
+        return $ready;
+    }
+
     public static function returnPulseDecision(array $season, array $player, array $participation, int $tick): array
     {
         $rewardTier = self::rewardTier($season);
@@ -104,6 +169,9 @@ class ParticipationPacing
 
     public static function markMeaningfulEconomyEvent($db, int $playerId, int $seasonId, int $tick): void
     {
+        if (!self::trackingSchemaReady($db)) {
+            return;
+        }
         $db->query(
             "UPDATE season_participation SET last_meaningful_economy_tick = ?
              WHERE player_id = ? AND season_id = ?",
@@ -130,6 +198,12 @@ class ParticipationPacing
         ?string $presenceState = null,
         ?array $playerSnapshot = null
     ): array {
+        // Before any transaction or read: a refusal here must leave the
+        // caller's transaction exactly as it was.
+        if (!self::pulseSchemaReady($db)) {
+            return self::grantResult(false, 'schema_pending', 1);
+        }
+
         $startedTransaction = self::beginTransactionIfNeeded($db);
         $season = null;
 
