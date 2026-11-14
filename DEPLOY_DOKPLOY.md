@@ -312,6 +312,22 @@ php /app/tools/migrate.php             # apply and record
 php /app/tools/migration_status.php    # read-only report afterwards
 ```
 
+**Before promoting a build that adds a migration**, run `php /app/tools/migrate.php`
+against that environment's database, then restart web and worker. With
+`TMC_AUTO_SQL_MIGRATIONS=false` nothing applies the file on its own, and code
+that names the new columns fails until it runs: season joins error and every
+tick that touches them rolls back, so players see timers finish with no coins.
+`Database::columnExists` caches per process, which is why the restart matters.
+
+A pending or failed migration is reported loudly, not silently:
+
+- `runtime_readiness_check.php` (and the `runtime_readiness` action) returns
+  `blocked`, lists the files under `schema.pending_migrations`, and names them
+  in `diagnosis`; the CLI also prints `PENDING MIGRATIONS ...` on stderr.
+- The worker logs `[tick-worker] pending_migrations count=N files=...` (or
+  `[tick-worker] failed_migrations ...`) once at start. It keeps running, so
+  it recovers after `migrate.php` and a restart.
+
 If a migration fails, whether under auto-apply or the runner, it is recorded in
 `schema_migrations` with `status='failed'` and not retried — operators must
 check for failed rows and ship a corrected replacement migration file:
@@ -426,7 +442,7 @@ Validation checks:
 
 1. Web service is healthy at `/` and `/api/index.php?action=game_state`.
 2. Worker service logs show startup line: `[tick-worker] starting ...`.
-3. Worker service logs show `time_scale=1` in `[tick-worker] timing (...)`.
+3. Worker service logs show `time_scale=1` in `[tick-worker] timing (...)`, and no `[tick-worker] pending_migrations` or `failed_migrations` line (if present, see section 4.7).
 4. `server_state.last_tick_processed_at` advances every few seconds.
 5. `php /app/tools/runtime_readiness_check.php --observe-seconds=15 --pretty` returns neither `blocked` nor `degraded`.
 6. If using remote diagnostics, `runtime_readiness` shows season advancement or explicitly reports expected blackout/zero-participant state. Unlike `rate_limit_diagnostics` it is **not** on the GET-safe allowlist, so it must be POSTed — a GET returns `405 method_not_allowed`:

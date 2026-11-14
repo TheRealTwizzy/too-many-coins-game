@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/migrations.php';
 require_once __DIR__ . '/game_time.php';
 
 function tmc_runtime_table_exists(Database $db, string $tableName): bool
@@ -42,6 +43,76 @@ function tmc_runtime_required_tick_tables(): array
         'sigil_drop_tracking',
         'player_notifications',
     ];
+}
+
+/**
+ * Pending/failed migration state, without touching the database.
+ *
+ * $files is tmc_auto_migration_files() (name => path, apply order) and
+ * $recorded is tmc_recorded_migrations(). Any pending or failed file blocks:
+ * with auto-apply off, code that names a new column throws until an operator
+ * runs tools/migrate.php, and the tick transaction rolls back every cycle.
+ * With auto-apply on, a file still pending after Database connected means the
+ * runner could not apply it (lock busy, base schema missing), which is just as
+ * broken. Checksum drift is reported but does not block: the file did apply.
+ */
+function tmc_runtime_migration_state(array $files, array $recorded, bool $autoApply): array
+{
+    $plan = tmc_classify_migrations($files, $recorded);
+    $diagnosis = [];
+
+    if (!empty($plan['pending'])) {
+        $diagnosis[] = ($autoApply
+                ? 'Schema migrations still pending although TMC_AUTO_SQL_MIGRATIONS is on (lock busy or base schema missing): '
+                : 'Schema migrations pending and TMC_AUTO_SQL_MIGRATIONS=false, so they will not apply on their own: ')
+            . implode(', ', $plan['pending'])
+            . '. Run php tools/migrate.php, then restart web and worker.';
+    }
+    if (!empty($plan['failed'])) {
+        $diagnosis[] = 'Schema migrations recorded as failed (never retried; ship a new migration file): '
+            . implode(', ', $plan['failed']) . '.';
+    }
+
+    return [
+        'auto_apply' => $autoApply,
+        'pending' => $plan['pending'],
+        'failed' => $plan['failed'],
+        'drifted' => $plan['drifted'],
+        'blocking' => !empty($plan['pending']) || !empty($plan['failed']),
+        'diagnosis' => $diagnosis,
+    ];
+}
+
+/**
+ * Reads the live migration state through an open connection.
+ */
+function tmc_runtime_load_migration_state(PDO $pdo): array
+{
+    return tmc_runtime_migration_state(
+        tmc_auto_migration_files(),
+        tmc_recorded_migrations($pdo),
+        defined('TMC_AUTO_SQL_MIGRATIONS') && TMC_AUTO_SQL_MIGRATIONS
+    );
+}
+
+/**
+ * Startup log lines for the tick worker; empty when nothing is wrong.
+ */
+function tmc_runtime_migration_log_lines(array $state): array
+{
+    $lines = [];
+    if (!empty($state['pending'])) {
+        $lines[] = '[tick-worker] pending_migrations count=' . count($state['pending'])
+            . ' files=' . implode(',', $state['pending'])
+            . ' auto_apply=' . (!empty($state['auto_apply']) ? 'true' : 'false')
+            . ' fix="php tools/migrate.php, then restart web and worker"';
+    }
+    if (!empty($state['failed'])) {
+        $lines[] = '[tick-worker] failed_migrations count=' . count($state['failed'])
+            . ' files=' . implode(',', $state['failed'])
+            . ' fix="ship a new migration file; failed ones are never retried"';
+    }
+    return $lines;
 }
 
 function tmc_runtime_tick_path_report(): array
@@ -89,6 +160,8 @@ function tmc_runtime_readiness_report(Database $db, array $options = []): array
             $missingTables[] = $tableName;
         }
     }
+
+    $migrationState = tmc_runtime_load_migration_state($db->getConnection());
 
     $failedMigrations = [];
     if (tmc_runtime_table_exists($db, 'schema_migrations')) {
@@ -163,9 +236,17 @@ function tmc_runtime_readiness_report(Database $db, array $options = []): array
         $status = 'blocked';
         $diagnosis[] = 'Missing required tick-runtime tables: ' . implode(', ', $missingTables);
     }
-    if (!empty($failedMigrations)) {
+    if ($migrationState['blocking']) {
         $status = 'blocked';
-        $diagnosis[] = 'One or more schema migrations are recorded as failed.';
+        foreach ($migrationState['diagnosis'] as $line) {
+            $diagnosis[] = $line;
+        }
+    }
+    if (!empty($failedMigrations) && empty($migrationState['failed'])) {
+        // Failed rows for files no longer shipped in migrations/.
+        $status = 'blocked';
+        $diagnosis[] = 'Schema migrations recorded as failed: '
+            . implode(', ', array_map(static fn($row) => (string)($row['migration_name'] ?? ''), $failedMigrations)) . '.';
     }
     if ($activeSeasonCount === 0 && $blackoutSeasonCount > 0) {
         $diagnosis[] = 'Current visible season state is blackout; no accrual or sigil drops is expected.';
@@ -255,6 +336,9 @@ function tmc_runtime_readiness_report(Database $db, array $options = []): array
             'required_tick_tables' => $requiredTables,
             'missing_tick_tables' => $missingTables,
             'failed_migrations' => $failedMigrations,
+            'auto_sql_migrations' => $migrationState['auto_apply'],
+            'pending_migrations' => $migrationState['pending'],
+            'drifted_migrations' => $migrationState['drifted'],
         ],
         'server_state' => $serverState ? [
             'global_tick_index' => (int)($serverState['global_tick_index'] ?? 0),

@@ -29,5 +29,13 @@ $report = tmc_runtime_readiness_report($db, ['observe_seconds' => $observeSecond
 $flags = $pretty ? JSON_PRETTY_PRINT : 0;
 echo json_encode($report, $flags) . PHP_EOL;
 
+// Pending migrations are the usual reason a fresh deploy stops ticking, so
+// name them on stderr where a deploy log shows them even if JSON is piped away.
+$pendingMigrations = $report['schema']['pending_migrations'] ?? [];
+if (!empty($pendingMigrations)) {
+    fwrite(STDERR, 'runtime_readiness_check: PENDING MIGRATIONS ' . implode(', ', $pendingMigrations)
+        . ' - run php tools/migrate.php, then restart web and worker.' . PHP_EOL);
+}
+
 $exitCode = in_array((string)($report['status'] ?? 'ready'), ['blocked', 'degraded'], true) ? 1 : 0;
 exit($exitCode);
