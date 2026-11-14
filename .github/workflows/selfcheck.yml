@@ -43,6 +43,7 @@ jobs:
         run: |
           checks=(
             "php tools/docs_selfcheck.php"
+            "php tools/tick_health_selfcheck.php"
             "php tools/balance_selfcheck.php"
             "php tools/star_price_selfcheck.php"
             "php tools/hoarding_sink_selfcheck.php"
