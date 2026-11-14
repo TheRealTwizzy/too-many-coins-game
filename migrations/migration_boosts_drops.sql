@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS sigil_drop_log (
     season_id BIGINT UNSIGNED NOT NULL,
     drop_tick BIGINT NOT NULL,
     tier TINYINT UNSIGNED NOT NULL,
-    source ENUM('RNG', 'PITY') NOT NULL DEFAULT 'RNG',
+    source ENUM('RNG', 'PITY', 'RETURN_PULSE', 'ACTIVE_DRY_SPELL_PULSE') NOT NULL DEFAULT 'RNG',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_player_season_tick (player_id, season_id, drop_tick),
     FOREIGN KEY (player_id) REFERENCES players(player_id),

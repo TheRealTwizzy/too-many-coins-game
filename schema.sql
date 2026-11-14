@@ -101,6 +101,10 @@ CREATE TABLE IF NOT EXISTS seasons (
     starprice_reactivation_window_ticks INT NOT NULL DEFAULT 75,
     starprice_demand_table JSON DEFAULT NULL,
     market_affordability_bias_fp INT NOT NULL DEFAULT 1000000,
+    return_pulse_min_gap_ticks BIGINT NOT NULL DEFAULT 5,
+    return_pulse_cooldown_ticks BIGINT NOT NULL DEFAULT 30,
+    active_dry_spell_ticks BIGINT NOT NULL DEFAULT 5,
+    participation_pulse_reward_tier TINYINT NOT NULL DEFAULT 1,
     -- Vault config
     vault_config JSON NOT NULL,  -- Per-tier: initial_supply, cost table
     -- Published surfaces
@@ -191,6 +195,11 @@ CREATE TABLE IF NOT EXISTS season_participation (
     total_season_participation_ticks BIGINT NOT NULL DEFAULT 0,
     reactivation_balance_snapshot BIGINT NOT NULL DEFAULT 0,
     reactivation_start_tick BIGINT DEFAULT NULL,
+    last_meaningful_economy_tick BIGINT NOT NULL DEFAULT 0,
+    last_return_pulse_tick BIGINT NOT NULL DEFAULT 0,
+    last_active_pulse_tick BIGINT NOT NULL DEFAULT 0,
+    return_pulses_total INT NOT NULL DEFAULT 0,
+    active_pulses_total INT NOT NULL DEFAULT 0,
     -- Lock-In snapshot
     lock_in_effect_tick BIGINT DEFAULT NULL,
     lock_in_snapshot_seasonal_stars BIGINT DEFAULT NULL,
