@@ -22,8 +22,19 @@
 
 class FakeDbConnection {
     public $inTransaction = false;
+    /** Raw statements run through exec() (SAVEPOINT and friends), in order. */
+    public $execs = [];
+    /** If set, exec() of a statement matching this regex throws. */
+    public $failExecMatching = null;
     public function inTransaction(): bool {
         return $this->inTransaction;
+    }
+    public function exec($sql) {
+        if ($this->failExecMatching !== null && preg_match($this->failExecMatching, (string)$sql)) {
+            throw new PDOException("SQLSTATE[42000]: fake exec failure for: {$sql}");
+        }
+        $this->execs[] = (string)$sql;
+        return 0;
     }
 }
 
