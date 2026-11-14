@@ -79,7 +79,13 @@ check('lag is measured against end_time, not game time, after the season ends', 
 // Finalizing expiration sets last_processed_tick to the game time it ran at,
 // past end_time. Reporting that jump would read as one more payout (E6 review).
 $h = tmc_tick_health(season(['last_processed_tick' => 2600, 'expiration_finalized' => 1]), 2600);
-check('the reported tick never passes end_time, so finalizing is not a payout', $h['season_last_processed_tick'] === 2000, $h);
+check('the reported tick stops at the last payable tick, so finalizing is not a payout', $h['season_last_processed_tick'] === 1999, $h);
+// The last real batch can only reach end_time - 1: at end_time the engine
+// runs expiration instead of UBI. So that batch then finalizing must not move.
+$before = tmc_tick_health(season(['last_processed_tick' => 1999]), 2000);
+$after = tmc_tick_health(season(['last_processed_tick' => 2000, 'expiration_finalized' => 1]), 2000);
+check('last batch then expiration reports the same tick',
+    $before['season_last_processed_tick'] === $after['season_last_processed_tick'], [$before, $after]);
 
 $h = tmc_tick_health(season(['last_processed_tick' => 1990, 'expiration_finalized' => 1]), 2600);
 check('a finalized season is never degraded', $h['degraded'] === false && $h['lag_ticks'] === 0, $h);
