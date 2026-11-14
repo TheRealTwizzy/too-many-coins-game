@@ -21,7 +21,8 @@
  * phase: it would hit zero at an arbitrary offset from when coins actually
  * land, and teach the player a rhythm that is wrong.
  *
- * So phase is opt-in. Until `setTickPhase` is given a real `lastTickAt`,
+ * So phase is opt-in. Until `setTickPhase` is given a real `nextTickAt` (or
+ * the legacy `lastTickAt`),
  * `secondsToNextTick()` returns null and callers are expected to render a
  * period-only affordance rather than a countdown that lies. Stage 2 adds
  * `last_tick_at` to the API and phase becomes available; nothing here changes
@@ -46,10 +47,22 @@ export function createClock(options = {}) {
     let rafId = null;
     let running = false;
 
-    // Tick phase, unknown until told otherwise.
+    // Tick phase, unknown until told otherwise. lastTickAtMs is in THIS
+    // device's clock.
     let periodMs = null;
     let lastTickAtMs = null;
     let lastTickIndex = null;
+
+    // Server clock offset (server ms - local ms). Kept from the sample with
+    // the smallest round trip, because that one has the least network error;
+    // a sample is replaced once it is old, so slow device-clock drift is
+    // still followed.
+    let offsetMs = null;
+    let offsetRttMs = Infinity;
+    let offsetSampledAt = -Infinity;
+    const OFFSET_SAMPLE_TTL_MS = 5 * 60 * 1000;
+    // Phase changes smaller than this are network noise, not a new rhythm.
+    const PHASE_TOLERANCE_MS = 250;
 
     function schedule() {
         if (running || rafId !== null) return;
@@ -141,14 +154,72 @@ export function createClock(options = {}) {
         },
 
         /**
+         * Record one server-time sample.
+         *
+         * @param {number} serverTimeMs  the server's epoch ms when it built the response
+         * @param {number} sentAt        local ms when the request left
+         * @param {number} receivedAt    local ms when the response arrived
+         */
+        syncServerTime(serverTimeMs, sentAt, receivedAt) {
+            const server = Number(serverTimeMs);
+            if (!Number.isFinite(server)) return;
+            const rtt = Math.max(0, Number(receivedAt) - Number(sentAt));
+            const stale = Number(receivedAt) - offsetSampledAt > OFFSET_SAMPLE_TTL_MS;
+            if (offsetMs !== null && !stale && rtt >= offsetRttMs) return;
+            offsetMs = server - (Number(sentAt) + Number(receivedAt)) / 2;
+            offsetRttMs = rtt;
+            offsetSampledAt = Number(receivedAt);
+        },
+
+        /** Server epoch ms now, or null before the first sample. */
+        serverNow() {
+            return offsetMs === null ? null : now() + offsetMs;
+        },
+
+        /**
+         * Seconds until a server epoch-ms deadline (never negative), or null
+         * when the deadline or the server offset is unknown.
+         */
+        secondsUntil(serverEpochMs) {
+            if (offsetMs === null || serverEpochMs === null || serverEpochMs === undefined) return null;
+            const target = Number(serverEpochMs);
+            if (!Number.isFinite(target)) return null;
+            return Math.max(0, (target - (now() + offsetMs)) / 1000);
+        },
+
+        /**
          * Teach the clock the server's tick rhythm.
          *
-         * @param {number|null} lastTickAt      epoch ms of the most recent tick, or null if unpublished
+         * Prefer nextTickAt (server epoch ms of the next boundary): it is the
+         * same for every client and every poll. lastTickAt is the legacy
+         * input, already in this device's clock.
+         *
+         * Re-teaching the same rhythm is a no-op, so a poll never resets the
+         * countdown or swallows the payout pulse at a boundary.
+         *
+         * @param {number|null} nextTickAt      server epoch ms of the next tick
+         * @param {number|null} lastTickAt      local epoch ms of the most recent tick
          * @param {number|null} periodSeconds   tick_real_seconds
          */
-        setTickPhase({ lastTickAt = null, periodSeconds = null } = {}) {
-            periodMs = periodSeconds ? Number(periodSeconds) * 1000 : null;
-            lastTickAtMs = lastTickAt === null || lastTickAt === undefined ? null : Number(lastTickAt);
+        setTickPhase({ nextTickAt = null, lastTickAt = null, periodSeconds = null } = {}) {
+            const nextPeriod = periodSeconds ? Number(periodSeconds) * 1000 : null;
+            let nextLast = null;
+            if (nextPeriod && nextTickAt !== null && nextTickAt !== undefined && offsetMs !== null) {
+                nextLast = Number(nextTickAt) - offsetMs - nextPeriod;
+            } else if (lastTickAt !== null && lastTickAt !== undefined) {
+                nextLast = Number(lastTickAt);
+            }
+
+            const samePeriod = nextPeriod === periodMs;
+            let samePhase = false;
+            if (samePeriod && nextPeriod && nextLast !== null && lastTickAtMs !== null) {
+                const drift = Math.abs(nextLast - lastTickAtMs) % nextPeriod;
+                samePhase = Math.min(drift, nextPeriod - drift) <= PHASE_TOLERANCE_MS;
+            }
+            if (samePhase) return;
+
+            periodMs = nextPeriod;
+            lastTickAtMs = nextLast;
             lastTickIndex = null;
             schedule();
         },

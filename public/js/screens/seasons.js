@@ -6,7 +6,7 @@
  * updates by itself every 3s.
  */
 
-import { emptyState, panel } from './ui.js';
+import { emptyState, panel, liveSeconds } from './ui.js';
 
 const STATUS_ORDER = { Active: 0, Blackout: 1, Scheduled: 2, Ended: 3 };
 
@@ -52,7 +52,7 @@ function seasonCard(ctx, season, joinedId) {
         h('dl', { class: 'season-facts' },
             // countdown_label distinguishes "Begins in" from "Time Left";
             // the server decides which countdown this is.
-            fact(h, season.countdown_label || 'Ends in', formatRemaining(season.time_remaining_real_seconds)),
+            fact(h, season.countdown_label || 'Ends in', formatRemaining(liveSeconds(ctx, { atMs: season.countdown_ends_at, fallback: season.time_remaining_real_seconds }))),
             fact(h, 'Star price', Math.round(Number(season.published_star_price ?? season.current_star_price) || 0)),
             fact(h, 'Players', Number(season.player_count) || 0),
         ),
