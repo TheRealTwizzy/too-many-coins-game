@@ -28,7 +28,12 @@ class FakeDbConnection {
 }
 
 class FakeDb {
-    /** Column names that "do not exist yet". Matched as whole words. */
+    /**
+     * Column names that "do not exist yet". Matched as whole words anywhere
+     * in the SQL, and columnExists() ignores its $table argument: fine for
+     * globally unique names, but a common name (e.g. "status") would fail
+     * statements on every table. Key by table before relying on that.
+     */
     public $missingColumns = [];
     /** Every statement run, in order: ['sql' => string, 'params' => array]. */
     public $statements = [];
