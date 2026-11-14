@@ -14,7 +14,7 @@
  * their own honest states rather than a broken page.
  */
 
-import { pending, emptyState, panel } from './ui.js';
+import { pending, emptyState, panel, liveSeconds } from './ui.js';
 
 const fmt = new Intl.NumberFormat('en-US');
 const ROMAN = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
@@ -207,7 +207,7 @@ function liveSeasonPanel(ctx, profile) {
 
         boost.is_active
             ? h('p', { class: 'muted small' },
-                `Boost +${boost.total_modifier_percent}% — ${formatRemaining(boost.remaining_real_seconds)} remaining.`)
+                `Boost +${boost.total_modifier_percent}% — ${formatRemaining(liveSeconds(ctx, { atSeconds: boost.expires_at_real, fallback: boost.remaining_real_seconds }))} remaining.`)
             : null,
         frozen ? h('p', { class: 'muted small' }, '❄ Income currently frozen.') : null,
     );

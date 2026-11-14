@@ -21,6 +21,12 @@ import { constructionShell } from './screens/construction.js';
 import { verifyEmailShell } from './screens/verify_email.js';
 
 const POLL_MS = 3000;
+// A cadence poll this close to the last poll is skipped (see pollIfStale).
+const POLL_SKIP_SLACK_MS = 500;
+// After a tick boundary, wait this long before fetching the payout. Covers the
+// worker's settle delay (150ms) plus its processing time; with tick-on-request
+// the poll itself processes the tick.
+const TICK_SETTLE_MS = 400;
 const THEMES = ['nocturne', 'gilded', 'ember', 'tide'];
 
 /* ------------------------------------------------------------------ *
@@ -1818,12 +1824,19 @@ function setTheme(name) {
  * data
  * ------------------------------------------------------------------ */
 
+// When the last poll went out, so the cadence poll can skip a beat that a
+// tick-aligned poll already covered.
+let lastPollStartedAt = 0;
+
 async function poll() {
+    const sentAt = Date.now();
+    lastPollStartedAt = sentAt;
     const gs = await api.request('game_state', {}, {
         channel: 'poll',
         dedupe: true,
         respectBackoff: true,
     });
+    const receivedAt = Date.now();
 
     if (!gs || gs.skipped) return;
     if (gs.error) {
@@ -1845,12 +1858,27 @@ async function poll() {
         familiesEnabled: Boolean(gs.families_enabled),
     });
 
+    // typeof guard: a browser that cached the previous core/clock.js across a
+    // deploy must degrade to the legacy phase, not throw on every poll.
+    if (typeof gs.server_time_ms === 'number' && typeof clock.syncServerTime === 'function') {
+        clock.syncServerTime(gs.server_time_ms, sentAt, receivedAt);
+    }
     if (gs.timing) {
         clock.setTickPhase({
             periodSeconds: gs.timing.tick_real_seconds,
+            nextTickAt: typeof gs.timing.next_tick_at === 'number' ? gs.timing.next_tick_at : null,
             lastTickAt: resolveLastTick(gs.timing),
         });
     }
+}
+
+/**
+ * The cadence poll. Skips when a poll (tick-aligned or after an action) went
+ * out recently, so aligning polls to payouts does not double the load.
+ */
+function pollIfStale() {
+    if (Date.now() - lastPollStartedAt < POLL_MS - POLL_SKIP_SLACK_MS) return;
+    poll();
 }
 
 /**
@@ -1963,13 +1991,27 @@ function boot() {
     });
 
     // One clock: the poll, the countdown repaint, and the payout pulse.
-    clock.every(POLL_MS, poll);
-    clock.every(1000, scheduleRender);
+    clock.every(POLL_MS, pollIfStale);
+    // Repaint when the displayed second changes, not on a free-running 1s
+    // interval: tick boundaries fall on whole server seconds, so this flips
+    // the countdown exactly when the payout is due instead of up to 1s late.
+    let lastPaintedSecond = null;
+    clock.onFrame((t) => {
+        const serverNow = typeof clock.serverNow === 'function' ? clock.serverNow() : null;
+        const second = Math.floor((serverNow === null ? t : serverNow) / 1000);
+        if (second === lastPaintedSecond) return;
+        lastPaintedSecond = second;
+        scheduleRender();
+    });
     // A payout landing gets two treatments: the CSS glow, which works today,
     // and a sprite, which is a no-op until 'payout-burst' has art behind it.
     // Both are driven by clock.onTick, so neither can fire while the tick
     // phase is unknown and the moment would be a guess.
     clock.onTick(() => {
+        // Fetch the payout as it lands, so the coin count moves when the
+        // countdown hits zero rather than on whichever poll comes next.
+        setTimeout(poll, TICK_SETTLE_MS);
+
         const el = document.getElementById('hud');
         if (el) motion.pulse(el, 'is-paid');
 

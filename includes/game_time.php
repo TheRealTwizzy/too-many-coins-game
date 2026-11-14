@@ -108,6 +108,34 @@ class GameTime {
     }
 
     /**
+     * Real-time tick schedule, for clients that render countdowns.
+     *
+     * Game time is a pure function of the wall clock (see now()), so tick
+     * boundaries are fixed: tick k starts at epoch + k * TICK_REAL_SECONDS.
+     * Publishing those boundaries, rather than "when a processor last ran",
+     * gives every client the same phase no matter how often it polls or who
+     * processed the tick (worker, cron, or tick-on-request).
+     *
+     * Returns real Unix seconds, or nulls while a simulation clock is active
+     * (simulated time has no real-world schedule).
+     *
+     * @return array{current_tick_started_at: ?int, next_tick_at: ?int}
+     */
+    public static function realTickSchedule(?int $realNow = null): array {
+        if (self::$simulationTick !== null) {
+            return ['current_tick_started_at' => null, 'next_tick_at' => null];
+        }
+        $epoch = self::getServerEpoch();
+        $realNow = $realNow ?? time();
+        $period = max(1, (int)TICK_REAL_SECONDS);
+        $index = intdiv(max(0, $realNow - $epoch), $period);
+        return [
+            'current_tick_started_at' => $epoch + $index * $period,
+            'next_tick_at' => $epoch + ($index + 1) * $period,
+        ];
+    }
+
+    /**
      * Get the real Unix timestamp for the start of a given game tick.
      * This is the inverse of now(): the wall-clock moment at which gameTime
      * first equals $tick.

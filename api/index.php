@@ -1410,36 +1410,39 @@ function getGameState($player) {
         'player' => null
     ];
 
-    // Publish when the last tick actually fired, not just how long a tick is.
+    // Publish the tick schedule, not when a processor last ran.
     //
-    // tick_real_seconds alone gives a client the period but not the phase, so a
-    // countdown built from it hits zero at an arbitrary offset from when coins
-    // land and teaches players a rhythm that is wrong. With this, the countdown
-    // is real. Clients that cannot see it are expected to show the cadence as a
-    // static fact rather than guess.
+    // Countdowns used to be built from server_state.last_tick_processed_at,
+    // but TickEngine::processTicks() bumps that column on EVERY call, whether
+    // or not a tick advanced. With TMC_TICK_ON_REQUEST every poll is a call, so
+    // the "age of the last tick" was always ~0 and the client's countdown was
+    // reset to the full period on each poll (5,4,3 -> 5 with a 3s poll; stuck
+    // at 5 with a 1s poll). With a worker it was the worker loop's phase, not
+    // the tick boundary.
     //
-    // The column is written by TickEngine on every processed tick and has
-    // existed since the original schema, so this is a read, not a migration.
-    // Null before the first tick of a fresh install, and after a reset that
-    // clears server_state - both of which the client already handles.
+    // Game time is a pure function of the wall clock (GameTime::now), so the
+    // boundaries are fixed and identical for every client:
     //
-    // Two fields rather than one, deliberately:
+    //   server_time_ms   the server's clock at response time. Clients derive
+    //                    their offset from it, so a misset device clock still
+    //                    counts down correctly.
+    //   next_tick_at     epoch ms of the next tick boundary.
+    //   last_tick_at     epoch ms of the current tick's start (kept for older
+    //                    clients; now the boundary, not the processor run).
+    //   tick_age_seconds seconds since that boundary (older clients).
     //
-    //   last_tick_at     absolute epoch ms. Converted by MySQL via
-    //                    UNIX_TIMESTAMP rather than by PHP's strtotime, which
-    //                    would read the DATETIME in PHP's timezone while NOW()
-    //                    wrote it in MySQL's. When those differ the epoch comes
-    //                    out silently wrong by whole hours.
-    //
-    //   tick_age_seconds how long ago that was. This is what a countdown should
-    //                    actually be built from: the client derives its own
-    //                    local timestamp as (its now - age), so a device with a
-    //                    misset clock still counts down correctly. Comparing an
-    //                    absolute server epoch against a wrong Date.now() does
-    //                    not, and phone clocks drift.
+    // processor_heartbeat_age_seconds is the old heartbeat, kept for
+    // diagnostics: it says whether something is processing ticks at all.
+    $schedule = GameTime::realTickSchedule();
+    $state['server_time_ms'] = (int)round(microtime(true) * 1000);
+    $state['timing']['next_tick_at'] = $schedule['next_tick_at'] !== null ? $schedule['next_tick_at'] * 1000 : null;
+    $state['timing']['last_tick_at'] = $schedule['current_tick_started_at'] !== null ? $schedule['current_tick_started_at'] * 1000 : null;
+    $state['timing']['tick_age_seconds'] = $schedule['current_tick_started_at'] !== null
+        ? max(0, time() - $schedule['current_tick_started_at'])
+        : null;
+
     $tickHeartbeat = $db->fetch(
-        "SELECT UNIX_TIMESTAMP(last_tick_processed_at) AS last_tick_epoch,
-                TIMESTAMPDIFF(SECOND, last_tick_processed_at, NOW()) AS tick_age_seconds,
+        "SELECT TIMESTAMPDIFF(SECOND, last_tick_processed_at, NOW()) AS heartbeat_age_seconds,
                 server_mode
          FROM server_state WHERE id = 1"
     );
@@ -1449,10 +1452,8 @@ function getGameState($player) {
     // Whether the sigil-family layer is live — the client gates the Family
     // rail entry on this rather than discovering it by a failed fetch.
     $state['families_enabled'] = SigilFamilies::active($db);
-    $lastTickEpoch = $tickHeartbeat['last_tick_epoch'] ?? null;
-    $state['timing']['last_tick_at'] = $lastTickEpoch !== null ? (int)$lastTickEpoch * 1000 : null;
-    $state['timing']['tick_age_seconds'] = $tickHeartbeat['tick_age_seconds'] !== null
-        ? (int)$tickHeartbeat['tick_age_seconds']
+    $state['timing']['processor_heartbeat_age_seconds'] = isset($tickHeartbeat['heartbeat_age_seconds'])
+        ? (int)$tickHeartbeat['heartbeat_age_seconds']
         : null;
     
     // Get visible seasons
@@ -1621,6 +1622,13 @@ function applySeasonCountdownFields(&$season, $gameTime) {
     $season['time_remaining_formatted'] = GameTime::formatTimeRemaining($remaining);
     $season['countdown_mode'] = $mode;
     $season['countdown_label'] = $label;
+    // Absolute deadline (epoch ms) so the client can count down every frame
+    // instead of jumping between polled snapshots. Null when ended or under
+    // a simulation clock.
+    $targetTick = $mode === 'scheduled' ? $startTime : ($mode === 'running' ? $endTime : null);
+    $season['countdown_ends_at'] = ($targetTick !== null && !GameTime::isSimulationClockActive())
+        ? GameTime::tickStartRealUnix($targetTick) * 1000
+        : null;
 }
 
 function applyPublishedStarPrice(&$season) {

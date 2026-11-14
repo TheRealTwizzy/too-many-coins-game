@@ -17,7 +17,7 @@
  * they will do in numbers, not adjectives.
  */
 
-import { pending, emptyState, panel } from './ui.js';
+import { pending, emptyState, panel, liveSeconds } from './ui.js';
 
 const fmt = new Intl.NumberFormat('en-US');
 const ROMAN = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI' };
@@ -54,7 +54,7 @@ function header(ctx, season) {
         h('div', { class: 'season-header-facts' },
             // countdown_label distinguishes "Begins in" from "Time Left" — the
             // server decides which countdown this is, not the client.
-            headFact(h, season.countdown_label || 'Ends in', formatRemaining(season.time_remaining_real_seconds)),
+            headFact(h, season.countdown_label || 'Ends in', formatRemaining(liveSeconds(ctx, { atMs: season.countdown_ends_at, fallback: season.time_remaining_real_seconds }))),
             // published_star_price is the acceptance-time quote (blackout-
             // snapshot aware); current_star_price is the raw column.
             headFact(h, 'Star price', fmt.format(num(season.published_star_price ?? season.current_star_price))),
@@ -282,7 +282,7 @@ function boosts(ctx, player, part) {
             ? h('div', { class: 'notice notice-boost' },
                 h('strong', null, `+${totalPct}% income`),
                 running.remaining_real_seconds
-                    ? h('span', null, ` — ${formatRemaining(running.remaining_real_seconds)} remaining.`)
+                    ? h('span', null, ` — ${formatRemaining(liveSeconds(ctx, { atSeconds: running.expires_at_real, fallback: running.remaining_real_seconds }))} remaining.`)
                     : null,
             )
             : h('p', { class: 'muted small' }, 'No boost running. Spending any tier starts one.'),
@@ -311,7 +311,7 @@ function verbs(ctx, season, part) {
             ? h('div', { class: 'notice notice-frozen' },
                 h('strong', null, 'Your income is frozen.'),
                 freeze.remaining_real_seconds
-                    ? h('span', null, ` ${formatRemaining(freeze.remaining_real_seconds)} remaining.`)
+                    ? h('span', null, ` ${formatRemaining(liveSeconds(ctx, { atSeconds: freeze.expires_at_real, fallback: freeze.remaining_real_seconds }))} remaining.`)
                     : null,
             )
             : null,
@@ -322,7 +322,7 @@ function verbs(ctx, season, part) {
         theft.is_protected && theft.protection_remaining_real_seconds
             ? h('div', { class: 'notice notice-ward' },
                 h('strong', null, '🛡 Protected.'),
-                h('span', null, ` Theft attempts against you fail for ${formatRemaining(theft.protection_remaining_real_seconds)}.`),
+                h('span', null, ` Theft attempts against you fail for ${formatRemaining(liveSeconds(ctx, { atSeconds: theft.protection_expires_at_real, fallback: theft.protection_remaining_real_seconds }))}.`),
             )
             : null,
 
@@ -356,7 +356,7 @@ function verbs(ctx, season, part) {
 
         theft.is_on_cooldown && theft.cooldown_remaining_real_seconds
             ? h('p', { class: 'muted small' },
-                `Theft cooldown: ${formatRemaining(theft.cooldown_remaining_real_seconds)}`)
+                `Theft cooldown: ${formatRemaining(liveSeconds(ctx, { atSeconds: theft.cooldown_expires_at_real, fallback: theft.cooldown_remaining_real_seconds }))}`)
             : null,
     );
 }

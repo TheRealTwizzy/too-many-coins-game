@@ -12,7 +12,7 @@
  * unless a player would notice it.
  */
 
-export const CURRENT_VERSION = '2026.11.13.1';
+export const CURRENT_VERSION = '2026.11.14.1';
 
 /** What is being worked on right now, shown while the gate is up. */
 export const CURRENT_WORK = [
@@ -33,13 +33,22 @@ export const PROJECTED = [
 /** Newest first. */
 export const PATCH_NOTES = [
     {
-        version: '2026.11.13.1',
-        date: '2026-11-13',
+        version: '2026.11.14.1',
+        date: '2026-11-14',
         title: 'Coming back is worth something',
         notes: [
             'Return to a season after being away and a Tier 1 sigil is waiting for you. Once per cooldown, so it rewards showing up, not refreshing.',
             'Stay active through a long quiet stretch with nothing dropping and the game breaks the dry spell with a Tier 1 sigil.',
             'Both land like any other drop: a family, a notification, and the same inventory cap.',
+        ],
+    },
+    {
+        version: '2026.11.14',
+        date: '2026-11-14',
+        title: 'Timers you can trust',
+        notes: [
+            'The next-payout countdown no longer jumps back mid-count. It reaches zero when your coins land, and the coins show up right then.',
+            'Season, boost, freeze and theft timers count down smoothly instead of pausing and skipping.',
         ],
     },
     {
