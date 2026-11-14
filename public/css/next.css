@@ -150,6 +150,10 @@ body {
    its phase, so it must not read like a countdown. */
 .hud-tick.is-cadence .hud-value { color: var(--ink-3); font-weight: var(--fw-regular); }
 
+/* Shown when the server is behind on the player's season (tick_health):
+   muted like the cadence variant, because nothing here is counting down. */
+.hud-tick.is-delayed .hud-value { color: var(--ink-3); font-weight: var(--fw-regular); }
+
 /* Payout landed. Driven by clock.onTick, so it only ever fires when phase is
    known — which is exactly when the pulse would be truthful. */
 @keyframes hud-paid {

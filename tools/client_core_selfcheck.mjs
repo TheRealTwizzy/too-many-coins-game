@@ -53,7 +53,7 @@ async function loadCore() {
     // renaming to .mjs would break those specifiers.
     await writeFile(join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
 
-    const coreNames = ['store', 'api', 'render', 'clock', 'motion', 'assets'];
+    const coreNames = ['store', 'api', 'render', 'clock', 'motion', 'assets', 'payout'];
     const core = {};
     for (const name of coreNames) {
         const dest = join(dir, `${name}.js`);
@@ -1435,6 +1435,44 @@ async function checkPatchNotes() {
         });
 }
 
+/**
+ * The payout effect must mean coins landed. The countdown follows the fixed
+ * tick schedule, so on test it kept "paying out" while every tick batch was
+ * rolling back server-side (docs/economy-bugs-rootcause.md). game_state's
+ * timing.tick_health (api, room task E5) says what really committed.
+ */
+function checkPayout(payout, createStore) {
+    section('core/payout.js — the payout effect follows the server, not the clock');
+    const { payoutLanded, payoutsDelayed } = payout;
+
+    ok('a season tick that advanced is a payout', payoutLanded(1500, 1501) === true);
+    ok('several ticks committed at once is one payout', payoutLanded(1500, 1504) === true);
+    ok('an unchanged tick is not a payout', payoutLanded(1500, 1500) === false);
+    ok('the first poll is not a payout', payoutLanded(undefined, 1500) === false);
+    ok('leaving a season is not a payout', payoutLanded(1500, null) === false);
+    ok('a lower tick (new season) is not a payout', payoutLanded(1500, 10) === false);
+    ok('numeric strings are read as numbers', payoutLanded('1500', '1501') === true);
+
+    ok('no timing means not delayed', payoutsDelayed(null) === false);
+    ok('a server without tick_health is not delayed', payoutsDelayed({ tick_real_seconds: 5 }) === false);
+    ok('a healthy season is not delayed', payoutsDelayed({ tick_health: { degraded: false, lag_ticks: 1 } }) === false);
+    ok('a degraded season is delayed', payoutsDelayed({ tick_health: { degraded: true, lag_ticks: 40 } }) === true);
+
+    // main.js watches the leaf path; prove the store reports it per poll.
+    const store = createStore({ timing: null });
+    const seen = [];
+    store.subscribe('timing.tick_health.season_last_processed_tick', (next, prev) => {
+        if (payoutLanded(prev, next)) seen.push(next);
+    });
+    const healthAt = (tick) => ({ tick_real_seconds: 5, tick_health: { season_last_processed_tick: tick, lag_ticks: 0, degraded: false } });
+    store.patch({ timing: healthAt(1500) }); store.flushNow();
+    store.patch({ timing: healthAt(1500) }); store.flushNow();
+    store.patch({ timing: healthAt(1501) }); store.flushNow();
+    store.patch({ timing: healthAt(1501) }); store.flushNow();
+    ok('through the store: one payout per committed tick, none on the first poll or a stalled one',
+        seen.length === 1 && seen[0] === 1501, seen);
+}
+
 async function checkShellSource() {
     section('main.js — shell contracts (source-level)');
     const src = await readFile(join(HERE, '..', 'public', 'js', 'main.js'), 'utf8');
@@ -1456,6 +1494,15 @@ async function checkShellSource() {
     for (const moment of ['payout-burst', 'sigil-drop', 'theft-strike', 'freeze-lock', 'lockin-seal']) {
         ok(`the ${moment} moment is played somewhere`, src.includes(`'${moment}'`));
     }
+    // The payout beat follows a committed season tick, never the countdown.
+    const onTickBody = (src.match(/clock\.onTick\(\(\) => \{([\s\S]*?)\n {4}\}\);/) || [])[1] || '';
+    ok('the tick boundary only fetches; it does not play the payout effect',
+        onTickBody.includes('poll') && !onTickBody.includes('motion.pulse') && !onTickBody.includes("'payout-burst'"));
+    ok('the payout effect plays when the season tick advances',
+        /store\.subscribe\('timing\.tick_health\.season_last_processed_tick'[\s\S]{0,300}payoutLanded\(prev, next\)[\s\S]{0,400}'payout-burst'/.test(src));
+    ok('the countdown says payouts are delayed when the server is behind',
+        /function tickIndicator[\s\S]*?payoutsDelayed\(timing\)[\s\S]*?Payouts delayed/.test(src));
+
     // A drop is an increase; spending sigils must not fire the reward beat.
     ok('the sigil-drop moment only plays on an increase',
         /sigils_total[\s\S]{0,400}to > \(Number\(prev\)/.test(src));
@@ -1566,6 +1613,7 @@ try {
     checkAssets(modules.assets, modules.render);
     await checkShippedArt(modules.assets);
     checkScreens(screens, modules.render);
+    checkPayout(modules.payout, modules.store.createStore);
     await checkShellSource();
     await checkPatchNotes();
 } finally {

@@ -12,7 +12,7 @@
  * unless a player would notice it.
  */
 
-export const CURRENT_VERSION = '2026.11.14.1';
+export const CURRENT_VERSION = '2026.11.14.2';
 
 /** What is being worked on right now, shown while the gate is up. */
 export const CURRENT_WORK = [
@@ -32,6 +32,15 @@ export const PROJECTED = [
 
 /** Newest first. */
 export const PATCH_NOTES = [
+    {
+        version: '2026.11.14.2',
+        date: '2026-11-14',
+        title: 'The payout glow means coins arrived',
+        notes: [
+            'The payout glow now plays when your coins have actually been paid, not just when the countdown reaches zero.',
+            'If the server falls behind on your season, the countdown says "Payouts delayed" instead of promising coins that are not coming yet.',
+        ],
+    },
     {
         version: '2026.11.14.1',
         date: '2026-11-14',
