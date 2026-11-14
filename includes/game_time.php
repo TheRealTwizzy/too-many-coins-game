@@ -206,6 +206,31 @@ class GameTime {
      * Skipping ensureSeasons() in simulation mode prevents incidental
      * phantom seasons from polluting the disposable DB.
      */
+    /**
+     * Active-return pacing config for a new season row, as column => value.
+     *
+     * Empty until migration_20260429_active_return_gameplay_flow.sql has added
+     * the columns. Deploys run with TMC_AUTO_SQL_MIGRATIONS=false, and an
+     * INSERT naming a missing column throws before any season is processed,
+     * halting every tick and stopping new seasons from being created
+     * (docs/economy-bugs-rootcause.md). Rows created before the migration get
+     * the column defaults; the migration backfills Active/Scheduled seasons.
+     */
+    public static function pacingSeasonInsertColumns($db): array {
+        $columns = [
+            'return_pulse_min_gap_ticks' => ticks_from_real_seconds(300),
+            'return_pulse_cooldown_ticks' => ticks_from_real_seconds(1800),
+            'active_dry_spell_ticks' => ticks_from_real_seconds(300),
+            'participation_pulse_reward_tier' => 1,
+        ];
+        foreach (array_keys($columns) as $column) {
+            if (!$db->columnExists('seasons', $column)) {
+                return [];
+            }
+        }
+        return $columns;
+    }
+
     public static function ensureSeasons() {
         if (self::$simulationTick !== null) {
             return;
@@ -270,6 +295,12 @@ class GameTime {
                     ['tier' => 3, 'supply' => 125, 'cost_table' => [['remaining' => 1, 'cost' => 1000]]]
                 ]);
                 
+                // Active-return pacing config, only once its migration has
+                // added the columns (see pacingSeasonInsertColumns).
+                $pacingColumns = self::pacingSeasonInsertColumns($db);
+                $pacingColumnSql = $pacingColumns ? ', ' . implode(', ', array_keys($pacingColumns)) : '';
+                $pacingValueSql = str_repeat(', ?', count($pacingColumns));
+
                 $seasonId = $db->insert(
                     "INSERT INTO seasons (start_time, end_time, blackout_time, season_seed, 
                      status, base_ubi_active_per_tick, base_ubi_idle_factor_fp, ubi_min_per_tick,
@@ -283,25 +314,25 @@ class GameTime {
                      starprice_max_upstep_fp, starprice_max_downstep_fp,
                      starprice_model_version, starprice_reactivation_window_ticks, starprice_demand_table,
                      market_affordability_bias_fp,
-                     return_pulse_min_gap_ticks, return_pulse_cooldown_ticks,
-                     active_dry_spell_ticks, participation_pulse_reward_tier,
                      market_anchor_price,
                      pending_star_burn_coins, star_burn_ema_fp, net_mint_ema_fp, market_pressure_fp,
                      coins_offline_total,
-                     vault_config, current_star_price, last_processed_tick)
+                     vault_config, current_star_price, last_processed_tick{$pacingColumnSql})
                      VALUES (?, ?, ?, ?, 'Scheduled', 30, 300000, 1, ?, ?, 15, 100000,
                      1, 12, 20000, 50000, 200000, 10000, 30000, 60000, 300000, 1000000,
                      ?, 6000, 0, 1, 1000, 12960,
                      ?, ?, ?,
-                     970000, ?, ?, ?, 1, 100,
+                     970000, 100,
                      0, 0, 0, 1000000,
                      0,
-                     ?, 100, ?)",
-                    [$startTime, $endTime, $blackoutTime, $seed,
-                     $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable,
-                     STARPRICE_MODEL_VERSION_DEFAULT, STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT, $starpriceDemandTable,
-                     ticks_from_real_seconds(300), ticks_from_real_seconds(1800), ticks_from_real_seconds(300),
-                     $vaultConfig, $startTime]
+                     ?, 100, ?{$pacingValueSql})",
+                    array_merge(
+                        [$startTime, $endTime, $blackoutTime, $seed,
+                         $inflationTable, HOARDING_WINDOW_TICKS, $starpriceTable,
+                         STARPRICE_MODEL_VERSION_DEFAULT, STARPRICE_REACTIVATION_WINDOW_TICKS_DEFAULT, $starpriceDemandTable,
+                         $vaultConfig, $startTime],
+                        array_values($pacingColumns)
+                    )
                 );
             }
         }
