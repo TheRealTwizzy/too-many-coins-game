@@ -14,6 +14,7 @@ import { createApi } from './core/api.js';
 import { createClock } from './core/clock.js';
 import { createMotion } from './core/motion.js';
 import { createAssets } from './core/assets.js';
+import { payoutLanded, payoutsDelayed } from './core/payout.js';
 import { h, render } from './core/render.js';
 import { getScreen, RAIL_PARENT } from './screens/index.js';
 import { HANDLE_RE, PASSWORD_MIN } from './screens/auth.js';
@@ -1220,6 +1221,16 @@ function tickIndicator() {
     const timing = store.get('timing');
     const period = timing && Number(timing.tick_real_seconds);
 
+    // The schedule says a payout is due, but the server has not paid the
+    // player's season for a while (timing.tick_health). A countdown here would
+    // promise coins that are not coming, so say so instead.
+    if (payoutsDelayed(timing)) {
+        return h('div', { key: 'tick', class: 'hud-figure hud-tick is-delayed', role: 'status' },
+            h('span', { class: 'hud-label' }, 'Payouts delayed'),
+            h('span', { class: 'hud-value' }, 'catching up'),
+        );
+    }
+
     if (seconds === null) {
         if (!period) return null;
         return h('div', { key: 'tick', class: 'hud-figure hud-tick is-cadence' },
@@ -2003,14 +2014,21 @@ function boot() {
         lastPaintedSecond = second;
         scheduleRender();
     });
+    // At each tick boundary, fetch the payout as it lands, so the coin count
+    // moves when the countdown hits zero rather than on whichever poll comes
+    // next. The boundary itself plays nothing: the schedule says a payout is
+    // due, not that one happened.
+    clock.onTick(() => {
+        setTimeout(poll, TICK_SETTLE_MS);
+    });
+
     // A payout landing gets two treatments: the CSS glow, which works today,
     // and a sprite, which is a no-op until 'payout-burst' has art behind it.
-    // Both are driven by clock.onTick, so neither can fire while the tick
-    // phase is unknown and the moment would be a guess.
-    clock.onTick(() => {
-        // Fetch the payout as it lands, so the coin count moves when the
-        // countdown hits zero rather than on whichever poll comes next.
-        setTimeout(poll, TICK_SETTLE_MS);
+    // Both follow the player's season tick in game_state, which only advances
+    // when the server committed the batch, so a stalled server shows no
+    // phantom payout (docs/economy-bugs-rootcause.md).
+    store.subscribe('timing.tick_health.season_last_processed_tick', (next, prev) => {
+        if (!payoutLanded(prev, next)) return;
 
         const el = document.getElementById('hud');
         if (el) motion.pulse(el, 'is-paid');
