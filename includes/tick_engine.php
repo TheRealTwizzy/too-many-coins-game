@@ -286,7 +286,16 @@ class TickEngine {
                 if (!$isBlackout && !$isLastValid && !$isExpiration) {
                     self::processSigilDrops($season, $p, $seasonId, $gameTime, $currentSeasonTick, $ticksToProcess, $startTime, $lastSeasonTick, $boostModFp);
                     if ($presenceState === 'Active') {
-                        ParticipationPacing::grantActivePulseForPlayer($db, (int)$playerId, (int)$seasonId, (int)$gameTime, $presenceState);
+                        // Optional: a failed pulse (pending migration, bad row)
+                        // is logged and undone on its own; it must not roll back
+                        // UBI and participation for every player in the batch.
+                        self::runOptionalSideEffect(
+                            $db,
+                            "active_pulse season={$seasonId} player={$playerId}",
+                            static function () use ($db, $playerId, $seasonId, $gameTime, $presenceState) {
+                                return ParticipationPacing::grantActivePulseForPlayer($db, (int)$playerId, (int)$seasonId, (int)$gameTime, $presenceState);
+                            }
+                        );
                     }
                 }
                 
@@ -592,6 +601,15 @@ class TickEngine {
             $sourceNormalized = 'rng';
         }
 
+        // Pulse sources need the widened sigil_drop_log.source ENUM from
+        // migration_20260429. The migration widens it last, so a half-applied
+        // run can leave the pacing columns present but the ENUM narrow. Skip
+        // the drop before any write rather than fail on the log insert.
+        if (!self::sigilDropLogAcceptsSource($db, $sourceNormalized)) {
+            error_log("[tick] sigil_drop_skipped source={$sourceNormalized} reason=schema_pending player={$playerId} season={$seasonId}");
+            return false;
+        }
+
         $participation = $db->fetch(
             "SELECT * FROM season_participation WHERE player_id = ? AND season_id = ?",
             [(int)$playerId, (int)$seasonId]
@@ -698,9 +716,125 @@ class TickEngine {
             [$playerId, $seasonId, $dropTick, $dropTick]
         );
 
-        ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$dropTick);
+        // Bookkeeping for participation pacing. Optional: the drop itself has
+        // landed, so a failure here (column not migrated yet) must not undo it.
+        self::runOptionalSideEffect(
+            $db,
+            "mark_meaningful_event season={$seasonId} player={$playerId}",
+            static function () use ($db, $playerId, $seasonId, $dropTick) {
+                ParticipationPacing::markMeaningfulEconomyEvent($db, (int)$playerId, (int)$seasonId, (int)$dropTick);
+            }
+        );
 
         return true;
+    }
+
+    /** Counter so nested optional side effects get distinct savepoint names. */
+    private static $savepointSeq = 0;
+
+    /**
+     * Run a side effect that must not take the caller's transaction down.
+     *
+     * Inside a transaction it runs under its own SAVEPOINT: on failure only
+     * its own writes are undone, the error is logged, and null is returned so
+     * the caller carries on. Outside a transaction a plain try/catch does the
+     * same. If the savepoint itself cannot be restored (deadlock or lock wait
+     * timeout, where InnoDB has already rolled back the whole transaction),
+     * the original error is rethrown so the caller's rollback still runs.
+     *
+     * $db is any object with getConnection() returning a PDO-like connection
+     * (inTransaction(), exec()), so DB-free selfchecks can pass a fake.
+     */
+    public static function runOptionalSideEffect($db, string $label, callable $fn) {
+        $conn = $db->getConnection();
+        if (!$conn->inTransaction()) {
+            try {
+                return $fn();
+            } catch (Throwable $e) {
+                error_log("[tick] optional_side_effect_failed {$label}: " . $e->getMessage());
+                return null;
+            }
+        }
+
+        $savepoint = 'tmc_opt_' . (++self::$savepointSeq);
+        $conn->exec("SAVEPOINT {$savepoint}");
+        try {
+            $result = $fn();
+        } catch (Throwable $e) {
+            try {
+                $conn->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+                $conn->exec("RELEASE SAVEPOINT {$savepoint}");
+            } catch (Throwable $restoreError) {
+                throw $e;
+            }
+            error_log("[tick] optional_side_effect_failed {$label}: " . $e->getMessage());
+            return null;
+        }
+        $conn->exec("RELEASE SAVEPOINT {$savepoint}");
+        return $result;
+    }
+
+    /** Cached allowed values of sigil_drop_log.source (lowercase), or null if unknown. */
+    private static $sigilDropSourceValues = false;
+    private static $sigilDropSourceCheckedAt = 0;
+    /**
+     * The worker is long-lived and a migration can be applied under it
+     * (tools/migrate.php from the web container), so re-read the ENUM now
+     * and then instead of caching it for the life of the process.
+     */
+    const SIGIL_DROP_SOURCE_RECHECK_SECONDS = 300;
+
+    /**
+     * Can sigil_drop_log.source store $source? RNG and PITY are in every
+     * schema. Anything else is checked against the live ENUM. If the column
+     * type cannot be read, allow the drop: the optional-side-effect wrapper
+     * around pulse grants still contains a failure.
+     */
+    public static function sigilDropLogAcceptsSource($db, string $source): bool {
+        $source = strtolower($source);
+        if ($source === 'rng' || $source === 'pity') {
+            return true;
+        }
+        if (self::$sigilDropSourceValues === false
+            || time() - self::$sigilDropSourceCheckedAt >= self::SIGIL_DROP_SOURCE_RECHECK_SECONDS) {
+            self::$sigilDropSourceCheckedAt = time();
+            self::$sigilDropSourceValues = null;
+            try {
+                $row = $db->fetch(
+                    "SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sigil_drop_log' AND COLUMN_NAME = 'source'"
+                );
+                if ($row && isset($row['COLUMN_TYPE'])) {
+                    self::$sigilDropSourceValues = self::parseEnumValues((string)$row['COLUMN_TYPE']);
+                }
+            } catch (Throwable $e) {
+                self::$sigilDropSourceValues = null;
+            }
+        }
+        if (self::$sigilDropSourceValues === null) {
+            return true;
+        }
+        return in_array($source, self::$sigilDropSourceValues, true);
+    }
+
+    /**
+     * Lowercased members of a MySQL ENUM column type, e.g.
+     * "enum('RNG','PITY')" -> ['rng', 'pity']. Null if not an ENUM, so a
+     * VARCHAR column (which accepts anything) reads as "unknown, allow".
+     */
+    public static function parseEnumValues(string $columnType): ?array {
+        if (!preg_match('/^\s*enum\s*\((.*)\)\s*$/is', $columnType, $m)) {
+            return null;
+        }
+        preg_match_all("/'((?:[^']|'')*)'/", $m[1], $values);
+        return array_map(static function ($v) {
+            return strtolower(str_replace("''", "'", $v));
+        }, $values[1]);
+    }
+
+    /** Test hook: forget the cached ENUM so a selfcheck can swap schemas. */
+    public static function resetSchemaCache(): void {
+        self::$sigilDropSourceValues = false;
     }
     
     /**

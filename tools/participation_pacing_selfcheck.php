@@ -182,7 +182,10 @@ check('the grant path does not insert into sigil_drop_log on its own', strpos($p
 
 $engine = file_get_contents(__DIR__ . '/../includes/tick_engine.php');
 check('TickEngine::awardSigilDrop is public', (bool)preg_match('/public static function awardSigilDrop\(/', $engine));
-check('the tick loop grants active pulses only to Active players', (bool)preg_match('/\$presenceState === \'Active\'[^\n]*\n\s*ParticipationPacing::grantActivePulseForPlayer/s', $engine));
+// The grant must sit inside the Active branch: match from the condition to the
+// call without crossing a line that closes a block.
+check('the tick loop grants active pulses only to Active players', (bool)preg_match('/\$presenceState === \'Active\'\) \{(?:(?!\n\s*\}\s*\n).)*?ParticipationPacing::grantActivePulseForPlayer/s', $engine));
+check('the tick loop grant is isolated from the season transaction (E4)', (bool)preg_match('/\$presenceState === \'Active\'\) \{(?:(?!\n\s*\}\s*\n).)*?self::runOptionalSideEffect\((?:(?!\n\s*\}\s*\n).)*?grantActivePulseForPlayer/s', $engine));
 
 $auth = file_get_contents(__DIR__ . '/../includes/auth.php');
 check('login grants a return pulse only to a player who was offline', strpos($auth, '$wasOffline && $joinedSeasonId > 0') !== false);
