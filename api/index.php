@@ -305,6 +305,7 @@ require_once __DIR__ . '/../includes/sigil_drops_api.php';
 require_once __DIR__ . '/../includes/sigil_families.php';
 require_once __DIR__ . '/../includes/family_actions.php';
 require_once __DIR__ . '/../includes/runtime_readiness.php';
+require_once __DIR__ . '/../includes/tick_health.php';
 
 if (!defined('LEADERBOARD_MAX_LIMIT')) {
     define('LEADERBOARD_MAX_LIMIT', 200);
@@ -1455,6 +1456,9 @@ function getGameState($player) {
     $state['timing']['processor_heartbeat_age_seconds'] = isset($tickHeartbeat['heartbeat_age_seconds'])
         ? (int)$tickHeartbeat['heartbeat_age_seconds']
         : null;
+    // Is the player's season actually being paid out? Filled in below once
+    // the joined season is loaded; see includes/tick_health.php.
+    $state['timing']['tick_health'] = tmc_tick_health(null, (int)$gameTime);
     
     // Get visible seasons
     $seasons = GameTime::getVisibleSeasons();
@@ -1487,6 +1491,7 @@ function getGameState($player) {
                 [$player['player_id'], $player['joined_season_id']]
             );
         }
+        $state['timing']['tick_health'] = tmc_tick_health($joinedSeason ?: null, (int)$gameTime);
 
         // Progression gates: null = ungated (flag off, old-client compatible).
         // When enabled, an empty unlock list for a player whose participation
